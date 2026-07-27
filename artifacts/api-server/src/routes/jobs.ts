@@ -43,6 +43,7 @@ interface SupabaseJobRow {
   job_type: string;
   job_type_id: number | null;
   service_catalogue_id: string | null;
+  visit_intent?: "standard" | "estimate" | null;
   fuel_category: string | null;
   status: string;
   is_in_progress?: boolean | null;
@@ -115,6 +116,12 @@ async function enrichJobsWithTypeNames(
 }
 
 const VALID_JOB_TYPE_ENUMS = new Set(["service", "breakdown", "installation", "inspection", "follow_up"]);
+
+function parseVisitIntent(value: unknown): "standard" | "estimate" | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (value === "standard" || value === "estimate") return value;
+  return null;
+}
 
 function toSingleParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] || "";
@@ -445,7 +452,7 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
 
   let q = supabaseAdmin
     .from("jobs")
-    .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, fuel_category, status, is_in_progress, is_awaiting_parts, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name, is_active), properties(address_line1, address_line2, city, county, postcode, latitude, longitude), profiles(full_name)")
+    .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, visit_intent, fuel_category, status, is_in_progress, is_awaiting_parts, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name, is_active), properties(address_line1, address_line2, city, county, postcode, latitude, longitude), profiles(full_name)")
     .eq("is_active", true)
     .order("scheduled_date", { ascending: true, nullsFirst: false })
     .order("scheduled_time", { ascending: true, nullsFirst: true })
@@ -586,6 +593,11 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
 
   const { fuel_category: parsedFuelCategory, ...jobCoreData } = parsed.data as typeof parsed.data & { fuel_category?: string | null };
   const rawServiceCatalogueId = req.body.service_catalogue_id as string | undefined;
+  const rawVisitIntent = req.body.visit_intent as string | undefined;
+  const visitIntent = parseVisitIntent(rawVisitIntent);
+  if (rawVisitIntent !== undefined && !visitIntent) {
+    res.status(400).json({ error: "visit_intent must be one of: standard, estimate" }); return;
+  }
 
   const validFuelCategories = ["gas", "oil", "heat_pump", "general"];
   const fuelCategory = parsedFuelCategory && validFuelCategories.includes(parsedFuelCategory) ? parsedFuelCategory : null;
@@ -662,6 +674,7 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     ...jobCoreData,
     assigned_technician_id: autoAssignedTechnicianId || null,
     job_type: resolvedJobType,
+    visit_intent: visitIntent ?? "standard",
     tenant_id: req.tenantId,
     ...(verifiedServiceCatalogueId ? { service_catalogue_id: verifiedServiceCatalogueId } : {}),
     ...(generatedJobRef ? { job_ref: generatedJobRef } : {}),
@@ -1214,6 +1227,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
   const rawUpdateServiceCatalogueId = req.body.service_catalogue_id as string | null | undefined;
+  const rawVisitIntent = req.body.visit_intent as string | null | undefined;
   const updateCoreData = body.data;
 
   const rawCalloutRateId = req.body.callout_rate_id as string | null | undefined;
@@ -1351,6 +1365,15 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
       }
       updatePayload.service_catalogue_id = svc.id;
     }
+  }
+
+  if (rawVisitIntent !== undefined) {
+    const parsedVisitIntent = parseVisitIntent(rawVisitIntent);
+    if (!parsedVisitIntent) {
+      res.status(400).json({ error: "visit_intent must be one of: standard, estimate" });
+      return;
+    }
+    updatePayload.visit_intent = parsedVisitIntent;
   }
 
   const dateOrTimeChanging = updatePayload.scheduled_date !== undefined || updatePayload.scheduled_time !== undefined;

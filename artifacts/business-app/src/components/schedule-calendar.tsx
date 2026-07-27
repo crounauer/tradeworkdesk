@@ -17,6 +17,7 @@ type CalendarJob = {
   assigned_technician_id?: string | null;
   job_type: string;
   job_type_name?: string | null;
+  visit_intent?: "standard" | "estimate" | null;
   status: string;
   priority: string;
   scheduled_date: string | Date;
@@ -163,6 +164,13 @@ function isOnlineBookingAwaitingAdminConfirmation(job: CalendarJob): boolean {
     || source === "website";
 }
 
+function getJobTypeDisplay(job: CalendarJob): { label: string; isEstimate: boolean } {
+  const label = String(job.job_type_name ?? job.job_type ?? "").replace(/_/g, " ").trim() || "Job";
+  const intent = job.visit_intent;
+  const isEstimate = intent === "estimate" || /\b(estimate|quote)\b/i.test(label);
+  return { label, isEstimate };
+}
+
 interface ScheduleCalendarProps {
   onDayAction?: (date: string, action: "enquiry" | "job") => void;
 }
@@ -174,8 +182,8 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
   const updateJob = useUpdateJob();
 
   const [, navigate] = useLocation();
-  const [viewMode, setViewMode] = useState<ViewMode>("day");
-  const [anchorDate, setAnchorDate] = useState(() => new Date());
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [anchorDate, setAnchorDate] = useState(() => startOfMonth(new Date()));
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [dragOverEngineerLane, setDragOverEngineerLane] = useState<string | null>(null);
@@ -777,7 +785,19 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                               <div className="flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                                 <span className="text-sm font-semibold truncate">{job.customer_name || "Unknown"}</span>
-                                <span className="text-xs opacity-60 capitalize ml-auto">{job.job_type_name ?? job.job_type?.replace("_", " ")}</span>
+                                {(() => {
+                                  const { label, isEstimate } = getJobTypeDisplay(job);
+                                  return (
+                                    <span className="ml-auto flex items-center gap-1.5">
+                                      {isEstimate && (
+                                        <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                                          Estimate
+                                        </span>
+                                      )}
+                                      <span className="text-xs opacity-60 capitalize">{label}</span>
+                                    </span>
+                                  );
+                                })()}
                               </div>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 ml-4">
                                 {job.scheduled_time
@@ -867,7 +887,19 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                             <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
-                            <span className="text-xs opacity-60 capitalize ml-auto">{job.job_type_name ?? job.job_type?.replace("_", " ")}</span>
+                            {(() => {
+                              const { label, isEstimate } = getJobTypeDisplay(job);
+                              return (
+                                <span className="ml-auto flex items-center gap-1.5">
+                                  {isEstimate && (
+                                    <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                                      Estimate
+                                    </span>
+                                  )}
+                                  <span className="text-xs opacity-60 capitalize">{label}</span>
+                                </span>
+                              );
+                            })()}
                           </div>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 ml-4">
                             {job.scheduled_time && (
@@ -931,7 +963,19 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                             <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
-                            <span className="text-xs opacity-60 capitalize ml-auto">{job.job_type_name ?? job.job_type?.replace("_", " ")}</span>
+                            {(() => {
+                              const { label, isEstimate } = getJobTypeDisplay(job);
+                              return (
+                                <span className="ml-auto flex items-center gap-1.5">
+                                  {isEstimate && (
+                                    <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                                      Estimate
+                                    </span>
+                                  )}
+                                  <span className="text-xs opacity-60 capitalize">{label}</span>
+                                </span>
+                              );
+                            })()}
                           </div>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 ml-4">
                             {job.technician_name && (
@@ -1349,9 +1393,19 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                         <span className="font-medium">
                           {job.customer_name || "Unknown"}
                         </span>
-                        <span className="text-xs opacity-75 capitalize ml-auto">
-                          {job.job_type_name ?? job.job_type?.replace("_", " ")}
-                        </span>
+                        {(() => {
+                          const { label, isEstimate } = getJobTypeDisplay(job);
+                          return (
+                            <span className="ml-auto flex items-center gap-1.5">
+                              {isEstimate && (
+                                <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                                  Estimate
+                                </span>
+                              )}
+                              <span className="text-xs opacity-75 capitalize">{label}</span>
+                            </span>
+                          );
+                        })()}
                       </div>
                       {job.property_address && (
                         <p className="text-xs opacity-60 mt-1 ml-4 truncate">

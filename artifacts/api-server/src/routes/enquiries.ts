@@ -542,7 +542,7 @@ router.delete("/enquiries/:id/notes/:noteId", requireAuth, requireTenant, requir
 
 router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const { customer_id, new_customer, property_id, new_property, job_type, service_catalogue_id, priority, scheduled_date, scheduled_time, description } = req.body;
+  const { customer_id, new_customer, property_id, new_property, job_type, service_catalogue_id, priority, scheduled_date, scheduled_time, description, visit_intent } = req.body;
 
   let enqQ = supabaseAdmin.from("enquiries").select("*").eq("id", id);
   if (req.tenantId) enqQ = enqQ.eq("tenant_id", req.tenantId);
@@ -651,6 +651,7 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
         priority: validPriorities.includes(priority) ? priority : enquiry.priority || "medium",
         scheduled_date: scheduled_date || new Date().toISOString().split("T")[0],
         scheduled_time: scheduled_time || null,
+        visit_intent: visit_intent === "estimate" ? "estimate" : "standard",
         description: description || enquiry.description || null,
         status: "scheduled",
         tenant_id: req.tenantId,

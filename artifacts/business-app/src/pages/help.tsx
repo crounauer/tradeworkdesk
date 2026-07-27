@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   ChevronDown, ChevronRight, BookOpen, Rocket, Users,
   Briefcase, CalendarDays, Receipt, CreditCard, ShieldCheck,
   UserCog, HelpCircle, CheckCircle2, Wrench, Settings2, Share2, Globe2, Megaphone,
+  ExternalLink,
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -17,6 +20,18 @@ type HelpSection = {
   color: string;
   roles?: string[];
   items: HelpItem[];
+};
+
+type PartnerProduct = {
+  id: string;
+  name: string;
+  category: string;
+  partner_name?: string | null;
+  description_short: string;
+  cta_label: string;
+  partner_url: string;
+  logo_url?: string | null;
+  disclosure_text?: string | null;
 };
 
 const sections: HelpSection[] = [
@@ -579,6 +594,25 @@ export default function HelpPage() {
     (s) => !s.roles || s.roles.includes(role)
   );
 
+  const { data: partnerProducts = [] } = useQuery<PartnerProduct[]>({
+    queryKey: ["partner-products", "help"],
+    queryFn: async () => {
+      const res = await fetch("/api/partner-products?placement=help&limit=3");
+      if (!res.ok) return [];
+      return res.json() as Promise<PartnerProduct[]>;
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const trackPartnerClick = (id: string) => {
+    void fetch(`/api/partner-products/${id}/click`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ placement_key: "help", meta: { source: "help_page" } }),
+      keepalive: true,
+    }).catch(() => {});
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-3xl">
       <div>
@@ -626,6 +660,47 @@ export default function HelpPage() {
           <SectionCard key={section.id} section={section} defaultOpen={i === 0} />
         ))}
       </div>
+
+      {!isTechnician && partnerProducts.length > 0 && (
+        <Card className="p-5 border-border bg-background">
+          <div className="flex items-center gap-2 mb-3">
+            <Settings2 className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-semibold">Recommended Partners</h2>
+          </div>
+          <div className="space-y-3">
+            {partnerProducts.map((product) => (
+              <div key={product.id} className="rounded-lg border border-border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{product.name}</p>
+                    {product.partner_name ? (
+                      <p className="text-xs text-muted-foreground">by {product.partner_name}</p>
+                    ) : null}
+                    <p className="text-sm text-muted-foreground mt-1">{product.description_short}</p>
+                    <p className="text-xs text-muted-foreground mt-2">{product.disclosure_text || "We may earn a commission if you buy through this link."}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    asChild
+                  >
+                    <a
+                      href={product.partner_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => trackPartnerClick(product.id)}
+                    >
+                      {product.cta_label || "Learn more"}
+                      <ExternalLink className="w-3 h-3 ml-1" />
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card className="p-5 text-center border-slate-200 bg-slate-50">
         <div className="space-y-2">

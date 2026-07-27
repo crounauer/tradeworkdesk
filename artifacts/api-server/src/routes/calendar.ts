@@ -3,7 +3,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, requireRole, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 
 const CALENDAR_JOB_FIELDS =
-  "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, created_at, updated_at, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)";
+  "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, visit_intent, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, created_at, updated_at, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)";
 
 const PROFILE_FIELDS =
   "id, email, full_name, role, phone, tenant_id, is_active, created_at, updated_at";
@@ -17,6 +17,7 @@ interface CalendarJobRow {
   job_type: string;
   job_type_id: number | null;
   service_catalogue_id: string | null;
+  visit_intent?: "standard" | "estimate" | null;
   status: string;
   priority: string;
   description: string | null;

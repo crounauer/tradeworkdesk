@@ -74,6 +74,7 @@ type BookJobFormData = {
   new_prop_longitude: number | null;
   // Job details
   job_type_id: string;
+  visit_intent: "standard" | "estimate";
   fuel_category: string;
   priority: string;
   scheduled_date: string;
@@ -184,6 +185,7 @@ export function BookJobDialog({
   const { register, handleSubmit, watch, reset, setValue } = useForm<BookJobFormData>({
     defaultValues: {
       customer_mode: "existing",
+      visit_intent: "standard",
       priority: "medium",
       scheduled_date: initialDate || todayStr,
       new_is_landlord: false,
@@ -497,6 +499,7 @@ export function BookJobDialog({
         property_id: propertyId,
         job_type: "service",
         service_catalogue_id: selectedType.id,
+        visit_intent: data.visit_intent,
         fuel_category: data.fuel_category || undefined,
         priority: (data.priority || "medium") as "low" | "medium" | "high" | "urgent",
         scheduled_date: data.scheduled_date,
@@ -858,6 +861,7 @@ export function BookJobDialog({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Job Type *</Label>
+                    <p className="text-xs text-muted-foreground">Choose a type like “Estimate Visit” if this booking is for a quote.</p>
                     <select
                       className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
                       required
@@ -909,6 +913,13 @@ export function BookJobDialog({
                         </div>
                       </div>
                     )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Visit Intent</Label>
+                    <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("visit_intent")}> 
+                      <option value="standard">Standard Job Visit</option>
+                      <option value="estimate">Estimate / Quote Visit</option>
+                    </select>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Priority</Label>

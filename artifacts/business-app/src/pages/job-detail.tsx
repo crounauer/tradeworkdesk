@@ -64,6 +64,13 @@ type JobLike = {
   [k: string]: unknown;
 };
 
+function getJobTypeDisplay(job: JobLike): { label: string; isEstimate: boolean } {
+  const label = String(job.job_type_name ?? job.job_type ?? "").replace(/_/g, " ").trim() || "Job";
+  const intent = job.visit_intent;
+  const isEstimate = intent === "estimate" || /\b(estimate|quote)\b/i.test(label);
+  return { label, isEstimate };
+}
+
 interface JobPart {
   id: string;
   job_id: string;
@@ -162,6 +169,7 @@ export default function JobDetail() {
   const isOperationalAwaitingParts = hasOperationalAwaitingPartsFlag
     ? Boolean(jobRecord.is_awaiting_parts)
     : job?.status === "awaiting_parts";
+  const { label: jobTypeLabel, isEstimate } = getJobTypeDisplay(jobRecord as JobLike);
   const jobRef = typeof jobRecord.job_ref === "string" ? jobRecord.job_ref : null;
   const fromQuoteId = typeof jobRecord.from_quote_id === "string" ? jobRecord.from_quote_id : null;
   const customerConfirmationStatus =
@@ -372,6 +380,9 @@ export default function JobDetail() {
         <div className="min-w-0">
           <div className="flex items-center gap-3 mb-2 flex-wrap">
             <h1 className="text-2xl sm:text-3xl font-display font-bold truncate">{jobRef ? `Job ${jobRef}` : `Job #${job.id.slice(0, 8)}`}</h1>
+            {isEstimate && (
+              <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">Estimate</span>
+            )}
             {hasFollowUpLabel && (
               <span className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">Follow-Up</span>
             )}
@@ -390,7 +401,7 @@ export default function JobDetail() {
               From Quote →
             </button>
           )}
-          <p className="text-base sm:text-lg text-muted-foreground capitalize">{job.job_type.replace('_', ' ')} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
+          <p className="text-base sm:text-lg text-muted-foreground capitalize">{jobTypeLabel} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
           <div className="mt-2 flex flex-col items-start gap-1 text-xs sm:flex-row sm:items-center sm:gap-2 sm:text-sm">
             <span className={`inline-flex items-center rounded-md border px-2.5 py-1 font-semibold ${customerConfirmationUi.classes}`}>
               <customerConfirmationUi.icon className="mr-1 h-3.5 w-3.5 shrink-0" />

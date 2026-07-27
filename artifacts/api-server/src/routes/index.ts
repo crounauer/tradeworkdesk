@@ -47,6 +47,7 @@ import stripeConnectRouter from "./stripe-connect";
 import gocardlessRouter from "./gocardless";
 import homepageRouter from "./homepage";
 import addonsRouter from "./addons";
+import partnerProductsRouter from "./partner-products";
 import portalRouter from "./portal";
 import followUpsRouter from "./follow-ups";
 import calendarRouter from "./calendar";
@@ -118,6 +119,7 @@ router.use(stripeConnectRouter);
 router.use(gocardlessRouter);
 
 router.use(addonsRouter);
+router.use(partnerProductsRouter);
 router.use(portalRouter);
 router.use(followUpsRouter);
 router.use(calendarRouter);

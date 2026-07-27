@@ -135,6 +135,7 @@ const PlatformAnnouncements = lazyRetry(() => import("@/pages/platform-announcem
 const PlatformAuditLog = lazyRetry(() => import("@/pages/platform-audit-log"));
 const PlatformBetaInvites = lazyRetry(() => import("@/pages/platform-beta-invites"));
 const PlatformAddons = lazyRetry(() => import("@/pages/platform-addons"));
+const PlatformPartnerProducts = lazyRetry(() => import("@/pages/platform-partner-products"));
 const PlatformPlans = lazyRetry(() => import("@/pages/platform-plans"));
 const PlatformSettingsPage = lazyRetry(() => import("@/pages/platform-settings"));
 const PlatformCommunityPage = lazyRetry(() => import("@/pages/platform-community"));
@@ -506,6 +507,7 @@ const PlatformWebsiteAnalyticsRoute = protect(PlatformWebsiteAnalytics, ["super_
 const PlatformTenantDetailRoute = protect(PlatformTenantDetail, ["super_admin"]);
 const PlatformTenantsRoute = protect(PlatformTenants, ["super_admin"]);
 const PlatformAddonsRoute = protect(PlatformAddons, ["super_admin"]);
+const PlatformPartnerProductsRoute = protect(PlatformPartnerProducts, ["super_admin"]);
 const PlatformPlansRoute = protect(PlatformPlans, ["super_admin"]);
 const PlatformAnnouncementsRoute = protect(PlatformAnnouncements, ["super_admin"]);
 const PlatformBetaInvitesRoute = protect(PlatformBetaInvites, ["super_admin"]);
@@ -694,6 +696,7 @@ function AppRouter() {
         <Route path="/platform/tenants/:id" component={PlatformTenantDetailRoute} />
         <Route path="/platform/tenants" component={PlatformTenantsRoute} />
         <Route path="/platform/addons" component={PlatformAddonsRoute} />
+        <Route path="/platform/partner-products" component={PlatformPartnerProductsRoute} />
         <Route path="/platform/plans" component={PlatformPlansRoute} />
         <Route path="/platform/community" component={PlatformCommunityRoute} />
         <Route path="/platform/announcements" component={PlatformAnnouncementsRoute} />
@@ -848,6 +851,7 @@ function AppUpdatePrompt() {
     if (!("serviceWorker" in navigator)) return;
 
     let isMounted = true;
+    const hadControllerAtMount = Boolean(navigator.serviceWorker.controller);
     const currentVersion = localStorage.getItem("sw-version") || "unknown";
     const dismissedKey = `app_update_prompt_dismissed_${currentVersion}`;
 
@@ -873,7 +877,9 @@ function AppUpdatePrompt() {
         if (!installing) return;
 
         installing.addEventListener("statechange", () => {
-          if (installing.state === "installed" && navigator.serviceWorker.controller && reg.waiting) {
+          // With skipWaiting/autoUpdate, waiting can be skipped entirely.
+          // Treat installed+controlled as update-ready even without reg.waiting.
+          if (installing.state === "installed" && navigator.serviceWorker.controller) {
             markUpdateAvailable();
           }
         });
@@ -886,8 +892,10 @@ function AppUpdatePrompt() {
 
     const onControllerChange = () => {
       if (!isMounted) return;
-      // A controller change means the new worker is active; do not keep prompting.
-      setUpdateAvailable(false);
+      // If the app already had a controller, controllerchange indicates an update rollout.
+      if (hadControllerAtMount && !dismissedRef.current) {
+        setUpdateAvailable(true);
+      }
       setWorking(false);
     };
 

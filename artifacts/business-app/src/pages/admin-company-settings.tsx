@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { useCompanySettings, useUploadCompanyLogo, useUpdateCompanySettings } from "@/hooks/use-company-settings";
 import type { CompanySettings } from "@/hooks/use-company-settings";
 import { useCompanyType } from "@/hooks/use-company-type";
@@ -61,6 +62,16 @@ type PushUserPreferenceRow = {
   role: string | null;
   isActive: boolean;
   preferences: Record<PushEventMeta["key"], boolean>;
+};
+
+type PartnerProduct = {
+  id: string;
+  name: string;
+  partner_name?: string | null;
+  description_short: string;
+  cta_label: string;
+  partner_url: string;
+  disclosure_text?: string | null;
 };
 
 function GoCardlessSection({ enabled, onToggle }: { enabled: boolean; onToggle: (v: boolean) => void }) {
@@ -632,6 +643,25 @@ export default function AdminCompanySettings() {
   const { activeUserCount, isLoading: companyTypeLoading, isError: companyTypeError } = useCompanyType();
   const isAdmin = profile?.role === "admin";
   const { hasAddon } = usePlanFeatures();
+
+  const { data: financePartnerProducts = [] } = useQuery<PartnerProduct[]>({
+    queryKey: ["partner-products", "finance"],
+    queryFn: async () => {
+      const res = await fetch("/api/partner-products?placement=finance&limit=2");
+      if (!res.ok) return [];
+      return res.json() as Promise<PartnerProduct[]>;
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const trackPartnerClick = useCallback((id: string) => {
+    void fetch(`/api/partner-products/${id}/click`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ placement_key: "finance", meta: { source: "admin_company_settings_finance" } }),
+      keepalive: true,
+    }).catch(() => {});
+  }, []);
 
   const searchString = useSearch();
   const updateSettings = useUpdateCompanySettings();
@@ -1793,6 +1823,45 @@ export default function AdminCompanySettings() {
                   <TabsTrigger value="payments">Payments</TabsTrigger>
                 </TabsList>
               </div>
+
+              {financePartnerProducts.length > 0 && (
+                <Card className="mt-4 border-border bg-background">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Wrench className="w-4 h-4 text-primary" />
+                      Optional services trades often use
+                    </CardTitle>
+                    <CardDescription>
+                      Independent third-party services. Only use what fits your business.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {financePartnerProducts.map((product) => (
+                      <div key={product.id} className="rounded-lg border border-border p-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">{product.name}</p>
+                            {product.partner_name ? <p className="text-xs text-muted-foreground">by {product.partner_name}</p> : null}
+                            <p className="text-sm text-muted-foreground mt-1">{product.description_short}</p>
+                            <p className="text-xs text-muted-foreground mt-2">{product.disclosure_text || "We may earn a commission if you buy through this link."}</p>
+                          </div>
+                          <Button size="sm" variant="outline" className="shrink-0" asChild>
+                            <a
+                              href={product.partner_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => trackPartnerClick(product.id)}
+                            >
+                              {product.cta_label || "Learn more"}
+                              <ExternalLink className="w-3 h-3 ml-1" />
+                            </a>
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
               <TabsContent value="plans" className="space-y-6 pt-4">
                 <BillingPage view="plans" />

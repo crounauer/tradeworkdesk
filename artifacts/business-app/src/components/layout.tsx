@@ -11,7 +11,7 @@ import {
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2,
   Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Palette, Eye, Rocket, ShoppingCart,
-  BarChart3, Image, Database
+  BarChart3, Image, Database, Handshake
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -181,6 +181,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/platform/tenants", label: "Companies", icon: Building2 },
     { href: "/platform/community", label: "Community", icon: MessageSquarePlus },
     { href: "/platform/addons", label: "Add-ons", icon: Zap },
+    { href: "/platform/partner-products", label: "Partner Products", icon: Handshake },
     { href: "/platform/plans", label: "Plans", icon: CreditCard },
     { href: "/admin/website-templates", label: "Website Templates", icon: LayoutTemplate },
     { href: "/platform/settings", label: "Settings", icon: Settings2 },
