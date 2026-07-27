@@ -420,8 +420,7 @@ async function postToX(
         const buffer = Buffer.from(await imgRes.arrayBuffer());
         mediaId = await client.v1.uploadMedia(buffer, { mimeType });
       } catch (e) {
-        console.error("Failed to upload media to X (OAuth2):", e);
-        throw new Error("X image upload failed. Reconnect X account with media permissions, then retry.");
+        console.error("Failed to upload media to X (OAuth2); continuing with text-only tweet:", e);
       }
     }
 
@@ -474,14 +473,14 @@ async function postToX(
       validateImageUrl(publishImageUrl);
       const imgRes = await fetch(publishImageUrl);
       if (imgRes.ok) {
+        const mimeType = String(imgRes.headers.get("content-type") || "image/jpeg");
         const buffer = Buffer.from(await imgRes.arrayBuffer());
-        mediaId = await client.v1.uploadMedia(buffer, { mimeType: "image/png" });
+        mediaId = await client.v1.uploadMedia(buffer, { mimeType });
       } else {
         throw new Error(`Failed to fetch image for X media upload: ${imgRes.status}`);
       }
     } catch (e) {
-      console.error("Failed to upload media to X:", e);
-      throw new Error("X image upload failed. Reconnect X account with media permissions, then retry.");
+      console.error("Failed to upload media to X (OAuth1); continuing with text-only tweet:", e);
     }
   }
 
