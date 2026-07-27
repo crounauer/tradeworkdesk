@@ -890,7 +890,7 @@ function CreatePostDialog({
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) resetForm(); }}>
       <DialogTrigger asChild>
         {triggerButton || (
-          <Button>
+          <Button className="w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
             Create Post
           </Button>
@@ -1868,10 +1868,10 @@ function PostsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="w-full sm:w-36">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -1885,7 +1885,7 @@ function PostsTab() {
           </Select>
 
           <Select value={platformFilter} onValueChange={setPlatformFilter}>
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="w-full sm:w-36">
               <SelectValue placeholder="Platform" />
             </SelectTrigger>
             <SelectContent>
@@ -1897,7 +1897,7 @@ function PostsTab() {
           </Select>
 
           <Select value={postTypeFilter} onValueChange={setPostTypeFilter}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full sm:w-44">
               <SelectValue placeholder="Post type" />
             </SelectTrigger>
             <SelectContent>
@@ -1908,7 +1908,9 @@ function PostsTab() {
           </Select>
         </div>
 
-        <CreatePostDialog onCreated={() => queryClient.invalidateQueries({ queryKey: ["social-posts"] })} />
+        <div className="w-full sm:w-auto">
+          <CreatePostDialog onCreated={() => queryClient.invalidateQueries({ queryKey: ["social-posts"] })} />
+        </div>
       </div>
 
       {isLoading ? (
@@ -1928,15 +1930,15 @@ function PostsTab() {
           {posts.map((post) => (
             <Card key={post.id}>
               <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0 flex items-start gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                  <div className="flex min-w-0 flex-col gap-3 sm:flex-1 sm:flex-row sm:items-start">
                     {(post.image_url || (post.platform === "facebook" && post.post_id)) && (
                       <PostImageThumbnail
                         imageUrl={post.image_url || `https://graph.facebook.com/${encodeURIComponent(String(post.post_id || ""))}/picture`}
                       />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
                         {getPlatformBadge(post.platform)}
                         {getPostTypeBadge(post.post_type)}
                         <StatusBadge status={post.status} />
@@ -1959,7 +1961,7 @@ function PostsTab() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                     <CreatePostDialog
                       onCreated={() => queryClient.invalidateQueries({ queryKey: ["social-posts"] })}
                       initialContent={post.content}
@@ -2130,14 +2132,14 @@ function SuggestionsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button onClick={() => refetch()} disabled={isLoading}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <Button onClick={() => refetch()} disabled={isLoading} className="w-full sm:w-auto">
             {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
             Generate Suggestions
           </Button>
           {suggestions && suggestions.length > 0 && (
-            <Button variant="outline" onClick={() => refetch()}>
+            <Button variant="outline" onClick={() => refetch()} className="w-full sm:w-auto">
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
@@ -2147,7 +2149,7 @@ function SuggestionsTab() {
         {selectedSuggestions.size > 0 && (
           <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="w-full sm:w-auto">
                 <Calendar className="w-4 h-4 mr-2" />
                 Bulk Schedule ({selectedSuggestions.size})
               </Button>
@@ -2569,7 +2571,7 @@ export default function AdminSocial() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-display font-bold tracking-tight">Social Media</h1>
           <p className="text-muted-foreground mt-1">Manage and schedule your social media posts</p>
@@ -2580,7 +2582,7 @@ export default function AdminSocial() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-3 sm:inline-flex sm:w-auto">
           <TabsTrigger value="posts">Posts</TabsTrigger>
           <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
           <TabsTrigger value="accounts">Accounts</TabsTrigger>

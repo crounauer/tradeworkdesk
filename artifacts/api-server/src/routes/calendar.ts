@@ -224,7 +224,8 @@ router.get("/calendar", requireAuth, requireTenant, async (req: AuthenticatedReq
   const cacheKey = `${req.tenantId || "none"}:${techFilter || "all"}:${dateFrom}:${dateTo}`;
   const cached = calendarCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < CALENDAR_CACHE_TTL_MS) {
-    res.set("Cache-Control", "private, max-age=60");
+    // Keep server-side cache, but never let browsers reuse stale schedule data after a mutation.
+    res.set("Cache-Control", "private, no-store");
     res.set("X-Cache", "HIT");
     res.json(cached.data);
     return;
@@ -310,7 +311,7 @@ router.get("/calendar", requireAuth, requireTenant, async (req: AuthenticatedReq
   calendarCache.set(cacheKey, { data: responseBody, ts: Date.now() });
   if (calendarCache.size > 50) cleanExpiredCalendarCache();
 
-  res.set("Cache-Control", "private, max-age=60");
+  res.set("Cache-Control", "private, no-store");
   res.set("X-Cache", "MISS");
   res.json(responseBody);
 });
@@ -341,6 +342,7 @@ router.get("/calendar/holidays", requireAuth, requireTenant, async (req: Authent
     res.status(500).json({ error: "Failed to load holidays" });
     return;
   }
+  res.set("Cache-Control", "private, no-store");
   res.json(data || []);
 });
 
