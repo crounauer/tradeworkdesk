@@ -13,6 +13,7 @@ import { OfflineProvider } from "@/contexts/offline-context";
 import { toast } from "@/hooks/use-toast";
 
 const CHUNK_RELOAD_ATTEMPTS_KEY = "chunk_reload_attempts";
+const ACTIVE_SW_SCRIPT_KEY = "active_sw_script_url";
 
 function getChunkReloadAttempts(): number {
   const raw = Number(sessionStorage.getItem(CHUNK_RELOAD_ATTEMPTS_KEY) || "0");
@@ -812,7 +813,7 @@ function ServiceWorkerPushBridge() {
     const handleMessage = (event: MessageEvent) => {
       const msg = event.data as {
         type?: string;
-        payload?: { title?: string; body?: string; url?: string };
+        payload?: { title?: string; body?: string; url?: string; data?: { kind?: string } };
       };
 
       if (msg?.type === "PUSH_IN_APP") {
@@ -820,6 +821,19 @@ function ServiceWorkerPushBridge() {
           title: msg.payload?.title || "TradeWorkDesk",
           description: msg.payload?.body || "You have a new notification.",
         });
+
+        const updateKind = String(msg.payload?.data?.kind || "").toLowerCase();
+        const title = String(msg.payload?.title || "").toLowerCase();
+        const body = String(msg.payload?.body || "").toLowerCase();
+        const looksLikeUpdate =
+          updateKind === "app_update" ||
+          updateKind === "refresh_cache" ||
+          /new version|update available|refresh/.test(title) ||
+          /new version|update available|refresh/.test(body);
+
+        if (looksLikeUpdate) {
+          window.dispatchEvent(new CustomEvent("twd:app-update"));
+        }
       }
 
       if (msg?.type === "PUSH_NAVIGATE" && msg.payload?.url) {
@@ -852,6 +866,7 @@ function AppUpdatePrompt() {
 
     let isMounted = true;
     const hadControllerAtMount = Boolean(navigator.serviceWorker.controller);
+    const observedRegistrations = new WeakSet<ServiceWorkerRegistration>();
     const currentVersion = localStorage.getItem("sw-version") || "unknown";
     const dismissedKey = `app_update_prompt_dismissed_${currentVersion}`;
 
@@ -872,18 +887,30 @@ function AppUpdatePrompt() {
 
       if (reg.waiting) markUpdateAvailable();
 
-      reg.addEventListener("updatefound", () => {
-        const installing = reg.installing;
-        if (!installing) return;
+      const activeScript = reg.active?.scriptURL;
+      const prevScript = localStorage.getItem(ACTIVE_SW_SCRIPT_KEY);
+      if (activeScript) {
+        if (prevScript && prevScript !== activeScript) {
+          markUpdateAvailable();
+        }
+        localStorage.setItem(ACTIVE_SW_SCRIPT_KEY, activeScript);
+      }
 
-        installing.addEventListener("statechange", () => {
-          // With skipWaiting/autoUpdate, waiting can be skipped entirely.
-          // Treat installed+controlled as update-ready even without reg.waiting.
-          if (installing.state === "installed" && navigator.serviceWorker.controller) {
-            markUpdateAvailable();
-          }
+      if (!observedRegistrations.has(reg)) {
+        observedRegistrations.add(reg);
+        reg.addEventListener("updatefound", () => {
+          const installing = reg.installing;
+          if (!installing) return;
+
+          installing.addEventListener("statechange", () => {
+            // With skipWaiting/autoUpdate, waiting can be skipped entirely.
+            // Treat installed+controlled as update-ready even without reg.waiting.
+            if (installing.state === "installed" && navigator.serviceWorker.controller) {
+              markUpdateAvailable();
+            }
+          });
         });
-      });
+      }
     };
 
     navigator.serviceWorker.getRegistration()
@@ -901,7 +928,11 @@ function AppUpdatePrompt() {
 
     const refreshRegistration = () => {
       navigator.serviceWorker.getRegistration()
-        .then((reg) => reg?.update())
+        .then((reg) => {
+          if (!reg) return;
+          inspectRegistration(reg);
+          return reg.update().then(() => navigator.serviceWorker.getRegistration().then((freshReg) => inspectRegistration(freshReg || reg)));
+        })
         .catch(() => {});
     };
 
@@ -918,11 +949,17 @@ function AppUpdatePrompt() {
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
     document.addEventListener("visibilitychange", onVisibilityChange);
 
+    const onAppUpdateSignal = () => {
+      markUpdateAvailable();
+    };
+    window.addEventListener("twd:app-update", onAppUpdateSignal as EventListener);
+
     return () => {
       isMounted = false;
       window.clearInterval(intervalId);
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("twd:app-update", onAppUpdateSignal as EventListener);
     };
   }, []);
 

@@ -44,6 +44,7 @@ import {
 type JobEditData = {
   status: string;
   priority: string;
+  visit_intent?: "standard" | "estimate";
   scheduled_date: string;
   scheduled_end_date?: string;
   scheduled_time?: string;
@@ -3509,6 +3510,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
     reset({
       status: job.status,
       priority: job.priority,
+      visit_intent: ((job as unknown as { visit_intent?: string | null }).visit_intent === "estimate" ? "estimate" : "standard"),
       scheduled_date: (job.scheduled_date as string)?.split('T')[0] || "",
       scheduled_end_date: (job.scheduled_end_date as string)?.split('T')[0] || "",
       scheduled_time: (job.scheduled_time as string) || "",
@@ -3543,6 +3545,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
     const updatePayload: Record<string, unknown> = {
       status: data.status,
       priority: data.priority,
+      visit_intent: data.visit_intent === "estimate" ? "estimate" : "standard",
       scheduled_date: data.scheduled_date,
       scheduled_end_date: data.scheduled_end_date || null,
       scheduled_time: data.scheduled_time || undefined,
@@ -3675,6 +3678,13 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
               <option value="medium">Medium</option>
               <option value="high">High</option>
               <option value="urgent">Urgent</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label>Visit Intent</Label>
+            <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("visit_intent")}>
+              <option value="standard">Standard Job</option>
+              <option value="estimate">Estimate / Quote Visit</option>
             </select>
           </div>
           <div className="space-y-2">
