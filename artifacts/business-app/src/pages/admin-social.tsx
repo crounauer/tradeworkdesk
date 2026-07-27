@@ -846,12 +846,29 @@ function CreatePostDialog({
     }
   };
 
-  const applySelectedJobImage = () => {
-    if (!selectedJobImage?.imageUrl) return;
-    setImageUrl(selectedJobImage.imageUrl);
+  const applySelectedJobImage = async (imageOverride?: SocialJobImage | null) => {
+    const chosen = imageOverride || selectedJobImage;
+    if (!chosen?.imageUrl) return;
+
     setJobImagePickerOpen(false);
     setSelectedJobImageId("");
-    toast({ title: "Job image selected" });
+
+    // Promote job photos to the social-image bucket so URLs remain valid for scheduled posts.
+    try {
+      const sourceResponse = await fetch(chosen.imageUrl);
+      if (!sourceResponse.ok) throw new Error("Failed to load selected job image");
+      const blob = await sourceResponse.blob();
+      const fileName = (chosen.fileName || `job-image-${Date.now()}`).replace(/\s+/g, "-");
+      const fileType = blob.type?.startsWith("image/") ? blob.type : "image/jpeg";
+      const file = new File([blob], fileName, { type: fileType });
+      await handleUploadImage(file);
+      toast({ title: "Job image selected" });
+      return;
+    } catch {
+      // If promotion fails, still use the selected URL to keep the flow unblocked.
+      setImageUrl(chosen.imageUrl);
+      toast({ title: "Job image selected", description: "Using the selected image URL directly." });
+    }
   };
 
   const handlePostTypeChange = (value: "business" | "website_promotion") => {
@@ -1087,7 +1104,10 @@ function CreatePostDialog({
                             <button
                               key={img.id}
                               type="button"
-                              onClick={() => setSelectedJobImageId(img.id)}
+                              onClick={() => {
+                                setSelectedJobImageId(img.id);
+                                void applySelectedJobImage(img);
+                              }}
                               className={`rounded-md border p-2 text-left transition ${selected ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/40"}`}
                             >
                               <img
@@ -1109,7 +1129,7 @@ function CreatePostDialog({
 
                   <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setJobImagePickerOpen(false)}>Cancel</Button>
-                    <Button type="button" onClick={applySelectedJobImage} disabled={!selectedJobImage}>Use Selected Image</Button>
+                    <Button type="button" onClick={() => { void applySelectedJobImage(); }} disabled={!selectedJobImage}>Use Selected Image</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
