@@ -41,6 +41,8 @@ interface CalendarHolidayRow {
   name: string;
   start_date: string;
   end_date: string;
+  start_time: string | null;
+  end_time: string | null;
   holiday_type: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
   notes: string | null;
   source: string;
@@ -62,6 +64,14 @@ function cleanExpiredCalendarCache() {
 
 function toDateOnly(d: Date): string {
   return d.toISOString().slice(0, 10);
+}
+
+function normalize24HourTime(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  const match = trimmed.match(/^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/);
+  if (!match) return null;
+  return `${match[1]}:${match[2]}`;
 }
 
 function addDays(d: Date, days: number): Date {
@@ -257,7 +267,7 @@ router.get("/calendar", requireAuth, requireTenant, async (req: AuthenticatedReq
 
   let holidaysQ = supabaseAdmin
     .from("calendar_holidays")
-    .select("id, tenant_id, technician_id, name, start_date, end_date, holiday_type, notes, source, created_at, updated_at")
+    .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, holiday_type, notes, source, created_at, updated_at")
     .eq("tenant_id", req.tenantId)
     .lte("start_date", dateTo)
     .gte("end_date", dateFrom)
@@ -328,7 +338,7 @@ router.get("/calendar/holidays", requireAuth, requireTenant, async (req: Authent
 
   let q = supabaseAdmin
     .from("calendar_holidays")
-    .select("id, tenant_id, technician_id, name, start_date, end_date, holiday_type, notes, source, created_at, updated_at")
+    .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, holiday_type, notes, source, created_at, updated_at")
     .eq("tenant_id", req.tenantId)
     .lte("start_date", dateTo)
     .gte("end_date", dateFrom)
@@ -357,6 +367,8 @@ router.post(
       name,
       start_date,
       end_date,
+      start_time,
+      end_time,
       technician_id,
       holiday_type,
       notes,
@@ -364,6 +376,8 @@ router.post(
       name?: string;
       start_date?: string;
       end_date?: string;
+      start_time?: string;
+      end_time?: string;
       technician_id?: string | null;
       holiday_type?: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
       notes?: string;
@@ -376,6 +390,38 @@ router.post(
 
     const type = holiday_type ?? (technician_id ? "technician_leave" : "public_holiday");
     const effectiveEnd = end_date || start_date;
+    const normalizedStartTime = normalize24HourTime(start_time);
+    const normalizedEndTime = normalize24HourTime(end_time);
+
+    if (effectiveEnd < start_date) {
+      res.status(400).json({ error: "end_date cannot be before start_date" });
+      return;
+    }
+
+    const hasAnyTime = Boolean(start_time || end_time);
+    if (hasAnyTime && (!normalizedStartTime || !normalizedEndTime)) {
+      res.status(400).json({ error: "start_time and end_time must both be valid HH:MM values" });
+      return;
+    }
+
+    if (normalizedStartTime && normalizedEndTime) {
+      if (!technician_id) {
+        res.status(400).json({ error: "Partial-day time blocks require a technician_id" });
+        return;
+      }
+      if (!["technician_leave", "technician_away", "technician_sick"].includes(type)) {
+        res.status(400).json({ error: "Partial-day time blocks are only supported for technician leave types" });
+        return;
+      }
+      if (start_date !== effectiveEnd) {
+        res.status(400).json({ error: "Partial-day time blocks currently require start_date and end_date to be the same day" });
+        return;
+      }
+      if (normalizedEndTime <= normalizedStartTime) {
+        res.status(400).json({ error: "end_time must be after start_time" });
+        return;
+      }
+    }
 
     const { data, error } = await supabaseAdmin
       .from("calendar_holidays")
@@ -385,16 +431,29 @@ router.post(
         name: name.trim(),
         start_date,
         end_date: effectiveEnd,
+        start_time: normalizedStartTime,
+        end_time: normalizedEndTime,
         holiday_type: type,
         notes: notes?.trim() || null,
         source: "manual",
         created_by: req.userId || null,
       })
-      .select("id, tenant_id, technician_id, name, start_date, end_date, holiday_type, notes, source, created_at, updated_at")
+      .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, holiday_type, notes, source, created_at, updated_at")
       .single();
 
     if (error || !data) {
-      res.status(500).json({ error: "Failed to create holiday" });
+      const isConstraintError = error?.code === "23514";
+      if (isConstraintError) {
+        if (error?.message?.includes("calendar_holidays_dates_valid")) {
+          res.status(400).json({ error: "end_date cannot be before start_date" });
+          return;
+        }
+        if (error?.message?.includes("calendar_holidays_time_order_valid")) {
+          res.status(400).json({ error: "end_time must be after start_time when booking a single-day time block" });
+          return;
+        }
+      }
+      res.status(500).json({ error: error?.message || "Failed to create holiday" });
       return;
     }
 

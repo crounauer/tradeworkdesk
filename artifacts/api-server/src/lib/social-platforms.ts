@@ -222,6 +222,20 @@ function isXDuplicatePostError(err: unknown): boolean {
   return msg.includes("duplicate") && msg.includes("status");
 }
 
+function isXUnauthorizedError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const anyErr = err as Error & {
+    code?: number;
+    data?: { title?: string; detail?: string; errors?: Array<{ code?: number; message?: string }> };
+  };
+
+  if (anyErr.code === 401) return true;
+  if (anyErr.data?.errors?.some((entry) => entry?.code === 401)) return true;
+
+  const msg = `${anyErr.message || ""} ${anyErr.data?.title || ""} ${anyErr.data?.detail || ""}`.toLowerCase();
+  return msg.includes("unauthorized") || msg.includes("code 401") || msg.includes("status 401");
+}
+
 function compactUrlForPost(raw: string): string {
   const input = String(raw || "").trim();
   if (!input) return "";
@@ -321,6 +335,7 @@ async function persistXOAuth2Credentials(args: {
 async function resolveXOAuth2AccessToken(
   account: SocialAccount,
   credentials: Record<string, string>,
+  forceRefresh = false,
 ): Promise<string> {
   const clientId = getScopedOptionalEnv(
     account,
@@ -337,7 +352,7 @@ async function resolveXOAuth2AccessToken(
   const existingAccessToken = String(credentials.accessToken || "").trim();
   const existingRefreshToken = String(credentials.refreshToken || "").trim();
 
-  const shouldRefresh = !existingAccessToken || isXAccessTokenExpired(account);
+  const shouldRefresh = forceRefresh || !existingAccessToken || isXAccessTokenExpired(account);
   if (!shouldRefresh) {
     return existingAccessToken;
   }
@@ -433,10 +448,26 @@ async function postToX(
     try {
       tweetResult = await client.v2.tweet(tweetPayload);
     } catch (err) {
-      if (isXDuplicatePostError(err)) {
+      if (isXUnauthorizedError(err)) {
+        try {
+          const refreshedAccessToken = await resolveXOAuth2AccessToken(account, credentials, true);
+          if (refreshedAccessToken && refreshedAccessToken !== accessToken) {
+            const retryClient = new TwitterApi(refreshedAccessToken);
+            tweetResult = await retryClient.v2.tweet(tweetPayload);
+          } else {
+            throw err;
+          }
+        } catch (retryErr) {
+          if (isXUnauthorizedError(retryErr)) {
+            throw new Error("X authentication failed (401). Reconnect the X account in TradeWorkDesk to refresh OAuth permissions and tokens, then retry.");
+          }
+          throw retryErr;
+        }
+      } else if (isXDuplicatePostError(err)) {
         throw new Error("X rejected this as a duplicate post. Edit the wording or add a unique line, then publish again.");
+      } else {
+        throw new Error(`X API error: ${formatXApiError(err)}`);
       }
-      throw new Error(`X API error: ${formatXApiError(err)}`);
     }
     const tweetId = String(tweetResult.data?.id || "").trim();
     if (!tweetId) {
@@ -493,6 +524,9 @@ async function postToX(
   try {
     result = await client.v2.tweet(tweetPayload);
   } catch (err) {
+    if (isXUnauthorizedError(err)) {
+      throw new Error("X authentication failed (401). Regenerate Access Token and Access Secret in X Developer Portal, then reconnect the X account in TradeWorkDesk.");
+    }
     if (isXDuplicatePostError(err)) {
       throw new Error("X rejected this as a duplicate post. Edit the wording or add a unique line, then publish again.");
     }

@@ -339,6 +339,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     technicianId: assigned_technician_id || null,
     scheduledDate: String(jobInsert.scheduled_date),
     scheduledEndDate: null,
+    scheduledTime: jobInsert.scheduled_time as string | null,
   });
   if (followUpConflict) {
     sendTechnicianLeaveConflict(res, followUpConflict);

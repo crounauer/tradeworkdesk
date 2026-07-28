@@ -1194,7 +1194,7 @@ router.post('/admin/jobs/bulk-reassign', requireAuth, requireTenant, requireRole
 
   let q = supabaseAdmin
     .from("jobs")
-    .select("id, scheduled_date, scheduled_end_date")
+    .select("id, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration")
     .eq("tenant_id", req.tenantId!)
     .eq("is_active", true);
 
@@ -1220,12 +1220,14 @@ router.post('/admin/jobs/bulk-reassign', requireAuth, requireTenant, requireRole
     res.json({ success: true, reassigned_count: 0 }); return;
   }
 
-  for (const job of matchingJobs as Array<{ id: string; scheduled_date: string; scheduled_end_date: string | null }>) {
+  for (const job of matchingJobs as Array<{ id: string; scheduled_date: string; scheduled_end_date: string | null; scheduled_time: string | null; estimated_duration: number | null }>) {
     const conflict = await findTechnicianLeaveConflict({
       tenantId: req.tenantId!,
       technicianId: to_user_id,
       scheduledDate: job.scheduled_date,
       scheduledEndDate: job.scheduled_end_date,
+      scheduledTime: job.scheduled_time,
+      durationMinutes: job.estimated_duration,
     });
     if (conflict) {
       sendTechnicianLeaveConflict(res, conflict, { affected_job_count: matchingJobs.length, job_id: job.id });

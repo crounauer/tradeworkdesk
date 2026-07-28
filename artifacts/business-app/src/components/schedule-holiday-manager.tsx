@@ -14,6 +14,8 @@ interface HolidayItem {
   name: string;
   start_date: string;
   end_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
   holiday_type: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
   notes?: string | null;
   source?: string;
@@ -58,6 +60,20 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function normalizeTime(value: string): string {
+  const trimmed = value.trim();
+  const match = trimmed.match(/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+  if (!match) return "";
+  return `${match[1]}:${match[2]}`;
+}
+
+function prettyTime(value: string | null | undefined): string {
+  if (!value) return "";
+  const match = value.match(/^(\d{2}):(\d{2})/);
+  if (!match) return value;
+  return `${match[1]}:${match[2]}`;
+}
+
 export default function ScheduleHolidayManager() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -67,6 +83,9 @@ export default function ScheduleHolidayManager() {
   const [leaveTech, setLeaveTech] = useState("");
   const [leaveStart, setLeaveStart] = useState(todayIso());
   const [leaveEnd, setLeaveEnd] = useState(todayIso());
+  const [useTimeRange, setUseTimeRange] = useState(false);
+  const [leaveStartTime, setLeaveStartTime] = useState("09:00");
+  const [leaveEndTime, setLeaveEndTime] = useState("10:00");
   const [publicName, setPublicName] = useState("");
   const [publicDate, setPublicDate] = useState(todayIso());
   const [bankYear, setBankYear] = useState(String(new Date().getFullYear()));
@@ -130,6 +149,10 @@ export default function ScheduleHolidayManager() {
       toast({ title: "Missing dates", description: "Please provide start and end dates.", variant: "destructive" });
       return;
     }
+    if (leaveEnd < leaveStart) {
+      toast({ title: "Invalid date range", description: "End date cannot be before start date.", variant: "destructive" });
+      return;
+    }
     if (!selectedLeaveType) {
       toast({
         title: "No leave types configured",
@@ -138,6 +161,24 @@ export default function ScheduleHolidayManager() {
       });
       return;
     }
+
+    const normalizedStartTime = normalizeTime(leaveStartTime);
+    const normalizedEndTime = normalizeTime(leaveEndTime);
+    if (useTimeRange) {
+      if (!normalizedStartTime || !normalizedEndTime) {
+        toast({ title: "Invalid time range", description: "Use valid 24-hour times such as 09:00 and 11:30.", variant: "destructive" });
+        return;
+      }
+      if (leaveStart !== leaveEnd) {
+        toast({ title: "Single-day only", description: "Time-range leave currently requires the same start and end date.", variant: "destructive" });
+        return;
+      }
+      if (normalizedEndTime <= normalizedStartTime) {
+        toast({ title: "Invalid time range", description: "End time must be after start time.", variant: "destructive" });
+        return;
+      }
+    }
+
     setSubmitting("leave");
     try {
       await apiFetch("/api/calendar/holidays", {
@@ -148,6 +189,8 @@ export default function ScheduleHolidayManager() {
           technician_id: leaveTech,
           start_date: leaveStart,
           end_date: leaveEnd,
+          start_time: useTimeRange ? normalizedStartTime : undefined,
+          end_time: useTimeRange ? normalizedEndTime : undefined,
           holiday_type: selectedLeaveType.holidayType,
         }),
       });
@@ -276,6 +319,26 @@ export default function ScheduleHolidayManager() {
               <Input type="date" value={leaveEnd} onChange={(e) => setLeaveEnd(e.target.value)} />
             </div>
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={useTimeRange}
+              onChange={(e) => setUseTimeRange(e.target.checked)}
+            />
+            Block only a time range (for appointments)
+          </label>
+          {useTimeRange ? (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label>Start time</Label>
+                <Input type="time" value={leaveStartTime} onChange={(e) => setLeaveStartTime(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>End time</Label>
+                <Input type="time" value={leaveEndTime} onChange={(e) => setLeaveEndTime(e.target.value)} />
+              </div>
+            </div>
+          ) : null}
           <Button onClick={addTechnicianLeave} disabled={submitting !== null || leaveTypeOptions.length === 0} className="w-full">
             {submitting === "leave" ? "Saving..." : "Add Technician Leave Block"}
           </Button>
@@ -324,6 +387,7 @@ export default function ScheduleHolidayManager() {
                     <p className="text-sm font-medium">{h.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {h.start_date}{h.end_date !== h.start_date ? ` to ${h.end_date}` : ""} · {HOLIDAY_TYPE_LABELS[h.holiday_type]}
+                      {h.start_time && h.end_time ? ` · ${prettyTime(h.start_time)}-${prettyTime(h.end_time)}` : ""}
                       {h.technician_id ? ` · ${technicians.find((t) => t.id === h.technician_id)?.full_name || "Technician"}` : ""}
                     </p>
                   </div>

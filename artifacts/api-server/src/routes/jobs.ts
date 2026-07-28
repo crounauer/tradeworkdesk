@@ -6,6 +6,7 @@ import { getEffectiveLimits, getJobsThisMonth } from "../lib/tenant-limits";
 import crypto from "crypto";
 
 const SINGLETON_ID = "default";
+const BUSINESS_TIMEZONE = "Europe/London";
 import {
   ListJobsQueryParams,
   ListJobsResponse,
@@ -686,6 +687,8 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     technicianId: insertPayload.assigned_technician_id,
     scheduledDate: String(insertPayload.scheduled_date),
     scheduledEndDate: insertPayload.scheduled_end_date ?? null,
+    scheduledTime: insertPayload.scheduled_time ?? null,
+    durationMinutes: insertPayload.estimated_duration ?? null,
   });
   if (createConflict) {
     sendTechnicianLeaveConflict(res, createConflict);
@@ -1019,6 +1022,8 @@ router.post("/jobs/:id/duplicate", requireAuth, requireTenant, requireRole("admi
     technicianId: original.assigned_technician_id ?? null,
     scheduledDate: newScheduledDate,
     scheduledEndDate: newScheduledEndDate,
+    scheduledTime: overrideTime ?? original.scheduled_time ?? null,
+    durationMinutes: original.estimated_duration ?? null,
   });
   if (duplicateConflict) {
     sendTechnicianLeaveConflict(res, duplicateConflict);
@@ -1287,12 +1292,14 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   const assignmentOrScheduleChanging =
     updateCoreData.assigned_technician_id !== undefined
     || updateCoreData.scheduled_date !== undefined
-    || updateCoreData.scheduled_end_date !== undefined;
+    || updateCoreData.scheduled_end_date !== undefined
+    || updateCoreData.scheduled_time !== undefined
+    || updateCoreData.estimated_duration !== undefined;
 
   if (assignmentOrScheduleChanging) {
     let currentJobQ = supabaseAdmin
       .from("jobs")
-      .select("assigned_technician_id, scheduled_date, scheduled_end_date")
+      .select("assigned_technician_id, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration")
       .eq("id", params.data.id);
     if (req.tenantId) currentJobQ = currentJobQ.eq("tenant_id", req.tenantId);
     const { data: currentJob, error: currentJobErr } = await currentJobQ.maybeSingle();
@@ -1310,12 +1317,20 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     const effectiveScheduledEndDate = updateCoreData.scheduled_end_date !== undefined
       ? updateCoreData.scheduled_end_date
       : currentJob.scheduled_end_date;
+    const effectiveScheduledTime = updateCoreData.scheduled_time !== undefined
+      ? updateCoreData.scheduled_time
+      : currentJob.scheduled_time;
+    const effectiveEstimatedDuration = updateCoreData.estimated_duration !== undefined
+      ? updateCoreData.estimated_duration
+      : currentJob.estimated_duration;
 
     const updateConflict = await findTechnicianLeaveConflict({
       tenantId: req.tenantId!,
       technicianId: effectiveTechnicianId,
       scheduledDate: effectiveScheduledDate,
       scheduledEndDate: effectiveScheduledEndDate,
+      scheduledTime: effectiveScheduledTime,
+      durationMinutes: effectiveEstimatedDuration,
     });
     if (updateConflict) {
       sendTechnicianLeaveConflict(res, updateConflict);
@@ -2031,9 +2046,25 @@ export async function buildInvoiceData(
       const durationStr = durationH > 0 ? `${durationH}h ${durationM}m` : `${durationM}m`;
       const arrDate = new Date(e.arrival_time);
       const depDate = new Date(e.departure_time);
-      const dateStr = arrDate.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
-      const arrTime = arrDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
-      const depTime = depDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+      const dateStr = arrDate.toLocaleDateString("en-GB", {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        timeZone: BUSINESS_TIMEZONE,
+      });
+      const arrTime = arrDate.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: BUSINESS_TIMEZONE,
+      });
+      const depTime = depDate.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: BUSINESS_TIMEZONE,
+      });
       const techName = e.created_by ? techNameMap.get(e.created_by) : null;
       attendanceSummaryLines.push(`${dateStr}: ${arrTime} - ${depTime} (${durationStr})${techName ? ` — ${techName}` : ""}`);
 

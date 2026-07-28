@@ -166,6 +166,34 @@ function localDateTimeToUtc(dateStr: string, timeStr: string, timeZone = BUSINES
   return new Date(baselineUtc.getTime() - (offset * 60000));
 }
 
+function normalizeTimeForDateBoundary(value: string | null | undefined, fallback: string): string {
+  if (!value || typeof value !== "string") return fallback;
+  const match = value.match(/^(\d{2}:\d{2})/);
+  return match ? match[1] : fallback;
+}
+
+function holidayBlocksSlotOnDate(args: {
+  holiday: { start_date: string; end_date: string; start_time?: string | null; end_time?: string | null };
+  dateStr: string;
+  slotStart: Date;
+  slotEnd: Date;
+}): boolean {
+  const { holiday, dateStr, slotStart, slotEnd } = args;
+  if (holiday.start_date > dateStr || holiday.end_date < dateStr) return false;
+  if (!holiday.start_time || !holiday.end_time) return true;
+
+  const effectiveStartTime = dateStr === holiday.start_date
+    ? normalizeTimeForDateBoundary(holiday.start_time, "00:00")
+    : "00:00";
+  const effectiveEndTime = dateStr === holiday.end_date
+    ? normalizeTimeForDateBoundary(holiday.end_time, "23:59")
+    : "23:59";
+
+  const blockStart = localDateTimeToUtc(dateStr, effectiveStartTime);
+  const blockEnd = localDateTimeToUtc(dateStr, effectiveEndTime);
+  return slotStart < blockEnd && slotEnd > blockStart;
+}
+
 function buildBookingPayloadHash(payload: {
   customer_name: string;
   customer_email: string;
@@ -449,7 +477,7 @@ async function getAvailableSlots(
       .eq("is_active", true)
       .eq("can_be_assigned_jobs", true),
     db.from("calendar_holidays")
-      .select("technician_id, holiday_type, start_date, end_date")
+      .select("technician_id, holiday_type, start_date, end_date, start_time, end_time")
       .eq("tenant_id", tenantId)
       .lte("start_date", toDate)
       .gte("end_date", fromDate),
@@ -473,7 +501,7 @@ async function getAvailableSlots(
   const existingJobs: { scheduled_date: string; scheduled_time: string | null; estimated_duration: number | null; status: string | null; assigned_technician_id: string | null }[] = jobsResult.data || [];
   const overrides: { date: string; start_time: string | null; end_time: string | null; type: string }[] = overridesResult.data || [];
   const assignableEngineers: { id: string }[] = assignableEngineersResult.data || [];
-  const holidays: { technician_id: string | null; holiday_type?: string | null; start_date: string; end_date: string }[] = holidaysResult.data || [];
+  const holidays: { technician_id: string | null; holiday_type?: string | null; start_date: string; end_date: string; start_time?: string | null; end_time?: string | null }[] = holidaysResult.data || [];
 
   const slots: { start: string; end: string }[] = [];
   const now = new Date();
@@ -505,14 +533,6 @@ async function getAvailableSlots(
 
     const dayHolidays = holidays.filter(
       (holiday) => isBlockingHolidayType(holiday.holiday_type) && holiday.start_date <= dateStr && holiday.end_date >= dateStr,
-    );
-    const isGlobalHoliday = dayHolidays.some((holiday) => !holiday.technician_id);
-    if (isGlobalHoliday) continue;
-
-    const holidayEngineerIds = new Set(
-      dayHolidays
-        .map((holiday) => holiday.technician_id)
-        .filter((technicianId): technicianId is string => Boolean(technicianId && engineerIds.has(technicianId))),
     );
 
     // Check whole-day block override
@@ -551,6 +571,24 @@ async function getAvailableSlots(
         slotStart = new Date(slotStart.getTime() + slotDuration * 60000);
         continue;
       }
+
+      const slotBlockingHolidays = dayHolidays.filter((holiday) => holidayBlocksSlotOnDate({
+        holiday,
+        dateStr,
+        slotStart,
+        slotEnd,
+      }));
+      const isGlobalHoliday = slotBlockingHolidays.some((holiday) => !holiday.technician_id);
+      if (isGlobalHoliday) {
+        slotStart = new Date(slotStart.getTime() + slotDuration * 60000);
+        continue;
+      }
+
+      const holidayEngineerIds = new Set(
+        slotBlockingHolidays
+          .map((holiday) => holiday.technician_id)
+          .filter((technicianId): technicianId is string => Boolean(technicianId && engineerIds.has(technicianId))),
+      );
 
       const overlappingBookingsCount = existingBookings.filter((booking) =>
         overlapsWithBuffer(booking.scheduled_start, booking.scheduled_end, slotStartMs, slotEndMs),
@@ -613,7 +651,7 @@ async function selectAvailableEngineerForSlot(args: {
       .eq("is_active", true)
       .eq("can_be_assigned_jobs", true),
     db.from("calendar_holidays")
-      .select("technician_id, holiday_type, start_date, end_date")
+      .select("technician_id, holiday_type, start_date, end_date, start_time, end_time")
       .eq("tenant_id", tenantId)
       .lte("start_date", dateStr)
       .gte("end_date", dateStr),
@@ -632,14 +670,19 @@ async function selectAvailableEngineerForSlot(args: {
     return ["technician_leave", "technician_away", "technician_sick", "public_holiday", "bank_holiday"].includes(type);
   };
 
-  const holidays: Array<{ technician_id: string | null; holiday_type?: string | null }> = holidaysResult.data || [];
-  if (holidays.some((holiday) => isBlockingHoliday(holiday.holiday_type) && !holiday.technician_id)) {
+  const holidays: Array<{ technician_id: string | null; holiday_type?: string | null; start_date: string; end_date: string; start_time?: string | null; end_time?: string | null }> = holidaysResult.data || [];
+  const blockingHolidays = holidays.filter((holiday) => isBlockingHoliday(holiday.holiday_type) && holidayBlocksSlotOnDate({
+    holiday,
+    dateStr,
+    slotStart,
+    slotEnd,
+  }));
+  if (blockingHolidays.some((holiday) => !holiday.technician_id)) {
     return null;
   }
 
   const engineerHolidayIds = new Set(
-    holidays
-      .filter((holiday) => isBlockingHoliday(holiday.holiday_type))
+    blockingHolidays
       .map((holiday) => holiday.technician_id)
       .filter((id): id is string => Boolean(id)),
   );
