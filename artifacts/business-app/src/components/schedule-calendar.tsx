@@ -22,6 +22,7 @@ type CalendarJob = {
   priority: string;
   scheduled_date: string | Date;
   scheduled_time?: string | null;
+  estimated_duration?: number | null;
   scheduled_end_date?: string | null;
   description?: string | null;
 };
@@ -103,6 +104,45 @@ function isTimedSingleDayHoliday(holiday: CalendarHoliday, dateStr: string): boo
 function holidayTimeRangeLabel(holiday: CalendarHoliday): string {
   if (!holiday.start_time || !holiday.end_time) return "All day";
   return `${formatTime(holiday.start_time)}-${formatTime(holiday.end_time)}`;
+}
+
+function parseHourMinute(value: string): { hour: number; minute: number } | null {
+  const match = String(value).match(/^(\d{2}):(\d{2})/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return { hour, minute };
+}
+
+function durationLabel(minutes: number): string {
+  if (minutes <= 0) return "";
+  if (minutes % 60 === 0) return `${minutes / 60}h`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+function getJobDurationMinutes(job: CalendarJob): number {
+  const parsed = Number(job.estimated_duration ?? 60);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 60;
+  return parsed;
+}
+
+function getHolidayDurationMinutes(holiday: CalendarHoliday): number {
+  if (!holiday.start_time || !holiday.end_time) return 60;
+  const start = parseHourMinute(holiday.start_time);
+  const end = parseHourMinute(holiday.end_time);
+  if (!start || !end) return 60;
+  const startMinutes = (start.hour * 60) + start.minute;
+  const endMinutes = (end.hour * 60) + end.minute;
+  if (endMinutes <= startMinutes) return 60;
+  return endMinutes - startMinutes;
+}
+
+function getSlotHoursForDuration(startTime: string, durationMinutes: number): number[] {
+  const parsedStart = parseHourMinute(startTime);
+  if (!parsedStart) return [];
+  const spanHours = Math.max(1, Math.ceil(durationMinutes / 60));
+  return Array.from({ length: spanHours }, (_, idx) => parsedStart.hour + idx).filter((h) => h >= 0 && h <= 23);
 }
 
 function getJobEndDate(job: CalendarJob): string {
@@ -702,29 +742,36 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
         const timedDayHolidays = dayHolidays.filter((h) => isTimedSingleDayHoliday(h, ds));
         const allDayDayHolidays = dayHolidays.filter((h) => !isTimedSingleDayHoliday(h, ds));
         const isToday = isSameDay(ds, todayStr);
-        const jobsByHour: Record<number, CalendarJob[]> = {};
-        const holidaysByHour: Record<number, CalendarHoliday[]> = {};
+        const jobsByHour: Record<number, Array<{ job: CalendarJob; slotIndex: number; totalSlots: number; durationMinutes: number }>> = {};
+        const holidaysByHour: Record<number, Array<{ holiday: CalendarHoliday; slotIndex: number; totalSlots: number; durationMinutes: number }>> = {};
         const unscheduled: CalendarJob[] = [];
         let minHour = 7;
         let maxHour = 20;
         for (const job of dayJobs) {
           if (job.scheduled_time) {
-            const hour = parseInt(job.scheduled_time.split(":")[0], 10);
-            if (hour < minHour) minHour = hour;
-            if (hour > maxHour) maxHour = hour;
-            if (!jobsByHour[hour]) jobsByHour[hour] = [];
-            jobsByHour[hour].push(job);
+            const durationMinutes = getJobDurationMinutes(job);
+            const slotHours = getSlotHoursForDuration(job.scheduled_time, durationMinutes);
+            if (slotHours.length === 0) continue;
+            minHour = Math.min(minHour, slotHours[0]);
+            maxHour = Math.max(maxHour, slotHours[slotHours.length - 1]);
+            slotHours.forEach((hour, slotIndex) => {
+              if (!jobsByHour[hour]) jobsByHour[hour] = [];
+              jobsByHour[hour].push({ job, slotIndex, totalSlots: slotHours.length, durationMinutes });
+            });
           } else {
             unscheduled.push(job);
           }
         }
         for (const holiday of timedDayHolidays) {
-          const hour = parseInt(String(holiday.start_time).split(":")[0], 10);
-          if (!Number.isFinite(hour)) continue;
-          if (hour < minHour) minHour = hour;
-          if (hour > maxHour) maxHour = hour;
-          if (!holidaysByHour[hour]) holidaysByHour[hour] = [];
-          holidaysByHour[hour].push(holiday);
+          const durationMinutes = getHolidayDurationMinutes(holiday);
+          const slotHours = getSlotHoursForDuration(String(holiday.start_time), durationMinutes);
+          if (slotHours.length === 0) continue;
+          minHour = Math.min(minHour, slotHours[0]);
+          maxHour = Math.max(maxHour, slotHours[slotHours.length - 1]);
+          slotHours.forEach((hour, slotIndex) => {
+            if (!holidaysByHour[hour]) holidaysByHour[hour] = [];
+            holidaysByHour[hour].push({ holiday, slotIndex, totalSlots: slotHours.length, durationMinutes });
+          });
         }
         const HOURS = Array.from({ length: maxHour - minHour + 1 }, (_, i) => i + minHour);
 
@@ -899,26 +946,38 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                       {timeStr}
                     </div>
                     <div className="flex-1 p-1.5 space-y-1">
-                      {timedHolidays.map((holiday) => (
-                        <div
-                          key={holiday.id}
-                          className={`px-3 py-2 rounded-lg border ${HOLIDAY_STYLES[holiday.holiday_type]}`}
-                          title={holiday.notes || undefined}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span className="text-sm font-semibold">{holiday.name}</span>
-                            <span className="ml-auto text-[11px] font-medium opacity-90">{holidayTimeRangeLabel(holiday)}</span>
+                      {timedHolidays.map(({ holiday, slotIndex, totalSlots, durationMinutes }) => (
+                        slotIndex === 0 ? (
+                          <div
+                            key={`${holiday.id}-${hour}`}
+                            className={`px-3 py-2 rounded-lg border ${HOLIDAY_STYLES[holiday.holiday_type]}`}
+                            title={holiday.notes || undefined}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-3.5 h-3.5" />
+                              <span className="text-sm font-semibold">{holiday.name}</span>
+                              <span className="ml-auto text-[11px] font-medium opacity-90">{holidayTimeRangeLabel(holiday)}</span>
+                            </div>
+                            <div className="mt-1 text-xs opacity-80">
+                              {holiday.technician_name ? `Technician: ${holiday.technician_name}` : "Technician leave"}
+                              {` · ${durationLabel(durationMinutes)}`}
+                              {holiday.notes ? ` · ${holiday.notes}` : ""}
+                            </div>
                           </div>
-                          <div className="mt-1 text-xs opacity-80">
-                            {holiday.technician_name ? `Technician: ${holiday.technician_name}` : "Technician leave"}
-                            {holiday.notes ? ` · ${holiday.notes}` : ""}
+                        ) : (
+                          <div
+                            key={`${holiday.id}-${hour}`}
+                            className={`px-3 py-1.5 rounded-lg border border-dashed ${HOLIDAY_STYLES[holiday.holiday_type]} opacity-85`}
+                            title={`${holiday.name} (${holidayTimeRangeLabel(holiday)})`}
+                          >
+                            <div className="text-xs font-medium">{holiday.name} (continues)</div>
                           </div>
-                        </div>
+                        )
                       ))}
-                      {jobs.map((job) => (
+                      {jobs.map(({ job, slotIndex, totalSlots, durationMinutes }) => (
+                        slotIndex === 0 ? (
                         <div
-                          key={job.id}
+                          key={`${job.id}-${hour}`}
                           data-job-card
                           role="button"
                           tabIndex={0}
@@ -942,6 +1001,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                                     </span>
                                   )}
                                   <span className="text-xs opacity-60 capitalize">{label}</span>
+                                  <span className="text-xs opacity-70">{durationLabel(durationMinutes)}</span>
                                 </span>
                               );
                             })()}
@@ -969,6 +1029,24 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                             <span className="text-xs font-medium opacity-80 ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
                           </div>
                         </div>
+                        ) : (
+                          <div
+                            key={`${job.id}-${hour}`}
+                            data-job-card
+                            role="button"
+                            tabIndex={0}
+                            draggable={canDrag}
+                            onDragStart={(e) => handleDragStart(e, job.id)}
+                            onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
+                            onClick={(e) => handleJobClick(e, job.id)}
+                            onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                            className={`px-3 py-1.5 rounded-lg border border-dashed transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm opacity-85`}
+                          >
+                            <div className="text-xs font-medium">
+                              {job.customer_name || "Unknown"} (continues)
+                            </div>
+                          </div>
+                        )
                       ))}
                     </div>
                   </div>

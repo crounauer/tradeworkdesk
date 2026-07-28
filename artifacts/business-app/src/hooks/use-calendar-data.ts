@@ -13,6 +13,7 @@ interface CalendarJob {
   priority: string;
   scheduled_date: string;
   scheduled_time?: string | null;
+  estimated_duration?: number | null;
   scheduled_end_date?: string | null;
   arrival_time?: string | null;
   departure_time?: string | null;
