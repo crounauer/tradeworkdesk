@@ -91,6 +91,20 @@ function formatTime(t: string): string {
   return `${h12}:${m}${ampm}`;
 }
 
+function isTimedSingleDayHoliday(holiday: CalendarHoliday, dateStr: string): boolean {
+  return Boolean(
+    holiday.start_time
+    && holiday.end_time
+    && String(holiday.start_date).slice(0, 10) === dateStr
+    && String(holiday.end_date).slice(0, 10) === dateStr,
+  );
+}
+
+function holidayTimeRangeLabel(holiday: CalendarHoliday): string {
+  if (!holiday.start_time || !holiday.end_time) return "All day";
+  return `${formatTime(holiday.start_time)}-${formatTime(holiday.end_time)}`;
+}
+
 function getJobEndDate(job: CalendarJob): string {
   if (job.scheduled_end_date) {
     return String(job.scheduled_end_date).slice(0, 10);
@@ -685,8 +699,11 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
         const ds = toDateStr(anchorDate);
         const dayJobs = jobsByDate[ds] || [];
         const dayHolidays = holidaysByDate[ds] || [];
+        const timedDayHolidays = dayHolidays.filter((h) => isTimedSingleDayHoliday(h, ds));
+        const allDayDayHolidays = dayHolidays.filter((h) => !isTimedSingleDayHoliday(h, ds));
         const isToday = isSameDay(ds, todayStr);
         const jobsByHour: Record<number, CalendarJob[]> = {};
+        const holidaysByHour: Record<number, CalendarHoliday[]> = {};
         const unscheduled: CalendarJob[] = [];
         let minHour = 7;
         let maxHour = 20;
@@ -700,6 +717,14 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
           } else {
             unscheduled.push(job);
           }
+        }
+        for (const holiday of timedDayHolidays) {
+          const hour = parseInt(String(holiday.start_time).split(":")[0], 10);
+          if (!Number.isFinite(hour)) continue;
+          if (hour < minHour) minHour = hour;
+          if (hour > maxHour) maxHour = hour;
+          if (!holidaysByHour[hour]) holidaysByHour[hour] = [];
+          holidaysByHour[hour].push(holiday);
         }
         const HOURS = Array.from({ length: maxHour - minHour + 1 }, (_, i) => i + minHour);
 
@@ -727,9 +752,9 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                 </div>
               )}
 
-              {dayHolidays.length > 0 && (
+              {allDayDayHolidays.length > 0 && (
                 <div className="px-4 py-2 border-b border-border bg-muted/20 flex flex-wrap gap-1.5">
-                  {dayHolidays.map((h) => (
+                  {allDayDayHolidays.map((h) => (
                     <span key={h.id} className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full border ${HOLIDAY_STYLES[h.holiday_type]}`}>
                       {h.name}{h.technician_name ? ` - ${h.technician_name}` : ""}
                     </span>
@@ -845,9 +870,9 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
               </div>
             )}
 
-            {dayHolidays.length > 0 && (
+              {allDayDayHolidays.length > 0 && (
               <div className="px-4 py-2 border-b border-border bg-muted/20 flex flex-wrap gap-1.5">
-                {dayHolidays.map((h) => (
+                {allDayDayHolidays.map((h) => (
                   <span key={h.id} className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full border ${HOLIDAY_STYLES[h.holiday_type]}`}>
                     {h.name}{h.technician_name ? ` - ${h.technician_name}` : ""}
                   </span>
@@ -858,6 +883,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
             <div className="bg-background">
               {HOURS.map((hour) => {
                 const jobs = jobsByHour[hour] || [];
+                const timedHolidays = holidaysByHour[hour] || [];
                 const timeStr = `${hour.toString().padStart(2, "0")}:00`;
                 const slotKey = `${ds}-${hour}`;
                 const isSlotTarget = dragOverSlot === slotKey;
@@ -873,6 +899,23 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                       {timeStr}
                     </div>
                     <div className="flex-1 p-1.5 space-y-1">
+                      {timedHolidays.map((holiday) => (
+                        <div
+                          key={holiday.id}
+                          className={`px-3 py-2 rounded-lg border ${HOLIDAY_STYLES[holiday.holiday_type]}`}
+                          title={holiday.notes || undefined}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span className="text-sm font-semibold">{holiday.name}</span>
+                            <span className="ml-auto text-[11px] font-medium opacity-90">{holidayTimeRangeLabel(holiday)}</span>
+                          </div>
+                          <div className="mt-1 text-xs opacity-80">
+                            {holiday.technician_name ? `Technician: ${holiday.technician_name}` : "Technician leave"}
+                            {holiday.notes ? ` · ${holiday.notes}` : ""}
+                          </div>
+                        </div>
+                      ))}
                       {jobs.map((job) => (
                         <div
                           key={job.id}
