@@ -127,6 +127,27 @@ function getJobDurationMinutes(job: CalendarJob): number {
   return parsed;
 }
 
+function formatTimeFromMinutes(totalMinutes: number): string {
+  const clamped = Math.max(0, Math.min(totalMinutes, (24 * 60) - 1));
+  const h = Math.floor(clamped / 60);
+  const m = clamped % 60;
+  return formatTime(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+}
+
+function getJobTimeRangeLabel(job: CalendarJob): string {
+  if (!job.scheduled_time) return "No time";
+  const start = parseHourMinute(job.scheduled_time);
+  const startLabel = formatTime(job.scheduled_time);
+  if (!start) return startLabel;
+
+  const duration = getJobDurationMinutes(job);
+  const startMinutes = (start.hour * 60) + start.minute;
+  const endMinutes = startMinutes + duration;
+  if (!Number.isFinite(endMinutes) || endMinutes <= startMinutes) return startLabel;
+
+  return `${startLabel}-${formatTimeFromMinutes(endMinutes)}`;
+}
+
 function getHolidayDurationMinutes(holiday: CalendarHoliday): number {
   if (!holiday.start_time || !holiday.end_time) return 60;
   const start = parseHourMinute(holiday.start_time);
@@ -874,9 +895,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                                 })()}
                               </div>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 ml-4">
-                                {job.scheduled_time
-                                  ? <span className="flex items-center gap-1 text-xs opacity-75"><Clock className="w-3 h-3" />{formatTime(job.scheduled_time)}</span>
-                                  : <span className="flex items-center gap-1 text-xs opacity-75"><Clock className="w-3 h-3" />No time</span>}
+                                <span className="flex items-center gap-1 text-xs opacity-75"><Clock className="w-3 h-3" />{getJobTimeRangeLabel(job)}</span>
                                 {job.property_address && (
                                   <span className="flex items-center gap-1 text-xs opacity-60 truncate max-w-[210px]"><MapPin className="w-3 h-3 shrink-0" />{job.property_address}</span>
                                 )}
@@ -1007,9 +1026,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                             })()}
                           </div>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 ml-4">
-                            {job.scheduled_time && (
-                              <span className="flex items-center gap-1 text-xs opacity-75"><Clock className="w-3 h-3" />{formatTime(job.scheduled_time)}</span>
-                            )}
+                            <span className="flex items-center gap-1 text-xs opacity-75"><Clock className="w-3 h-3" />{getJobTimeRangeLabel(job)}</span>
                             {job.technician_name && (
                               <span className="flex items-center gap-1 text-xs opacity-75"><User className="w-3 h-3" />{job.technician_name}</span>
                             )}
@@ -1226,7 +1243,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                                 <span className="text-[11px] font-semibold truncate">{job.customer_name || "Unknown"}</span>
                               </div>
                               <div className="text-[10px] opacity-75 truncate ml-2.5">
-                                {job.scheduled_time ? formatTime(job.scheduled_time) : "No time"}
+                                {getJobTimeRangeLabel(job)}
                                 {job.property_address ? ` · ${job.property_address}` : ""}
                               </div>
                             </div>
@@ -1352,7 +1369,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                       </div>
                       {job.scheduled_time && (
                         <div className="ml-2.5 text-[10px] opacity-75 truncate">
-                          {formatTime(job.scheduled_time)}
+                          {viewMode === "week" ? getJobTimeRangeLabel(job) : formatTime(job.scheduled_time)}
                           {job.property_address && <span className="opacity-80"> · {job.property_address}</span>}
                         </div>
                       )}
@@ -1537,7 +1554,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                       )}
                       <div className="flex items-center gap-3 mt-1 ml-4 text-xs opacity-75">
                         {job.scheduled_time && (
-                          <span>{formatTime(job.scheduled_time)}</span>
+                          <span>{viewMode === "week" ? getJobTimeRangeLabel(job) : formatTime(job.scheduled_time)}</span>
                         )}
                         {job.technician_name && (
                           <span>{job.technician_name}</span>

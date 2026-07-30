@@ -28,6 +28,7 @@ interface JobType {
   id: string;
   name: string;
   is_active: boolean;
+  booking_duration_minutes?: number | null;
 }
 
 type LeaveConflict = {
@@ -490,6 +491,10 @@ export function BookJobDialog({
         setSubmitting(false);
         return;
       }
+      const selectedDuration = Number(selectedType.booking_duration_minutes ?? 0);
+      const estimatedDuration = Number.isFinite(selectedDuration) && selectedDuration > 0
+        ? selectedDuration
+        : undefined;
       const technicianId = autoAssign && profile?.id
         ? profile.id
         : (isAdminOrOffice ? data.assigned_technician_id || undefined : undefined);
@@ -505,6 +510,7 @@ export function BookJobDialog({
         scheduled_date: data.scheduled_date,
         scheduled_end_date: data.scheduled_end_date || undefined,
         scheduled_time: data.scheduled_time || undefined,
+        estimated_duration: estimatedDuration,
         description: data.description || undefined,
         assigned_technician_id: technicianId,
       };

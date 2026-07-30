@@ -46,6 +46,7 @@ type CalendarDashboardJob = {
   status: string;
   assigned_technician_id?: string | null;
   scheduled_date: string;
+  job_type_name?: string | null;
 };
 
 type CalendarProfile = {
@@ -234,7 +235,26 @@ export default function Dashboard() {
   );
 
   const todaysJobs = useMemo(
-    () => scopedEngineerJobIds ? todaysJobsBase.filter((job) => scopedEngineerJobIds.has(job.id)) : todaysJobsBase,
+    () => {
+      const list = scopedEngineerJobIds
+        ? todaysJobsBase.filter((job) => scopedEngineerJobIds.has(job.id))
+        : todaysJobsBase;
+
+      const toMinutes = (time?: string | null): number => {
+        if (!time) return Number.MAX_SAFE_INTEGER;
+        const [hoursRaw, minutesRaw] = String(time).split(":");
+        const hours = Number(hoursRaw);
+        const minutes = Number(minutesRaw);
+        if (Number.isNaN(hours) || Number.isNaN(minutes)) return Number.MAX_SAFE_INTEGER;
+        return hours * 60 + minutes;
+      };
+
+      return [...list].sort((a, b) => {
+        const diff = toMinutes(a.scheduled_time) - toMinutes(b.scheduled_time);
+        if (diff !== 0) return diff;
+        return a.id.localeCompare(b.id);
+      });
+    },
     [todaysJobsBase, scopedEngineerJobIds]
   );
   const upcomingJobs = useMemo(
@@ -277,6 +297,17 @@ export default function Dashboard() {
   const teamInProgressCount = useMemo(
     () => scopedTeamJobs.filter((job) => job.status === "in_progress").length,
     [scopedTeamJobs]
+  );
+  const calendarJobTypeNameById = useMemo(
+    () => new Map(teamCalendarJobs.map((job) => [job.id, job.job_type_name ?? null])),
+    [teamCalendarJobs]
+  );
+  const getJobTypeLabel = useCallback(
+    (job: DashboardJob) => {
+      const jobTypeName = calendarJobTypeNameById.get(job.id);
+      return jobTypeName || JOB_TYPE_LABELS[job.job_type] || job.job_type;
+    },
+    [calendarJobTypeNameById]
   );
   const teamRiskCount = useMemo(
     () => scopedTeamJobs.filter((job) => job.status === "requires_follow_up" || job.status === "awaiting_parts").length,
@@ -563,6 +594,7 @@ export default function Dashboard() {
                 ? new Date(job.scheduled_date as string).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
                 : null;
               const sc = STATUS_CONFIG[job.status] ?? { label: job.status, className: "bg-slate-100 text-slate-600" };
+              const jobTypeLabel = getJobTypeLabel(job);
               return (
                 <Link key={job.id} href="/follow-ups">
                   <Card className="p-4 border border-orange-200 bg-orange-50/40 hover:border-orange-400 hover:shadow-sm transition-all cursor-pointer">
@@ -580,7 +612,7 @@ export default function Dashboard() {
                               <MapPin className="w-3 h-3 shrink-0" />{job.property_address}
                             </span>
                           )}
-                          <span className="shrink-0">{JOB_TYPE_LABELS[job.job_type] ?? job.job_type}</span>
+                          <span className="shrink-0">{jobTypeLabel}</span>
                         </div>
                       </div>
                       <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -612,6 +644,7 @@ export default function Dashboard() {
               const dateStr = job.scheduled_date
                 ? new Date(job.scheduled_date as string).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
                 : null;
+              const jobTypeLabel = getJobTypeLabel(job);
               return (
                 <Link key={job.id} href={`/jobs/${job.id}`}>
                   <Card className="p-4 border border-blue-200 bg-blue-50/40 hover:border-blue-400 hover:shadow-sm transition-all cursor-pointer">
@@ -628,7 +661,7 @@ export default function Dashboard() {
                               <MapPin className="w-3 h-3 shrink-0" />{job.property_address}
                             </span>
                           )}
-                          <span className="shrink-0">{JOB_TYPE_LABELS[job.job_type] ?? job.job_type}</span>
+                          <span className="shrink-0">{jobTypeLabel}</span>
                         </div>
                       </div>
                       <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -675,6 +708,7 @@ export default function Dashboard() {
               {todaysJobs.map(job => {
                 const sc = STATUS_CONFIG[job.status] ?? { label: job.status, className: "bg-slate-100 text-slate-600" };
                 const time = job.scheduled_time ? String(job.scheduled_time).slice(0, 5) : null;
+                const jobTypeLabel = getJobTypeLabel(job);
                 return (
                   <Link key={job.id} href={`/jobs/${job.id}`}>
                     <Card className="p-4 border border-border hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer">
@@ -695,7 +729,7 @@ export default function Dashboard() {
                                 <MapPin className="w-3 h-3 shrink-0" />{job.property_address}
                               </span>
                             )}
-                            <span className="shrink-0">{JOB_TYPE_LABELS[job.job_type] ?? job.job_type}</span>
+                            <span className="shrink-0">{jobTypeLabel}</span>
                           </div>
                         </div>
                         <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />

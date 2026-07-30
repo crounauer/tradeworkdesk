@@ -262,8 +262,8 @@ router.get("/calendar", requireAuth, requireTenant, async (req: AuthenticatedReq
   if (req.tenantId) profilesQ = profilesQ.eq("tenant_id", req.tenantId);
 
   const serviceCatalogueQ = req.tenantId
-    ? supabaseAdmin.from("service_catalogue").select("id, name").eq("tenant_id", req.tenantId).eq("is_active", true)
-    : supabaseAdmin.from("service_catalogue").select("id, name").eq("is_active", true);
+    ? supabaseAdmin.from("service_catalogue").select("id, name, booking_duration_minutes").eq("tenant_id", req.tenantId).eq("is_active", true)
+    : supabaseAdmin.from("service_catalogue").select("id, name, booking_duration_minutes").eq("is_active", true);
 
   let holidaysQ = supabaseAdmin
     .from("calendar_holidays")
@@ -288,23 +288,34 @@ router.get("/calendar", requireAuth, requireTenant, async (req: AuthenticatedReq
   ]);
 
   const hasGeoMapping = !!(tenantFeatures as Record<string, unknown> | null)?.geo_mapping;
-  const serviceMap = new Map(((serviceCatalogueRes as { data?: Array<{ id: string; name: string }> }).data || []).map((s) => [s.id, s.name]));
+  const serviceRows = ((serviceCatalogueRes as { data?: Array<{ id: string; name: string; booking_duration_minutes?: number | null }> }).data || []);
+  const serviceMap = new Map(serviceRows.map((s) => [s.id, s.name]));
+  const serviceDurationMap = new Map(serviceRows.map((s) => [s.id, s.booking_duration_minutes ?? null]));
 
-  const jobs = ((jobsRes.data as unknown as CalendarJobRow[] || [])).map((j) => ({
-    ...j,
-    customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
-    property_address: j.properties?.address_line1 || null,
-    technician_name: j.profiles?.full_name || null,
-    job_type_name:
-      (j.service_catalogue_id ? (serviceMap.get(j.service_catalogue_id) ?? null) : null)
-      ?? (j.job_type?.replace(/_/g, " ") ?? null),
-    property_latitude: hasGeoMapping ? (j.properties?.latitude ?? null) : null,
-    property_longitude: hasGeoMapping ? (j.properties?.longitude ?? null) : null,
-    property_postcode: hasGeoMapping ? (j.properties?.postcode ?? null) : null,
-    customers: undefined,
-    profiles: undefined,
-    properties: undefined,
-  }));
+  const jobs = ((jobsRes.data as unknown as CalendarJobRow[] || [])).map((j) => {
+    const mappedDuration = j.service_catalogue_id ? (serviceDurationMap.get(j.service_catalogue_id) ?? null) : null;
+    const estimatedDuration =
+      Number.isFinite(Number(j.estimated_duration)) && Number(j.estimated_duration) > 0
+        ? Number(j.estimated_duration)
+        : (Number.isFinite(Number(mappedDuration)) && Number(mappedDuration) > 0 ? Number(mappedDuration) : null);
+
+    return {
+      ...j,
+      estimated_duration: estimatedDuration,
+      customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
+      property_address: j.properties?.address_line1 || null,
+      technician_name: j.profiles?.full_name || null,
+      job_type_name:
+        (j.service_catalogue_id ? (serviceMap.get(j.service_catalogue_id) ?? null) : null)
+        ?? (j.job_type?.replace(/_/g, " ") ?? null),
+      property_latitude: hasGeoMapping ? (j.properties?.latitude ?? null) : null,
+      property_longitude: hasGeoMapping ? (j.properties?.longitude ?? null) : null,
+      property_postcode: hasGeoMapping ? (j.properties?.postcode ?? null) : null,
+      customers: undefined,
+      profiles: undefined,
+      properties: undefined,
+    };
+  });
 
   const profileNameById = new Map(((profilesRes.data as Array<{ id: string; full_name: string }> | null) || []).map((p) => [p.id, p.full_name]));
   const holidays = ((holidaysRes.data as CalendarHolidayRow[] || [])).map((h) => ({

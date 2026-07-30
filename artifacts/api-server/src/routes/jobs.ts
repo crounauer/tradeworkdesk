@@ -1828,7 +1828,7 @@ router.patch("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req: 
 router.get("/job-type-options", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from("service_catalogue")
-    .select("id, name")
+    .select("id, name, booking_duration_minutes")
     .eq("tenant_id", req.tenantId!)
     .eq("is_active", true)
     .eq("show_in_job_type_dropdown", true)
@@ -1837,9 +1837,10 @@ router.get("/job-type-options", requireAuth, requireTenant, async (req: Authenti
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   const options = (data || [])
-    .map((row: { id: string; name: string }) => ({
+    .map((row: { id: string; name: string; booking_duration_minutes?: number | null }) => ({
       id: row.id,
       name: row.name,
+      booking_duration_minutes: row.booking_duration_minutes ?? null,
       category: "service",
       is_active: true,
     }))
