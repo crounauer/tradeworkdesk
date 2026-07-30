@@ -382,6 +382,56 @@ router.get("/internal/send-low-credits-alerts", async (req: Request, res: Respon
   res.json({ sent: successCount, results });
 });
 
+router.get("/internal/social/delivery-attempts", async (req: Request, res: Response): Promise<void> => {
+  if (!requireCronSecret(req, res)) return;
+
+  const rawLimit = Number(String(req.query.limit || "50"));
+  const limit = Number.isFinite(rawLimit)
+    ? Math.min(Math.max(Math.trunc(rawLimit), 1), 200)
+    : 50;
+
+  const failedOnly = String(req.query.failedOnly || "").toLowerCase() === "true";
+  const platform = String(req.query.platform || "").trim().toLowerCase();
+  const scope = String(req.query.scope || "").trim().toLowerCase();
+
+  let query = supabaseAdmin
+    .from("social_post_delivery_attempts")
+    .select("id, post_id, tenant_id, account_id, platform, is_platform_scope, trigger_source, correlation_id, attempt_number, error_message, request_snapshot, result_snapshot, error_snapshot, started_at, finished_at, duration_ms")
+    .order("started_at", { ascending: false })
+    .limit(limit);
+
+  if (failedOnly) {
+    query = query.not("error_message", "is", null);
+  }
+
+  if (platform) {
+    query = query.eq("platform", platform);
+  }
+
+  if (scope === "platform") {
+    query = query.eq("is_platform_scope", true);
+  } else if (scope === "tenant") {
+    query = query.eq("is_platform_scope", false);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({
+    ok: true,
+    filters: {
+      limit,
+      failedOnly,
+      platform: platform || null,
+      scope: scope || null,
+    },
+    attempts: data || [],
+  });
+});
+
 const BACKUP_SETTING_KEYS = [
   "backup_r2_account_id",
   "backup_r2_access_key_id",

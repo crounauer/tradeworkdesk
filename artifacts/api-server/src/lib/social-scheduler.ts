@@ -1,5 +1,10 @@
 import { supabaseAdmin } from "./supabase";
 import { dispatchPost } from "./social-platforms";
+import {
+  beginSocialDeliveryAttempt,
+  markSocialDeliveryAttemptFailed,
+  markSocialDeliveryAttemptSucceeded,
+} from "./social-delivery-attempts";
 import { notifyUsersForEvent } from "./push-events";
 import { buildUtmTaggedUrl, resolvePromotionPageUrl } from "./social-website-promotion";
 
@@ -79,6 +84,7 @@ async function processScheduledPosts(): Promise<void> {
     }
 
     for (const post of claimedPosts ?? []) {
+      let attempt = null;
       try {
         const enrichedPost = await enrichScheduledWebsitePromotion(post as Record<string, unknown>);
 
@@ -113,7 +119,19 @@ async function processScheduledPosts(): Promise<void> {
           continue;
         }
 
+        const attempt = await beginSocialDeliveryAttempt({
+          post: enrichedPost as any,
+          account: account as any,
+          scope: {
+            isPlatformScope: false,
+            tenantId: String(enrichedPost.tenant_id || "") || null,
+            createdByUserId: String(enrichedPost.created_by_user_id || "") || null,
+          },
+          triggerSource: "scheduler",
+        });
+
         const result = await dispatchPost(enrichedPost as any, account);
+        await markSocialDeliveryAttemptSucceeded({ attempt, result });
 
         await supabaseAdmin
           .from("social_posts")
@@ -128,6 +146,7 @@ async function processScheduledPosts(): Promise<void> {
 
         console.log(`[social-scheduler] Posted ${String(enrichedPost.platform)} post ${String(enrichedPost.id)}`);
       } catch (err) {
+        await markSocialDeliveryAttemptFailed({ attempt, err });
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[social-scheduler] Failed to post ${String(post.id)}:`, message);
 
@@ -163,6 +182,7 @@ async function processPlatformScheduledPosts(): Promise<void> {
     }
 
     for (const post of claimedPosts ?? []) {
+      let attempt = null;
       try {
         let accountQuery = supabaseAdmin
           .from("platform_social_accounts")
@@ -190,7 +210,19 @@ async function processPlatformScheduledPosts(): Promise<void> {
           continue;
         }
 
+        const attempt = await beginSocialDeliveryAttempt({
+          post: post as any,
+          account: account as any,
+          scope: {
+            isPlatformScope: true,
+            tenantId: null,
+            createdByUserId: String(post.created_by_user_id || "") || null,
+          },
+          triggerSource: "scheduler",
+        });
+
         const result = await dispatchPost(post as any, account as any);
+        await markSocialDeliveryAttemptSucceeded({ attempt, result });
 
         await supabaseAdmin
           .from("platform_social_posts")
@@ -205,6 +237,7 @@ async function processPlatformScheduledPosts(): Promise<void> {
 
         console.log(`[social-scheduler] Posted platform ${String(post.platform)} post ${String(post.id)}`);
       } catch (err) {
+        await markSocialDeliveryAttemptFailed({ attempt, err });
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[social-scheduler] Failed to post platform ${String(post.id)}:`, message);
 

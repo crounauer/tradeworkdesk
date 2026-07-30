@@ -210,6 +210,48 @@ function formatXApiError(err: unknown): string {
   return String(err);
 }
 
+function toCompactJson(value: unknown, maxLength = 1200): string {
+  try {
+    const text = JSON.stringify(value);
+    if (!text) return "";
+    if (text.length <= maxLength) return text;
+    return `${text.slice(0, maxLength)}...`;
+  } catch {
+    return "";
+  }
+}
+
+function getNestedString(obj: unknown, path: string[]): string {
+  let current: unknown = obj;
+  for (const key of path) {
+    if (!current || typeof current !== "object") return "";
+    current = (current as Record<string, unknown>)[key];
+  }
+  return String(current || "").trim();
+}
+
+function extractTweetIdFromResult(result: unknown): string {
+  const directCandidates = [
+    getNestedString(result, ["data", "id"]),
+    getNestedString(result, ["data", "tweet_id"]),
+    getNestedString(result, ["id"]),
+    getNestedString(result, ["data", "create_tweet", "tweet_results", "result", "rest_id"]),
+    getNestedString(result, ["data", "create_tweet", "tweet_results", "result", "legacy", "id_str"]),
+  ].filter(Boolean);
+
+  if (directCandidates.length > 0) {
+    return directCandidates[0];
+  }
+
+  const editHistory = (result as { data?: { edit_history_tweet_ids?: unknown } } | null)?.data?.edit_history_tweet_ids;
+  if (Array.isArray(editHistory) && editHistory.length > 0) {
+    const first = String(editHistory[0] || "").trim();
+    if (first) return first;
+  }
+
+  return "";
+}
+
 function isXDuplicatePostError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   const anyErr = err as Error & {
@@ -469,9 +511,10 @@ async function postToX(
         throw new Error(`X API error: ${formatXApiError(err)}`);
       }
     }
-    const tweetId = String(tweetResult.data?.id || "").trim();
+    const tweetId = extractTweetIdFromResult(tweetResult);
     if (!tweetId) {
-      throw new Error("X API did not return a tweet id");
+      const payload = toCompactJson(tweetResult);
+      throw new Error(`X API did not return a tweet id${payload ? ` (payload: ${payload})` : ""}`);
     }
 
     return {
@@ -532,7 +575,11 @@ async function postToX(
     }
     throw new Error(`X API error: ${formatXApiError(err)}`);
   }
-  const tweetId = result.data.id;
+  const tweetId = extractTweetIdFromResult(result);
+  if (!tweetId) {
+    const payload = toCompactJson(result);
+    throw new Error(`X API did not return a tweet id${payload ? ` (payload: ${payload})` : ""}`);
+  }
 
   return {
     postId: tweetId,

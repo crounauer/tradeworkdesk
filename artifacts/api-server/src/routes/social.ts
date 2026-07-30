@@ -5,6 +5,11 @@ import { requireAuth, requireTenant, requireRole, requirePlanFeature, type Authe
 import { supabaseAdmin } from "../lib/supabase";
 import { encryptCredentials } from "../lib/social-crypto";
 import { dispatchPost } from "../lib/social-platforms";
+import {
+  beginSocialDeliveryAttempt,
+  markSocialDeliveryAttemptFailed,
+  markSocialDeliveryAttemptSucceeded,
+} from "../lib/social-delivery-attempts";
 import { generatePostSuggestions, generateSocialImage, type SuggestionItem } from "../lib/social-ai";
 import { hasActiveAddon, deductAddonCreditsAmount, getAddonCredits } from "../lib/tenant-limits";
 import {
@@ -2279,8 +2284,21 @@ router.post(
         return;
       }
 
+      let attempt = null;
       try {
+        attempt = await beginSocialDeliveryAttempt({
+          post,
+          account,
+          scope: {
+            isPlatformScope,
+            tenantId: tenantId || null,
+            createdByUserId: req.userId || null,
+          },
+          triggerSource: "manual",
+        });
+
         const result = await dispatchPost(post, account);
+        await markSocialDeliveryAttemptSucceeded({ attempt, result });
         const { data: updated } = await supabaseAdmin
           .from(isPlatformScope ? "platform_social_posts" : "social_posts")
           .update({
@@ -2295,6 +2313,7 @@ router.post(
         res.json(updated);
         return;
       } catch (err) {
+        await markSocialDeliveryAttemptFailed({ attempt, err });
         const message = err instanceof Error ? err.message : String(err);
         await supabaseAdmin
           .from(isPlatformScope ? "platform_social_posts" : "social_posts")
@@ -2306,6 +2325,62 @@ router.post(
     }
 
     res.json(post);
+  },
+);
+
+router.get(
+  "/admin/social/posts/:id/delivery-attempts",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { id } = req.params;
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
+
+    if (!isPlatformScope && !tenantId) {
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
+      return;
+    }
+
+    const table = isPlatformScope ? "platform_social_posts" : "social_posts";
+    let postLookup = supabaseAdmin
+      .from(table)
+      .select("id")
+      .eq("id", id)
+      .limit(1);
+
+    if (!isPlatformScope) {
+      postLookup = postLookup.eq("tenant_id", tenantId!);
+    }
+
+    const { data: postRow } = await postLookup.maybeSingle();
+    if (!postRow) {
+      res.status(404).json({ error: "Post not found" });
+      return;
+    }
+
+    let attemptsQuery = supabaseAdmin
+      .from("social_post_delivery_attempts")
+      .select("id, post_id, tenant_id, account_id, platform, is_platform_scope, trigger_source, correlation_id, attempt_number, request_snapshot, result_snapshot, error_message, error_snapshot, started_at, finished_at, duration_ms")
+      .eq("post_id", id)
+      .eq("is_platform_scope", isPlatformScope)
+      .order("attempt_number", { ascending: false })
+      .order("started_at", { ascending: false })
+      .limit(25);
+
+    if (!isPlatformScope) {
+      attemptsQuery = attemptsQuery.eq("tenant_id", tenantId!);
+    }
+
+    const { data: attempts, error } = await attemptsQuery;
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    res.json({ postId: id, isPlatformScope, attempts: attempts || [] });
   },
 );
 
