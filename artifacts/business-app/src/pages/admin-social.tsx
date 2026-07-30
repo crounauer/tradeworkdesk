@@ -68,12 +68,12 @@ const POST_TYPE_OPTIONS = [
   { value: "website_promotion", label: "Website Promotion Post" },
 ] as const;
 
-const SOCIAL_ACCOUNT_CREDENTIAL_FIELDS: Record<string, { key: string; label: string }[]> = {
+const SOCIAL_ACCOUNT_CREDENTIAL_FIELDS: Record<string, { key: string; label: string; placeholder?: string }[]> = {
   x: [
-    { key: "appKey", label: "App Key" },
-    { key: "appSecret", label: "App Secret" },
-    { key: "accessToken", label: "Access Token" },
-    { key: "accessSecret", label: "Access Secret" },
+    { key: "appKey", label: "Consumer Key", placeholder: "consumer_key (API Key)" },
+    { key: "appSecret", label: "Consumer Secret", placeholder: "secret_key (API Key Secret)" },
+    { key: "accessToken", label: "Access Token (OAuth 1.0a)", placeholder: "Access Token (user token)" },
+    { key: "accessSecret", label: "Access Token Secret (OAuth 1.0a)", placeholder: "Access Token Secret" },
   ],
   facebook: [{ key: "accessToken", label: "Page Access Token" }],
   instagram: [{ key: "accessToken", label: "Page Access Token" }],
@@ -1535,14 +1535,19 @@ function ConnectAccountDialog({
 
           <div className="space-y-3">
             <Label className="text-sm font-semibold">Credentials</Label>
+            {platform === "x" && (
+              <p className="text-xs text-muted-foreground">
+                Use OAuth 1.0a user tokens here. client_id, client_secret, and bearer_token are OAuth 2.0 values and are not used in this manual form.
+              </p>
+            )}
             {(SOCIAL_ACCOUNT_CREDENTIAL_FIELDS[platform] || []).map((field) => (
               <div key={field.key}>
                 <Label className="text-xs text-muted-foreground">{field.label}</Label>
                 <Input
-                  type="password"
+                  type={field.key.toLowerCase().includes("secret") ? "password" : "text"}
                   value={credentials[field.key] || ""}
                   onChange={(e) => setCredentials((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                  placeholder={field.label}
+                  placeholder={field.placeholder || field.label}
                 />
               </div>
             ))}
