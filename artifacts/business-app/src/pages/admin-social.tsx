@@ -1340,9 +1340,17 @@ function CreatePostDialog({
   );
 }
 
-function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
+function ConnectAccountDialog({
+  onCreated,
+  initialPlatform = "facebook",
+  triggerLabel = "Connect Account",
+}: {
+  onCreated: () => void;
+  initialPlatform?: string;
+  triggerLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
-  const [platform, setPlatform] = useState("facebook");
+  const [platform, setPlatform] = useState(initialPlatform);
   const [profileName, setProfileName] = useState("");
   const [pageId, setPageId] = useState("");
   const [pageName, setPageName] = useState("");
@@ -1376,7 +1384,7 @@ function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
   });
 
   const resetForm = () => {
-    setPlatform("facebook");
+    setPlatform(initialPlatform);
     setProfileName("");
     setPageId("");
     setPageName("");
@@ -1391,7 +1399,7 @@ function ConnectAccountDialog({ onCreated }: { onCreated: () => void }) {
       <DialogTrigger asChild>
         <Button variant="outline">
           <Plus className="w-4 h-4 mr-2" />
-          Connect Account
+          {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
@@ -2398,6 +2406,11 @@ function AccountsTab() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
+        <ConnectAccountDialog
+          initialPlatform="x"
+          triggerLabel="Connect X Manually (OAuth1)"
+          onCreated={() => queryClient.invalidateQueries({ queryKey: ["social-accounts"] })}
+        />
         <Button
           variant="default"
           onClick={() => startXOAuthMutation.mutate()}
