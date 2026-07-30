@@ -531,6 +531,12 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
     [navigate]
   );
 
+  const openDayView = useCallback((day: Date) => {
+    setPopoverDate(null);
+    setViewMode("day");
+    setAnchorDate(new Date(day));
+  }, []);
+
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>, dateStr: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
@@ -1384,14 +1390,19 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                 } ${isToday ? "ring-2 ring-inset ring-primary/30 bg-primary/[0.03]" : ""} ${
                   viewMode === "month" && !isCurrentMonth ? "opacity-40" : ""
                 } ${isDropTarget ? "bg-primary/10 ring-2 ring-inset ring-primary/50" : ""} ${
-                  onDayAction ? "cursor-pointer hover:bg-muted/30" : ""
+                  (viewMode === "week" || onDayAction) ? "cursor-pointer hover:bg-muted/30" : ""
                 }`}
                 onDragOver={(e) => handleDragOver(e, ds)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, ds)}
                 onClick={(e) => {
-                  if (!onDayAction) return;
                   if ((e.target as HTMLElement).closest("[data-job-card]")) return;
+                  if (viewMode === "week") {
+                    e.stopPropagation();
+                    openDayView(day);
+                    return;
+                  }
+                  if (!onDayAction) return;
                   e.stopPropagation();
                   setPopoverDate(showPopover ? null : ds);
                 }}
@@ -1400,8 +1411,8 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                   <span
                     role="button"
                     tabIndex={0}
-                    onClick={(e) => { e.stopPropagation(); setViewMode("day"); setAnchorDate(new Date(day)); }}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setViewMode("day"); setAnchorDate(new Date(day)); } }}
+                    onClick={(e) => { e.stopPropagation(); openDayView(day); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); openDayView(day); } }}
                     className={`text-xs font-medium cursor-pointer hover:underline ${
                       isToday
                         ? "bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center"
