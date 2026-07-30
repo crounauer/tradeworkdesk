@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCalendarData } from "@/hooks/use-calendar-data";
 import { VisitIntentBadge } from "@/components/visit-intent-badge";
 import { PriorityBadge } from "@/components/priority-badge";
+import { AppointmentConfirmationBadge } from "@/components/appointment-confirmation-badge";
 
 type CalendarJob = {
   id: string;
@@ -22,6 +23,9 @@ type CalendarJob = {
   visit_intent?: "standard" | "estimate" | null;
   status: string;
   priority: string;
+  customer_confirmation_status?: "pending" | "confirmed" | "change_requested" | null;
+  customer_confirmed_at?: string | null;
+  customer_change_requested_at?: string | null;
   scheduled_date: string | Date;
   scheduled_time?: string | null;
   estimated_duration?: number | null;
@@ -885,6 +889,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                                 <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                                 <span className="text-sm font-semibold truncate">{job.customer_name || "Unknown"}</span>
                                 <PriorityBadge priority={job.priority} />
+                                <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} />
                                 {(() => {
                                   const { label, intent } = getJobTypeDisplay(job);
                                   return (
@@ -1012,6 +1017,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                             <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
                             <PriorityBadge priority={job.priority} />
+                            <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} />
                             {(() => {
                               const { label, intent } = getJobTypeDisplay(job);
                               return (
@@ -1102,6 +1108,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                             <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
                             <PriorityBadge priority={job.priority} />
+                            <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} />
                             {(() => {
                               const { label, intent } = getJobTypeDisplay(job);
                               return (
@@ -1237,6 +1244,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                                 <span className="text-[11px] font-semibold truncate">{job.customer_name || "Unknown"}</span>
                                 <PriorityBadge priority={job.priority} className="text-[9px] px-1.5 py-0" />
+                                <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} className="text-[9px] px-1.5 py-0" />
                               </div>
                               <div className="text-[10px] opacity-75 truncate ml-2.5">
                                 {getJobTimeRangeLabel(job)}
@@ -1355,6 +1363,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           {job.customer_name || "Unknown"}
                         </span>
                         <PriorityBadge priority={job.priority} className="text-[9px] px-1.5 py-0" />
+                        <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} className="text-[9px] px-1.5 py-0" />
                         {isSubjectToConfirmation(job) && (
                           <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200 ml-1 shrink-0">
                             Subject to confirmation
@@ -1531,6 +1540,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           {job.customer_name || "Unknown"}
                         </span>
                         <PriorityBadge priority={job.priority} />
+                        <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} />
                         {(() => {
                           const { label, intent } = getJobTypeDisplay(job);
                           return (

@@ -3,7 +3,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, requireRole, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 
 const CALENDAR_JOB_FIELDS =
-  "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, visit_intent, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, created_at, updated_at, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)";
+  "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, visit_intent, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, customer_confirmation_status, customer_confirmed_at, customer_change_requested_at, created_at, updated_at, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)";
 
 const PROFILE_FIELDS =
   "id, email, full_name, role, phone, tenant_id, is_active, created_at, updated_at";
@@ -27,6 +27,9 @@ interface CalendarJobRow {
   estimated_duration: number | null;
   arrival_time: string | null;
   departure_time: string | null;
+  customer_confirmation_status?: "pending" | "confirmed" | "change_requested" | null;
+  customer_confirmed_at?: string | null;
+  customer_change_requested_at?: string | null;
   created_at: string;
   updated_at: string;
   customers?: { first_name: string; last_name: string } | null;

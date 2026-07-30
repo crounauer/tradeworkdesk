@@ -58,6 +58,9 @@ interface SupabaseJobRow {
   estimated_duration: number | null;
   arrival_time: string | null;
   departure_time: string | null;
+  customer_confirmation_status?: "pending" | "confirmed" | "change_requested" | null;
+  customer_confirmed_at?: string | null;
+  customer_change_requested_at?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -453,7 +456,7 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
 
   let q = supabaseAdmin
     .from("jobs")
-    .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, visit_intent, fuel_category, status, is_in_progress, is_awaiting_parts, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name, is_active), properties(address_line1, address_line2, city, county, postcode, latitude, longitude), profiles(full_name)")
+    .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, visit_intent, fuel_category, status, is_in_progress, is_awaiting_parts, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, customer_confirmation_status, customer_confirmed_at, customer_change_requested_at, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name, is_active), properties(address_line1, address_line2, city, county, postcode, latitude, longitude), profiles(full_name)")
     .eq("is_active", true)
     .order("scheduled_date", { ascending: true, nullsFirst: false })
     .order("scheduled_time", { ascending: true, nullsFirst: true })

@@ -11,6 +11,9 @@ interface CalendarJob {
   job_type_name?: string | null;
   status: string;
   priority: string;
+  customer_confirmation_status?: "pending" | "confirmed" | "change_requested" | null;
+  customer_confirmed_at?: string | null;
+  customer_change_requested_at?: string | null;
   scheduled_date: string;
   scheduled_time?: string | null;
   estimated_duration?: number | null;

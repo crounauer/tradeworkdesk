@@ -12,6 +12,7 @@ import { useInitData } from "@/hooks/use-init-data";
 import { useHomepageData } from "@/hooks/use-homepage-data";
 import { useCalendarData } from "@/hooks/use-calendar-data";
 import { QuickEnquiryDialog } from "@/components/quick-enquiry-dialog";
+import { AppointmentConfirmationBadge } from "@/components/appointment-confirmation-badge";
 const BookJobDialog = lazy(() => import("@/components/book-job-dialog").then(m => ({ default: m.BookJobDialog })));
 const QuickInvoiceDialog = lazy(() => import("@/components/quick-invoice-dialog").then(m => ({ default: m.QuickInvoiceDialog })));
 
@@ -20,6 +21,9 @@ type DashboardJob = {
   job_type: string;
   status: string;
   priority: string;
+  customer_confirmation_status?: "pending" | "confirmed" | "change_requested" | null;
+  customer_confirmed_at?: string | null;
+  customer_change_requested_at?: string | null;
   scheduled_date: string | Date;
   scheduled_time?: string | null;
   description?: string | null;
@@ -47,6 +51,7 @@ type CalendarDashboardJob = {
   assigned_technician_id?: string | null;
   scheduled_date: string;
   job_type_name?: string | null;
+  customer_confirmation_status?: "pending" | "confirmed" | "change_requested" | null;
 };
 
 type CalendarProfile = {
@@ -302,12 +307,20 @@ export default function Dashboard() {
     () => new Map(teamCalendarJobs.map((job) => [job.id, job.job_type_name ?? null])),
     [teamCalendarJobs]
   );
+  const calendarConfirmationStatusById = useMemo(
+    () => new Map(teamCalendarJobs.map((job) => [job.id, job.customer_confirmation_status ?? null])),
+    [teamCalendarJobs]
+  );
   const getJobTypeLabel = useCallback(
     (job: DashboardJob) => {
       const jobTypeName = calendarJobTypeNameById.get(job.id);
       return jobTypeName || JOB_TYPE_LABELS[job.job_type] || job.job_type;
     },
     [calendarJobTypeNameById]
+  );
+  const getJobConfirmationStatus = useCallback(
+    (job: DashboardJob) => calendarConfirmationStatusById.get(job.id) || job.customer_confirmation_status || null,
+    [calendarConfirmationStatusById]
   );
   const teamRiskCount = useMemo(
     () => scopedTeamJobs.filter((job) => job.status === "requires_follow_up" || job.status === "awaiting_parts").length,
@@ -595,6 +608,7 @@ export default function Dashboard() {
                 : null;
               const sc = STATUS_CONFIG[job.status] ?? { label: job.status, className: "bg-slate-100 text-slate-600" };
               const jobTypeLabel = getJobTypeLabel(job);
+              const confirmationStatus = getJobConfirmationStatus(job);
               return (
                 <Link key={job.id} href="/follow-ups">
                   <Card className="p-4 border border-orange-200 bg-orange-50/40 hover:border-orange-400 hover:shadow-sm transition-all cursor-pointer">
@@ -604,6 +618,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm truncate">{job.customer_name ?? "Unknown Customer"}</span>
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${sc.className}`}>{sc.label}</span>
+                          <AppointmentConfirmationBadge status={confirmationStatus} showPending={false} />
                           {dateStr && <span className="text-xs text-muted-foreground shrink-0">{dateStr}</span>}
                         </div>
                         <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
@@ -645,6 +660,7 @@ export default function Dashboard() {
                 ? new Date(job.scheduled_date as string).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
                 : null;
               const jobTypeLabel = getJobTypeLabel(job);
+              const confirmationStatus = getJobConfirmationStatus(job);
               return (
                 <Link key={job.id} href={`/jobs/${job.id}`}>
                   <Card className="p-4 border border-blue-200 bg-blue-50/40 hover:border-blue-400 hover:shadow-sm transition-all cursor-pointer">
@@ -653,6 +669,7 @@ export default function Dashboard() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm truncate">{job.customer_name ?? "Unknown Customer"}</span>
+                          <AppointmentConfirmationBadge status={confirmationStatus} showPending={false} />
                           {dateStr && <span className="text-xs text-muted-foreground shrink-0">{dateStr}</span>}
                         </div>
                         <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
@@ -709,6 +726,7 @@ export default function Dashboard() {
                 const sc = STATUS_CONFIG[job.status] ?? { label: job.status, className: "bg-slate-100 text-slate-600" };
                 const time = job.scheduled_time ? String(job.scheduled_time).slice(0, 5) : null;
                 const jobTypeLabel = getJobTypeLabel(job);
+                const confirmationStatus = getJobConfirmationStatus(job);
                 return (
                   <Link key={job.id} href={`/jobs/${job.id}`}>
                     <Card className="p-4 border border-border hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer">
@@ -722,6 +740,7 @@ export default function Dashboard() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-sm truncate">{job.customer_name ?? "Unknown Customer"}</span>
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${sc.className}`}>{sc.label}</span>
+                            <AppointmentConfirmationBadge status={confirmationStatus} showPending={false} />
                           </div>
                           <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
                             {job.property_address && (
@@ -756,6 +775,7 @@ export default function Dashboard() {
               const dateStr = job.scheduled_date
                 ? new Date(job.scheduled_date as string).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
                 : null;
+              const confirmationStatus = getJobConfirmationStatus(job);
               return (
                 <Link key={job.id} href={`/jobs/${job.id}`}>
                   <Card className="p-4 border border-border hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer">
@@ -769,6 +789,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm truncate">{job.customer_name ?? "Unknown Customer"}</span>
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${sc.className}`}>{sc.label}</span>
+                          <AppointmentConfirmationBadge status={confirmationStatus} showPending={false} />
                         </div>
                         {job.property_address && (
                           <span className="text-xs text-muted-foreground flex items-center gap-1 truncate mt-0.5">

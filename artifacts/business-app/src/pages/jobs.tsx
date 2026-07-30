@@ -22,6 +22,7 @@ import { BookJobDialog } from "@/components/book-job-dialog";
 import { RebookDialog } from "@/components/rebook-dialog";
 import { VisitIntentBadge } from "@/components/visit-intent-badge";
 import { PriorityBadge } from "@/components/priority-badge";
+import { AppointmentConfirmationBadge } from "@/components/appointment-confirmation-badge";
 
 const JobMapView = lazy(() => import("@/components/job-map-view"));
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
@@ -80,6 +81,7 @@ function JobsContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [jobTypeIdFilter, setJobTypeIdFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
+  const [confirmationFilter, setConfirmationFilter] = useState("");
   const [showBookJob, setShowBookJob] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkExport, setShowBulkExport] = useState(false);
@@ -163,6 +165,7 @@ function JobsContent() {
   useCacheJobTypes(jobTypes.length > 0 ? jobTypes : undefined);
 
   const priorities = ["low", "medium", "high", "urgent"];
+  const confirmationStatuses = ["pending", "confirmed", "change_requested"];
 
   const filteredJobs = (jobs || [])
     .filter((j) => {
@@ -172,7 +175,8 @@ function JobsContent() {
       if (j.job_type_name) return j.job_type_name === selectedType.name;
       return false;
     })
-    .filter((j) => !priorityFilter || j.priority === priorityFilter);
+    .filter((j) => !priorityFilter || j.priority === priorityFilter)
+    .filter((j) => !confirmationFilter || j.customer_confirmation_status === confirmationFilter);
 
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -334,8 +338,18 @@ function JobsContent() {
             <option key={p} value={p}>{p}</option>
           ))}
         </select>
-        {(statusFilter || jobTypeIdFilter || priorityFilter) && (
-          <Button variant="ghost" size="sm" onClick={() => { setStatusFilter(""); setJobTypeIdFilter(""); setPriorityFilter(""); setCurrentPage(1); }}>
+        <select
+          className="border border-border rounded-lg px-3 py-2 text-sm bg-background"
+          value={confirmationFilter}
+          onChange={(e) => { setConfirmationFilter(e.target.value); setCurrentPage(1); }}
+        >
+          <option value="">All Confirmations</option>
+          {confirmationStatuses.map((s) => (
+            <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
+          ))}
+        </select>
+        {(statusFilter || jobTypeIdFilter || priorityFilter || confirmationFilter) && (
+          <Button variant="ghost" size="sm" onClick={() => { setStatusFilter(""); setJobTypeIdFilter(""); setPriorityFilter(""); setConfirmationFilter(""); setCurrentPage(1); }}>
             <X className="w-4 h-4 mr-1" /> Clear
           </Button>
         )}
@@ -554,6 +568,7 @@ function JobCard({
               </span>
               <PriorityBadge priority={job.priority as string | null | undefined} />
               <VisitIntentBadge intent={job.visit_intent as string | null | undefined} jobTypeLabel={(job.job_type_name ?? job.job_type) as string | null | undefined} showStandard={false} />
+              <AppointmentConfirmationBadge status={job.customer_confirmation_status as string | null | undefined} showPending={false} />
               {hasPending && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 border border-amber-200">
                   <CloudOff className="w-3 h-3" /> Pending sync
