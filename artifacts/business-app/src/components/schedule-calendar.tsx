@@ -165,11 +165,34 @@ function getHolidayDurationMinutes(holiday: CalendarHoliday): number {
   return endMinutes - startMinutes;
 }
 
-function getSlotHoursForDuration(startTime: string, durationMinutes: number): number[] {
+type DaySlotMinutes = 5 | 15 | 30;
+const DEFAULT_DAY_SLOT_MINUTES: DaySlotMinutes = 15;
+const DAY_SLOT_STORAGE_KEY = "schedule.daySlotMinutes";
+const VIEW_MODE_STORAGE_KEY = "schedule.viewMode";
+
+function formatTime24FromMinutes(totalMinutes: number): string {
+  const clamped = Math.max(0, Math.min(totalMinutes, (24 * 60) - 1));
+  const h = Math.floor(clamped / 60);
+  const m = clamped % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function getSlotRangeLabel(startMinutes: number, slotMinutes = DEFAULT_DAY_SLOT_MINUTES): string {
+  const endMinutes = startMinutes + slotMinutes;
+  return `${formatTimeFromMinutes(startMinutes)}-${formatTimeFromMinutes(endMinutes)}`;
+}
+
+function getSlotStartsForDuration(startTime: string, durationMinutes: number, slotMinutes = DEFAULT_DAY_SLOT_MINUTES): number[] {
   const parsedStart = parseHourMinute(startTime);
   if (!parsedStart) return [];
-  const spanHours = Math.max(1, Math.ceil(durationMinutes / 60));
-  return Array.from({ length: spanHours }, (_, idx) => parsedStart.hour + idx).filter((h) => h >= 0 && h <= 23);
+
+  const startMinutes = (parsedStart.hour * 60) + parsedStart.minute;
+  const slotAlignedStart = Math.floor(startMinutes / slotMinutes) * slotMinutes;
+  const offset = startMinutes - slotAlignedStart;
+  const slotCount = Math.max(1, Math.ceil((offset + durationMinutes) / slotMinutes));
+
+  return Array.from({ length: slotCount }, (_, idx) => slotAlignedStart + (idx * slotMinutes))
+    .filter((m) => m >= 0 && m <= ((24 * 60) - slotMinutes));
 }
 
 function getJobEndDate(job: CalendarJob): string {
@@ -277,12 +300,32 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
   const [popoverDate, setPopoverDate] = useState<string | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [dayViewLayout, setDayViewLayout] = useState<"timeline" | "lanes">("timeline");
+  const [daySlotMinutes, setDaySlotMinutes] = useState<DaySlotMinutes>(DEFAULT_DAY_SLOT_MINUTES);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(DAY_SLOT_STORAGE_KEY);
+    const parsed = Number(stored);
+    if (parsed === 5 || parsed === 15 || parsed === 30) {
+      setDaySlotMinutes(parsed);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(DAY_SLOT_STORAGE_KEY, String(daySlotMinutes));
+  }, [daySlotMinutes]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search || "");
+    const storedView = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
     const view = params.get("view");
     const date = params.get("date");
+
+    if (storedView === "day" || storedView === "week" || storedView === "month") {
+      setViewMode(storedView);
+    }
 
     if (view === "day" || view === "week" || view === "month") {
       setViewMode(view);
@@ -295,6 +338,11 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     if (!popoverDate) return;
@@ -727,6 +775,24 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
             </div>
           )}
 
+          {viewMode === "day" && (
+            <div className="flex bg-muted rounded-lg p-0.5">
+              {[5, 15, 30].map((minutes) => {
+                const isActive = daySlotMinutes === minutes;
+                return (
+                  <button
+                    key={minutes}
+                    type="button"
+                    onClick={() => setDaySlotMinutes(minutes as DaySlotMinutes)}
+                    className={`text-xs font-medium px-2.5 py-1.5 rounded-md transition-all ${isActive ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {minutes}m
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
@@ -771,21 +837,21 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
         const timedDayHolidays = dayHolidays.filter((h) => isTimedSingleDayHoliday(h, ds));
         const allDayDayHolidays = dayHolidays.filter((h) => !isTimedSingleDayHoliday(h, ds));
         const isToday = isSameDay(ds, todayStr);
-        const jobsByHour: Record<number, Array<{ job: CalendarJob; slotIndex: number; totalSlots: number; durationMinutes: number }>> = {};
-        const holidaysByHour: Record<number, Array<{ holiday: CalendarHoliday; slotIndex: number; totalSlots: number; durationMinutes: number }>> = {};
+        const jobsBySlot: Record<number, Array<{ job: CalendarJob; slotIndex: number; totalSlots: number; durationMinutes: number }>> = {};
+        const holidaysBySlot: Record<number, Array<{ holiday: CalendarHoliday; slotIndex: number; totalSlots: number; durationMinutes: number }>> = {};
         const unscheduled: CalendarJob[] = [];
-        let minHour = 7;
-        let maxHour = 20;
+        let minSlotStart = 7 * 60;
+        let maxSlotStart = 20 * 60;
         for (const job of dayJobs) {
           if (job.scheduled_time) {
             const durationMinutes = getJobDurationMinutes(job);
-            const slotHours = getSlotHoursForDuration(job.scheduled_time, durationMinutes);
-            if (slotHours.length === 0) continue;
-            minHour = Math.min(minHour, slotHours[0]);
-            maxHour = Math.max(maxHour, slotHours[slotHours.length - 1]);
-            slotHours.forEach((hour, slotIndex) => {
-              if (!jobsByHour[hour]) jobsByHour[hour] = [];
-              jobsByHour[hour].push({ job, slotIndex, totalSlots: slotHours.length, durationMinutes });
+            const slotStarts = getSlotStartsForDuration(job.scheduled_time, durationMinutes, daySlotMinutes);
+            if (slotStarts.length === 0) continue;
+            minSlotStart = Math.min(minSlotStart, slotStarts[0]);
+            maxSlotStart = Math.max(maxSlotStart, slotStarts[slotStarts.length - 1]);
+            slotStarts.forEach((slotStart, slotIndex) => {
+              if (!jobsBySlot[slotStart]) jobsBySlot[slotStart] = [];
+              jobsBySlot[slotStart].push({ job, slotIndex, totalSlots: slotStarts.length, durationMinutes });
             });
           } else {
             unscheduled.push(job);
@@ -793,16 +859,18 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
         }
         for (const holiday of timedDayHolidays) {
           const durationMinutes = getHolidayDurationMinutes(holiday);
-          const slotHours = getSlotHoursForDuration(String(holiday.start_time), durationMinutes);
-          if (slotHours.length === 0) continue;
-          minHour = Math.min(minHour, slotHours[0]);
-          maxHour = Math.max(maxHour, slotHours[slotHours.length - 1]);
-          slotHours.forEach((hour, slotIndex) => {
-            if (!holidaysByHour[hour]) holidaysByHour[hour] = [];
-            holidaysByHour[hour].push({ holiday, slotIndex, totalSlots: slotHours.length, durationMinutes });
+          const slotStarts = getSlotStartsForDuration(String(holiday.start_time), durationMinutes, daySlotMinutes);
+          if (slotStarts.length === 0) continue;
+          minSlotStart = Math.min(minSlotStart, slotStarts[0]);
+          maxSlotStart = Math.max(maxSlotStart, slotStarts[slotStarts.length - 1]);
+          slotStarts.forEach((slotStart, slotIndex) => {
+            if (!holidaysBySlot[slotStart]) holidaysBySlot[slotStart] = [];
+            holidaysBySlot[slotStart].push({ holiday, slotIndex, totalSlots: slotStarts.length, durationMinutes });
           });
         }
-        const HOURS = Array.from({ length: maxHour - minHour + 1 }, (_, i) => i + minHour);
+        const SLOT_COUNT = Math.floor((maxSlotStart - minSlotStart) / daySlotMinutes) + 1;
+        const TIME_SLOTS = Array.from({ length: SLOT_COUNT }, (_, i) => minSlotStart + (i * daySlotMinutes));
+        const slotRowClass = daySlotMinutes === 5 ? "min-h-[22px]" : daySlotMinutes === 15 ? "min-h-[30px]" : "min-h-[42px]";
 
         if (dayViewLayout === "lanes" && canViewEngineerLanes) {
           return (
@@ -953,28 +1021,35 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
             )}
 
             <div className="bg-background">
-              {HOURS.map((hour) => {
-                const jobs = jobsByHour[hour] || [];
-                const timedHolidays = holidaysByHour[hour] || [];
-                const timeStr = `${hour.toString().padStart(2, "0")}:00`;
-                const slotKey = `${ds}-${hour}`;
+              {TIME_SLOTS.map((slotStart) => {
+                const jobs = jobsBySlot[slotStart] || [];
+                const timedHolidays = holidaysBySlot[slotStart] || [];
+                const timeStr = formatTime24FromMinutes(slotStart);
+                const slotKey = `${ds}-${slotStart}`;
                 const isSlotTarget = dragOverSlot === slotKey;
+                const minuteOfHour = slotStart % 60;
+                const showRowLabel = daySlotMinutes === 5
+                  ? minuteOfHour === 0
+                  : daySlotMinutes === 15
+                    ? minuteOfHour === 0 || minuteOfHour === 30
+                    : true;
+                const showContinuationSummary = minuteOfHour === 0 || daySlotMinutes >= 30;
                 return (
                   <div
-                    key={hour}
-                    className={`flex border-b border-border/50 last:border-b-0 min-h-[52px] transition-colors ${isSlotTarget ? "bg-primary/10 ring-1 ring-inset ring-primary/40" : ""}`}
+                    key={slotStart}
+                    className={`flex border-b border-border/40 last:border-b-0 ${slotRowClass} transition-colors ${isSlotTarget ? "bg-primary/10 ring-1 ring-inset ring-primary/40" : ""}`}
                     onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverSlot(slotKey); setDragOverDate(null); }}
                     onDragLeave={() => setDragOverSlot(null)}
                     onDrop={(e) => handleDrop(e, ds, timeStr)}
                   >
-                    <div className="w-16 shrink-0 px-2 py-2 text-xs font-medium text-muted-foreground bg-muted/30 border-r border-border/50 flex items-start justify-end pt-2">
-                      {timeStr}
+                    <div className={`w-16 shrink-0 px-2 py-1 text-[11px] font-medium text-muted-foreground border-r border-border/50 flex items-start justify-end ${minuteOfHour === 0 ? "bg-muted/35" : "bg-muted/20"}`}>
+                      {showRowLabel ? formatTimeFromMinutes(slotStart) : ""}
                     </div>
-                    <div className="flex-1 p-1.5 space-y-1">
+                    <div className="flex-1 p-1 space-y-1">
                       {timedHolidays.map(({ holiday, slotIndex, totalSlots, durationMinutes }) => (
                         slotIndex === 0 ? (
                           <div
-                            key={`${holiday.id}-${hour}`}
+                            key={`${holiday.id}-${slotStart}`}
                             className={`px-3 py-2 rounded-lg border ${HOLIDAY_STYLES[holiday.holiday_type]}`}
                             title={holiday.notes || undefined}
                           >
@@ -991,18 +1066,26 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           </div>
                         ) : (
                           <div
-                            key={`${holiday.id}-${hour}`}
-                            className={`px-3 py-1.5 rounded-lg border border-dashed ${HOLIDAY_STYLES[holiday.holiday_type]} opacity-85`}
+                            key={`${holiday.id}-${slotStart}`}
+                            className={`px-3 py-2 rounded-lg border ${HOLIDAY_STYLES[holiday.holiday_type]} opacity-90`}
                             title={`${holiday.name} (${holidayTimeRangeLabel(holiday)})`}
                           >
-                            <div className="text-xs font-medium">{holiday.name} (continues)</div>
+                            {showContinuationSummary ? (
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-3.5 h-3.5" />
+                                <span className="text-sm font-semibold">{holiday.name} (continues)</span>
+                                <span className="ml-auto text-[11px] font-medium opacity-90">{getSlotRangeLabel(slotStart, daySlotMinutes)}</span>
+                              </div>
+                            ) : (
+                              <div className="h-2 rounded bg-current/20" />
+                            )}
                           </div>
                         )
                       ))}
                       {jobs.map(({ job, slotIndex, totalSlots, durationMinutes }) => (
                         slotIndex === 0 ? (
                         <div
-                          key={`${job.id}-${hour}`}
+                          key={`${job.id}-${slotStart}`}
                           data-job-card
                           role="button"
                           tabIndex={0}
@@ -1052,7 +1135,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                         </div>
                         ) : (
                           <div
-                            key={`${job.id}-${hour}`}
+                            key={`${job.id}-${slotStart}`}
                             data-job-card
                             role="button"
                             tabIndex={0}
@@ -1061,10 +1144,19 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                             onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
                             onClick={(e) => handleJobClick(e, job.id)}
                             onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
-                            className={`px-3 py-1.5 rounded-lg border border-dashed transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm opacity-85`}
+                            className={`px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm opacity-90`}
                           >
-                            <div className="text-xs font-medium">
-                              {job.customer_name || "Unknown"} (continues)
+                            {showContinuationSummary ? (
+                              <div className="flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
+                                <span className="text-sm font-semibold">{job.customer_name || "Unknown"} (continues)</span>
+                                <span className="ml-auto text-xs opacity-80">{getSlotRangeLabel(slotStart, daySlotMinutes)}</span>
+                              </div>
+                            ) : (
+                              <div className="h-2 rounded bg-current/20" />
+                            )}
+                            <div className="text-[11px] opacity-70 mt-1 ml-4">
+                              {getJobTimeRangeLabel(job)}
                             </div>
                           </div>
                         )

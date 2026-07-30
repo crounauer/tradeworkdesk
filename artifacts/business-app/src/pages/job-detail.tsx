@@ -74,6 +74,16 @@ function getJobTypeDisplay(job: JobLike): { label: string; isEstimate: boolean }
   return { label, isEstimate };
 }
 
+function formatJobDuration(minutesLike: unknown): string {
+  const minutes = Number(minutesLike);
+  if (!Number.isFinite(minutes) || minutes <= 0) return "Not set";
+  if (minutes % 60 === 0) return `${minutes} min (${minutes / 60}h)`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (hours <= 0) return `${minutes} min`;
+  return `${minutes} min (${hours}h ${remainder}m)`;
+}
+
 interface JobPart {
   id: string;
   job_id: string;
@@ -189,6 +199,18 @@ export default function JobDetail() {
     : null;
   const resolvedJobTypeLabel = selectedJobTypeName || jobTypeLabel;
   const visitIntent = typeof jobRecord.visit_intent === "string" ? jobRecord.visit_intent : null;
+  const displayVisitIntent = visitIntent === "estimate"
+    ? "Estimate"
+    : visitIntent === "standard"
+      ? "Standard"
+      : /\b(estimate|quote)\b/i.test(resolvedJobTypeLabel)
+        ? "Estimate"
+        : "Standard";
+  const rawPriority = typeof jobRecord.priority === "string" ? jobRecord.priority : "medium";
+  const displayPriority = String(rawPriority)
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+  const displayDuration = formatJobDuration(jobRecord.estimated_duration);
   const jobRef = typeof jobRecord.job_ref === "string" ? jobRecord.job_ref : null;
   const fromQuoteId = typeof jobRecord.from_quote_id === "string" ? jobRecord.from_quote_id : null;
   const customerConfirmationStatus =
@@ -650,12 +672,22 @@ export default function JobDetail() {
                   <p className="font-medium text-foreground">{job.technician?.full_name || 'Unassigned'}</p>
                 </div>
                 )}
-                {job.estimated_duration && (
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Estimated Duration</p>
-                    <p className="font-medium text-foreground">{job.estimated_duration}</p>
-                  </div>
-                )}
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><ClipboardList className="w-4 h-4"/> Job Type</p>
+                  <p className="font-medium text-foreground">{resolvedJobTypeLabel}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> Job Intent</p>
+                  <p className="font-medium text-foreground">{displayVisitIntent}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><Bookmark className="w-4 h-4"/> Priority</p>
+                  <p className="font-medium text-foreground">{displayPriority}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><Clock className="w-4 h-4"/> Job Duration</p>
+                  <p className="font-medium text-foreground">{displayDuration}</p>
+                </div>
                 <div className="sm:col-span-2 pt-4 border-t border-border/50">
                   <p className="text-sm text-muted-foreground mb-1">Description</p>
                   <p className="text-foreground whitespace-pre-wrap">{job.description || 'No description provided.'}</p>
