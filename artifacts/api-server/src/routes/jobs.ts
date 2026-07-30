@@ -1158,7 +1158,7 @@ router.get("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedReq
     })
   );
 
-  res.json(GetJobResponse.parse({
+  const parsedJob = GetJobResponse.parse({
     ...job,
     customer: customerRes.data || undefined,
     property: propertyRes.data || undefined,
@@ -1169,7 +1169,13 @@ router.get("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedReq
     notes: mappedNotes,
     files: filesWithUrls,
     signatures: sigsWithUrls,
-  }));
+  });
+
+  res.json({
+    ...parsedJob,
+    service_catalogue_id: (job as Record<string, unknown>).service_catalogue_id ?? null,
+    visit_intent: (job as Record<string, unknown>).visit_intent ?? "standard",
+  });
 });
 
 router.get("/jobs/:id/follow-ups/count", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -1542,7 +1548,12 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     }).catch((err) => console.error("[push-events] job_sla_risk failed:", err));
   }
 
-  res.json(UpdateJobResponse.parse(data));
+  const parsedUpdatedJob = UpdateJobResponse.parse(data);
+  res.json({
+    ...parsedUpdatedJob,
+    service_catalogue_id: (data as Record<string, unknown>).service_catalogue_id ?? null,
+    visit_intent: (data as Record<string, unknown>).visit_intent ?? "standard",
+  });
 });
 
 router.get("/products/search", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {

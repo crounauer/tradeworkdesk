@@ -3530,7 +3530,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
   const qc = useQueryClient();
   const { toast } = useToast();
   const { isOnline, queueJobUpdate } = useOffline();
-  const { register, handleSubmit, reset } = useForm<JobEditData>();
+  const { register, handleSubmit, reset, setValue } = useForm<JobEditData>();
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -3541,7 +3541,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
     (job as unknown as { fuel_category?: string | null }).fuel_category || "general"
   );
 
-  const { data: jobTypesData } = useQuery<Array<{ id: string; name: string; is_active: boolean }>>({
+  const { data: jobTypesData } = useQuery<Array<{ id: string; name: string; is_active: boolean; booking_duration_minutes?: number | null }>>({
     queryKey: ["job-types"],
     queryFn: async () => {
       const res = await fetch(`${import.meta.env.BASE_URL}api/job-type-options`);
@@ -3551,6 +3551,15 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
     staleTime: 5 * 60_000,
   });
   const activeJobTypes = (jobTypesData || []).filter(jt => jt.is_active);
+
+  const handleJobTypeChange = (jobTypeId: string) => {
+    setSelectedJobTypeId(jobTypeId);
+    const selectedType = activeJobTypes.find((jt) => String(jt.id) === jobTypeId);
+    const selectedDuration = Number(selectedType?.booking_duration_minutes ?? 0);
+    if (Number.isFinite(selectedDuration) && selectedDuration > 0) {
+      setValue("estimated_duration", String(selectedDuration), { shouldDirty: true });
+    }
+  };
 
   const customerEmail = (job.customer as Record<string, unknown>)?.email as string || "";
   const customerName = `${(job.customer as Record<string, unknown>)?.first_name || ""} ${(job.customer as Record<string, unknown>)?.last_name || ""}`.trim();
@@ -3566,6 +3575,8 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
       estimated_duration: job.estimated_duration != null ? String(job.estimated_duration) : "",
       description: (job.description as string) || "",
     });
+    setSelectedJobTypeId(String((job as unknown as { service_catalogue_id?: string | null }).service_catalogue_id || ""));
+    setSelectedFuelCategory((job as unknown as { fuel_category?: string | null }).fuel_category || "general");
   }, [job, reset]);
 
   const handleSendConfirmation = async () => {
@@ -3591,15 +3602,22 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
   };
 
   const onSubmit = async (data: JobEditData) => {
+    const estimatedDurationValue = String(data.estimated_duration || "").trim();
+    const parsedEstimatedDuration = estimatedDurationValue ? Number(estimatedDurationValue) : null;
+    if (estimatedDurationValue && !Number.isFinite(parsedEstimatedDuration)) {
+      toast({ title: "Invalid duration", description: "Estimated duration must be a number of minutes.", variant: "destructive" });
+      return;
+    }
+
     const updatePayload: Record<string, unknown> = {
       status: data.status,
       priority: data.priority,
       visit_intent: data.visit_intent === "estimate" ? "estimate" : "standard",
       scheduled_date: data.scheduled_date,
       scheduled_end_date: data.scheduled_end_date || null,
-      scheduled_time: data.scheduled_time || undefined,
-      estimated_duration: data.estimated_duration ? Number(data.estimated_duration) : undefined,
-      description: data.description || undefined,
+      scheduled_time: data.scheduled_time || null,
+      estimated_duration: parsedEstimatedDuration,
+      description: (data.description || "").trim() || null,
     };
     if (selectedJobTypeId) {
       updatePayload.service_catalogue_id = selectedJobTypeId;
@@ -3680,8 +3698,9 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
             <select
               className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
               value={selectedJobTypeId}
-              onChange={e => setSelectedJobTypeId(e.target.value)}
+              onChange={e => handleJobTypeChange(e.target.value)}
             >
+              <option value="">Select job type</option>
               {activeJobTypes.map(jt => (
                 <option key={jt.id} value={String(jt.id)}>{jt.name}</option>
               ))}
