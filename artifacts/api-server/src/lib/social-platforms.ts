@@ -252,6 +252,52 @@ function extractTweetIdFromResult(result: unknown): string {
   return "";
 }
 
+const X_DIRECT_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/gif",
+]);
+
+async function prepareImageForXUpload(imageUrl: string): Promise<{ buffer: Buffer; mimeType: string }> {
+  const imgRes = await fetch(imageUrl);
+  if (!imgRes.ok) {
+    throw new Error(`Failed to fetch image for X media upload: ${imgRes.status}`);
+  }
+
+  const rawMimeType = String(imgRes.headers.get("content-type") || "image/jpeg").toLowerCase();
+  const mimeType = rawMimeType.split(";")[0].trim() || "image/jpeg";
+  const sourceBuffer = Buffer.from(await imgRes.arrayBuffer());
+  if (!sourceBuffer.length) {
+    throw new Error("Image download returned empty payload");
+  }
+
+  const normalizedMimeType = mimeType === "image/jpg" ? "image/jpeg" : mimeType;
+
+  // If already in a common X-supported format and reasonably sized, upload as-is.
+  if (X_DIRECT_IMAGE_MIME_TYPES.has(normalizedMimeType) && sourceBuffer.length <= 5_000_000) {
+    return { buffer: sourceBuffer, mimeType: normalizedMimeType };
+  }
+
+  // Convert unsupported or oversized images to optimized JPEG for X.
+  const sharp = (await import("sharp")).default;
+  const processedBuffer = await sharp(sourceBuffer, { failOn: "none" })
+    .rotate()
+    .resize({ width: 4096, height: 4096, fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 84, mozjpeg: true })
+    .toBuffer();
+
+  if (!processedBuffer.length) {
+    throw new Error("Image conversion failed");
+  }
+
+  if (processedBuffer.length > 5_000_000) {
+    throw new Error("Image is too large for X after optimization");
+  }
+
+  return { buffer: processedBuffer, mimeType: "image/jpeg" };
+}
+
 function isXDuplicatePostError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   const anyErr = err as Error & {
@@ -474,16 +520,11 @@ async function postToX(
       try {
         const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
         validateImageUrl(publishImageUrl);
-        const imgRes = await fetch(publishImageUrl);
-        if (!imgRes.ok) {
-          throw new Error(`Failed to fetch image for X media upload: ${imgRes.status}`);
-        }
-
-        const mimeType = String(imgRes.headers.get("content-type") || "image/jpeg");
-        const buffer = Buffer.from(await imgRes.arrayBuffer());
+        const { buffer, mimeType } = await prepareImageForXUpload(publishImageUrl);
         mediaId = await client.v1.uploadMedia(buffer, { mimeType });
       } catch (e) {
-        console.error("Failed to upload media to X (OAuth2); continuing with text-only tweet:", e);
+        const message = e instanceof Error ? e.message : String(e);
+        throw new Error(`X media upload failed: ${message}`);
       }
     }
 
@@ -563,16 +604,11 @@ async function postToX(
     try {
       const publishImageUrl = await resolveImageUrlForPublishing(post.image_url);
       validateImageUrl(publishImageUrl);
-      const imgRes = await fetch(publishImageUrl);
-      if (imgRes.ok) {
-        const mimeType = String(imgRes.headers.get("content-type") || "image/jpeg");
-        const buffer = Buffer.from(await imgRes.arrayBuffer());
-        mediaId = await client.v1.uploadMedia(buffer, { mimeType });
-      } else {
-        throw new Error(`Failed to fetch image for X media upload: ${imgRes.status}`);
-      }
+      const { buffer, mimeType } = await prepareImageForXUpload(publishImageUrl);
+      mediaId = await client.v1.uploadMedia(buffer, { mimeType });
     } catch (e) {
-      console.error("Failed to upload media to X (OAuth1); continuing with text-only tweet:", e);
+      const message = e instanceof Error ? e.message : String(e);
+      throw new Error(`X media upload failed: ${message}`);
     }
   }
 
