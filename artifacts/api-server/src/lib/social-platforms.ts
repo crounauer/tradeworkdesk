@@ -321,6 +321,12 @@ function composeXText(post: SocialPost): string {
   return enforceXTextLimit(composed || base);
 }
 
+function buildXDuplicateRetryText(originalText: string): string {
+  const base = String(originalText || "").trim();
+  const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, "");
+  return enforceXTextLimit(`${base}\n\n- update ${stamp}`);
+}
+
 function isXAccessTokenExpired(account: SocialAccount): boolean {
   const expiresAt = String(account.expires_at || "").trim();
   if (!expiresAt) return false;
@@ -481,7 +487,8 @@ async function postToX(
       }
     }
 
-    const tweetPayload: Record<string, unknown> = { text: composeXText(post) };
+    const baseText = composeXText(post);
+    const tweetPayload: Record<string, unknown> = { text: baseText };
     if (mediaId) {
       tweetPayload.media = { media_ids: [mediaId] };
     }
@@ -506,7 +513,18 @@ async function postToX(
           throw retryErr;
         }
       } else if (isXDuplicatePostError(err)) {
-        throw new Error("X rejected this as a duplicate post. Edit the wording or add a unique line, then publish again.");
+        try {
+          const retryPayload: Record<string, unknown> = {
+            ...tweetPayload,
+            text: buildXDuplicateRetryText(baseText),
+          };
+          tweetResult = await client.v2.tweet(retryPayload);
+        } catch (retryErr) {
+          if (isXDuplicatePostError(retryErr)) {
+            throw new Error("X rejected this as duplicate content twice. Edit wording or image, then publish again.");
+          }
+          throw retryErr;
+        }
       } else {
         throw new Error(`X API error: ${formatXApiError(err)}`);
       }
@@ -558,7 +576,8 @@ async function postToX(
     }
   }
 
-  const tweetPayload: Record<string, unknown> = { text: composeXText(post) };
+  const baseText = composeXText(post);
+  const tweetPayload: Record<string, unknown> = { text: baseText };
   if (mediaId) {
     tweetPayload.media = { media_ids: [mediaId] };
   }
@@ -571,9 +590,21 @@ async function postToX(
       throw new Error("X authentication failed (401). Regenerate Access Token and Access Secret in X Developer Portal, then reconnect the X account in TradeWorkDesk.");
     }
     if (isXDuplicatePostError(err)) {
-      throw new Error("X rejected this as a duplicate post. Edit the wording or add a unique line, then publish again.");
+      try {
+        const retryPayload: Record<string, unknown> = {
+          ...tweetPayload,
+          text: buildXDuplicateRetryText(baseText),
+        };
+        result = await client.v2.tweet(retryPayload);
+      } catch (retryErr) {
+        if (isXDuplicatePostError(retryErr)) {
+          throw new Error("X rejected this as duplicate content twice. Edit wording or image, then publish again.");
+        }
+        throw retryErr;
+      }
+    } else {
+      throw new Error(`X API error: ${formatXApiError(err)}`);
     }
-    throw new Error(`X API error: ${formatXApiError(err)}`);
   }
   const tweetId = extractTweetIdFromResult(result);
   if (!tweetId) {
