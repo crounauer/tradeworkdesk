@@ -40,11 +40,25 @@ type LeaveConflict = {
   end_date: string;
 };
 
+type JobClashConflict = {
+  existing_job_id: string;
+  existing_job_ref: string | null;
+  scheduled_date: string;
+  scheduled_time: string;
+  estimated_duration: number;
+};
+
 function formatLeaveConflict(conflict: LeaveConflict): string {
   const typeLabel = conflict.holiday_type.replace("technician_", "").replace(/_/g, " ");
   const start = new Date(`${conflict.start_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   const end = new Date(`${conflict.end_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   return `${conflict.technician_name || "Selected technician"} is unavailable for ${conflict.holiday_name} (${typeLabel}) from ${start} to ${end}.`;
+}
+
+function formatJobClashConflict(conflict: JobClashConflict): string {
+  const existingLabel = conflict.existing_job_ref || `#${conflict.existing_job_id.slice(0, 8)}`;
+  const dateLabel = new Date(`${conflict.scheduled_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return `This technician already has job ${existingLabel} at ${conflict.scheduled_time.slice(0, 5)} on ${dateLabel}.`;
 }
 
 type BookJobFormData = {
@@ -562,9 +576,17 @@ export function BookJobDialog({
         handleClose();
       }
     } catch (err) {
-      const conflict = (err as { data?: { code?: string; conflict?: LeaveConflict } })?.data;
+      const conflict = (err as { data?: { code?: string; conflict?: LeaveConflict | JobClashConflict } })?.data;
       if (conflict?.code === "TECHNICIAN_LEAVE_CONFLICT" && conflict.conflict) {
-        setLeaveConflict(conflict.conflict);
+        setLeaveConflict(conflict.conflict as LeaveConflict);
+        return;
+      }
+      if (conflict?.code === "TECHNICIAN_JOB_CLASH" && conflict.conflict) {
+        toast({
+          title: "Scheduling conflict",
+          description: formatJobClashConflict(conflict.conflict as JobClashConflict),
+          variant: "destructive",
+        });
         return;
       }
       const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
