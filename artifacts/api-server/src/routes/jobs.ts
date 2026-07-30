@@ -249,11 +249,19 @@ function buildJobConfirmationEmailBodyText(opts: {
   jobTypeName: string;
   scheduledDate: string;
   scheduledTime?: string | null;
+  jobDurationMinutes?: number | null;
   propertyAddress?: string | null;
   description?: string | null;
   confirmUrl?: string;
   requestChangeUrl?: string;
 }): string {
+  const durationMinutes = Number(opts.jobDurationMinutes ?? 0);
+  const durationLabel = Number.isFinite(durationMinutes) && durationMinutes > 0
+    ? (durationMinutes % 60 === 0
+      ? `${durationMinutes / 60} hour${durationMinutes / 60 === 1 ? "" : "s"}`
+      : `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`)
+    : null;
+
   const lines = [
     `Dear ${opts.customerName},`,
     "",
@@ -262,6 +270,7 @@ function buildJobConfirmationEmailBodyText(opts: {
     `Reference: ${opts.jobRef}`,
     `Job type: ${opts.jobTypeName}`,
     `Scheduled date: ${opts.scheduledDate}${opts.scheduledTime ? ` at ${opts.scheduledTime}` : ""}`,
+    ...(durationLabel ? [`Job duration: ${durationLabel}`] : []),
   ];
 
   if (opts.propertyAddress) {
@@ -847,6 +856,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     jobType: jobTypeName,
     scheduledDate: job.scheduled_date,
     scheduledTime: job.scheduled_time || null,
+    jobDurationMinutes: job.estimated_duration ?? null,
     propertyAddress,
     technicianName,
     description: job.description || null,
@@ -904,6 +914,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     jobTypeName,
     scheduledDate: job.scheduled_date,
     scheduledTime: job.scheduled_time || null,
+    jobDurationMinutes: job.estimated_duration ?? null,
     propertyAddress,
     description: job.description || null,
     confirmUrl,

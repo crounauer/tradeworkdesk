@@ -491,6 +491,7 @@ export interface JobConfirmationDetails {
   jobType: string;
   scheduledDate: string;
   scheduledTime?: string | null;
+  jobDurationMinutes?: number | null;
   propertyAddress: string;
   technicianName?: string | null;
   description?: string | null;
@@ -499,6 +500,16 @@ export interface JobConfirmationDetails {
 export interface JobConfirmationResponseLinks {
   confirmUrl: string;
   requestChangeUrl: string;
+}
+
+function formatJobDurationLabel(minutesLike: unknown): string | null {
+  const minutes = Number(minutesLike);
+  if (!Number.isFinite(minutes) || minutes <= 0) return null;
+  if (minutes % 60 === 0) return `${minutes / 60} hour${minutes / 60 === 1 ? "" : "s"}`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (hours <= 0) return `${minutes} minutes`;
+  return `${hours}h ${remainder}m`;
 }
 
 export function renderJobConfirmationHtml(
@@ -518,6 +529,7 @@ export function renderJobConfirmationHtml(
     const h12 = h % 12 || 12;
     timeStr = ` at ${h12}:${mm}${ampm}`;
   }
+  const durationLabel = formatJobDurationLabel(jobDetails.jobDurationMinutes);
 
   const contactLine = companyDetails?.phone
     ? `please contact us on <strong>${escHtml(companyDetails.phone)}</strong>${companyDetails.email ? ` or email <a href="mailto:${escHtml(companyDetails.email)}" style="color:#1d4ed8;">${escHtml(companyDetails.email)}</a>` : ""}.`
@@ -560,6 +572,7 @@ export function renderJobConfirmationHtml(
       <p><strong>Job Reference:</strong> ${escHtml(jobDetails.jobRef)}</p>
       <p><strong>Type of Work:</strong> ${escHtml(jobDetails.jobType)}</p>
       <p><strong>Date:</strong> ${escHtml(dateStr)}${escHtml(timeStr)}</p>
+      ${durationLabel ? `<p><strong>Job Duration:</strong> ${escHtml(durationLabel)}</p>` : ""}
       <p><strong>Property:</strong> ${escHtml(jobDetails.propertyAddress)}</p>
       ${jobDetails.technicianName ? `<p><strong>Engineer:</strong> ${escHtml(jobDetails.technicianName)}</p>` : ""}
     </div>
@@ -622,6 +635,7 @@ export async function sendBookingPendingApprovalEmail(
     const h12 = h % 12 || 12;
     timeStr = ` at ${h12}:${mm}${ampm}`;
   }
+  const durationLabel = formatJobDurationLabel(jobDetails.jobDurationMinutes);
 
   const contactLine = companyDetails?.phone
     ? `please contact us on <strong>${escHtml(companyDetails.phone)}</strong>${companyDetails.email ? ` or email <a href="mailto:${escHtml(companyDetails.email)}" style="color:#1d4ed8;">${escHtml(companyDetails.email)}</a>` : ""}.`
@@ -639,6 +653,7 @@ export async function sendBookingPendingApprovalEmail(
       <p><strong>Reference:</strong> ${escHtml(jobDetails.jobRef)}</p>
       <p><strong>Type of Work:</strong> ${escHtml(jobDetails.jobType)}</p>
       <p><strong>Requested Date:</strong> ${escHtml(dateStr)}${escHtml(timeStr)}</p>
+      ${durationLabel ? `<p><strong>Job Duration:</strong> ${escHtml(durationLabel)}</p>` : ""}
       <p><strong>Property:</strong> ${escHtml(jobDetails.propertyAddress)}</p>
     </div>
     ${jobDetails.description ? `<p><strong>Notes:</strong> ${escHtml(jobDetails.description)}</p>` : ""}

@@ -1158,6 +1158,7 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
         jobType: serviceLabel,
         scheduledDate,
         scheduledTime,
+        jobDurationMinutes: safeDurationMinutes,
         propertyAddress: [bookingRecord.customer_address, bookingRecord.customer_postcode].filter(Boolean).join(", ") || "Customer address",
         description: confirmationDescription,
       };
@@ -1582,6 +1583,7 @@ publicRouter.post("/public/booking/:tenantId", bookingSubmitLimiter, async (req:
           jobType: selectedService?.name || "Online Booking",
           scheduledDate: utcSchedule.date,
           scheduledTime: utcSchedule.time,
+          jobDurationMinutes: duration,
           propertyAddress: [customer_address, customer_postcode].filter(Boolean).join(", ") || "Customer address",
           description: buildOnlineBookingDescription(stripBookingGeoMetadata(storedNotes)) || "Subject to confirmation",
         };

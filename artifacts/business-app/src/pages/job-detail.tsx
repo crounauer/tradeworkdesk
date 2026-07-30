@@ -210,6 +210,15 @@ export default function JobDetail() {
     .replace(/\b\w/g, (ch) => ch.toUpperCase());
   const displayDuration = formatJobDuration(jobRecord.estimated_duration);
   const jobRef = typeof jobRecord.job_ref === "string" ? jobRecord.job_ref : null;
+  const customerRecord = (jobRecord.customer as Record<string, unknown> | undefined) || undefined;
+  const customerDisplayName = `${String(customerRecord?.first_name || "")} ${String(customerRecord?.last_name || "")}`.trim() || "Customer";
+  const scheduledDateOnly = String(jobRecord.scheduled_date || "").slice(0, 10);
+  const scheduledTime = typeof jobRecord.scheduled_time === "string" ? jobRecord.scheduled_time : null;
+  const scheduledSummary = scheduledDateOnly
+    ? (scheduledTime
+      ? formatDateTime(`${scheduledDateOnly}T${scheduledTime}`)
+      : formatDate(scheduledDateOnly))
+    : "Date not set";
   const fromQuoteId = typeof jobRecord.from_quote_id === "string" ? jobRecord.from_quote_id : null;
   const customerConfirmationStatus =
     typeof jobRecord.customer_confirmation_status === "string"
@@ -397,9 +406,29 @@ export default function JobDetail() {
 
   return (
     <div className="space-y-6 animate-in fade-in pb-20 max-w-full min-w-0">
-      <Link href="/jobs" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
-        <ArrowLeft className="w-4 h-4 mr-1" /> Back to Jobs
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href="/jobs" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
+          <ArrowLeft className="w-4 h-4 mr-1" /> Back to Jobs
+        </Link>
+        <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+          <span>{jobRef ? `Ref ${jobRef}` : `Ref #${job.id.slice(0, 8)}`}</span>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 hover:text-foreground"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(jobRef || job.id.slice(0, 8));
+                toast({ title: "Copied", description: "Job reference copied" });
+              } catch {
+                toast({ title: "Copy failed", description: "Could not copy job reference", variant: "destructive" });
+              }
+            }}
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Copy
+          </button>
+        </div>
+      </div>
 
       {isFromCache && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-2 text-sm text-amber-800">
@@ -418,7 +447,7 @@ export default function JobDetail() {
       <div className="flex flex-col gap-4 min-w-0 max-w-full">
         <div className="min-w-0">
           <div className="flex items-center gap-3 mb-2 flex-wrap">
-            <h1 className="text-2xl sm:text-3xl font-display font-bold truncate">{jobRef ? `Job ${jobRef}` : `Job #${job.id.slice(0, 8)}`}</h1>
+            <h1 className="text-2xl sm:text-3xl font-display font-bold truncate">{customerDisplayName} • {resolvedJobTypeLabel}</h1>
             {hasFollowUpLabel && (
               <span className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">Follow-Up</span>
             )}
@@ -428,6 +457,11 @@ export default function JobDetail() {
             {isOperationalAwaitingParts && (
               <span className="inline-flex items-center rounded-md border border-orange-200 bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800">Awaiting Parts</span>
             )}
+          </div>
+          <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            <span>{scheduledSummary}</span>
+            <span>{displayDuration}</span>
+            <span className="font-medium">{displayPriority}</span>
           </div>
           {fromQuoteId && (
             <button
