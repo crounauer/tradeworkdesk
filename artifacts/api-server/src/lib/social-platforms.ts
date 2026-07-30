@@ -324,6 +324,20 @@ function isXUnauthorizedError(err: unknown): boolean {
   return msg.includes("unauthorized") || msg.includes("code 401") || msg.includes("status 401");
 }
 
+function isXForbiddenError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const anyErr = err as Error & {
+    code?: number;
+    data?: { title?: string; detail?: string; errors?: Array<{ code?: number; message?: string }> };
+  };
+
+  if (anyErr.code === 403) return true;
+  if (anyErr.data?.errors?.some((entry) => entry?.code === 403)) return true;
+
+  const msg = `${anyErr.message || ""} ${anyErr.data?.title || ""} ${anyErr.data?.detail || ""}`.toLowerCase();
+  return msg.includes("forbidden") || msg.includes("code 403") || msg.includes("status 403");
+}
+
 function compactUrlForPost(raw: string): string {
   const input = String(raw || "").trim();
   if (!input) return "";
@@ -523,8 +537,13 @@ async function postToX(
         const { buffer, mimeType } = await prepareImageForXUpload(publishImageUrl);
         mediaId = await client.v1.uploadMedia(buffer, { mimeType });
       } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        throw new Error(`X media upload failed: ${message}`);
+        const formatted = formatXApiError(e);
+        if (tokenType === "oauth2" && isXForbiddenError(e)) {
+          throw new Error(
+            "X media upload failed (403 Forbidden). This X connection can post text but is not permitted to upload media with current auth permissions. Reconnect X with full media permissions (including media.write), or connect via OAuth1 API key/secret + access token/secret.",
+          );
+        }
+        throw new Error(`X media upload failed: ${formatted}`);
       }
     }
 
@@ -607,8 +626,13 @@ async function postToX(
       const { buffer, mimeType } = await prepareImageForXUpload(publishImageUrl);
       mediaId = await client.v1.uploadMedia(buffer, { mimeType });
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      throw new Error(`X media upload failed: ${message}`);
+      const formatted = formatXApiError(e);
+      if (isXForbiddenError(e)) {
+        throw new Error(
+          "X media upload failed (403 Forbidden). This X app/account is not permitted to upload media with current credentials. Regenerate OAuth1 access token/secret with Read and Write app permissions and reconnect.",
+        );
+      }
+      throw new Error(`X media upload failed: ${formatted}`);
     }
   }
 
