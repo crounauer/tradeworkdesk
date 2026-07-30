@@ -21,6 +21,7 @@ import { cacheJob, getAllCachedJobs, type CachedJob } from "@/lib/offline-db";
 import { BookJobDialog } from "@/components/book-job-dialog";
 import { RebookDialog } from "@/components/rebook-dialog";
 import { VisitIntentBadge } from "@/components/visit-intent-badge";
+import { PriorityBadge } from "@/components/priority-badge";
 
 const JobMapView = lazy(() => import("@/components/job-map-view"));
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
@@ -78,6 +79,7 @@ type ViewTab = "list" | "map";
 function JobsContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [jobTypeIdFilter, setJobTypeIdFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("");
   const [showBookJob, setShowBookJob] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkExport, setShowBulkExport] = useState(false);
@@ -160,14 +162,17 @@ function JobsContent() {
 
   useCacheJobTypes(jobTypes.length > 0 ? jobTypes : undefined);
 
-  const filteredJobs = jobTypeIdFilter
-    ? jobs?.filter((j) => {
-        const selectedType = jobTypes.find((t) => t.id === jobTypeIdFilter);
-        if (!selectedType) return true;
-        if (j.job_type_name) return j.job_type_name === selectedType.name;
-        return false;
-      })
-    : jobs;
+  const priorities = ["low", "medium", "high", "urgent"];
+
+  const filteredJobs = (jobs || [])
+    .filter((j) => {
+      if (!jobTypeIdFilter) return true;
+      const selectedType = jobTypes.find((t) => t.id === jobTypeIdFilter);
+      if (!selectedType) return true;
+      if (j.job_type_name) return j.job_type_name === selectedType.name;
+      return false;
+    })
+    .filter((j) => !priorityFilter || j.priority === priorityFilter);
 
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -319,8 +324,18 @@ function JobsContent() {
             <option key={t.id} value={t.id}>{t.name}</option>
           ))}
         </select>
-        {(statusFilter || jobTypeIdFilter) && (
-          <Button variant="ghost" size="sm" onClick={() => { setStatusFilter(""); setJobTypeIdFilter(""); setCurrentPage(1); }}>
+        <select
+          className="border border-border rounded-lg px-3 py-2 text-sm bg-background"
+          value={priorityFilter}
+          onChange={(e) => { setPriorityFilter(e.target.value); setCurrentPage(1); }}
+        >
+          <option value="">All Priorities</option>
+          {priorities.map((p) => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
+        {(statusFilter || jobTypeIdFilter || priorityFilter) && (
+          <Button variant="ghost" size="sm" onClick={() => { setStatusFilter(""); setJobTypeIdFilter(""); setPriorityFilter(""); setCurrentPage(1); }}>
             <X className="w-4 h-4 mr-1" /> Clear
           </Button>
         )}
@@ -537,6 +552,7 @@ function JobCard({
               <span className="text-sm font-semibold capitalize text-slate-500 border border-slate-200 px-2 py-0.5 rounded-md">
                 {job.job_type_name ?? job.job_type.replace(/_/g, ' ')}
               </span>
+              <PriorityBadge priority={job.priority as string | null | undefined} />
               <VisitIntentBadge intent={job.visit_intent as string | null | undefined} jobTypeLabel={(job.job_type_name ?? job.job_type) as string | null | undefined} showStandard={false} />
               {hasPending && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 border border-amber-200">

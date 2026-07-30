@@ -30,6 +30,7 @@ import { useAutoAssign } from "@/hooks/use-auto-assign";
 import { SmsSendDialog } from "@/components/sms-send-dialog";
 import { RebookDialog } from "@/components/rebook-dialog";
 import { VisitIntentBadge } from "@/components/visit-intent-badge";
+import { PriorityBadge } from "@/components/priority-badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -399,6 +400,7 @@ export default function JobDetail() {
           <div className="flex items-center gap-3 mb-2 flex-wrap">
             <h1 className="text-2xl sm:text-3xl font-display font-bold truncate">{jobRef ? `Job ${jobRef}` : `Job #${job.id.slice(0, 8)}`}</h1>
             <VisitIntentBadge intent={visitIntent} jobTypeLabel={resolvedJobTypeLabel} className="rounded-md px-2.5 py-1 text-xs" />
+            <PriorityBadge priority={job.priority} className="rounded-md px-2.5 py-1 text-xs" />
             {hasFollowUpLabel && (
               <span className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">Follow-Up</span>
             )}
@@ -417,7 +419,7 @@ export default function JobDetail() {
               From Quote →
             </button>
           )}
-          <p className="text-base sm:text-lg text-muted-foreground capitalize">{resolvedJobTypeLabel} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
+          <p className="text-base sm:text-lg text-muted-foreground capitalize">{resolvedJobTypeLabel}</p>
           <div className="mt-2 flex flex-col items-start gap-1 text-xs sm:flex-row sm:items-center sm:gap-2 sm:text-sm">
             <span className={`inline-flex items-center rounded-md border px-2.5 py-1 font-semibold ${customerConfirmationUi.classes}`}>
               <customerConfirmationUi.icon className="mr-1 h-3.5 w-3.5 shrink-0" />

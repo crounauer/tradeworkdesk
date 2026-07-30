@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useCalendarData } from "@/hooks/use-calendar-data";
 import { VisitIntentBadge } from "@/components/visit-intent-badge";
+import { PriorityBadge } from "@/components/priority-badge";
 
 type CalendarJob = {
   id: string;
@@ -883,6 +884,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                               <div className="flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                                 <span className="text-sm font-semibold truncate">{job.customer_name || "Unknown"}</span>
+                                <PriorityBadge priority={job.priority} />
                                 {(() => {
                                   const { label, intent } = getJobTypeDisplay(job);
                                   return (
@@ -1009,6 +1011,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                             <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
+                            <PriorityBadge priority={job.priority} />
                             {(() => {
                               const { label, intent } = getJobTypeDisplay(job);
                               return (
@@ -1098,6 +1101,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                             <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
+                            <PriorityBadge priority={job.priority} />
                             {(() => {
                               const { label, intent } = getJobTypeDisplay(job);
                               return (
@@ -1232,6 +1236,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                               <div className="flex items-center gap-1">
                                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                                 <span className="text-[11px] font-semibold truncate">{job.customer_name || "Unknown"}</span>
+                                <PriorityBadge priority={job.priority} className="text-[9px] px-1.5 py-0" />
                               </div>
                               <div className="text-[10px] opacity-75 truncate ml-2.5">
                                 {getJobTimeRangeLabel(job)}
@@ -1349,6 +1354,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                         <span className="font-medium truncate">
                           {job.customer_name || "Unknown"}
                         </span>
+                        <PriorityBadge priority={job.priority} className="text-[9px] px-1.5 py-0" />
                         {isSubjectToConfirmation(job) && (
                           <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200 ml-1 shrink-0">
                             Subject to confirmation
@@ -1524,6 +1530,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                         <span className="font-medium">
                           {job.customer_name || "Unknown"}
                         </span>
+                        <PriorityBadge priority={job.priority} />
                         {(() => {
                           const { label, intent } = getJobTypeDisplay(job);
                           return (
