@@ -20,6 +20,7 @@ import { PendingSyncBadge, OfflineMutationsList } from "@/components/offline-ind
 import { cacheJob, getAllCachedJobs, type CachedJob } from "@/lib/offline-db";
 import { BookJobDialog } from "@/components/book-job-dialog";
 import { RebookDialog } from "@/components/rebook-dialog";
+import { VisitIntentBadge } from "@/components/visit-intent-badge";
 
 const JobMapView = lazy(() => import("@/components/job-map-view"));
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
@@ -536,6 +537,7 @@ function JobCard({
               <span className="text-sm font-semibold capitalize text-slate-500 border border-slate-200 px-2 py-0.5 rounded-md">
                 {job.job_type_name ?? job.job_type.replace(/_/g, ' ')}
               </span>
+              <VisitIntentBadge intent={job.visit_intent as string | null | undefined} jobTypeLabel={(job.job_type_name ?? job.job_type) as string | null | undefined} showStandard={false} />
               {hasPending && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 border border-amber-200">
                   <CloudOff className="w-3 h-3" /> Pending sync

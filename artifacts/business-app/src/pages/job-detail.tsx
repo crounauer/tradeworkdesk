@@ -29,6 +29,7 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useAutoAssign } from "@/hooks/use-auto-assign";
 import { SmsSendDialog } from "@/components/sms-send-dialog";
 import { RebookDialog } from "@/components/rebook-dialog";
+import { VisitIntentBadge } from "@/components/visit-intent-badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -180,12 +181,13 @@ export default function JobDetail() {
   const isOperationalAwaitingParts = hasOperationalAwaitingPartsFlag
     ? Boolean(jobRecord.is_awaiting_parts)
     : job?.status === "awaiting_parts";
-  const { label: jobTypeLabel, isEstimate } = getJobTypeDisplay(jobRecord as JobLike);
+  const { label: jobTypeLabel } = getJobTypeDisplay(jobRecord as JobLike);
   const serviceCatalogueId = typeof jobRecord.service_catalogue_id === "string" ? jobRecord.service_catalogue_id : null;
   const selectedJobTypeName = serviceCatalogueId
     ? (jobTypesData || []).find((jt) => jt.id === serviceCatalogueId)?.name
     : null;
   const resolvedJobTypeLabel = selectedJobTypeName || jobTypeLabel;
+  const visitIntent = typeof jobRecord.visit_intent === "string" ? jobRecord.visit_intent : null;
   const jobRef = typeof jobRecord.job_ref === "string" ? jobRecord.job_ref : null;
   const fromQuoteId = typeof jobRecord.from_quote_id === "string" ? jobRecord.from_quote_id : null;
   const customerConfirmationStatus =
@@ -396,9 +398,7 @@ export default function JobDetail() {
         <div className="min-w-0">
           <div className="flex items-center gap-3 mb-2 flex-wrap">
             <h1 className="text-2xl sm:text-3xl font-display font-bold truncate">{jobRef ? `Job ${jobRef}` : `Job #${job.id.slice(0, 8)}`}</h1>
-            {isEstimate && (
-              <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">Estimate</span>
-            )}
+            <VisitIntentBadge intent={visitIntent} jobTypeLabel={resolvedJobTypeLabel} className="rounded-md px-2.5 py-1 text-xs" />
             {hasFollowUpLabel && (
               <span className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">Follow-Up</span>
             )}

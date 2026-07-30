@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Calendar, Plus,
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useCalendarData } from "@/hooks/use-calendar-data";
+import { VisitIntentBadge } from "@/components/visit-intent-badge";
 
 type CalendarJob = {
   id: string;
@@ -241,11 +242,13 @@ function isOnlineBookingAwaitingAdminConfirmation(job: CalendarJob): boolean {
     || source === "website";
 }
 
-function getJobTypeDisplay(job: CalendarJob): { label: string; isEstimate: boolean } {
+function getJobTypeDisplay(job: CalendarJob): { label: string; intent: "standard" | "estimate" | null } {
   const label = String(job.job_type_name ?? job.job_type ?? "").replace(/_/g, " ").trim() || "Job";
-  const intent = job.visit_intent;
-  const isEstimate = intent === "estimate" || /\b(estimate|quote)\b/i.test(label);
-  return { label, isEstimate };
+  const explicitIntent = job.visit_intent === "estimate" || job.visit_intent === "standard"
+    ? job.visit_intent
+    : null;
+  const inferredIntent = /\b(estimate|quote)\b/i.test(label) ? "estimate" : null;
+  return { label, intent: explicitIntent || inferredIntent };
 }
 
 interface ScheduleCalendarProps {
@@ -881,14 +884,10 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                                 <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                                 <span className="text-sm font-semibold truncate">{job.customer_name || "Unknown"}</span>
                                 {(() => {
-                                  const { label, isEstimate } = getJobTypeDisplay(job);
+                                  const { label, intent } = getJobTypeDisplay(job);
                                   return (
                                     <span className="ml-auto flex items-center gap-1.5">
-                                      {isEstimate && (
-                                        <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
-                                          Estimate
-                                        </span>
-                                      )}
+                                      <VisitIntentBadge intent={intent} jobTypeLabel={label} showStandard={false} />
                                       <span className="text-xs opacity-60 capitalize">{label}</span>
                                     </span>
                                   );
@@ -1011,14 +1010,10 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                             <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
                             {(() => {
-                              const { label, isEstimate } = getJobTypeDisplay(job);
+                              const { label, intent } = getJobTypeDisplay(job);
                               return (
                                 <span className="ml-auto flex items-center gap-1.5">
-                                  {isEstimate && (
-                                    <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
-                                      Estimate
-                                    </span>
-                                  )}
+                                  <VisitIntentBadge intent={intent} jobTypeLabel={label} showStandard={false} />
                                   <span className="text-xs opacity-60 capitalize">{label}</span>
                                   <span className="text-xs opacity-70">{durationLabel(durationMinutes)}</span>
                                 </span>
@@ -1104,14 +1099,10 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                             <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
                             {(() => {
-                              const { label, isEstimate } = getJobTypeDisplay(job);
+                              const { label, intent } = getJobTypeDisplay(job);
                               return (
                                 <span className="ml-auto flex items-center gap-1.5">
-                                  {isEstimate && (
-                                    <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
-                                      Estimate
-                                    </span>
-                                  )}
+                                  <VisitIntentBadge intent={intent} jobTypeLabel={label} showStandard={false} />
                                   <span className="text-xs opacity-60 capitalize">{label}</span>
                                 </span>
                               );
@@ -1534,14 +1525,10 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           {job.customer_name || "Unknown"}
                         </span>
                         {(() => {
-                          const { label, isEstimate } = getJobTypeDisplay(job);
+                          const { label, intent } = getJobTypeDisplay(job);
                           return (
                             <span className="ml-auto flex items-center gap-1.5">
-                              {isEstimate && (
-                                <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
-                                  Estimate
-                                </span>
-                              )}
+                              <VisitIntentBadge intent={intent} jobTypeLabel={label} showStandard={false} />
                               <span className="text-xs opacity-75 capitalize">{label}</span>
                             </span>
                           );
