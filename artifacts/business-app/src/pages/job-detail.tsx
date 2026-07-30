@@ -162,6 +162,16 @@ export default function JobDetail() {
 
   const customerEmail = (job?.customer as unknown as Record<string, unknown> | undefined)?.email as string || "";
   const jobRecord = (job ?? {}) as unknown as Record<string, unknown>;
+  const { data: jobTypesData } = useQuery<Array<{ id: string; name: string; is_active: boolean }>>({
+    queryKey: ["job-types"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/job-type-options`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60_000,
+    enabled: !!job,
+  });
   const hasOperationalInProgressFlag = typeof jobRecord.is_in_progress === "boolean";
   const hasOperationalAwaitingPartsFlag = typeof jobRecord.is_awaiting_parts === "boolean";
   const isOperationalInProgress = hasOperationalInProgressFlag
@@ -171,6 +181,11 @@ export default function JobDetail() {
     ? Boolean(jobRecord.is_awaiting_parts)
     : job?.status === "awaiting_parts";
   const { label: jobTypeLabel, isEstimate } = getJobTypeDisplay(jobRecord as JobLike);
+  const serviceCatalogueId = typeof jobRecord.service_catalogue_id === "string" ? jobRecord.service_catalogue_id : null;
+  const selectedJobTypeName = serviceCatalogueId
+    ? (jobTypesData || []).find((jt) => jt.id === serviceCatalogueId)?.name
+    : null;
+  const resolvedJobTypeLabel = selectedJobTypeName || jobTypeLabel;
   const jobRef = typeof jobRecord.job_ref === "string" ? jobRecord.job_ref : null;
   const fromQuoteId = typeof jobRecord.from_quote_id === "string" ? jobRecord.from_quote_id : null;
   const customerConfirmationStatus =
@@ -402,7 +417,7 @@ export default function JobDetail() {
               From Quote →
             </button>
           )}
-          <p className="text-base sm:text-lg text-muted-foreground capitalize">{jobTypeLabel} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
+          <p className="text-base sm:text-lg text-muted-foreground capitalize">{resolvedJobTypeLabel} - Priority: <span className="capitalize font-medium">{job.priority}</span></p>
           <div className="mt-2 flex flex-col items-start gap-1 text-xs sm:flex-row sm:items-center sm:gap-2 sm:text-sm">
             <span className={`inline-flex items-center rounded-md border px-2.5 py-1 font-semibold ${customerConfirmationUi.classes}`}>
               <customerConfirmationUi.icon className="mr-1 h-3.5 w-3.5 shrink-0" />
@@ -909,7 +924,7 @@ export default function JobDetail() {
                       "",
                       "Job context:",
                       `- Job ID: ${job.id}`,
-                      `- Job type: ${job.job_type}`,
+                      `- Job type: ${resolvedJobTypeLabel}`,
                       `- Forms required: ${(job as unknown as { fuel_category?: string | null }).fuel_category || "unknown"}`,
                       "",
                       "Required fields:",
