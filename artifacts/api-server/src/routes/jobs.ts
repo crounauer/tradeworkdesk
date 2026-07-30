@@ -73,12 +73,13 @@ type ServiceCatalogueRow = {
   id: string;
   name: string;
   is_active: boolean;
+  booking_duration_minutes?: number | null;
 };
 
 async function getActiveServiceCatalogueById(tenantId: string, serviceCatalogueId: string): Promise<ServiceCatalogueRow | null> {
   const { data } = await supabaseAdmin
     .from("service_catalogue")
-    .select("id, name, is_active")
+    .select("id, name, is_active, booking_duration_minutes")
     .eq("id", serviceCatalogueId)
     .eq("tenant_id", tenantId)
     .single();
@@ -612,6 +613,7 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   }
 
   let verifiedServiceCatalogueId: string | undefined;
+  let defaultEstimatedDuration: number | null = null;
   let resolvedJobType: "service" | "breakdown" | "installation" | "inspection" | "follow_up" =
     jobCoreData.job_type ?? "service";
 
@@ -621,7 +623,14 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
       res.status(400).json({ error: "Invalid or inactive service catalogue selection for this company" }); return;
     }
     verifiedServiceCatalogueId = svc.id;
+    const parsedDuration = Number(svc.booking_duration_minutes ?? 0);
+    if (Number.isFinite(parsedDuration) && parsedDuration > 0) {
+      defaultEstimatedDuration = parsedDuration;
+    }
   }
+
+  const parsedEstimatedDuration = Number((jobCoreData as { estimated_duration?: unknown }).estimated_duration ?? 0);
+  const hasEstimatedDuration = Number.isFinite(parsedEstimatedDuration) && parsedEstimatedDuration > 0;
 
   let autoAssignedTechnicianId = jobCoreData.assigned_technician_id;
   if (req.tenantId) {
@@ -676,6 +685,7 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
 
   const insertPayload = {
     ...jobCoreData,
+    estimated_duration: hasEstimatedDuration ? parsedEstimatedDuration : defaultEstimatedDuration,
     assigned_technician_id: autoAssignedTechnicianId || null,
     job_type: resolvedJobType,
     visit_intent: visitIntent ?? "standard",
