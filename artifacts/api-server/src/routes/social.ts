@@ -2060,6 +2060,19 @@ router.post(
       return;
     }
 
+    // Keep exactly one active account per platform in this scope.
+    let deactivateQuery = supabaseAdmin
+      .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq("platform", platform)
+      .neq("id", String(data.id));
+
+    if (!isPlatformScope) {
+      deactivateQuery = deactivateQuery.eq("tenant_id", tenantId!);
+    }
+
+    await deactivateQuery;
+
     res.json(data);
   },
 );
@@ -2148,6 +2161,20 @@ router.patch(
       }
 
       updates.encrypted_credentials = encryptCredentials(credentials as Record<string, string>);
+    }
+
+    if (isActive === true) {
+      let deactivateQuery = supabaseAdmin
+        .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq("platform", String(existingAccount.platform || ""))
+        .neq("id", id);
+
+      if (!isPlatformScope) {
+        deactivateQuery = deactivateQuery.eq("tenant_id", tenantId!);
+      }
+
+      await deactivateQuery;
     }
 
     let query = supabaseAdmin
@@ -2299,6 +2326,39 @@ router.post(
 
     const postType = coercePostType(rawPostType);
 
+    let activeAccountQuery = supabaseAdmin
+      .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
+      .select("id")
+      .eq("platform", platform)
+      .eq("is_active", true)
+      .limit(2);
+
+    if (!isPlatformScope) {
+      activeAccountQuery = activeAccountQuery.eq("tenant_id", tenantId!);
+    }
+
+    const { data: activeAccounts, error: activeAccountError } = await activeAccountQuery;
+    if (activeAccountError) {
+      res.status(500).json({ error: activeAccountError.message });
+      return;
+    }
+
+    if (!activeAccounts || activeAccounts.length === 0) {
+      res.status(400).json({ error: `No active ${platform} account connected` });
+      return;
+    }
+
+    if (activeAccounts.length > 1) {
+      res.status(400).json({ error: `Multiple active ${platform} accounts found. Keep only one active account for this platform before publishing.` });
+      return;
+    }
+
+    const selectedAccountId = String(activeAccounts[0].id || "").trim();
+    if (!selectedAccountId) {
+      res.status(500).json({ error: `Failed to resolve active ${platform} account` });
+      return;
+    }
+
     const scheduledDate = scheduledFor ? new Date(scheduledFor) : null;
     const isScheduled = scheduledDate && scheduledDate > new Date();
 
@@ -2365,6 +2425,7 @@ router.post(
           content: normalizedContent,
           image_url: imageUrl || null,
           video_url: videoUrl || null,
+          account_id: selectedAccountId,
           link_url: finalLinkUrl,
           post_type: postType,
           website_page_id: resolvedWebsitePageId,
@@ -2384,6 +2445,7 @@ router.post(
           content: normalizedContent,
           image_url: imageUrl || null,
           video_url: videoUrl || null,
+          account_id: selectedAccountId,
           link_url: finalLinkUrl,
           post_type: postType,
           website_page_id: resolvedWebsitePageId,
@@ -2408,7 +2470,7 @@ router.post(
       let accountQuery = supabaseAdmin
         .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
         .select("*")
-        .eq("platform", platform)
+        .eq("id", selectedAccountId)
         .eq("is_active", true)
         .limit(1);
 
