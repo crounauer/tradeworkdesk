@@ -128,6 +128,45 @@ function readExpectedXHandleFromReturnPath(returnPath: string): string {
   }
 }
 
+async function resolveAndValidateXOAuth1ProfileName(args: {
+  requestedProfileName: string;
+  credentials: Record<string, unknown>;
+}): Promise<string> {
+  const requestedProfileName = String(args.requestedProfileName || "").trim();
+  const expectedHandle = normalizeXHandle(requestedProfileName);
+
+  const appKey = String(args.credentials.appKey || "").trim();
+  const appSecret = String(args.credentials.appSecret || "").trim();
+  const accessToken = String(args.credentials.accessToken || "").trim();
+  const accessSecret = String(args.credentials.accessSecret || "").trim();
+
+  if (!appKey || !appSecret || !accessToken || !accessSecret) {
+    throw new Error("X manual connection requires Consumer Key, Consumer Secret, Access Token, and Access Token Secret.");
+  }
+
+  const { TwitterApi } = await import("twitter-api-v2");
+  const client = new TwitterApi({ appKey, appSecret, accessToken, accessSecret });
+
+  let actualUsername = "";
+  try {
+    const me = await client.v2.me({ "user.fields": ["username", "name"] });
+    actualUsername = String(me.data?.username || "").trim();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Unable to verify X OAuth1 credentials: ${message}`);
+  }
+
+  if (!actualUsername) {
+    throw new Error("Unable to verify X OAuth1 credentials: X API did not return a username.");
+  }
+
+  if (expectedHandle && expectedHandle !== normalizeXHandle(actualUsername)) {
+    throw new Error(`Connected X credentials belong to @${actualUsername}, not ${requestedProfileName}. Use tokens for the intended account.`);
+  }
+
+  return `@${actualUsername}`;
+}
+
 function getScopedRequiredEnv(isPlatformScope: boolean, tenantNames: string[], platformNames: string[]): string {
   const names = isPlatformScope ? platformNames : tenantNames;
   for (const name of names) {
@@ -1954,12 +1993,21 @@ router.post(
       return;
     }
 
-    const encrypted = encryptCredentials(credentials);
+    const credentialsRecord = credentials as Record<string, unknown>;
+    let resolvedProfileName = String(profileName || "").trim();
+    if (platform === "x") {
+      resolvedProfileName = await resolveAndValidateXOAuth1ProfileName({
+        requestedProfileName: resolvedProfileName,
+        credentials: credentialsRecord,
+      });
+    }
+
+    const encrypted = encryptCredentials(credentialsRecord as Record<string, string>);
 
     const payload = {
       platform,
       encrypted_credentials: encrypted,
-      profile_name: profileName,
+      profile_name: resolvedProfileName,
       page_id: pageId || null,
       page_name: pageName || null,
       instagram_business_id: instagramBusinessId || null,
