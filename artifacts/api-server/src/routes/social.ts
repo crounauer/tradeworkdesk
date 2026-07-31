@@ -105,6 +105,29 @@ function getGoogleBusinessCallbackUrl(req: AuthenticatedRequest): string {
   return `${getPublicAppOrigin(req)}/api/admin/social/google-business/callback`;
 }
 
+function normalizeXHandle(raw: unknown): string {
+  const value = String(raw || "").trim().toLowerCase();
+  return value.replace(/^@+/, "");
+}
+
+function addExpectedXHandleToReturnPath(returnPath: string, expectedHandle: string): string {
+  const normalized = normalizeXHandle(expectedHandle);
+  if (!normalized) return returnPath;
+
+  const url = new URL(returnPath, "https://local.invalid");
+  url.searchParams.set("expected_x_handle", normalized);
+  return `${url.pathname}${url.search}`;
+}
+
+function readExpectedXHandleFromReturnPath(returnPath: string): string {
+  try {
+    const url = new URL(returnPath, "https://local.invalid");
+    return normalizeXHandle(url.searchParams.get("expected_x_handle"));
+  } catch {
+    return "";
+  }
+}
+
 function getScopedRequiredEnv(isPlatformScope: boolean, tenantNames: string[], platformNames: string[]): string {
   const names = isPlatformScope ? platformNames : tenantNames;
   for (const name of names) {
@@ -1176,6 +1199,8 @@ router.post(
       const client = new TwitterApi({ clientId, clientSecret });
       const callbackUrl = getXCallbackUrl(req);
       const returnPath = sanitizeReturnPath(req.body?.returnPath);
+      const expectedHandle = normalizeXHandle(req.body?.expectedHandle);
+      const persistedReturnPath = addExpectedXHandleToReturnPath(returnPath, expectedHandle);
       const authLink = client.generateOAuth2AuthLink(callbackUrl, {
         scope: [...X_OAUTH_SCOPES],
       });
@@ -1191,7 +1216,7 @@ router.post(
               created_by_user_id: req.userId,
               state_hash: stateHash,
               code_verifier: authLink.codeVerifier,
-              return_path: returnPath,
+              return_path: persistedReturnPath,
               expires_at: expiresAt,
             }
             : {
@@ -1199,7 +1224,7 @@ router.post(
               created_by_user_id: req.userId,
               state_hash: stateHash,
               code_verifier: authLink.codeVerifier,
-              return_path: returnPath,
+              return_path: persistedReturnPath,
               expires_at: expiresAt,
             },
         );
@@ -1323,6 +1348,14 @@ router.get(
       }
 
       const profile = await fetchXProfile(accessToken);
+      const expectedHandle = readExpectedXHandleFromReturnPath(returnPath);
+      if (expectedHandle && normalizeXHandle(profile.username) !== expectedHandle) {
+        redirectWith(
+          "error",
+          `Connected @${profile.username}, but expected @${expectedHandle}. Switch account in X and try again.`,
+        );
+        return;
+      }
 
       const expiresAt = loginResult.expiresIn && loginResult.expiresIn > 0
         ? new Date(Date.now() + loginResult.expiresIn * 1000).toISOString()

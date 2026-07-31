@@ -2349,10 +2349,10 @@ function AccountsTab() {
   });
 
   const startXOAuthMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (expectedHandle: string) =>
       apiFetch("/admin/social/x/oauth/start", {
         method: "POST",
-        body: JSON.stringify({ returnPath: "/admin/social?tab=accounts" }),
+        body: JSON.stringify({ returnPath: "/admin/social?tab=accounts", expectedHandle }),
       }) as Promise<{ authUrl: string }>,
     onSuccess: (result) => {
       if (!result?.authUrl) {
@@ -2365,6 +2365,17 @@ function AccountsTab() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
+
+  const startXOAuthWithExpectedHandle = () => {
+    const raw = window.prompt("Enter the X handle you want to connect (example: @NEEcoheat)", "@NEEcoheat");
+    if (raw === null) return;
+    const expectedHandle = raw.trim();
+    if (!expectedHandle) {
+      toast({ title: "Handle required", description: "Enter the X handle to prevent connecting the wrong account.", variant: "destructive" });
+      return;
+    }
+    startXOAuthMutation.mutate(expectedHandle);
+  };
 
   const startGoogleBusinessOAuthMutation = useMutation({
     mutationFn: () =>
@@ -2418,7 +2429,7 @@ function AccountsTab() {
         />
         <Button
           variant="default"
-          onClick={() => startXOAuthMutation.mutate()}
+          onClick={startXOAuthWithExpectedHandle}
           disabled={startXOAuthMutation.isPending}
         >
           {startXOAuthMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
@@ -2570,6 +2581,7 @@ export default function AdminSocial() {
     }
     params.delete("message");
     params.delete("connected");
+    params.delete("expected_x_handle");
     const nextQuery = params.toString();
     const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}`;
     window.history.replaceState({}, "", nextUrl);
