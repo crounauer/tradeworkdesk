@@ -1483,6 +1483,26 @@ function ConnectAccountDialog({
               onChange={(e) => setProfileName(e.target.value)}
               placeholder="@username or page name"
             />
+            {platform === "x" && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter the X handle you want this connection to represent, for example @NEEcoheat. This is a display label in TradeWorkDesk.
+              </p>
+            )}
+            {platform === "facebook" && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter the Facebook Page name as shown publicly, for example North East Ecoheat Ltd.
+              </p>
+            )}
+            {platform === "instagram" && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter the Instagram business profile name or @username for easier identification.
+              </p>
+            )}
+            {platform === "google_business" && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter the business profile label you want to see in TradeWorkDesk, for example your Google Business location name.
+              </p>
+            )}
           </div>
 
           {(platform === "facebook" || platform === "instagram" || platform === "google_business") && (
@@ -1641,7 +1661,7 @@ function EditAccountDialog({
           <Pencil className="w-4 h-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Social Account</DialogTitle>
         </DialogHeader>
@@ -1763,10 +1783,12 @@ function EditAccountDialog({
               <div key={field.key}>
                 <Label className="text-xs text-muted-foreground">{field.label}</Label>
                 <Input
-                  type="password"
+                  type={field.key.toLowerCase().includes("secret") ? "password" : "text"}
                   value={credentials[field.key] || ""}
                   onChange={(e) => setCredentials((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                  placeholder={field.label}
+                  placeholder={field.placeholder || field.label}
+                  autoComplete="new-password"
+                  name={`edit-${platform}-${field.key}`}
                 />
               </div>
             ))}
