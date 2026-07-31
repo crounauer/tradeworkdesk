@@ -3,7 +3,7 @@ import crypto from "crypto";
 import multer from "multer";
 import { requireAuth, requireTenant, requireRole, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { supabaseAdmin } from "../lib/supabase";
-import { encryptCredentials } from "../lib/social-crypto";
+import { decryptCredentials, encryptCredentials } from "../lib/social-crypto";
 import { dispatchPost } from "../lib/social-platforms";
 import {
   beginSocialDeliveryAttempt,
@@ -134,33 +134,50 @@ async function resolveAndValidateXOAuth1ProfileName(args: {
 }): Promise<string> {
   const requestedProfileName = String(args.requestedProfileName || "").trim();
   const expectedHandle = normalizeXHandle(requestedProfileName);
-
-  const appKey = String(args.credentials.appKey || "").trim();
-  const appSecret = String(args.credentials.appSecret || "").trim();
-  const accessToken = String(args.credentials.accessToken || "").trim();
-  const accessSecret = String(args.credentials.accessSecret || "").trim();
-
-  if (!appKey || !appSecret || !accessToken || !accessSecret) {
-    throw new Error("X manual connection requires Consumer Key, Consumer Secret, Access Token, and Access Token Secret.");
-  }
-
-  const { TwitterApi } = await import("twitter-api-v2");
-  const client = new TwitterApi({ appKey, appSecret, accessToken, accessSecret });
+  const enforceExpectedHandle = /^[a-z0-9_]{1,15}$/i.test(expectedHandle);
+  const tokenType = String(args.credentials.tokenType || "").trim().toLowerCase() || "oauth1";
 
   let actualUsername = "";
-  try {
-    const me = await client.v2.me({ "user.fields": ["username", "name"] });
-    actualUsername = String(me.data?.username || "").trim();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Unable to verify X OAuth1 credentials: ${message}`);
+  if (tokenType === "oauth2") {
+    const accessToken = String(args.credentials.accessToken || "").trim();
+    if (!accessToken) {
+      throw new Error("Unable to verify X OAuth2 credentials: missing access token.");
+    }
+
+    try {
+      const profile = await fetchXProfile(accessToken);
+      actualUsername = String(profile.username || "").trim();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Unable to verify X OAuth2 credentials: ${message}`);
+    }
+  } else {
+    const appKey = String(args.credentials.appKey || "").trim();
+    const appSecret = String(args.credentials.appSecret || "").trim();
+    const accessToken = String(args.credentials.accessToken || "").trim();
+    const accessSecret = String(args.credentials.accessSecret || "").trim();
+
+    if (!appKey || !appSecret || !accessToken || !accessSecret) {
+      throw new Error("X manual connection requires Consumer Key, Consumer Secret, Access Token, and Access Token Secret.");
+    }
+
+    const { TwitterApi } = await import("twitter-api-v2");
+    const client = new TwitterApi({ appKey, appSecret, accessToken, accessSecret });
+
+    try {
+      const me = await client.v2.me({ "user.fields": ["username", "name"] });
+      actualUsername = String(me.data?.username || "").trim();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Unable to verify X OAuth1 credentials: ${message}`);
+    }
   }
 
   if (!actualUsername) {
     throw new Error("Unable to verify X OAuth1 credentials: X API did not return a username.");
   }
 
-  if (expectedHandle && expectedHandle !== normalizeXHandle(actualUsername)) {
+  if (enforceExpectedHandle && expectedHandle !== normalizeXHandle(actualUsername)) {
     throw new Error(`Connected X credentials belong to @${actualUsername}, not ${requestedProfileName}. Use tokens for the intended account.`);
   }
 
@@ -2108,7 +2125,7 @@ router.patch(
 
     let existingQuery = supabaseAdmin
       .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
-      .select("id, platform, profile_name")
+      .select("id, platform, profile_name, encrypted_credentials")
       .eq("id", id)
       .limit(1);
 
@@ -2161,6 +2178,15 @@ router.patch(
       }
 
       updates.encrypted_credentials = encryptCredentials(credentials as Record<string, string>);
+    }
+
+    if (credentials === undefined && profileName !== undefined && String(existingAccount.platform || "") === "x") {
+      const decrypted = decryptCredentials(String(existingAccount.encrypted_credentials || ""));
+      const resolvedProfileName = await resolveAndValidateXOAuth1ProfileName({
+        requestedProfileName: String(profileName || ""),
+        credentials: decrypted as Record<string, unknown>,
+      });
+      updates.profile_name = resolvedProfileName;
     }
 
     if (isActive === true) {
