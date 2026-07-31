@@ -2016,6 +2016,63 @@ router.post(
 );
 
 router.post(
+  "/admin/social/accounts/:id/test-x-credentials",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (!hasFacebookPermission(req, "facebook_post_manage_connections")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
+    const { id } = req.params;
+    const isPlatformScope = isPlatformSocialScope(req);
+    const tenantId = resolveTenantId(req);
+
+    if (!isPlatformScope && !tenantId) {
+      res.status(400).json({ error: getSocialScopeErrorMessage(req) });
+      return;
+    }
+
+    let accountQuery = supabaseAdmin
+      .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
+      .select("id, platform, encrypted_credentials")
+      .eq("id", id)
+      .limit(1);
+
+    if (!isPlatformScope) {
+      accountQuery = accountQuery.eq("tenant_id", tenantId!);
+    }
+
+    const { data: account } = await accountQuery.maybeSingle();
+    if (!account) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
+    if (String(account.platform || "") !== "x") {
+      res.status(400).json({ error: "This test is only available for X accounts" });
+      return;
+    }
+
+    try {
+      const decrypted = decryptCredentials(String(account.encrypted_credentials || ""));
+      const resolvedProfileName = await resolveAndValidateXOAuth1ProfileName({
+        requestedProfileName: "",
+        credentials: decrypted as Record<string, unknown>,
+      });
+
+      res.json({ ok: true, profileName: resolvedProfileName });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(400).json({ error: message });
+    }
+  },
+);
+
+router.post(
   "/admin/social/accounts",
   requireAuth,
   requireTenant,

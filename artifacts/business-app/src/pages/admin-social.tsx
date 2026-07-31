@@ -1689,6 +1689,25 @@ function EditAccountDialog({
     },
   });
 
+  const testSavedXCredentialsMutation = useMutation({
+    mutationFn: () =>
+      apiFetch(`/admin/social/accounts/${String(account.id)}/test-x-credentials`, {
+        method: "POST",
+      }) as Promise<{ ok: boolean; profileName: string }>,
+    onSuccess: (result) => {
+      const handle = String(result?.profileName || "").trim();
+      if (handle) {
+        setTestedXHandle(handle);
+        setProfileName(handle);
+      }
+      toast({ title: "Saved X credentials verified", description: handle ? `Connected account: ${handle}` : undefined });
+    },
+    onError: (err: Error) => {
+      setTestedXHandle("");
+      toast({ title: "Saved credential test failed", description: err.message, variant: "destructive" });
+    },
+  });
+
   const updateMutation = useMutation({
     mutationFn: async () => {
       const hasAnyCredentialValue = credentialFields.some((field) => (credentials[field.key] || "").trim().length > 0);
@@ -1856,6 +1875,16 @@ function EditAccountDialog({
                   type="button"
                   size="sm"
                   variant="outline"
+                  onClick={() => testSavedXCredentialsMutation.mutate()}
+                  disabled={testSavedXCredentialsMutation.isPending}
+                >
+                  {testSavedXCredentialsMutation.isPending && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                  Test saved credentials
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
                   onClick={() => testXCredentialsMutation.mutate()}
                   disabled={
                     testXCredentialsMutation.isPending
@@ -1866,8 +1895,9 @@ function EditAccountDialog({
                   }
                 >
                   {testXCredentialsMutation.isPending && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
-                  Test credentials
+                  Test entered credentials
                 </Button>
+                <p className="text-xs text-muted-foreground">For Test entered credentials, fill all 4 credential fields first.</p>
                 {testedXHandle && (
                   <p className="text-xs text-green-700">Verified account: {testedXHandle}</p>
                 )}
