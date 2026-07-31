@@ -2057,6 +2057,22 @@ router.patch(
       return;
     }
 
+    let existingQuery = supabaseAdmin
+      .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
+      .select("id, platform, profile_name")
+      .eq("id", id)
+      .limit(1);
+
+    if (!isPlatformScope) {
+      existingQuery = existingQuery.eq("tenant_id", tenantId!);
+    }
+
+    const { data: existingAccount } = await existingQuery.maybeSingle();
+    if (!existingAccount) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (isActive !== undefined) updates.is_active = isActive;
     if (autoPost !== undefined) updates.auto_post = autoPost;
@@ -2083,6 +2099,16 @@ router.patch(
       if (credentialValues.length === 0 || credentialValues.some((value) => !String(value || "").trim())) {
         res.status(400).json({ error: "credentials must include non-empty values" });
         return;
+      }
+
+      if (String(existingAccount.platform || "") === "x") {
+        const resolvedProfileName = await resolveAndValidateXOAuth1ProfileName({
+          requestedProfileName: profileName !== undefined
+            ? String(profileName || "")
+            : String(existingAccount.profile_name || ""),
+          credentials: credentials as Record<string, unknown>,
+        });
+        updates.profile_name = resolvedProfileName;
       }
 
       updates.encrypted_credentials = encryptCredentials(credentials as Record<string, string>);
