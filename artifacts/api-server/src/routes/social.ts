@@ -1963,6 +1963,42 @@ router.get(
 );
 
 router.post(
+  "/admin/social/accounts/test-x-credentials",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "super_admin"),
+  requirePlanFeature("social_media"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    if (!hasFacebookPermission(req, "facebook_post_manage_connections")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+
+    const { profileName, credentials } = req.body as {
+      profileName?: unknown;
+      credentials?: unknown;
+    };
+
+    if (typeof credentials !== "object" || credentials === null || Array.isArray(credentials)) {
+      res.status(400).json({ error: "credentials must be an object" });
+      return;
+    }
+
+    try {
+      const resolvedProfileName = await resolveAndValidateXOAuth1ProfileName({
+        requestedProfileName: String(profileName || "").trim(),
+        credentials: credentials as Record<string, unknown>,
+      });
+
+      res.json({ ok: true, profileName: resolvedProfileName });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(400).json({ error: message });
+    }
+  },
+);
+
+router.post(
   "/admin/social/accounts",
   requireAuth,
   requireTenant,

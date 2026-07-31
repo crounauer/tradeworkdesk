@@ -1356,7 +1356,31 @@ function ConnectAccountDialog({
   const [pageName, setPageName] = useState("");
   const [instagramBusinessId, setInstagramBusinessId] = useState("");
   const [credentials, setCredentials] = useState<Record<string, string>>({});
+  const [testedXHandle, setTestedXHandle] = useState("");
   const { toast } = useToast();
+
+  const testXCredentialsMutation = useMutation({
+    mutationFn: () =>
+      apiFetch("/admin/social/accounts/test-x-credentials", {
+        method: "POST",
+        body: JSON.stringify({
+          profileName,
+          credentials,
+        }),
+      }) as Promise<{ ok: boolean; profileName: string }>,
+    onSuccess: (result) => {
+      const handle = String(result?.profileName || "").trim();
+      if (handle) {
+        setTestedXHandle(handle);
+        setProfileName(handle);
+      }
+      toast({ title: "X credentials verified", description: handle ? `Connected account: ${handle}` : undefined });
+    },
+    onError: (err: Error) => {
+      setTestedXHandle("");
+      toast({ title: "Credential test failed", description: err.message, variant: "destructive" });
+    },
+  });
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -1390,6 +1414,7 @@ function ConnectAccountDialog({
     setPageName("");
     setInstagramBusinessId("");
     setCredentials({});
+    setTestedXHandle("");
   };
 
   const activeExplainer = SOCIAL_ACCOUNT_EXPLAINERS[platform];
@@ -1556,9 +1581,30 @@ function ConnectAccountDialog({
           <div className="space-y-3">
             <Label className="text-sm font-semibold">Credentials</Label>
             {platform === "x" && (
-              <p className="text-xs text-muted-foreground">
-                Use OAuth 1.0a user tokens here. client_id, client_secret, and bearer_token are OAuth 2.0 values and are not used in this manual form.
-              </p>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Use OAuth 1.0a user tokens here. client_id, client_secret, and bearer_token are OAuth 2.0 values and are not used in this manual form.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => testXCredentialsMutation.mutate()}
+                  disabled={
+                    testXCredentialsMutation.isPending
+                    || !(credentials.appKey || "").trim()
+                    || !(credentials.appSecret || "").trim()
+                    || !(credentials.accessToken || "").trim()
+                    || !(credentials.accessSecret || "").trim()
+                  }
+                >
+                  {testXCredentialsMutation.isPending && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                  Test credentials
+                </Button>
+                {testedXHandle && (
+                  <p className="text-xs text-green-700">Verified account: {testedXHandle}</p>
+                )}
+              </div>
             )}
             {(SOCIAL_ACCOUNT_CREDENTIAL_FIELDS[platform] || []).map((field) => (
               <div key={field.key}>
@@ -1604,6 +1650,7 @@ function EditAccountDialog({
   const [pageName, setPageName] = useState("");
   const [instagramBusinessId, setInstagramBusinessId] = useState("");
   const [credentials, setCredentials] = useState<Record<string, string>>({});
+  const [testedXHandle, setTestedXHandle] = useState("");
   const { toast } = useToast();
 
   const platform = String(account.platform || "");
@@ -1616,7 +1663,31 @@ function EditAccountDialog({
     setPageName(String(account.page_name || ""));
     setInstagramBusinessId(String(account.instagram_business_id || ""));
     setCredentials({});
+    setTestedXHandle("");
   };
+
+  const testXCredentialsMutation = useMutation({
+    mutationFn: () =>
+      apiFetch("/admin/social/accounts/test-x-credentials", {
+        method: "POST",
+        body: JSON.stringify({
+          profileName,
+          credentials,
+        }),
+      }) as Promise<{ ok: boolean; profileName: string }>,
+    onSuccess: (result) => {
+      const handle = String(result?.profileName || "").trim();
+      if (handle) {
+        setTestedXHandle(handle);
+        setProfileName(handle);
+      }
+      toast({ title: "X credentials verified", description: handle ? `Connected account: ${handle}` : undefined });
+    },
+    onError: (err: Error) => {
+      setTestedXHandle("");
+      toast({ title: "Credential test failed", description: err.message, variant: "destructive" });
+    },
+  });
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -1779,6 +1850,29 @@ function EditAccountDialog({
             <p className="text-xs text-muted-foreground">
               Leave all credential fields blank to keep existing credentials unchanged.
             </p>
+            {platform === "x" && (
+              <div className="space-y-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => testXCredentialsMutation.mutate()}
+                  disabled={
+                    testXCredentialsMutation.isPending
+                    || !(credentials.appKey || "").trim()
+                    || !(credentials.appSecret || "").trim()
+                    || !(credentials.accessToken || "").trim()
+                    || !(credentials.accessSecret || "").trim()
+                  }
+                >
+                  {testXCredentialsMutation.isPending && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                  Test credentials
+                </Button>
+                {testedXHandle && (
+                  <p className="text-xs text-green-700">Verified account: {testedXHandle}</p>
+                )}
+              </div>
+            )}
             {credentialFields.map((field) => (
               <div key={field.key}>
                 <Label className="text-xs text-muted-foreground">{field.label}</Label>
