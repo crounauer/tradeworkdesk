@@ -515,12 +515,42 @@ interface EmailLogEntry {
   created_at: string;
 }
 
+function getCustomerEmailLogBodyText(log: EmailLogEntry): string {
+  if (log.body_text && log.body_text.trim().length > 0) {
+    return log.body_text;
+  }
+
+  const lines = [
+    `To: ${log.sent_to}`,
+    `Subject: ${log.subject}`,
+  ];
+
+  if (log.forms_included?.length > 0) {
+    lines.push("", "Attachments:");
+    for (const form of log.forms_included) {
+      lines.push(`- ${form.form_label}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
 function CustomerCommsSection({ customerId }: { customerId: string }) {
   const { data: logs = [], isLoading } = useQuery<EmailLogEntry[]>({
     queryKey: ["customer-email-log", customerId],
     queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/customers/${customerId}/email-log`) as Promise<EmailLogEntry[]>,
     staleTime: 2 * 60_000,
   });
+  const [openEntries, setOpenEntries] = useState<Set<string>>(new Set());
+
+  const toggleEntry = (id: string) => {
+    setOpenEntries((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   if (isLoading || logs.length === 0) return null;
 
@@ -532,8 +562,10 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
       </h2>
       <div className="space-y-2">
         {logs.map(log => {
+          const isOpen = openEntries.has(log.id);
+          const emailBody = getCustomerEmailLogBodyText(log);
           const card = (
-            <Card className={`p-4 border border-border/50 transition-all ${log.job_id ? "hover:border-primary/50 hover:shadow-md cursor-pointer" : ""}`}>
+            <Card className={`p-4 border border-border/50 transition-all ${log.job_id ? "hover:border-primary/50 hover:shadow-md" : ""}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -555,32 +587,44 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  {log.job_id && (
+                    <Link href={`/jobs/${log.job_id}`}>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={(e) => e.stopPropagation()}>
+                        View job
+                      </Button>
+                    </Link>
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleEntry(log.id);
+                    }}
+                  >
+                    {isOpen ? "Hide email" : "View email"}
+                    <ChevronRight className={`w-3.5 h-3.5 ml-1 transition-transform ${isOpen ? "rotate-90" : ""}`} />
+                  </Button>
                   <span className="text-xs text-muted-foreground whitespace-nowrap">
                     {new Date(log.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </span>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </div>
               </div>
-              {log.body_text && (
-                <details className="mt-3 rounded-md border border-border/50 bg-muted/30 px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                  <summary className="cursor-pointer text-xs font-medium text-muted-foreground select-none">
-                    View email content
-                  </summary>
+              {isOpen && (
+                <div className="mt-3 rounded-md border border-border/50 bg-muted/30 px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                  <p className="text-xs font-medium text-muted-foreground">Email content</p>
                   <pre className="mt-2 whitespace-pre-wrap text-xs text-foreground font-sans leading-relaxed">
-                    {log.body_text}
+                    {emailBody}
                   </pre>
-                </details>
+                </div>
               )}
             </Card>
           );
 
-          return log.job_id ? (
-            <Link key={log.id} href={`/jobs/${log.job_id}`}>
-              {card}
-            </Link>
-          ) : (
-            <div key={log.id}>{card}</div>
-          );
+          return <div key={log.id}>{card}</div>;
         })}
       </div>
     </div>
