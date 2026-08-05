@@ -1088,85 +1088,92 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           </div>
                         )
                       ))}
-                      {jobs.map(({ job, slotIndex, totalSlots, durationMinutes }) => (
-                        slotIndex === 0 ? (
+                      {jobs.length > 0 && (
                         <div
-                          key={`${job.id}-${slotStart}`}
-                          data-job-card
-                          role="button"
-                          tabIndex={0}
-                          draggable={canDrag}
-                          onDragStart={(e) => handleDragStart(e, job.id)}
-                          onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
-                          onClick={(e) => handleJobClick(e, job.id)}
-                          onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
-                          className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
+                          className={`space-y-1 sm:space-y-0 ${jobs.length > 1 ? "sm:grid sm:gap-1" : ""}`}
+                          style={jobs.length > 1 ? { gridTemplateColumns: `repeat(${Math.min(jobs.length, 3)}, minmax(0, 1fr))` } : undefined}
                         >
-                          <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
-                            <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
-                            <PriorityBadge priority={job.priority} />
-                            <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} />
-                            {(() => {
-                              const { label, intent } = getJobTypeDisplay(job);
-                              return (
-                                <span className="ml-auto flex items-center gap-1.5">
-                                  <VisitIntentBadge intent={intent} jobTypeLabel={label} showStandard={false} />
-                                  <span className="text-xs opacity-60 capitalize">{label}</span>
-                                  <span className="text-xs opacity-70">{durationLabel(durationMinutes)}</span>
-                                </span>
-                              );
-                            })()}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 ml-4">
-                            <span className="flex items-center gap-1 text-xs opacity-75"><Clock className="w-3 h-3" />{getJobTimeRangeLabel(job)}</span>
-                            {job.technician_name && (
-                              <span className="flex items-center gap-1 text-xs opacity-75"><User className="w-3 h-3" />{job.technician_name}</span>
-                            )}
-                            {job.property_address && (
-                              <span className="flex items-center gap-1 text-xs opacity-60 truncate max-w-[250px]"><MapPin className="w-3 h-3 shrink-0" />{job.property_address}</span>
-                            )}
-                            {isSubjectToConfirmation(job) && (
-                              <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200">
-                                Subject to confirmation
-                              </span>
-                            )}
-                            {isOnlineBookingAwaitingAdminConfirmation(job) && (
-                              <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300">
-                                TBC
-                              </span>
-                            )}
-                            <span className="text-xs font-medium opacity-80 ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
-                          </div>
-                        </div>
-                        ) : (
-                          <div
-                            key={`${job.id}-${slotStart}`}
-                            data-job-card
-                            role="button"
-                            tabIndex={0}
-                            draggable={canDrag}
-                            onDragStart={(e) => handleDragStart(e, job.id)}
-                            onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
-                            onClick={(e) => handleJobClick(e, job.id)}
-                            onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
-                            className={`px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm opacity-90`}
-                          >
-                            {showContinuationSummary ? (
-                              <div className="flex items-center gap-2">
+                          {jobs.map(({ job, slotIndex, totalSlots, durationMinutes }) => (
+                            slotIndex === 0 ? (
+                            <div
+                              key={`${job.id}-${slotStart}`}
+                              data-job-card
+                              role="button"
+                              tabIndex={0}
+                              draggable={canDrag}
+                              onDragStart={(e) => handleDragStart(e, job.id)}
+                              onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
+                              onClick={(e) => handleJobClick(e, job.id)}
+                              onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                              className={`px-3 py-2 rounded-lg border transition-all cursor-pointer min-w-0 ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
                                 <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
-                                <span className="text-sm font-semibold">{job.customer_name || "Unknown"} (continues)</span>
-                                <span className="ml-auto text-xs opacity-80">{getSlotRangeLabel(slotStart, daySlotMinutes)}</span>
+                                <span className="text-sm font-semibold truncate">{job.customer_name || "Unknown"}</span>
+                                <PriorityBadge priority={job.priority} />
+                                <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} />
+                                {(() => {
+                                  const { label, intent } = getJobTypeDisplay(job);
+                                  return (
+                                    <span className="ml-auto flex items-center gap-1.5 min-w-0">
+                                      <VisitIntentBadge intent={intent} jobTypeLabel={label} showStandard={false} />
+                                      <span className="text-xs opacity-60 capitalize truncate">{label}</span>
+                                      <span className="text-xs opacity-70 shrink-0">{durationLabel(durationMinutes)}</span>
+                                    </span>
+                                  );
+                                })()}
                               </div>
-                            ) : (
-                              <div className="h-2 rounded bg-current/20" />
-                            )}
-                            <div className="text-[11px] opacity-70 mt-1 ml-4">
-                              {getJobTimeRangeLabel(job)}
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 ml-4 min-w-0">
+                                <span className="flex items-center gap-1 text-xs opacity-75"><Clock className="w-3 h-3" />{getJobTimeRangeLabel(job)}</span>
+                                {job.technician_name && (
+                                  <span className="flex items-center gap-1 text-xs opacity-75"><User className="w-3 h-3" />{job.technician_name}</span>
+                                )}
+                                {job.property_address && (
+                                  <span className="flex items-center gap-1 text-xs opacity-60 truncate max-w-[250px]"><MapPin className="w-3 h-3 shrink-0" />{job.property_address}</span>
+                                )}
+                                {isSubjectToConfirmation(job) && (
+                                  <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200">
+                                    Subject to confirmation
+                                  </span>
+                                )}
+                                {isOnlineBookingAwaitingAdminConfirmation(job) && (
+                                  <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300">
+                                    TBC
+                                  </span>
+                                )}
+                                <span className="text-xs font-medium opacity-80 ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
+                              </div>
                             </div>
-                          </div>
-                        )
-                      ))}
+                            ) : (
+                              <div
+                                key={`${job.id}-${slotStart}`}
+                                data-job-card
+                                role="button"
+                                tabIndex={0}
+                                draggable={canDrag}
+                                onDragStart={(e) => handleDragStart(e, job.id)}
+                                onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
+                                onClick={(e) => handleJobClick(e, job.id)}
+                                onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                                className={`px-3 py-1.5 rounded-lg border transition-all cursor-pointer min-w-0 ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm opacity-90`}
+                              >
+                                {showContinuationSummary ? (
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
+                                    <span className="text-sm font-semibold truncate">{job.customer_name || "Unknown"} (continues)</span>
+                                    <span className="ml-auto text-xs opacity-80 shrink-0">{getSlotRangeLabel(slotStart, daySlotMinutes)}</span>
+                                  </div>
+                                ) : (
+                                  <div className="h-2 rounded bg-current/20" />
+                                )}
+                                <div className="text-[11px] opacity-70 mt-1 ml-4 truncate">
+                                  {getJobTimeRangeLabel(job)}
+                                </div>
+                              </div>
+                            )
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
