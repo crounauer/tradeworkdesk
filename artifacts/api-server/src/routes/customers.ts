@@ -655,6 +655,7 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     .maybeSingle();
 
   if (!customer) { res.status(404).json({ error: "Customer not found" }); return; }
+  const customerEmail = String((customer as { email?: string | null })?.email || "").trim();
 
   // Step 1: collect all job IDs for this customer
   const { data: jobs } = await supabaseAdmin
@@ -667,14 +668,15 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
   // are included even when they are not linked to a job.
   const { data: docs, error: docsError } = await supabaseAdmin
     .from("invoices")
-    .select("id")
+    .select("id, invoice_number, type, status, sent_at")
     .eq("customer_id", id)
     .eq("tenant_id", req.tenantId!);
 
   if (docsError) { res.status(500).json({ error: docsError.message }); return; }
 
   const jobIds = (jobs || []).map((j: { id: string }) => j.id);
-  const docIdSet = new Set((docs || []).map((d: { id: string }) => String(d.id)));
+  const docRows = (docs || []) as Array<{ id: string; invoice_number: string | null; type: string | null; status: string | null; sent_at: string | null }>;
+  const docIdSet = new Set(docRows.map((d) => String(d.id)));
   const jobRefMap: Record<string, string | null> = {};
   for (const j of jobs as { id: string; job_ref: string | null }[]) {
     jobRefMap[j.id] = j.job_ref;
@@ -737,6 +739,38 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
       created_at: log.created_at,
     }));
 
+  // Step 2c: fallback entries for sent docs that never got a log row
+  // (e.g. quote/invoice not linked to a job where job_email_logs insert failed).
+  const docIdsWithLogs = new Set<string>();
+  for (const log of mappedDocEmails) {
+    const formsIncluded = Array.isArray(log.forms_included) ? log.forms_included as Array<Record<string, unknown>> : [];
+    for (const f of formsIncluded) {
+      const formType = String(f.form_type || "").toLowerCase();
+      const formId = String(f.form_id || "");
+      if ((formType === "invoice" || formType === "quote") && formId) {
+        docIdsWithLogs.add(formId);
+      }
+    }
+  }
+
+  const mappedDocFallbackEmails = docRows
+    .filter((doc) => !!doc.sent_at && (doc.status === "sent" || doc.status === "paid" || doc.status === "accepted" || doc.status === "converted") && !docIdsWithLogs.has(String(doc.id)))
+    .map((doc) => {
+      const docType = String(doc.type || "invoice").toLowerCase() === "quote" ? "Quote" : "Invoice";
+      const docNumber = String(doc.invoice_number || doc.id);
+      return {
+        id: `doc-fallback-${doc.id}`,
+        job_id: null,
+        job_ref: null,
+        sent_to: customerEmail || "",
+        subject: `${docType} ${docNumber}`,
+        forms_included: [{ form_type: String(doc.type || "invoice"), form_label: `${docType} ${docNumber}`, form_id: String(doc.id) }],
+        body_text: null,
+        sent_by_name: null,
+        created_at: String(doc.sent_at),
+      };
+    });
+
   const emailById = new Map<string, {
     id: unknown;
     job_id: unknown;
@@ -748,7 +782,7 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     sent_by_name: unknown;
     created_at: unknown;
   }>();
-  for (const entry of [...mappedJobEmails, ...mappedDocEmails]) {
+  for (const entry of [...mappedJobEmails, ...mappedDocEmails, ...mappedDocFallbackEmails]) {
     emailById.set(String(entry.id), entry);
   }
   const mappedCustomerEmails = Array.from(emailById.values());
@@ -772,7 +806,6 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     }
   }
 
-  const customerEmail = String((customer as { email?: string | null })?.email || "").trim();
   if (customerEmail) {
     const { data: emailLinkedRequests, error: emailLinkedRequestsError } = await supabaseAdmin
       .from("review_requests")
