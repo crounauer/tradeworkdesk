@@ -551,7 +551,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               )}
             </div>
             <Input
-              type="number" min="0" step="0.01"
+              type="number" min="0" step="1"
               value={line.quantity}
               onChange={(e) => updateLine(idx, "quantity", parseFloat(e.target.value) || 0)}
               onFocus={(e) => e.currentTarget.select()}

@@ -2498,7 +2498,7 @@ function AccountsTab() {
     mutationFn: (expectedHandle: string) =>
       apiFetch("/admin/social/x/oauth/start", {
         method: "POST",
-        body: JSON.stringify({ returnPath: "/admin/social?tab=accounts", expectedHandle }),
+        body: JSON.stringify({ returnPath: "/admin/social?tab=accounts", expectedHandle, authMode: "oauth1" }),
       }) as Promise<{ authUrl: string }>,
     onSuccess: (result) => {
       if (!result?.authUrl) {
@@ -2579,7 +2579,7 @@ function AccountsTab() {
           disabled={startXOAuthMutation.isPending}
         >
           {startXOAuthMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
-          Connect X
+          Connect X (Login)
         </Button>
         <Button
           variant="default"

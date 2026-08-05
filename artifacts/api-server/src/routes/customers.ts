@@ -663,7 +663,18 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     .eq("customer_id", id)
     .eq("tenant_id", req.tenantId!);
 
+  // Step 1b: collect all invoice/quote IDs for this customer so quote/invoice emails
+  // are included even when they are not linked to a job.
+  const { data: docs, error: docsError } = await supabaseAdmin
+    .from("invoices")
+    .select("id")
+    .eq("customer_id", id)
+    .eq("tenant_id", req.tenantId!);
+
+  if (docsError) { res.status(500).json({ error: docsError.message }); return; }
+
   const jobIds = (jobs || []).map((j: { id: string }) => j.id);
+  const docIdSet = new Set((docs || []).map((d: { id: string }) => String(d.id)));
   const jobRefMap: Record<string, string | null> = {};
   for (const j of jobs as { id: string; job_ref: string | null }[]) {
     jobRefMap[j.id] = j.job_ref;
@@ -693,6 +704,54 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     sent_by_name: (log.profiles as Record<string, unknown> | null)?.full_name ?? null,
     created_at: log.created_at,
   }));
+
+  // Step 2b: invoice/quote emails can exist with no job_id; include them by matching
+  // the logged form_id against invoices/quotes owned by this customer.
+  const { data: docLogs, error: docLogsError } = await supabaseAdmin
+    .from("job_email_logs")
+    .select("id, job_id, sent_to, subject, forms_included, body_text, created_at, profiles!sent_by(full_name)")
+    .eq("tenant_id", req.tenantId!)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (docLogsError) { res.status(500).json({ error: docLogsError.message }); return; }
+
+  const mappedDocEmails = (docLogs || [])
+    .filter((log: Record<string, unknown>) => {
+      const formsIncluded = Array.isArray(log.forms_included) ? log.forms_included as Array<Record<string, unknown>> : [];
+      return formsIncluded.some((f) => {
+        const formType = String(f.form_type || "").toLowerCase();
+        const formId = String(f.form_id || "");
+        return (formType === "invoice" || formType === "quote") && docIdSet.has(formId);
+      });
+    })
+    .map((log: Record<string, unknown>) => ({
+      id: log.id,
+      job_id: log.job_id,
+      job_ref: log.job_id ? (jobRefMap[String(log.job_id)] ?? null) : null,
+      sent_to: log.sent_to,
+      subject: log.subject,
+      forms_included: log.forms_included,
+      body_text: log.body_text,
+      sent_by_name: (log.profiles as Record<string, unknown> | null)?.full_name ?? null,
+      created_at: log.created_at,
+    }));
+
+  const emailById = new Map<string, {
+    id: unknown;
+    job_id: unknown;
+    job_ref: unknown;
+    sent_to: unknown;
+    subject: unknown;
+    forms_included: unknown;
+    body_text: unknown;
+    sent_by_name: unknown;
+    created_at: unknown;
+  }>();
+  for (const entry of [...mappedJobEmails, ...mappedDocEmails]) {
+    emailById.set(String(entry.id), entry);
+  }
+  const mappedCustomerEmails = Array.from(emailById.values());
 
   const reviewRequestsById = new Map<string, Record<string, unknown>>();
 
@@ -743,7 +802,7 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     created_at: request.sent_at || request.created_at,
   }));
 
-  const combined = [...mappedJobEmails, ...mappedReviewEmails]
+  const combined = [...mappedCustomerEmails, ...mappedReviewEmails]
     .sort((a, b) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime())
     .slice(0, 200);
 

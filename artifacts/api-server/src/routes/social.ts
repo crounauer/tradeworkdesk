@@ -193,6 +193,15 @@ function getScopedRequiredEnv(isPlatformScope: boolean, tenantNames: string[], p
   throw new Error(`Missing required environment variable: ${names.join(" or ")}`);
 }
 
+function getScopedOptionalEnv(isPlatformScope: boolean, tenantNames: string[], platformNames: string[]): string | undefined {
+  const names = isPlatformScope ? [...platformNames, ...tenantNames] : tenantNames;
+  for (const name of names) {
+    const value = String(process.env[name] || "").trim();
+    if (value) return value;
+  }
+  return undefined;
+}
+
 function sanitizeReturnPath(raw: unknown): string {
   const fallback = "/admin/social?tab=accounts";
   const value = String(raw || "").trim();
@@ -1240,28 +1249,61 @@ router.post(
         return;
       }
 
-      const clientId = getScopedRequiredEnv(
-        isPlatformScope,
-        ["X_OAUTH_CLIENT_ID"],
-        ["PLATFORM_X_OAUTH_CLIENT_ID"],
-      );
-      const clientSecret = getScopedRequiredEnv(
-        isPlatformScope,
-        ["X_OAUTH_CLIENT_SECRET"],
-        ["PLATFORM_X_OAUTH_CLIENT_SECRET"],
-      );
-
+      const authMode = String(req.body?.authMode || "oauth1").trim().toLowerCase();
       const { TwitterApi } = await import("twitter-api-v2");
-      const client = new TwitterApi({ clientId, clientSecret });
       const callbackUrl = getXCallbackUrl(req);
       const returnPath = sanitizeReturnPath(req.body?.returnPath);
       const expectedHandle = normalizeXHandle(req.body?.expectedHandle);
       const persistedReturnPath = addExpectedXHandleToReturnPath(returnPath, expectedHandle);
-      const authLink = client.generateOAuth2AuthLink(callbackUrl, {
-        scope: [...X_OAUTH_SCOPES],
-      });
+      let stateKey = "";
+      let verifierSecret = "";
+      let authUrl = "";
 
-      const stateHash = sha256(authLink.state);
+      if (authMode === "oauth2") {
+        const clientId = getScopedRequiredEnv(
+          isPlatformScope,
+          ["X_OAUTH_CLIENT_ID"],
+          ["PLATFORM_X_OAUTH_CLIENT_ID"],
+        );
+        const clientSecret = getScopedRequiredEnv(
+          isPlatformScope,
+          ["X_OAUTH_CLIENT_SECRET"],
+          ["PLATFORM_X_OAUTH_CLIENT_SECRET"],
+        );
+
+        const client = new TwitterApi({ clientId, clientSecret });
+        const authLink = client.generateOAuth2AuthLink(callbackUrl, {
+          scope: [...X_OAUTH_SCOPES],
+        });
+        stateKey = authLink.state;
+        verifierSecret = authLink.codeVerifier;
+        authUrl = authLink.url;
+      } else {
+        const appKey = getScopedOptionalEnv(
+          isPlatformScope,
+          ["X_APP_KEY", "X_OAUTH1_APP_KEY"],
+          ["PLATFORM_X_APP_KEY", "PLATFORM_X_OAUTH1_APP_KEY"],
+        );
+        const appSecret = getScopedOptionalEnv(
+          isPlatformScope,
+          ["X_APP_SECRET", "X_OAUTH1_APP_SECRET"],
+          ["PLATFORM_X_APP_SECRET", "PLATFORM_X_OAUTH1_APP_SECRET"],
+        );
+        if (!appKey || !appSecret) {
+          res.status(500).json({ error: "Missing X OAuth1 app key/secret in environment" });
+          return;
+        }
+
+        const client = new TwitterApi({ appKey, appSecret });
+        const authLink = await client.generateAuthLink(callbackUrl, {
+          linkMode: "authorize",
+        });
+        stateKey = authLink.oauth_token;
+        verifierSecret = authLink.oauth_token_secret;
+        authUrl = authLink.url;
+      }
+
+      const stateHash = sha256(stateKey);
       const expiresAt = new Date(Date.now() + X_STATE_TTL_MS).toISOString();
 
       const { error: insertError } = await supabaseAdmin
@@ -1271,7 +1313,7 @@ router.post(
             ? {
               created_by_user_id: req.userId,
               state_hash: stateHash,
-              code_verifier: authLink.codeVerifier,
+              code_verifier: verifierSecret,
               return_path: persistedReturnPath,
               expires_at: expiresAt,
             }
@@ -1279,7 +1321,7 @@ router.post(
               tenant_id: tenantId,
               created_by_user_id: req.userId,
               state_hash: stateHash,
-              code_verifier: authLink.codeVerifier,
+              code_verifier: verifierSecret,
               return_path: persistedReturnPath,
               expires_at: expiresAt,
             },
@@ -1290,7 +1332,7 @@ router.post(
         return;
       }
 
-      res.json({ authUrl: authLink.url, callbackUrl });
+      res.json({ authUrl, callbackUrl });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ error: message });
@@ -1315,13 +1357,16 @@ router.get(
       const oauthErrorDescription = String(req.query.error_description || "").trim();
       const state = String(req.query.state || "").trim();
       const code = String(req.query.code || "").trim();
+      const oauthToken = String(req.query.oauth_token || "").trim();
+      const oauthVerifier = String(req.query.oauth_verifier || "").trim();
+      const oauth1Mode = !!oauthToken && !!oauthVerifier;
 
-      if (!state) {
+      if (!state && !oauth1Mode) {
         fallbackRedirect("error", "missing_state");
         return;
       }
 
-      const stateHash = sha256(state);
+      const stateHash = sha256(oauth1Mode ? oauthToken : state);
       const nowIso = new Date().toISOString();
       const { data: tenantState, error: tenantStateError } = await supabaseAdmin
         .from("x_oauth_states")
@@ -1369,77 +1414,153 @@ router.get(
         return;
       }
 
-      if (!code) {
-        redirectWith("error", "missing_code");
-        return;
-      }
-
-      const codeVerifier = String(pendingState.code_verifier || "").trim();
-      if (!codeVerifier) {
-        redirectWith("error", "missing_code_verifier");
-        return;
-      }
-
-      const clientId = getScopedRequiredEnv(
-        isPlatformScope,
-        ["X_OAUTH_CLIENT_ID"],
-        ["PLATFORM_X_OAUTH_CLIENT_ID"],
-      );
-      const clientSecret = getScopedRequiredEnv(
-        isPlatformScope,
-        ["X_OAUTH_CLIENT_SECRET"],
-        ["PLATFORM_X_OAUTH_CLIENT_SECRET"],
-      );
-      const callbackUrl = getXCallbackUrl(req);
-
-      const { TwitterApi } = await import("twitter-api-v2");
-      const client = new TwitterApi({ clientId, clientSecret });
-      const loginResult = await client.loginWithOAuth2({ code, codeVerifier, redirectUri: callbackUrl });
-
-      const accessToken = String(loginResult.accessToken || "").trim();
-      const refreshToken = String(loginResult.refreshToken || "").trim();
-      if (!accessToken || !refreshToken) {
-        redirectWith("error", "missing_x_tokens");
-        return;
-      }
-
-      const profile = await fetchXProfile(accessToken);
       const expectedHandle = readExpectedXHandleFromReturnPath(returnPath);
-      if (expectedHandle && normalizeXHandle(profile.username) !== expectedHandle) {
-        redirectWith(
-          "error",
-          `Connected @${profile.username}, but expected @${expectedHandle}. Switch account in X and try again.`,
+      const { TwitterApi } = await import("twitter-api-v2");
+      let accountPayload: Record<string, unknown>;
+      let connectedPageId: string | null = null;
+      let connectedPageName: string | null = null;
+
+      if (oauth1Mode) {
+        const appKey = getScopedOptionalEnv(
+          isPlatformScope,
+          ["X_APP_KEY", "X_OAUTH1_APP_KEY"],
+          ["PLATFORM_X_APP_KEY", "PLATFORM_X_OAUTH1_APP_KEY"],
         );
-        return;
+        const appSecret = getScopedOptionalEnv(
+          isPlatformScope,
+          ["X_APP_SECRET", "X_OAUTH1_APP_SECRET"],
+          ["PLATFORM_X_APP_SECRET", "PLATFORM_X_OAUTH1_APP_SECRET"],
+        );
+        if (!appKey || !appSecret) {
+          redirectWith("error", "missing_x_oauth1_app_credentials");
+          return;
+        }
+
+        const oauthTokenSecret = String(pendingState.code_verifier || "").trim();
+        if (!oauthTokenSecret) {
+          redirectWith("error", "missing_oauth_token_secret");
+          return;
+        }
+
+        const client = new TwitterApi({ appKey, appSecret, accessToken: oauthToken, accessSecret: oauthTokenSecret });
+        const loginResult = await client.login(oauthVerifier);
+        const accessToken = String(loginResult.accessToken || "").trim();
+        const accessSecret = String(loginResult.accessSecret || "").trim();
+        const username = String(loginResult.screenName || "").trim();
+        const userId = String(loginResult.userId || "").trim();
+        connectedPageId = userId || null;
+        connectedPageName = username || null;
+
+        if (!accessToken || !accessSecret || !username) {
+          redirectWith("error", "missing_x_oauth1_tokens");
+          return;
+        }
+
+        if (expectedHandle && normalizeXHandle(username) !== expectedHandle) {
+          redirectWith(
+            "error",
+            `Connected @${username}, but expected @${expectedHandle}. Switch account in X and try again.`,
+          );
+          return;
+        }
+
+        const encryptedCredentials = encryptCredentials({
+          tokenType: "oauth1",
+          appKey,
+          appSecret,
+          accessToken,
+          accessSecret,
+        });
+
+        accountPayload = {
+          platform: "x",
+          encrypted_credentials: encryptedCredentials,
+          profile_name: `@${username}`,
+          page_id: userId || null,
+          page_name: username,
+          expires_at: null,
+          is_active: true,
+          connection_method: "x_oauth1",
+          token_metadata: {
+            type: "x_oauth1_user_token",
+            oauth_flow: "x_oauth1",
+            connected_at: new Date().toISOString(),
+          },
+          updated_at: new Date().toISOString(),
+        };
+      } else {
+        if (!code) {
+          redirectWith("error", "missing_code");
+          return;
+        }
+
+        const codeVerifier = String(pendingState.code_verifier || "").trim();
+        if (!codeVerifier) {
+          redirectWith("error", "missing_code_verifier");
+          return;
+        }
+
+        const clientId = getScopedRequiredEnv(
+          isPlatformScope,
+          ["X_OAUTH_CLIENT_ID"],
+          ["PLATFORM_X_OAUTH_CLIENT_ID"],
+        );
+        const clientSecret = getScopedRequiredEnv(
+          isPlatformScope,
+          ["X_OAUTH_CLIENT_SECRET"],
+          ["PLATFORM_X_OAUTH_CLIENT_SECRET"],
+        );
+        const callbackUrl = getXCallbackUrl(req);
+
+        const client = new TwitterApi({ clientId, clientSecret });
+        const loginResult = await client.loginWithOAuth2({ code, codeVerifier, redirectUri: callbackUrl });
+
+        const accessToken = String(loginResult.accessToken || "").trim();
+        const refreshToken = String(loginResult.refreshToken || "").trim();
+        if (!accessToken || !refreshToken) {
+          redirectWith("error", "missing_x_tokens");
+          return;
+        }
+
+        const profile = await fetchXProfile(accessToken);
+        connectedPageId = String(profile.id || "").trim() || null;
+        connectedPageName = String(profile.username || "").trim() || null;
+        if (expectedHandle && normalizeXHandle(profile.username) !== expectedHandle) {
+          redirectWith(
+            "error",
+            `Connected @${profile.username}, but expected @${expectedHandle}. Switch account in X and try again.`,
+          );
+          return;
+        }
+
+        const expiresAt = loginResult.expiresIn && loginResult.expiresIn > 0
+          ? new Date(Date.now() + loginResult.expiresIn * 1000).toISOString()
+          : null;
+
+        const encryptedCredentials = encryptCredentials({
+          tokenType: "oauth2",
+          accessToken,
+          refreshToken,
+        });
+
+        accountPayload = {
+          platform: "x",
+          encrypted_credentials: encryptedCredentials,
+          profile_name: `@${profile.username}`,
+          page_id: profile.id,
+          page_name: profile.name,
+          expires_at: expiresAt,
+          is_active: true,
+          connection_method: "x_oauth",
+          token_metadata: {
+            type: "x_oauth2_user_token",
+            oauth_flow: "x_oauth2",
+            connected_at: new Date().toISOString(),
+            expires_in_seconds: loginResult.expiresIn ?? null,
+          },
+          updated_at: new Date().toISOString(),
+        };
       }
-
-      const expiresAt = loginResult.expiresIn && loginResult.expiresIn > 0
-        ? new Date(Date.now() + loginResult.expiresIn * 1000).toISOString()
-        : null;
-
-      const encryptedCredentials = encryptCredentials({
-        tokenType: "oauth2",
-        accessToken,
-        refreshToken,
-      });
-
-      const accountPayload = {
-        platform: "x",
-        encrypted_credentials: encryptedCredentials,
-        profile_name: `@${profile.username}`,
-        page_id: profile.id,
-        page_name: profile.name,
-        expires_at: expiresAt,
-        is_active: true,
-        connection_method: "x_oauth",
-        token_metadata: {
-          type: "x_oauth2_user_token",
-          oauth_flow: "x_oauth2",
-          connected_at: new Date().toISOString(),
-          expires_in_seconds: loginResult.expiresIn ?? null,
-        },
-        updated_at: new Date().toISOString(),
-      };
 
       const accountTable = isPlatformScope ? "platform_social_accounts" : "social_accounts";
       const scopedPayload = isPlatformScope
@@ -1450,8 +1571,13 @@ router.get(
         .from(accountTable)
         .select("id")
         .eq("platform", "x")
-        .eq("page_id", profile.id)
         .limit(1);
+
+      if (connectedPageId) {
+        findQuery = findQuery.eq("page_id", connectedPageId);
+      } else if (connectedPageName) {
+        findQuery = findQuery.eq("page_name", connectedPageName);
+      }
 
       if (!isPlatformScope) {
         findQuery = findQuery.eq("tenant_id", tenantScopeTenantId);
@@ -1462,7 +1588,10 @@ router.get(
         throw new Error(findError.message);
       }
 
+      let activeAccountId = "";
+
       if (existingAccount?.id) {
+        activeAccountId = String(existingAccount.id);
         let updateQuery = supabaseAdmin
           .from(accountTable)
           .update(scopedPayload)
@@ -1477,12 +1606,29 @@ router.get(
           throw new Error(updateError.message);
         }
       } else {
-        const { error: insertError } = await supabaseAdmin
+        const { data: insertedAccount, error: insertError } = await supabaseAdmin
           .from(accountTable)
-          .insert(scopedPayload);
+          .insert(scopedPayload)
+          .select("id")
+          .single();
         if (insertError) {
           throw new Error(insertError.message);
         }
+        activeAccountId = String(insertedAccount?.id || "");
+      }
+
+      if (activeAccountId) {
+        let deactivateQuery = supabaseAdmin
+          .from(accountTable)
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .eq("platform", "x")
+          .neq("id", activeAccountId);
+
+        if (!isPlatformScope) {
+          deactivateQuery = deactivateQuery.eq("tenant_id", tenantScopeTenantId);
+        }
+
+        await deactivateQuery;
       }
 
       redirectWith("success", undefined, 1);
@@ -2001,6 +2147,12 @@ router.post(
       return;
     }
 
+    const tokenType = String((credentials as Record<string, unknown>).tokenType || "oauth1").trim().toLowerCase() || "oauth1";
+    if (tokenType !== "oauth2") {
+      res.status(400).json({ error: "Manual X OAuth1 tokens are disabled. Use Connect X (Login)." });
+      return;
+    }
+
     try {
       const resolvedProfileName = await resolveAndValidateXOAuth1ProfileName({
         requestedProfileName: String(profileName || "").trim(),
@@ -2100,6 +2252,11 @@ router.post(
 
     if (!isSupportedPlatform(platform)) {
       res.status(400).json({ error: `Platform "${platform}" is not supported. Supported: ${SUPPORTED_PLATFORMS.join(", ")}` });
+      return;
+    }
+
+    if (platform === "x") {
+      res.status(400).json({ error: "Manual X account setup is disabled. Use Connect X (Login)." });
       return;
     }
 
@@ -2215,6 +2372,11 @@ router.patch(
     if (credentials !== undefined) {
       if (typeof credentials !== "object" || credentials === null || Array.isArray(credentials)) {
         res.status(400).json({ error: "credentials must be an object" });
+        return;
+      }
+
+      if (String(existingAccount.platform || "") === "x") {
+        res.status(400).json({ error: "Manual X credential updates are disabled. Reconnect via Connect X (Login)." });
         return;
       }
 
