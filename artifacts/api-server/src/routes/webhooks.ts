@@ -5,6 +5,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import {
   sendInvoiceEmail,
   sendPaymentFailedEmail,
+  updateTenantEmailAuditLifecycleByMessageId,
 } from "../lib/email";
 import { sendPaymentReceiptEmail } from "../lib/invoice-email";
 import { generateInvoicePdf } from "../lib/invoice-pdf";
@@ -22,7 +23,7 @@ async function sendReceiptForInvoice(invoiceId: string, tenantId: string, paidAm
     const [{ data: inv }, { data: lineItems }] = await Promise.all([
       supabaseAdmin
         .from("invoices")
-        .select("invoice_number, currency, customer_id, job_id, issue_date, due_date, expiry_date, subtotal, vat_rate, vat_amount, total, works_order, customer_notes")
+        .select("tenant_id, invoice_number, currency, customer_id, job_id, issue_date, due_date, expiry_date, subtotal, vat_rate, vat_amount, total, works_order, customer_notes")
         .eq("id", invoiceId)
         .eq("tenant_id", tenantId)
         .single(),
@@ -117,6 +118,7 @@ async function sendReceiptForInvoice(invoiceId: string, tenantId: string, paidAm
     });
 
     await sendPaymentReceiptEmail({
+      tenantId: String(i.tenant_id || ""),
       to: customerEmail,
       invoiceNumber: i.invoice_number,
       customerName,
@@ -143,6 +145,68 @@ async function sendReceiptForInvoice(invoiceId: string, tenantId: string, paidAm
 const BILLING_URL = process.env.APP_URL
   ? `${process.env.APP_URL}/billing`
   : "https://tradeworkdesk.co.uk/billing";
+
+router.post(
+  "/webhooks/resend",
+  async (req: Request, res: Response): Promise<void> => {
+    const secret = process.env.RESEND_WEBHOOK_SECRET;
+    if (secret) {
+      const authHeader = String(req.headers.authorization || "");
+      const headerSecret = String(req.headers["x-webhook-secret"] || "");
+      const bearerOk = authHeader.startsWith("Bearer ") && authHeader.slice(7) === secret;
+      const directOk = headerSecret === secret;
+      if (!bearerOk && !directOk) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+    }
+
+    const payload = req.body as Record<string, unknown>;
+    const eventType = String(payload?.type || payload?.event || "").toLowerCase();
+    const data = (payload?.data as Record<string, unknown> | undefined) || payload;
+    const messageId = String(
+      data?.email_id
+      || data?.id
+      || data?.message_id
+      || (data?.email as Record<string, unknown> | undefined)?.id
+      || "",
+    ).trim();
+
+    if (!messageId) {
+      res.status(400).json({ error: "Missing provider message id" });
+      return;
+    }
+
+    const bounceReason = String(data?.reason || data?.error || data?.description || "").trim() || null;
+    const occurredAt = String(data?.created_at || data?.timestamp || new Date().toISOString());
+
+    let mappedStatus: "accepted" | "delivered" | "deferred" | "bounced" | "complained" | "suppressed" | "failed" = "accepted";
+    if (eventType.includes("delivered")) mappedStatus = "delivered";
+    else if (eventType.includes("delivery_delayed") || eventType.includes("deferred")) mappedStatus = "deferred";
+    else if (eventType.includes("bounced") || eventType.includes("hard_bounce") || eventType.includes("soft_bounce")) mappedStatus = "bounced";
+    else if (eventType.includes("complained") || eventType.includes("complaint")) mappedStatus = "complained";
+    else if (eventType.includes("suppressed")) mappedStatus = "suppressed";
+    else if (eventType.includes("failed")) mappedStatus = "failed";
+    else if (eventType.includes("sent") || eventType.includes("queued")) mappedStatus = "accepted";
+
+    await updateTenantEmailAuditLifecycleByMessageId({
+      providerMessageId: messageId,
+      status: mappedStatus,
+      errorMessage: bounceReason,
+      providerEventAt: occurredAt,
+      metadataPatch: {
+        resend_event_type: eventType || null,
+        resend_payload_excerpt: {
+          type: payload?.type || payload?.event || null,
+          created_at: data?.created_at || null,
+          reason: data?.reason || data?.error || null,
+        },
+      },
+    });
+
+    res.json({ received: true, status: mappedStatus });
+  },
+);
 
 router.post(
   "/webhooks/stripe",

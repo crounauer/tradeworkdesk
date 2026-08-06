@@ -404,6 +404,7 @@ router.post("/platform/support-tickets/:ticketId/messages", requireAuth, require
   };
 
   void notifyTenantTicketUpdated({
+    tenantId: (ticket as { tenant_id: string }).tenant_id,
     ticketId,
     ticketSubject: typedTicket.subject,
     company: {

@@ -292,6 +292,7 @@ async function sendManualPaymentReceipt(opts: {
     const settings = await getCompanySettings(opts.tenantId);
 
     await sendPaymentReceiptEmail({
+      tenantId: opts.tenantId,
       to: pdfData.customer_email,
       invoiceNumber: String(pdfData.invoice_number || ""),
       customerName: String(pdfData.customer_name || "Customer"),
@@ -798,6 +799,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
     const amountPaid = Math.round(Number(invoice.paid_amount ?? 0) * 100) / 100;
     const balanceDue = Math.max(0, Math.round((Number(invoice.total ?? 0) - amountPaid) * 100) / 100);
     await sendInvoiceDocumentEmail({
+      tenantId: req.tenantId!,
       to: toEmail,
       type: invoice.type as "invoice" | "quote",
       invoiceNumber: invoice.invoice_number as string,

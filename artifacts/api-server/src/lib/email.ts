@@ -1,4 +1,6 @@
 import { Resend } from "resend";
+import { supabaseAdmin } from "./supabase";
+import { getRequestContext } from "./request-context";
 
 const resendApiKey = process.env.RESEND_API_KEY;
 
@@ -10,6 +12,317 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 const PLATFORM_FROM = "TradeWorkDesk <noreply@tradeworkdesk.co.uk>";
 const FROM_EMAIL = "noreply@tradeworkdesk.co.uk";
+const OPS_EMAIL_FAILURE_RECIPIENT = (process.env.EMAIL_FAILURE_ALERT_RECIPIENT || "info@tradworkdesk.co.uk").trim().toLowerCase();
+const USER_SAFE_EMAIL_FAILURE_MESSAGE = "We couldn't send that email right now. Please try again.";
+const USER_ACTIONABLE_RECIPIENT_FAILURE_MESSAGE = "We couldn't deliver this email to the recipient. Please check the email address and ask the recipient to verify their mailbox can receive emails.";
+let sendingFailureAlert = false;
+
+type EmailFailureCategory = "recipient" | "provider" | "platform" | "unknown";
+
+export type TenantEmailAuditStatus =
+  | "queued"
+  | "accepted"
+  | "delivered"
+  | "deferred"
+  | "bounced"
+  | "complained"
+  | "suppressed"
+  | "failed"
+  | "sent";
+
+export interface TenantEmailAuditRecord {
+  tenantId?: string;
+  actorId?: string;
+  status: TenantEmailAuditStatus;
+  emailType?: string;
+  to: string;
+  subject: string;
+  from?: string;
+  replyTo?: string;
+  provider?: string;
+  providerMessageId?: string | null;
+  errorMessage?: string | null;
+  failureCategory?: EmailFailureCategory;
+  needsAction?: boolean;
+  retryCount?: number;
+  nextRetryAt?: string | null;
+  providerEventAt?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTransientProviderFailure(reasonLike: string): boolean {
+  const reason = reasonLike.toLowerCase();
+  return [
+    "429",
+    "rate limit",
+    "timeout",
+    "timed out",
+    "503",
+    "502",
+    "504",
+    "temporarily unavailable",
+    "temporary",
+    "network",
+    "connection",
+    "socket",
+  ].some((signal) => reason.includes(signal));
+}
+
+function normalizeStatus(status: TenantEmailAuditStatus): TenantEmailAuditStatus {
+  return status === "sent" ? "accepted" : status;
+}
+
+function sanitizeErrorForEmail(errorLike: unknown): string {
+  if (errorLike instanceof Error) return errorLike.message;
+  return String(errorLike);
+}
+
+export async function notifyEmailDeliveryFailure(details: {
+  to: string;
+  subject: string;
+  reason: string;
+  from?: string;
+  replyTo?: string;
+}): Promise<void> {
+  if (!resend || sendingFailureAlert) return;
+
+  sendingFailureAlert = true;
+  try {
+    const timestamp = new Date().toISOString();
+    const html = `<div style="font-family:sans-serif;font-size:14px;color:#1e293b;max-width:680px;margin:0 auto;padding:24px">
+      <h2 style="margin:0 0 16px;color:#b91c1c;">Email Delivery Failure Alert</h2>
+      <p style="margin:0 0 12px;">A tenant email send failed and requires attention.</p>
+      <table style="border-collapse:collapse;width:100%;margin:8px 0 16px;">
+        <tr><td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:600;">When (UTC)</td><td style="padding:6px 8px;border:1px solid #e2e8f0;">${escHtml(timestamp)}</td></tr>
+        <tr><td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:600;">Environment</td><td style="padding:6px 8px;border:1px solid #e2e8f0;">${escHtml(process.env.NODE_ENV || "unknown")}</td></tr>
+        <tr><td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:600;">App URL</td><td style="padding:6px 8px;border:1px solid #e2e8f0;">${escHtml(process.env.APP_URL || "not set")}</td></tr>
+        <tr><td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:600;">Recipient</td><td style="padding:6px 8px;border:1px solid #e2e8f0;">${escHtml(details.to)}</td></tr>
+        <tr><td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:600;">Subject</td><td style="padding:6px 8px;border:1px solid #e2e8f0;">${escHtml(details.subject)}</td></tr>
+        <tr><td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:600;">From</td><td style="padding:6px 8px;border:1px solid #e2e8f0;">${escHtml(details.from || "not set")}</td></tr>
+        <tr><td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:600;">Reply-To</td><td style="padding:6px 8px;border:1px solid #e2e8f0;">${escHtml(details.replyTo || "not set")}</td></tr>
+      </table>
+      <p style="margin:0 0 6px;font-weight:600;">Error</p>
+      <pre style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;white-space:pre-wrap;word-break:break-word;">${escHtml(details.reason)}</pre>
+      <p style="font-size:12px;color:#64748b;margin-top:16px;">This alert was generated automatically by TradeWorkDesk.</p>
+    </div>`;
+
+    const { error } = await resend.emails.send({
+      from: PLATFORM_FROM,
+      to: OPS_EMAIL_FAILURE_RECIPIENT,
+      subject: "[TradeWorkDesk] Tenant email delivery failure",
+      html,
+    } as Parameters<typeof resend.emails.send>[0]);
+
+    if (error) {
+      console.error("[email-alert] Failed to send failure alert:", error.message ?? JSON.stringify(error));
+    }
+  } catch (err) {
+    console.error("[email-alert] Failed to process failure alert:", sanitizeErrorForEmail(err));
+  } finally {
+    sendingFailureAlert = false;
+  }
+}
+
+export function getUserSafeEmailFailureMessage(): string {
+  return USER_SAFE_EMAIL_FAILURE_MESSAGE;
+}
+
+function isRecipientAddressOrMailboxFailure(reasonLike: string): boolean {
+  const reason = reasonLike.toLowerCase();
+  const recipientSignals = [
+    "invalid recipient",
+    "invalid email",
+    "invalid to",
+    "recipient address rejected",
+    "recipient rejected",
+    "no such user",
+    "user unknown",
+    "mailbox unavailable",
+    "mailbox full",
+    "mailbox is full",
+    "mailbox not found",
+    "undeliverable",
+    "bounced",
+    "suppressed",
+    "inactive recipient",
+    "domain not found",
+    "does not exist",
+    "5.1.1",
+    "5.2.2",
+    "550",
+  ];
+
+  return recipientSignals.some((signal) => reason.includes(signal));
+}
+
+export function getTenantEmailFailureMessage(reasonLike?: string): string {
+  if (!reasonLike) return USER_SAFE_EMAIL_FAILURE_MESSAGE;
+  return isRecipientAddressOrMailboxFailure(reasonLike)
+    ? USER_ACTIONABLE_RECIPIENT_FAILURE_MESSAGE
+    : USER_SAFE_EMAIL_FAILURE_MESSAGE;
+}
+
+function inferEmailFailureCategory(reasonLike?: string): EmailFailureCategory {
+  if (!reasonLike) return "unknown";
+  const reason = reasonLike.toLowerCase();
+
+  if (isRecipientAddressOrMailboxFailure(reason)) return "recipient";
+  if (reason.includes("resend") || reason.includes("rate limit") || reason.includes("429") || reason.includes("service unavailable") || reason.includes("timeout")) return "provider";
+  if (reason.includes("not configured") || reason.includes("api key") || reason.includes("tradeworkdesk") || reason.includes("twd")) return "platform";
+  return "unknown";
+}
+
+export async function writeTenantEmailAudit(record: TenantEmailAuditRecord): Promise<void> {
+  const ctx = getRequestContext();
+  const tenantId = (record.tenantId || ctx?.tenantId || "").trim();
+  if (!tenantId) return;
+
+  const actorId = (record.actorId || ctx?.userId || null) as string | null;
+  const failureCategory = record.status === "failed"
+    ? (record.failureCategory || inferEmailFailureCategory(record.errorMessage || undefined))
+    : null;
+  const normalizedStatus = normalizeStatus(record.status);
+  const needsAction = typeof record.needsAction === "boolean"
+    ? record.needsAction
+    : (normalizedStatus === "failed" && (failureCategory === "recipient" || failureCategory === "unknown"));
+
+  const payload = {
+    tenant_id: tenantId,
+    actor_id: actorId,
+    status: normalizedStatus,
+    email_type: record.emailType || "general",
+    provider: record.provider || "resend",
+    provider_message_id: record.providerMessageId || null,
+    to_email: String(record.to || "").trim().toLowerCase() || null,
+    subject: record.subject || "",
+    from_email: record.from || null,
+    reply_to: record.replyTo || null,
+    error_message: record.errorMessage || null,
+    failure_category: failureCategory,
+    needs_action: needsAction,
+    retry_count: record.retryCount ?? 0,
+    last_retry_at: (record.retryCount ?? 0) > 0 ? new Date().toISOString() : null,
+    next_retry_at: record.nextRetryAt || null,
+    provider_event_at: record.providerEventAt || null,
+    request_path: ctx?.originalUrl || null,
+    metadata: record.metadata || null,
+  };
+
+  const { error } = await supabaseAdmin.from("tenant_email_audit_log").insert(payload);
+  if (error) {
+    console.error("[email-audit] Failed to write tenant email audit row:", error.message);
+  }
+}
+
+export async function updateTenantEmailAuditLifecycleByMessageId(args: {
+  providerMessageId: string;
+  status: TenantEmailAuditStatus;
+  errorMessage?: string | null;
+  failureCategory?: EmailFailureCategory;
+  providerEventAt?: string | null;
+  metadataPatch?: Record<string, unknown> | null;
+}): Promise<void> {
+  const providerMessageId = String(args.providerMessageId || "").trim();
+  if (!providerMessageId) return;
+
+  const status = normalizeStatus(args.status);
+  const failureCategory = status === "failed" || status === "bounced" || status === "suppressed"
+    ? (args.failureCategory || inferEmailFailureCategory(args.errorMessage || undefined))
+    : null;
+  const needsAction = status === "bounced" || status === "suppressed" || status === "failed";
+
+  const { data: existing } = await supabaseAdmin
+    .from("tenant_email_audit_log")
+    .select("id, metadata")
+    .eq("provider_message_id", providerMessageId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!existing?.id) return;
+  const existingMetadata = (existing.metadata as Record<string, unknown> | null) || {};
+  const mergedMetadata = args.metadataPatch
+    ? { ...existingMetadata, ...args.metadataPatch }
+    : existingMetadata;
+
+  const { error } = await supabaseAdmin
+    .from("tenant_email_audit_log")
+    .update({
+      status,
+      error_message: args.errorMessage || null,
+      failure_category: failureCategory,
+      needs_action: needsAction,
+      provider_event_at: args.providerEventAt || new Date().toISOString(),
+      metadata: mergedMetadata,
+    })
+    .eq("id", existing.id);
+
+  if (error) {
+    console.error("[email-audit] Failed lifecycle update:", error.message);
+  }
+}
+
+export async function isEmailSuppressedForTenant(args: {
+  tenantId?: string;
+  email: string;
+  scope?: "all" | "marketing" | "review_requests" | "campaigns";
+}): Promise<boolean> {
+  const tenantId = String(args.tenantId || getRequestContext()?.tenantId || "").trim();
+  const email = String(args.email || "").trim().toLowerCase();
+  if (!tenantId || !email) return false;
+  const scope = args.scope || "all";
+
+  const { data, error } = await supabaseAdmin
+    .from("tenant_email_suppressions")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("email", email)
+    .in("scope", ["all", scope])
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[email-suppression] Lookup failed:", error.message);
+    return false;
+  }
+  return !!data;
+}
+
+export async function sendResendEmailWithRetry(
+  sendOptions: Parameters<NonNullable<typeof resend>["emails"]["send"]>[0],
+): Promise<{ messageId: string; attempts: number }> {
+  if (!resend) {
+    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
+  }
+
+  const maxRetries = Math.max(0, Number(process.env.EMAIL_SEND_MAX_RETRIES || "2") || 2);
+  const baseDelayMs = Math.max(100, Number(process.env.EMAIL_SEND_RETRY_BASE_DELAY_MS || "400") || 400);
+  let attempts = 0;
+  let lastErrorReason = "Unknown email send failure";
+
+  while (attempts <= maxRetries) {
+    attempts += 1;
+    const { data, error } = await resend.emails.send(sendOptions);
+    if (!error && data?.id) {
+      return { messageId: data.id, attempts };
+    }
+
+    lastErrorReason = error?.message || "Email provider did not return a message id";
+    if (!isTransientProviderFailure(lastErrorReason) || attempts > maxRetries) {
+      throw new Error(lastErrorReason);
+    }
+
+    const jitterMs = Math.floor(Math.random() * 120);
+    const delayMs = baseDelayMs * Math.pow(2, attempts - 1) + jitterMs;
+    await sleep(delayMs);
+  }
+
+  throw new Error(lastErrorReason);
+}
 
 /** Builds a per-tenant FROM address using the company name as the display name.
  * Prefers email_from_name if set (white-label), otherwise uses trading_name or name.
@@ -157,16 +470,46 @@ async function send(
   to: string,
   subject: string,
   html: string,
-  opts?: { from?: string; replyTo?: string },
+  opts?: {
+    from?: string;
+    replyTo?: string;
+    emailType?: string;
+    tenantId?: string;
+    metadata?: Record<string, unknown>;
+  },
 ): Promise<void> {
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const normalizedTo = String(to || "").trim().toLowerCase();
   if (!EMAIL_RE.test(normalizedTo)) {
-    throw new Error(`Invalid recipient email: ${to}`);
+    await writeTenantEmailAudit({
+      tenantId: opts?.tenantId,
+      status: "failed",
+      emailType: opts?.emailType || "general",
+      to: normalizedTo || String(to || ""),
+      subject,
+      from: opts?.from || FROM,
+      replyTo: opts?.replyTo,
+      errorMessage: "invalid recipient email format",
+      failureCategory: "recipient",
+      metadata: opts?.metadata,
+    });
+    throw new Error(getTenantEmailFailureMessage("invalid recipient email format"));
   }
 
   if (!resend) {
-    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
+    await writeTenantEmailAudit({
+      tenantId: opts?.tenantId,
+      status: "failed",
+      emailType: opts?.emailType || "general",
+      to: normalizedTo,
+      subject,
+      from: opts?.from || FROM,
+      replyTo: opts?.replyTo,
+      errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
+      failureCategory: "platform",
+      metadata: opts?.metadata,
+    });
+    throw new Error(getTenantEmailFailureMessage());
   }
   const sendOpts: any = {
     from: opts?.from || FROM,
@@ -178,12 +521,53 @@ async function send(
   if (normalizedReplyTo && EMAIL_RE.test(normalizedReplyTo)) {
     sendOpts.replyTo = normalizedReplyTo;
   }
-  const { data, error } = await resend.emails.send(sendOpts);
-  if (error) {
-    throw new Error(`Failed to send "${subject}" to ${normalizedTo}: ${error.message ?? JSON.stringify(error)}`);
-  }
-  if (!data?.id) {
-    throw new Error(`Email provider did not return a message id for "${subject}" to ${normalizedTo}`);
+  await writeTenantEmailAudit({
+    tenantId: opts?.tenantId,
+    status: "queued",
+    emailType: opts?.emailType || "general",
+    to: normalizedTo,
+    subject,
+    from: String(sendOpts.from || FROM),
+    replyTo: normalizedReplyTo || undefined,
+    metadata: opts?.metadata,
+  });
+
+  try {
+    const result = await sendResendEmailWithRetry(sendOpts);
+    await writeTenantEmailAudit({
+      tenantId: opts?.tenantId,
+      status: "accepted",
+      emailType: opts?.emailType || "general",
+      to: normalizedTo,
+      subject,
+      from: String(sendOpts.from || FROM),
+      replyTo: normalizedReplyTo || undefined,
+      providerMessageId: result.messageId,
+      retryCount: Math.max(0, result.attempts - 1),
+      metadata: opts?.metadata,
+    });
+  } catch (sendErr) {
+    const reason = sanitizeErrorForEmail(sendErr);
+    console.error(`[email] Failed to send "${subject}" to ${normalizedTo}:`, reason);
+    await notifyEmailDeliveryFailure({
+      to: normalizedTo,
+      subject,
+      reason,
+      from: String(sendOpts.from || FROM),
+      replyTo: normalizedReplyTo || undefined,
+    });
+    await writeTenantEmailAudit({
+      tenantId: opts?.tenantId,
+      status: "failed",
+      emailType: opts?.emailType || "general",
+      to: normalizedTo,
+      subject,
+      from: String(sendOpts.from || FROM),
+      replyTo: normalizedReplyTo || undefined,
+      errorMessage: reason,
+      metadata: opts?.metadata,
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
   }
 }
 
@@ -205,7 +589,7 @@ export async function sendConfirmationEmail(
   `);
   const from = company ? buildTenantFrom(company) : FROM;
   const replyTo = company?.email_reply_to || undefined;
-  await send(to, "TradeWorkDesk — Please confirm your email address", html, { from, replyTo });
+  await send(to, "TradeWorkDesk — Please confirm your email address", html, { from, replyTo, emailType: "account_confirmation" });
 }
 
 export async function sendWelcomeEmail(
@@ -233,7 +617,7 @@ export async function sendWelcomeEmail(
   `);
   const from = company ? buildTenantFrom(company) : FROM;
   const replyTo = company?.email_reply_to || undefined;
-  await send(to, "Welcome to TradeWorkDesk — your trial has started", html, { from, replyTo });
+  await send(to, "Welcome to TradeWorkDesk — your trial has started", html, { from, replyTo, emailType: "welcome" });
 }
 
 export async function sendBetaInviteCodeEmail(
@@ -272,7 +656,7 @@ export async function sendBetaInviteCodeEmail(
     <p style="font-size:13px; color:#64748b;">If the button does not work, use this link: <br/><a href="${escHtml(inviteUrl)}">${escHtml(inviteUrl)}</a></p>
   `);
 
-  await send(to, "TradeWorkDesk Beta Invite", html);
+  await send(to, "TradeWorkDesk Beta Invite", html, { emailType: "beta_invite" });
 }
 
 export async function sendInvoiceEmail(
@@ -300,7 +684,7 @@ export async function sendInvoiceEmail(
   `);
   const from = company ? buildTenantFrom(company) : FROM;
   const replyTo = company?.email_reply_to || undefined;
-  await send(to, `TradeWorkDesk — Payment received (${formatted})`, html, { from, replyTo });
+  await send(to, `TradeWorkDesk — Payment received (${formatted})`, html, { from, replyTo, emailType: "payment_confirmation" });
 }
 
 export async function sendTrialExpiryReminder(
@@ -325,7 +709,7 @@ export async function sendTrialExpiryReminder(
   `);
   const from = company ? buildTenantFrom(company) : FROM;
   const replyTo = company?.email_reply_to || undefined;
-  await send(to, `TradeWorkDesk — Your trial expires ${urgency}`, html, { from, replyTo });
+  await send(to, `TradeWorkDesk — Your trial expires ${urgency}`, html, { from, replyTo, emailType: "trial_expiry" });
 }
 
 export async function sendRenewalReminder(
@@ -354,7 +738,7 @@ export async function sendRenewalReminder(
   `);
   const from = company ? buildTenantFrom(company) : FROM;
   const replyTo = company?.email_reply_to || undefined;
-  await send(to, `TradeWorkDesk — Subscription renews on ${date}`, html, { from, replyTo });
+  await send(to, `TradeWorkDesk — Subscription renews on ${date}`, html, { from, replyTo, emailType: "subscription_renewal" });
 }
 
 export async function sendLowCreditsAlert(
@@ -395,7 +779,7 @@ export async function sendLowCreditsAlert(
   const from = company ? buildTenantFrom(company) : FROM;
   const replyTo = company?.email_reply_to || undefined;
 
-  await send(to, subject, html, { from, replyTo });
+  await send(to, subject, html, { from, replyTo, emailType: "invoice_email" });
 }
 
 function escHtml(str: string): string {
@@ -474,7 +858,18 @@ export async function sendJobFormsEmail(
     <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
   `, companyDetails);
   if (!resend) {
-    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "job_forms",
+      to,
+      subject,
+      from: FROM,
+      replyTo: companyDetails?.email ?? undefined,
+      errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
+      failureCategory: "platform",
+      metadata: { jobRef },
+    });
+    throw new Error(getTenantEmailFailureMessage());
   }
   const recipients: string[] = [to];
   const sendOptions: {
@@ -489,10 +884,40 @@ export async function sendJobFormsEmail(
   if (cc) sendOptions.cc = [cc];
   if (companyDetails?.email) sendOptions.replyTo = companyDetails.email;
   if (attachments.length > 0) sendOptions.attachments = attachments;
-  const { error } = await resend.emails.send(sendOptions as Parameters<typeof resend.emails.send>[0]);
-  if (error) {
-    console.error(`[email] Failed to send "${subject}" to ${to}:`, error);
-    throw new Error(`Email send failed: ${error.message}`);
+  try {
+    const sendResult = await sendResendEmailWithRetry(sendOptions as any);
+    await writeTenantEmailAudit({
+      status: "accepted",
+      emailType: "job_forms",
+      to,
+      subject,
+      from: FROM,
+      replyTo: companyDetails?.email ?? undefined,
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+      metadata: { jobRef },
+    });
+  } catch (sendErr) {
+    const reason = sanitizeErrorForEmail(sendErr);
+    console.error(`[email] Failed to send "${subject}" to ${to}:`, reason);
+    await notifyEmailDeliveryFailure({
+      to,
+      subject,
+      reason,
+      from: FROM,
+      replyTo: companyDetails?.email ?? undefined,
+    });
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "job_forms",
+      to,
+      subject,
+      from: FROM,
+      replyTo: companyDetails?.email ?? undefined,
+      errorMessage: reason,
+      metadata: { jobRef },
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
   }
 }
 
@@ -607,24 +1032,65 @@ export async function sendJobConfirmationEmail(
   const html = renderJobConfirmationHtml(customerName, companyName, jobDetails, companyDetails, responseLinks);
 
   if (!resend) {
-    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "job_confirmation",
+      to,
+      subject: `Appointment Confirmation — ${escHtml(jobDetails.jobRef)}`,
+      from: buildTenantFrom(companyDetails),
+      replyTo: companyDetails?.email ?? undefined,
+      errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
+      failureCategory: "platform",
+      metadata: { jobRef: jobDetails.jobRef },
+    });
+    throw new Error(getTenantEmailFailureMessage());
   }
 
   const subject = `Appointment Confirmation — ${escHtml(jobDetails.jobRef)}`;
   const replyTo = companyDetails?.email ?? undefined;
   const from = buildTenantFrom(companyDetails);
   const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
-  const { error } = await resend.emails.send({
+  try {
+    const sendResult = await sendResendEmailWithRetry({
     from,
     to,
     subject,
     html,
     ...(replyTo ? { replyTo } : {}),
     ...(cc.length > 0 ? { cc } : {}),
-  } as Parameters<typeof resend.emails.send>[0]);
-  if (error) {
-    console.error(`[email] Failed to send "${subject}" to ${to}:`, error);
-    throw new Error(`Email send failed: ${error.message}`);
+    } as any);
+    await writeTenantEmailAudit({
+      status: "accepted",
+      emailType: "job_confirmation",
+      to,
+      subject,
+      from,
+      replyTo,
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+      metadata: { jobRef: jobDetails.jobRef },
+    });
+  } catch (sendErr) {
+    const reason = sanitizeErrorForEmail(sendErr);
+    console.error(`[email] Failed to send "${subject}" to ${to}:`, reason);
+    await notifyEmailDeliveryFailure({
+      to,
+      subject,
+      reason,
+      from,
+      replyTo,
+    });
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "job_confirmation",
+      to,
+      subject,
+      from,
+      replyTo,
+      errorMessage: reason,
+      metadata: { jobRef: jobDetails.jobRef },
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
   }
 }
 
@@ -674,23 +1140,64 @@ export async function sendBookingPendingApprovalEmail(
   `, companyDetails);
 
   if (!resend) {
-    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "booking_pending_approval",
+      to,
+      subject,
+      from: buildTenantFrom(companyDetails),
+      replyTo: companyDetails?.email ?? undefined,
+      errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
+      failureCategory: "platform",
+      metadata: { jobRef: jobDetails.jobRef },
+    });
+    throw new Error(getTenantEmailFailureMessage());
   }
 
   const replyTo = companyDetails?.email ?? undefined;
   const from = buildTenantFrom(companyDetails);
   const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
-  const { error } = await resend.emails.send({
+  try {
+    const sendResult = await sendResendEmailWithRetry({
     from,
     to,
     subject,
     html,
     ...(replyTo ? { replyTo } : {}),
     ...(cc.length > 0 ? { cc } : {}),
-  } as Parameters<typeof resend.emails.send>[0]);
-  if (error) {
-    console.error(`[email] Failed to send "${subject}" to ${to}:`, error);
-    throw new Error(`Email send failed: ${error.message}`);
+    } as any);
+    await writeTenantEmailAudit({
+      status: "accepted",
+      emailType: "booking_pending_approval",
+      to,
+      subject,
+      from,
+      replyTo,
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+      metadata: { jobRef: jobDetails.jobRef },
+    });
+  } catch (sendErr) {
+    const reason = sanitizeErrorForEmail(sendErr);
+    console.error(`[email] Failed to send "${subject}" to ${to}:`, reason);
+    await notifyEmailDeliveryFailure({
+      to,
+      subject,
+      reason,
+      from,
+      replyTo,
+    });
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "booking_pending_approval",
+      to,
+      subject,
+      from,
+      replyTo,
+      errorMessage: reason,
+      metadata: { jobRef: jobDetails.jobRef },
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
   }
 }
 
@@ -716,7 +1223,7 @@ export async function sendNewRegistrationNotification(
       <a href="https://www.tradeworkdesk.co.uk/platform" style="display:inline-block;background:#1d4ed8;color:#ffffff !important;text-decoration:none;border-radius:8px;padding:12px 24px;font-weight:600;font-size:14px;line-height:1;-webkit-text-size-adjust:none;mso-line-height-rule:exactly;">Open Platform Admin</a>
     </p>
   `);
-  await send(to, `TradeWorkDesk — New registration: ${newCompanyName}`, html);
+  await send(to, `TradeWorkDesk — New registration: ${newCompanyName}`, html, { emailType: "new_registration_notification" });
 }
 
 export async function sendPortalInviteEmail(to: string, customerName: string, companyName: string, registerUrl: string, companyDetails?: EmailCompanyDetails): Promise<void> {
@@ -741,19 +1248,66 @@ export async function sendPortalInviteEmail(to: string, customerName: string, co
     <hr class="divider"/>
     <p style="font-size:13px; color:#64748b;">This invitation link expires in 7 days. If you didn't expect this email, you can safely ignore it.</p>
   `, companyDetails);
-  if (!resend) { console.warn(`[email] Resend not configured — skipping portal invite to ${to}`); return; }
+  if (!resend) {
+    console.error("[email] Resend not configured for portal invite");
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "portal_invite",
+      to,
+      subject: `${companyName} — You're invited to the Customer Portal`,
+      from: buildTenantFrom(companyDetails),
+      replyTo: companyDetails?.email ?? undefined,
+      errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
+      failureCategory: "platform",
+      metadata: { registerUrl },
+    });
+    throw new Error(getTenantEmailFailureMessage());
+  }
   const from = buildTenantFrom(companyDetails);
   const replyTo = companyDetails?.email ?? undefined;
   const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
-  const { error } = await resend.emails.send({
+  try {
+    const sendResult = await sendResendEmailWithRetry({
     from,
     to,
     subject: `${companyName} — You're invited to the Customer Portal`,
     html,
     ...(replyTo ? { replyTo } : {}),
     ...(cc.length > 0 ? { cc } : {}),
-  } as Parameters<typeof resend.emails.send>[0]);
-  if (error) console.error(`[email] Failed to send portal invite to ${to}:`, error);
+    } as any);
+    await writeTenantEmailAudit({
+      status: "accepted",
+      emailType: "portal_invite",
+      to,
+      subject: `${companyName} — You're invited to the Customer Portal`,
+      from,
+      replyTo,
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+      metadata: { registerUrl },
+    });
+  } catch (sendErr) {
+    const reason = sanitizeErrorForEmail(sendErr);
+    console.error(`[email] Failed to send portal invite to ${to}:`, reason);
+    await notifyEmailDeliveryFailure({
+      to,
+      subject: `${companyName} — You're invited to the Customer Portal`,
+      reason,
+      from,
+      replyTo,
+    });
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "portal_invite",
+      to,
+      subject: `${companyName} — You're invited to the Customer Portal`,
+      from,
+      replyTo,
+      errorMessage: reason,
+      metadata: { registerUrl },
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
+  }
 }
 
 export async function sendPaymentFailedEmail(to: string, companyName: string, amount: number, currency: string, billingUrl: string): Promise<void> {
@@ -771,7 +1325,7 @@ export async function sendPaymentFailedEmail(to: string, companyName: string, am
     </p>
     <p style="font-size:13px; color:#64748b;">If you believe this is an error, please contact your bank or reply to this email for assistance.</p>
   `);
-  await send(to, "TradeWorkDesk — Action required: payment failed", html);
+  await send(to, "TradeWorkDesk — Action required: payment failed", html, { emailType: "payment_failed" });
 }
 
 export async function sendServiceDueReminderEmail(
@@ -782,6 +1336,7 @@ export async function sendServiceDueReminderEmail(
   dueDateStr: string,
   bookingUrl: string,
   companyDetails?: EmailCompanyDetails,
+  options?: { tenantId?: string },
 ): Promise<void> {
   const dueDate = new Date(dueDateStr).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const companyDisplay = companyDetails?.name || companyDetails?.trading_name || companyName;
@@ -806,23 +1361,68 @@ export async function sendServiceDueReminderEmail(
   );
 
   if (!resend) {
-    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
+    const subject = `${escHtml(companyDisplay)} — Service Due Reminder for ${escHtml(applianceDescription)}`;
+    await writeTenantEmailAudit({
+      tenantId: options?.tenantId,
+      status: "failed",
+      emailType: "service_due_reminder",
+      to,
+      subject,
+      from: buildTenantFrom(companyDetails),
+      replyTo: companyDetails?.email ?? undefined,
+      errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
+      failureCategory: "platform",
+      metadata: { applianceDescription, dueDateStr },
+    });
+    throw new Error(getTenantEmailFailureMessage());
   }
   const subject = `${escHtml(companyDisplay)} — Service Due Reminder for ${escHtml(applianceDescription)}`;
   const replyTo = companyDetails?.email ?? undefined;
   const from = buildTenantFrom(companyDetails);
   const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
-  const { error } = await resend.emails.send({
+  try {
+    const sendResult = await sendResendEmailWithRetry({
     from,
     to,
     subject,
     html,
     ...(replyTo ? { replyTo } : {}),
     ...(cc.length > 0 ? { cc } : {}),
-  } as Parameters<typeof resend.emails.send>[0]);
-  if (error) {
-    console.error(`[email] Failed to send service reminder to ${to}:`, error);
-    throw new Error(`Email send failed: ${error.message}`);
+    } as any);
+    await writeTenantEmailAudit({
+      tenantId: options?.tenantId,
+      status: "accepted",
+      emailType: "service_due_reminder",
+      to,
+      subject,
+      from,
+      replyTo,
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+      metadata: { applianceDescription, dueDateStr },
+    });
+  } catch (sendErr) {
+    const reason = sanitizeErrorForEmail(sendErr);
+    console.error(`[email] Failed to send service reminder to ${to}:`, reason);
+    await notifyEmailDeliveryFailure({
+      to,
+      subject,
+      reason,
+      from,
+      replyTo,
+    });
+    await writeTenantEmailAudit({
+      tenantId: options?.tenantId,
+      status: "failed",
+      emailType: "service_due_reminder",
+      to,
+      subject,
+      from,
+      replyTo,
+      errorMessage: reason,
+      metadata: { applianceDescription, dueDateStr },
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
   }
 }
 
@@ -831,7 +1431,32 @@ export async function sendSimpleNotification(
   subject: string,
   bodyText: string,
 ): Promise<void> {
-  if (!resend) return; // email not configured — skip silently
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const normalizedTo = String(to || "").trim().toLowerCase();
+  if (!EMAIL_RE.test(normalizedTo)) {
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "simple_notification",
+      to: normalizedTo || String(to || ""),
+      subject,
+      from: FROM,
+      errorMessage: "invalid recipient email format",
+      failureCategory: "recipient",
+    });
+    throw new Error(getTenantEmailFailureMessage("invalid recipient email format"));
+  }
+  if (!resend) {
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "simple_notification",
+      to: normalizedTo,
+      subject,
+      from: FROM,
+      errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
+      failureCategory: "platform",
+    });
+    throw new Error(getTenantEmailFailureMessage());
+  }
   const normalized = bodyText.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1: $2");
   const escaped = escHtml(normalized);
   const linked = escaped.replace(/\bhttps?:\/\/[^\s<]+/g, (url) => {
@@ -842,5 +1467,34 @@ export async function sendSimpleNotification(
     <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
     <p style="font-size:12px;color:#94a3b8;">Sent from TradeWorkDesk</p>
   </div>`;
-  await resend.emails.send({ from: FROM, to, subject, html } as Parameters<typeof resend.emails.send>[0]);
+  try {
+    const sendResult = await sendResendEmailWithRetry({ from: FROM, to: normalizedTo, subject, html } as any);
+    await writeTenantEmailAudit({
+      status: "accepted",
+      emailType: "simple_notification",
+      to: normalizedTo,
+      subject,
+      from: FROM,
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+    });
+  } catch (sendErr) {
+    const reason = sanitizeErrorForEmail(sendErr);
+    console.error(`[email] Failed to send "${subject}" to ${normalizedTo}:`, reason);
+    await notifyEmailDeliveryFailure({
+      to: normalizedTo,
+      subject,
+      reason,
+      from: FROM,
+    });
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "simple_notification",
+      to: normalizedTo,
+      subject,
+      from: FROM,
+      errorMessage: reason,
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
+  }
 }

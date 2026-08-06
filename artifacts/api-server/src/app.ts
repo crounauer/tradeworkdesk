@@ -8,6 +8,7 @@ import { existsSync } from "fs";
 import router from "./routes";
 import { startServiceReminderScheduler } from "./lib/service-reminders";
 import { getSentry } from "./lib/sentry";
+import { withRequestContext } from "./lib/request-context";
 
 const app: Express = express();
 app.set("trust proxy", 1);
@@ -127,7 +128,7 @@ app.get("/api/test-error", (_req: Request, res: Response, next: NextFunction) =>
   next(new Error("This is a test error for Sentry verification"));
 });
 
-app.use("/api", (req: Request, res: Response, next: NextFunction) => {
+app.use("/api", withRequestContext, (req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   res.on("finish", () => {
     const duration = Date.now() - start;

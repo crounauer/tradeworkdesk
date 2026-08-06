@@ -1,10 +1,8 @@
-import { Resend } from "resend";
 import { supabaseAdmin } from "./supabase";
 import { hasActiveAddon, deductAddonCredit, getAddonCredits } from "./tenant-limits";
+import { getTenantEmailFailureMessage, isEmailSuppressedForTenant, notifyEmailDeliveryFailure, sendResendEmailWithRetry, writeTenantEmailAudit } from "./email";
 
 const APP_URL = process.env.APP_URL || "https://tradeworkdesk.co.uk";
-const resendApiKey = process.env.RESEND_API_KEY;
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 type ReviewRequestRow = {
   id: string;
@@ -174,11 +172,28 @@ async function sendSmsReviewRequest(rr: ReviewRequestRow, settings: ReviewSettin
 }
 
 async function sendEmailReviewRequest(rr: ReviewRequestRow, settings: ReviewSettingsRow, companyName: string): Promise<void> {
+  const userSafeMessage = getTenantEmailFailureMessage();
   if (!rr.customer_email) {
     throw new ReviewRequestError("Customer email is required for email review requests", 400);
   }
-  if (!resend) {
-    throw new ReviewRequestError("Email service is not configured (RESEND_API_KEY missing)", 503);
+  const suppressed = await isEmailSuppressedForTenant({
+    tenantId: rr.tenant_id,
+    email: rr.customer_email,
+    scope: "review_requests",
+  });
+  if (suppressed) {
+    await writeTenantEmailAudit({
+      tenantId: rr.tenant_id,
+      status: "suppressed",
+      emailType: "review_request",
+      to: rr.customer_email,
+      subject: settings.email_subject || "How did we do? Leave us a review",
+      errorMessage: "Recipient is suppressed/unsubscribed for review request emails",
+      failureCategory: "recipient",
+      needsAction: false,
+      metadata: { reviewRequestId: rr.id },
+    });
+    throw new ReviewRequestError("Recipient suppressed", 409);
   }
 
   const reviewLink = `${APP_URL}/api/public/review/${rr.tracking_token}/start`;
@@ -205,15 +220,48 @@ async function sendEmailReviewRequest(rr: ReviewRequestRow, settings: ReviewSett
     <img src="${openPixel}" alt="" width="1" height="1" style="display:block;border:0;opacity:0" />
   </div>`;
 
-  const { error } = await resend.emails.send({
-    from: "TradeWorkDesk <noreply@tradeworkdesk.co.uk>",
-    to: rr.customer_email,
-    subject,
-    html,
-  } as Parameters<typeof resend.emails.send>[0]);
+  try {
+    const sendResult = await sendResendEmailWithRetry({
+      from: "TradeWorkDesk <noreply@tradeworkdesk.co.uk>",
+      to: rr.customer_email,
+      subject,
+      html,
+      headers: {
+        "List-Unsubscribe": "<mailto:unsubscribe@tradeworkdesk.co.uk?subject=unsubscribe>",
+      },
+    } as any);
 
-  if (error) {
-    throw new ReviewRequestError(`Email send failed: ${error.message}`, 502);
+    await writeTenantEmailAudit({
+      tenantId: rr.tenant_id,
+      status: "accepted",
+      emailType: "review_request",
+      to: rr.customer_email,
+      subject,
+      from: "TradeWorkDesk <noreply@tradeworkdesk.co.uk>",
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+      metadata: { reviewRequestId: rr.id },
+    });
+  } catch (sendErr) {
+    const reason = sendErr instanceof Error ? sendErr.message : String(sendErr);
+    console.error(`[review-requests] Failed to send \"${subject}\" to ${rr.customer_email}:`, reason);
+    await notifyEmailDeliveryFailure({
+      to: rr.customer_email,
+      subject,
+      reason,
+      from: "TradeWorkDesk <noreply@tradeworkdesk.co.uk>",
+    });
+    await writeTenantEmailAudit({
+      tenantId: rr.tenant_id,
+      status: "failed",
+      emailType: "review_request",
+      to: rr.customer_email,
+      subject,
+      from: "TradeWorkDesk <noreply@tradeworkdesk.co.uk>",
+      errorMessage: reason,
+      metadata: { reviewRequestId: rr.id },
+    });
+    throw new ReviewRequestError(getTenantEmailFailureMessage(reason), 502);
   }
 }
 
@@ -263,9 +311,10 @@ export async function sendReviewRequestNow(reviewRequestId: string, tenantId: st
     return updated as ReviewRequestRow;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to send review request";
+    const nextStatus = message.toLowerCase().includes("suppressed") ? "suppressed" : "failed";
     await supabaseAdmin
       .from("review_requests")
-      .update({ status: "failed", error_message: message })
+      .update({ status: nextStatus, error_message: message })
       .eq("id", reviewRequestId)
       .eq("tenant_id", tenantId);
     if (err instanceof ReviewRequestError) throw err;

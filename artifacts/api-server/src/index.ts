@@ -7,6 +7,8 @@ import { startSocialScheduler } from "./lib/social-scheduler";
 import { startDailySuggestionsCron } from "./lib/social-daily-cron";
 import { runStartupMigrations } from "./lib/migrations";
 import { startPushEventScheduler } from "./lib/push-events";
+import { startEmailHealthcheckScheduler } from "./lib/email-healthcheck";
+import { startEmailOpsMonitorScheduler } from "./lib/email-ops-monitor";
 
 const rawPort = process.env["PORT"] ?? "3001";
 
@@ -38,6 +40,8 @@ if (Number.isNaN(port) || port <= 0) {
       startDailySuggestionsCron();
       startReviewRequestScheduler();
       startPushEventScheduler();
+      startEmailHealthcheckScheduler();
+      startEmailOpsMonitorScheduler();
       runStartupMigrations().catch((err) =>
         console.error("[migrations] Startup check failed:", err)
       );

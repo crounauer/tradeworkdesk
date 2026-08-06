@@ -94,6 +94,7 @@ export async function runServiceDueReminders(): Promise<{ sent: number; skipped:
           appliance.next_service_due,
           bookingUrl,
           companyDetails,
+          { tenantId: appliance.tenant_id },
         );
         results.sent++;
         console.log(`[service-reminders] Sent ${days}-day reminder to ${customer.email} for appliance ${appliance.id}`);

@@ -3,11 +3,7 @@
  * Send invoice / quote PDFs to customers via email, following the same
  * pattern used by sendJobFormsEmail() in email.ts.
  */
-import { Resend } from "resend";
-import type { EmailCompanyDetails } from "./email";
-
-const resendApiKey = process.env.RESEND_API_KEY;
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
+import { getTenantEmailFailureMessage, notifyEmailDeliveryFailure, sendResendEmailWithRetry, writeTenantEmailAudit, type EmailCompanyDetails } from "./email";
 const DEFAULT_FROM_NAME = "TradeWorkDesk";
 const FROM_EMAIL = "noreply@tradeworkdesk.co.uk";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -43,6 +39,7 @@ function normalizeAdditionalRecipients(
 }
 
 export async function sendInvoiceDocumentEmail(opts: {
+  tenantId?: string;
   to: string;
   type: "invoice" | "quote";
   invoiceNumber: string;
@@ -64,13 +61,19 @@ export async function sendInvoiceDocumentEmail(opts: {
   portalUrl?: string | null;
   hasPaymentProvider?: boolean;
 }): Promise<void> {
-  if (!resend) {
-    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
-  }
 
   const toEmail = String(opts.to || "").trim().toLowerCase();
   if (!EMAIL_RE.test(toEmail)) {
-    throw new Error(`Invalid recipient email: ${opts.to}`);
+    await writeTenantEmailAudit({
+      tenantId: opts.tenantId,
+      status: "failed",
+      emailType: opts.type === "quote" ? "quote" : "invoice",
+      to: toEmail || String(opts.to || ""),
+      subject: `${opts.type === "quote" ? "Quotation" : "Invoice"} ${opts.invoiceNumber}`,
+      errorMessage: "invalid recipient email format",
+      failureCategory: "recipient",
+    });
+    throw new Error(getTenantEmailFailureMessage("invalid recipient email format"));
   }
 
   const { type, invoiceNumber, customerName, total, currency } = opts;
@@ -225,23 +228,57 @@ export async function sendInvoiceDocumentEmail(opts: {
   const replyTo = EMAIL_RE.test(replyToCandidate) ? replyToCandidate : undefined;
   const cc = normalizeAdditionalRecipients(opts.company?.notification_emails, toEmail, replyTo);
 
-  const sendOpts: Parameters<typeof resend.emails.send>[0] = {
+  const sendOpts = {
     from: FROM,
     to: [toEmail],
     ...(cc.length > 0 ? { cc } : {}),
     subject,
     html,
     attachments: [{ filename, content: opts.pdfBuffer }],
-  };
-  if (replyTo) (sendOpts as any).replyTo = replyTo;
+  } as any;
+  if (replyTo) sendOpts.replyTo = replyTo;
 
-  const { error } = await resend.emails.send(sendOpts);
-  if (error) {
-    throw new Error(`Failed to send ${label.toLowerCase()} email: ${error.message ?? JSON.stringify(error)}`);
+  try {
+    const sendResult = await sendResendEmailWithRetry(sendOpts);
+    await writeTenantEmailAudit({
+      tenantId: opts.tenantId,
+      status: "accepted",
+      emailType: isQuote ? "quote" : "invoice",
+      to: toEmail,
+      subject,
+      from: FROM,
+      replyTo,
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+      metadata: { invoiceNumber },
+    });
+  } catch (sendErr) {
+    const reason = sendErr instanceof Error ? sendErr.message : String(sendErr);
+    console.error(`[invoice-email] Failed to send ${label.toLowerCase()} to ${toEmail}:`, reason);
+    await notifyEmailDeliveryFailure({
+      to: toEmail,
+      subject,
+      reason,
+      from: FROM,
+      replyTo,
+    });
+    await writeTenantEmailAudit({
+      tenantId: opts.tenantId,
+      status: "failed",
+      emailType: isQuote ? "quote" : "invoice",
+      to: toEmail,
+      subject,
+      from: FROM,
+      replyTo,
+      errorMessage: reason,
+      metadata: { invoiceNumber },
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
   }
 }
 
 export async function sendPaymentReceiptEmail(opts: {
+  tenantId?: string;
   to: string;
   invoiceNumber: string;
   customerName: string;
@@ -251,9 +288,6 @@ export async function sendPaymentReceiptEmail(opts: {
   pdfBuffer: Buffer;
   company?: EmailCompanyDetails;
 }): Promise<void> {
-  if (!resend) {
-    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
-  }
 
   const companyName = opts.company?.name || opts.company?.trading_name || "Your Service Provider";
   const fromName = opts.company?.email_from_name || opts.company?.name || opts.company?.trading_name || DEFAULT_FROM_NAME;
@@ -319,7 +353,7 @@ export async function sendPaymentReceiptEmail(opts: {
 </body>
 </html>`;
 
-  const sendOpts: Parameters<typeof resend.emails.send>[0] = {
+  const sendOpts = {
     from: FROM,
     to: [opts.to],
     ...(normalizeAdditionalRecipients(opts.company?.notification_emails, opts.to, opts.company?.email_reply_to || opts.company?.email || undefined).length > 0
@@ -328,11 +362,44 @@ export async function sendPaymentReceiptEmail(opts: {
     subject,
     html,
     attachments: [{ filename: `invoice-${opts.invoiceNumber}.pdf`, content: opts.pdfBuffer }],
-  };
-  if (opts.company?.email_reply_to || opts.company?.email) (sendOpts as any).replyTo = opts.company.email_reply_to || opts.company.email;
+  } as any;
+  if (opts.company?.email_reply_to || opts.company?.email) sendOpts.replyTo = opts.company.email_reply_to || opts.company.email;
 
-  const { error } = await resend.emails.send(sendOpts);
-  if (error) {
-    throw new Error(`Failed to send receipt email: ${error.message ?? JSON.stringify(error)}`);
+  try {
+    const sendResult = await sendResendEmailWithRetry(sendOpts);
+    await writeTenantEmailAudit({
+      tenantId: opts.tenantId,
+      status: "accepted",
+      emailType: "invoice_receipt",
+      to: opts.to,
+      subject,
+      from: FROM,
+      replyTo: opts.company?.email_reply_to || opts.company?.email || undefined,
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+      metadata: { invoiceNumber: opts.invoiceNumber },
+    });
+  } catch (sendErr) {
+    const reason = sendErr instanceof Error ? sendErr.message : String(sendErr);
+    console.error(`[invoice-email] Failed to send receipt email to ${opts.to}:`, reason);
+    await notifyEmailDeliveryFailure({
+      to: opts.to,
+      subject,
+      reason,
+      from: FROM,
+      replyTo: opts.company?.email_reply_to || opts.company?.email || undefined,
+    });
+    await writeTenantEmailAudit({
+      tenantId: opts.tenantId,
+      status: "failed",
+      emailType: "invoice_receipt",
+      to: opts.to,
+      subject,
+      from: FROM,
+      replyTo: opts.company?.email_reply_to || opts.company?.email || undefined,
+      errorMessage: reason,
+      metadata: { invoiceNumber: opts.invoiceNumber },
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
   }
 }

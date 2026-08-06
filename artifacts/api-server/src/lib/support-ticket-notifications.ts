@@ -1,8 +1,6 @@
-import { Resend } from "resend";
 import { supabaseAdmin } from "./supabase";
+import { getTenantEmailFailureMessage, notifyEmailDeliveryFailure, sendResendEmailWithRetry, writeTenantEmailAudit } from "./email";
 
-const resendApiKey = process.env.RESEND_API_KEY;
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
 const SUPPORT_FROM = process.env.SUPPORT_FROM_EMAIL || "TradeWorkDesk Support <support@tradeworkdesk.co.uk>";
 
 type TicketEmailPayload = {
@@ -87,16 +85,47 @@ async function sendSms(destinations: string[], content: string): Promise<void> {
   }));
 }
 
-async function sendEmail(recipients: string[], payload: TicketEmailPayload): Promise<void> {
-  if (!resend || recipients.length === 0) return;
-  const { error } = await resend.emails.send({
-    from: SUPPORT_FROM,
-    to: recipients,
-    subject: payload.subject,
-    text: payload.text,
-    html: payload.html,
-  });
-  if (error) throw new Error(error.message || JSON.stringify(error));
+async function sendEmail(recipients: string[], payload: TicketEmailPayload, tenantId?: string): Promise<void> {
+  if (recipients.length === 0) return;
+  try {
+    const sendResult = await sendResendEmailWithRetry({
+      from: SUPPORT_FROM,
+      to: recipients,
+      subject: payload.subject,
+      text: payload.text,
+      html: payload.html,
+    } as any);
+
+    await writeTenantEmailAudit({
+      tenantId,
+      status: "accepted",
+      emailType: "support_ticket_notification",
+      to: recipients.join(", "),
+      subject: payload.subject,
+      from: SUPPORT_FROM,
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+    });
+  } catch (sendErr) {
+    const reason = sendErr instanceof Error ? sendErr.message : String(sendErr);
+    console.error(`[support-ticket] Failed to send \"${payload.subject}\" to ${recipients.join(", ")}:`, reason);
+    await notifyEmailDeliveryFailure({
+      to: recipients.join(", "),
+      subject: payload.subject,
+      reason,
+      from: SUPPORT_FROM,
+    });
+    await writeTenantEmailAudit({
+      tenantId,
+      status: "failed",
+      emailType: "support_ticket_notification",
+      to: recipients.join(", "),
+      subject: payload.subject,
+      from: SUPPORT_FROM,
+      errorMessage: reason,
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
+  }
 }
 
 export async function notifySuperAdminsTicketRaised(opts: {
@@ -125,12 +154,13 @@ export async function notifySuperAdminsTicketRaised(opts: {
   const html = `<p>${title}</p><p><strong>Subject:</strong> ${opts.subject}</p><p><strong>Category:</strong> ${opts.category}</p><p><strong>Priority:</strong> ${opts.priority}</p><p><strong>Requester:</strong> ${opts.requesterName || "Unknown"} (${opts.requesterEmail || "no email"})</p><p><a href="${ticketUrl}" target="_blank" rel="noreferrer">Open support ticket</a></p>`;
 
   await Promise.allSettled([
-    sendEmail(emails, { subject: title, text, html }),
+    sendEmail(emails, { subject: title, text, html }, opts.tenantId),
     sendSms(phones, `${title}. ${opts.subject}`),
   ]);
 }
 
 export async function notifyTenantTicketUpdated(opts: {
+  tenantId?: string;
   ticketId: string;
   ticketSubject: string;
   company: TicketTenantContext;
@@ -154,7 +184,7 @@ export async function notifyTenantTicketUpdated(opts: {
   const html = `<p>Your support ticket has been updated.</p><p><strong>Subject:</strong> ${opts.ticketSubject}<br/><strong>Status:</strong> ${statusLabel}<br/><strong>Updated by:</strong> ${opts.actorName || "TradeWorkDesk"}</p><p><a href="${ticketUrl}" target="_blank" rel="noreferrer">Open support ticket</a></p>${opts.messageBody ? `<p><strong>Message:</strong><br/>${opts.messageBody.replace(/\n/g, "<br/>")}</p>` : ""}`;
 
   await Promise.allSettled([
-    sendEmail(emails, { subject, text, html }),
+    sendEmail(emails, { subject, text, html }, opts.tenantId),
     sendSms(phones, `Support ticket updated: ${opts.ticketSubject} (${statusLabel}).`),
   ]);
 }
