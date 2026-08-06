@@ -696,7 +696,8 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
   }
 
   // Resolve email recipient
-  const recipientEmail: string | undefined = req.body.override_email || undefined;
+  const recipientEmailRaw: string | undefined = req.body.override_email || undefined;
+  const recipientEmail: string | undefined = recipientEmailRaw ? String(recipientEmailRaw).trim().toLowerCase() : undefined;
   const sendNote: string | undefined = req.body.send_note || undefined;
   const { data: customer } = await supabaseAdmin
     .from("customers")
@@ -704,7 +705,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
     .eq("id", invoice.customer_id as string)
     .maybeSingle();
 
-  const toEmail = recipientEmail || customer?.email;
+  const toEmail = (recipientEmail || customer?.email || "").trim().toLowerCase();
   if (!toEmail) {
     res.status(400).json({ error: "No email address found for this customer. Add one or provide override_email in the request body." });
     return;
@@ -1147,16 +1148,18 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
     "Kind regards,",
     ((invoice as Record<string, unknown>).company_name as string) || "Your Service Provider",
   ].filter((line): line is string => line !== null).join("\n");
-  const { error: logErr } = await supabaseAdmin.from("job_email_logs").insert({
-    job_id: invoice.job_id,
-    tenant_id: req.tenantId,
-    sent_by: req.userId,
-    sent_to: toEmail,
-    subject: `${docLabel} — ${customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer"}`,
-    forms_included: [{ form_type: invoice.type, form_label: docLabel, form_id: req.params.id }],
-    body_text: logBodyText,
-  });
-  if (logErr) console.error("[invoices] Failed to log email:", logErr.message);
+  if (invoice.job_id) {
+    const { error: logErr } = await supabaseAdmin.from("job_email_logs").insert({
+      job_id: invoice.job_id,
+      tenant_id: req.tenantId,
+      sent_by: req.userId,
+      sent_to: toEmail,
+      subject: `${docLabel} — ${customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer"}`,
+      forms_included: [{ form_type: invoice.type, form_label: docLabel, form_id: req.params.id }],
+      body_text: logBodyText,
+    });
+    if (logErr) console.error("[invoices] Failed to log email:", logErr.message);
+  }
 
   res.json({ ...updated, sent_to: toEmail });
 });

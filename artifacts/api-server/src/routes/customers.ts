@@ -572,7 +572,10 @@ router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireR
       website: (cs as any)?.website,
     });
   } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to send invite email";
     console.error("[portal] Failed to send invite email:", e);
+    res.status(502).json({ error: msg });
+    return;
   }
 
   res.json({ success: true, sent_to: customer.email });

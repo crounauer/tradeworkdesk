@@ -45,6 +45,30 @@ interface PropertyJobRow {
   [key: string]: unknown;
 }
 
+interface PropertyApplianceRow {
+  id: string;
+  property_id: string;
+  manufacturer: string | null;
+  model: string | null;
+  serial_number: string | null;
+  boiler_type: string | null;
+  fuel_type: string | null;
+  system_type: string | null;
+  installation_date: string | null;
+  warranty_expiry: string | null;
+  burner_make: string | null;
+  burner_model: string | null;
+  nozzle_size: string | null;
+  pump_pressure: string | null;
+  controls: string | null;
+  last_service_date: string | null;
+  next_service_due: string | null;
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 const router: IRouter = Router();
 
 router.get("/properties", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -113,6 +137,15 @@ router.get("/properties/:id", requireAuth, requireTenant, async (req: Authentica
     .from("jobs").select("*, customers(first_name, last_name), profiles(full_name)")
     .eq("property_id", params.data.id).eq("is_active", true).order("scheduled_date", { ascending: false }).limit(10);
 
+  let appliancesQ = supabaseAdmin
+    .from("appliances")
+    .select("*")
+    .eq("property_id", params.data.id)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+  if (req.tenantId) appliancesQ = appliancesQ.eq("tenant_id", req.tenantId);
+  const { data: appliances } = await appliancesQ;
+
   const mappedJobs = (jobs as PropertyJobRow[] || []).map((j) => ({
     ...j,
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
@@ -125,7 +158,7 @@ router.get("/properties/:id", requireAuth, requireTenant, async (req: Authentica
   res.json(GetPropertyResponse.parse({
     ...property,
     customer: customer || undefined,
-    appliances: [],
+    appliances: (appliances as PropertyApplianceRow[] | null) || [],
     recent_jobs: mappedJobs,
   }));
 });

@@ -1,10 +1,10 @@
-import { useGetProperty, useUpdateProperty, useDeleteProperty, type UpdatePropertyBody } from "@workspace/api-client-react";
+import { useGetProperty, useUpdateProperty, useDeleteProperty, useCreateAppliance, type UpdatePropertyBody } from "@workspace/api-client-react";
 import { useParams, Link, useLocation, useSearch } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Home, MapPin, Briefcase, X, Edit, Check, Trash2 } from "lucide-react";
+import { ArrowLeft, Home, MapPin, Briefcase, X, Edit, Check, Trash2, Flame, Plus } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
@@ -35,6 +35,18 @@ type PropertyEditData = {
   longitude?: number | null;
 };
 
+type ApplianceCreateData = {
+  manufacturer: string;
+  model: string;
+  serial_number: string;
+  boiler_type: string;
+  fuel_type: string;
+  system_type: string;
+  installation_date: string;
+  next_service_due: string;
+  notes: string;
+};
+
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: property, isLoading, error } = useGetProperty(id);
@@ -42,16 +54,31 @@ export default function PropertyDetail() {
   const [editing, setEditing] = useState(() => new URLSearchParams(search).get("edit") === "1");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [fixingLocation, setFixingLocation] = useState(false);
+  const [showAddAppliance, setShowAddAppliance] = useState(false);
 
   useEffect(() => {
     if (new URLSearchParams(search).get("edit") === "1") setEditing(true);
   }, [search]);
   const { hasFeature } = usePlanFeatures();
   const deleteProperty = useDeleteProperty();
+  const createAppliance = useCreateAppliance();
   const updateProperty = useUpdateProperty();
   const qc = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const { register: registerAppliance, handleSubmit: handleSubmitAppliance, reset: resetAppliance } = useForm<ApplianceCreateData>({
+    defaultValues: {
+      manufacturer: "",
+      model: "",
+      serial_number: "",
+      boiler_type: "boiler",
+      fuel_type: "gas",
+      system_type: "",
+      installation_date: "",
+      next_service_due: "",
+      notes: "",
+    },
+  });
 
   // Lazy geocode: if this property has no coords, trigger a background PATCH
   // which the API will use to geocode and persist the coordinates.
@@ -80,6 +107,35 @@ export default function PropertyDetail() {
 
   if (isLoading) return <div className="p-8">Loading...</div>;
   if (error || !property) return <div className="p-8 text-destructive">Property not found</div>;
+
+  const appliances = property.appliances || [];
+
+  const onAddAppliance = async (data: ApplianceCreateData) => {
+    try {
+      await createAppliance.mutateAsync({
+        data: {
+          property_id: id,
+          manufacturer: data.manufacturer.trim() || undefined,
+          model: data.model.trim() || undefined,
+          serial_number: data.serial_number.trim() || undefined,
+          boiler_type: data.boiler_type || undefined,
+          fuel_type: data.fuel_type || undefined,
+          system_type: data.system_type || undefined,
+          installation_date: data.installation_date || undefined,
+          next_service_due: data.next_service_due || undefined,
+          notes: data.notes.trim() || undefined,
+        },
+      });
+      qc.invalidateQueries({ queryKey: [`/api/properties/${id}`] });
+      qc.invalidateQueries({ queryKey: ["/api/appliances"] });
+      setShowAddAppliance(false);
+      resetAppliance();
+      toast({ title: "Appliance added", description: "Appliance has been added to this property." });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to add appliance";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in">
@@ -222,6 +278,129 @@ export default function PropertyDetail() {
           </Card>
 
           <div className="lg:col-span-2 space-y-6">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-display font-bold flex items-center gap-2">
+                  <Flame className="w-5 h-5 text-orange-500" /> Appliances
+                </h2>
+                <Button size="sm" variant="secondary" onClick={() => setShowAddAppliance((v) => !v)}>
+                  {showAddAppliance ? <><X className="w-4 h-4 mr-2" /> Cancel</> : <><Plus className="w-4 h-4 mr-2" /> Add Appliance</>}
+                </Button>
+              </div>
+
+              {showAddAppliance && (
+                <Card className="p-5 border border-border/50 shadow-sm mb-4">
+                  <form onSubmit={handleSubmitAppliance(onAddAppliance)} className="space-y-4">
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label>Manufacturer</Label>
+                        <Input placeholder="e.g. Worcester Bosch" {...registerAppliance("manufacturer")} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Model</Label>
+                        <Input placeholder="e.g. Greenstar 30i" {...registerAppliance("model")} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Serial Number</Label>
+                        <Input placeholder="Optional" {...registerAppliance("serial_number")} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Appliance Type</Label>
+                        <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...registerAppliance("boiler_type")}>
+                          <option value="boiler">Boiler</option>
+                          <option value="heat_pump">Heat Pump</option>
+                          <option value="stove">Stove</option>
+                          <option value="fire">Fire</option>
+                          <option value="cooker">Cooker</option>
+                          <option value="water_heater">Water Heater</option>
+                          <option value="cylinder">Cylinder</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Fuel Type</Label>
+                        <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...registerAppliance("fuel_type")}>
+                          <option value="gas">Gas</option>
+                          <option value="oil">Oil</option>
+                          <option value="lpg">LPG</option>
+                          <option value="electric">Electric</option>
+                          <option value="biomass">Biomass</option>
+                          <option value="solid_fuel">Solid Fuel</option>
+                          <option value="heat_pump">Heat Pump</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>System Type</Label>
+                        <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...registerAppliance("system_type")}>
+                          <option value="">Select...</option>
+                          <option value="combi">Combi</option>
+                          <option value="system">System</option>
+                          <option value="conventional">Conventional</option>
+                          <option value="open_vent">Open Vent</option>
+                          <option value="sealed">Sealed</option>
+                          <option value="direct">Direct</option>
+                          <option value="indirect">Indirect</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Installation Date</Label>
+                        <Input type="date" {...registerAppliance("installation_date")} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Next Service Due</Label>
+                        <Input type="date" {...registerAppliance("next_service_due")} />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Notes</Label>
+                      <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...registerAppliance("notes")} />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="submit" disabled={createAppliance.isPending}>
+                        <Check className="w-4 h-4 mr-2" /> {createAppliance.isPending ? "Adding..." : "Add Appliance"}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => { setShowAddAppliance(false); resetAppliance(); }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                </Card>
+              )}
+
+              {appliances.length === 0 ? (
+                <Card className="p-6 text-center border-dashed">
+                  <p className="text-muted-foreground">No appliances recorded for this property yet.</p>
+                </Card>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {appliances.map((appliance) => (
+                    <Link key={appliance.id} href={`/appliances/${appliance.id}`}>
+                      <Card className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Flame className="w-4 h-4 text-orange-500" />
+                          <p className="font-semibold text-foreground truncate">
+                            {[appliance.manufacturer, appliance.model].filter(Boolean).join(" ") || "Unnamed Appliance"}
+                          </p>
+                        </div>
+                        <div className="space-y-1 text-sm">
+                          <p className="text-muted-foreground">Type: <span className="text-foreground capitalize">{String(appliance.boiler_type || "n/a").replace(/_/g, " ")}</span></p>
+                          <p className="text-muted-foreground">Fuel: <span className="text-foreground capitalize">{String(appliance.fuel_type || "n/a").replace(/_/g, " ")}</span></p>
+                          {appliance.serial_number && (
+                            <p className="text-muted-foreground">Serial: <span className="text-foreground font-mono">{appliance.serial_number}</span></p>
+                          )}
+                          {appliance.next_service_due && (
+                            <p className="text-muted-foreground">Next Service: <span className="text-foreground">{formatDate(appliance.next_service_due)}</span></p>
+                          )}
+                        </div>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {property.recent_jobs && property.recent_jobs.length > 0 && (
               <div>
                 <h2 className="text-xl font-display font-bold mb-4 flex items-center gap-2"><Briefcase className="w-5 h-5 text-purple-500" /> Recent Jobs</h2>

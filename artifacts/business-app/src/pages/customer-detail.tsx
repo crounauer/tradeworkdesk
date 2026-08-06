@@ -169,93 +169,97 @@ export default function CustomerDetail() {
         <EditCustomerForm customer={customer} onClose={() => setEditing(false)} />
       ) : (
         <div className="grid lg:grid-cols-3 gap-6">
-          <Card className="p-6 lg:col-span-1 border border-border/50 shadow-sm space-y-4">
-            <h3 className="font-bold text-lg border-b border-border/50 pb-2">Contact Info</h3>
-            {customer.phone && (
-              <div className="flex items-start gap-3">
-                <Phone className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Phone</p>
-                  <p className="text-foreground">{customer.phone}</p>
+          <div className="lg:col-span-1 space-y-6">
+            <Card className="p-6 border border-border/50 shadow-sm space-y-4">
+              <h3 className="font-bold text-lg border-b border-border/50 pb-2">Contact Info</h3>
+              {customer.phone && (
+                <div className="flex items-start gap-3">
+                  <Phone className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Phone</p>
+                    <p className="text-foreground">{customer.phone}</p>
+                  </div>
                 </div>
-              </div>
-            )}
-            {customer.mobile && (
-              <div className="flex items-start gap-3">
-                <Phone className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Mobile</p>
-                  <p className="text-foreground">{customer.mobile}</p>
+              )}
+              {customer.mobile && (
+                <div className="flex items-start gap-3">
+                  <Phone className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Mobile</p>
+                    <p className="text-foreground">{customer.mobile}</p>
+                  </div>
                 </div>
-              </div>
-            )}
-            {customer.email && (
-              <div className="flex items-start gap-3">
-                <Mail className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Email</p>
-                  <p className="text-foreground">{customer.email}</p>
+              )}
+              {customer.email && (
+                <div className="flex items-start gap-3">
+                  <Mail className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Email</p>
+                    <p className="text-foreground">{customer.email}</p>
+                  </div>
                 </div>
-              </div>
-            )}
-            {(customer.address_line1 || customer.postcode) && (
-              <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Billing Address</p>
-                  <p className="text-foreground text-sm leading-relaxed">
-                    {customer.address_line1}<br/>
-                    {customer.address_line2 && <>{customer.address_line2}<br/></>}
-                    {customer.city}{customer.city && customer.postcode ? ', ' : ''}{customer.postcode}
-                  </p>
+              )}
+              {(customer.address_line1 || customer.postcode) && (
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">Billing Address</p>
+                    <p className="text-foreground text-sm leading-relaxed">
+                      {customer.address_line1}<br/>
+                      {customer.address_line2 && <>{customer.address_line2}<br/></>}
+                      {customer.city}{customer.city && customer.postcode ? ', ' : ''}{customer.postcode}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
-            {customer.latitude != null && customer.longitude != null && (
-              <div className="pt-3 border-t border-border/50 space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">Coordinates</p>
-                  <button
-                    className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
-                    onClick={() => setFixingCustomerLocation((v) => !v)}
-                  >
-                    <Edit className="w-3 h-3" /> Fix location
-                  </button>
+              )}
+              {customer.latitude != null && customer.longitude != null && (
+                <div className="pt-3 border-t border-border/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">Coordinates</p>
+                    <button
+                      className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                      onClick={() => setFixingCustomerLocation((v) => !v)}
+                    >
+                      <Edit className="w-3 h-3" /> Fix location
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground font-mono">{customer.latitude.toFixed(6)}, {customer.longitude.toFixed(6)}</p>
+                  {fixingCustomerLocation ? (
+                    <Suspense fallback={<div className="h-[220px] bg-slate-100 rounded animate-pulse" />}>
+                      <PropertyLocationLookup
+                        address={[customer.address_line1, customer.address_line2, customer.city, customer.county, customer.postcode].filter(Boolean).join(", ")}
+                        latitude={customer.latitude}
+                        longitude={customer.longitude}
+                        onLocationFound={async (lat, lng) => {
+                          await customFetch(`/api/customers/${customer.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ latitude: lat, longitude: lng }),
+                          });
+                          qc.invalidateQueries({ queryKey: [`/api/customers/${customer.id}`] });
+                          setFixingCustomerLocation(false);
+                          toast({ title: "Location updated" });
+                        }}
+                        onClearLocation={() => setFixingCustomerLocation(false)}
+                      />
+                    </Suspense>
+                  ) : (
+                    <Suspense fallback={<div className="h-[150px] bg-slate-100 rounded animate-pulse" />}>
+                      <PropertyMapPreview key={`${customer.latitude}-${customer.longitude}`} latitude={customer.latitude} longitude={customer.longitude} />
+                    </Suspense>
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground font-mono">{customer.latitude.toFixed(6)}, {customer.longitude.toFixed(6)}</p>
-                {fixingCustomerLocation ? (
-                  <Suspense fallback={<div className="h-[220px] bg-slate-100 rounded animate-pulse" />}>
-                    <PropertyLocationLookup
-                      address={[customer.address_line1, customer.address_line2, customer.city, customer.county, customer.postcode].filter(Boolean).join(", ")}
-                      latitude={customer.latitude}
-                      longitude={customer.longitude}
-                      onLocationFound={async (lat, lng) => {
-                        await customFetch(`/api/customers/${customer.id}`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ latitude: lat, longitude: lng }),
-                        });
-                        qc.invalidateQueries({ queryKey: [`/api/customers/${customer.id}`] });
-                        setFixingCustomerLocation(false);
-                        toast({ title: "Location updated" });
-                      }}
-                      onClearLocation={() => setFixingCustomerLocation(false)}
-                    />
-                  </Suspense>
-                ) : (
-                  <Suspense fallback={<div className="h-[150px] bg-slate-100 rounded animate-pulse" />}>
-                    <PropertyMapPreview key={`${customer.latitude}-${customer.longitude}`} latitude={customer.latitude} longitude={customer.longitude} />
-                  </Suspense>
-                )}
-              </div>
-            )}
-            {customer.notes && (
-              <div className="pt-3 border-t border-border/50">
-                <p className="text-sm font-medium text-muted-foreground">Notes</p>
-                <p className="text-foreground text-sm mt-1">{customer.notes}</p>
-              </div>
-            )}
-          </Card>
+              )}
+              {customer.notes && (
+                <div className="pt-3 border-t border-border/50">
+                  <p className="text-sm font-medium text-muted-foreground">Notes</p>
+                  <p className="text-foreground text-sm mt-1">{customer.notes}</p>
+                </div>
+              )}
+            </Card>
+
+            <PortalAccessSection customerId={customer.id} customerEmail={customer.email} />
+          </div>
 
           <div className="lg:col-span-2 space-y-6">
             <div className="flex justify-between items-center">
@@ -302,8 +306,6 @@ export default function CustomerDetail() {
             <CustomerInvoicesSection customerId={customer.id} />
 
             <CustomerCommsSection customerId={customer.id} />
-
-            <PortalAccessSection customerId={customer.id} customerEmail={customer.email} />
           </div>
         </div>
       )}

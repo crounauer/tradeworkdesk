@@ -10,6 +10,7 @@ const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 const DEFAULT_FROM_NAME = "TradeWorkDesk";
 const FROM_EMAIL = "noreply@tradeworkdesk.co.uk";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function escHtml(v: string | null | undefined): string {
   return String(v ?? "")
@@ -36,7 +37,7 @@ function normalizeAdditionalRecipients(
     new Set(
       (extra || [])
         .map((email) => String(email).trim().toLowerCase())
-        .filter((email) => email && !blacklist.has(email)),
+        .filter((email) => email && EMAIL_RE.test(email) && !blacklist.has(email)),
     ),
   );
 }
@@ -65,6 +66,11 @@ export async function sendInvoiceDocumentEmail(opts: {
 }): Promise<void> {
   if (!resend) {
     throw new Error("Email service is not configured (RESEND_API_KEY missing)");
+  }
+
+  const toEmail = String(opts.to || "").trim().toLowerCase();
+  if (!EMAIL_RE.test(toEmail)) {
+    throw new Error(`Invalid recipient email: ${opts.to}`);
   }
 
   const { type, invoiceNumber, customerName, total, currency } = opts;
@@ -215,12 +221,13 @@ export async function sendInvoiceDocumentEmail(opts: {
 </html>`;
 
   const filename = `${label.toLowerCase()}-${invoiceNumber}.pdf`;
-  const replyTo = opts.company?.email_reply_to || opts.company?.email || undefined;
-  const cc = normalizeAdditionalRecipients(opts.company?.notification_emails, opts.to, replyTo);
+  const replyToCandidate = String(opts.company?.email_reply_to || opts.company?.email || "").trim().toLowerCase();
+  const replyTo = EMAIL_RE.test(replyToCandidate) ? replyToCandidate : undefined;
+  const cc = normalizeAdditionalRecipients(opts.company?.notification_emails, toEmail, replyTo);
 
   const sendOpts: Parameters<typeof resend.emails.send>[0] = {
     from: FROM,
-    to: [opts.to],
+    to: [toEmail],
     ...(cc.length > 0 ? { cc } : {}),
     subject,
     html,

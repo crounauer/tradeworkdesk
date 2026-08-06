@@ -50,12 +50,13 @@ function normalizeAdditionalRecipients(
   to: string,
   replyTo?: string,
 ): string[] {
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const blacklist = new Set([to.toLowerCase(), (replyTo || "").toLowerCase()]);
   return Array.from(
     new Set(
       (extra || [])
         .map((email) => String(email).trim().toLowerCase())
-        .filter((email) => email && !blacklist.has(email)),
+        .filter((email) => email && EMAIL_RE.test(email) && !blacklist.has(email)),
     ),
   );
 }
@@ -158,22 +159,31 @@ async function send(
   html: string,
   opts?: { from?: string; replyTo?: string },
 ): Promise<void> {
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const normalizedTo = String(to || "").trim().toLowerCase();
+  if (!EMAIL_RE.test(normalizedTo)) {
+    throw new Error(`Invalid recipient email: ${to}`);
+  }
+
   if (!resend) {
-    console.warn(`[email] Resend not configured — would have sent "${subject}" to ${to}`);
-    return;
+    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
   }
   const sendOpts: any = {
     from: opts?.from || FROM,
-    to,
+    to: normalizedTo,
     subject,
     html,
   };
-  if (opts?.replyTo) {
-    sendOpts.replyTo = opts.replyTo;
+  const normalizedReplyTo = String(opts?.replyTo || "").trim().toLowerCase();
+  if (normalizedReplyTo && EMAIL_RE.test(normalizedReplyTo)) {
+    sendOpts.replyTo = normalizedReplyTo;
   }
-  const { error } = await resend.emails.send(sendOpts);
+  const { data, error } = await resend.emails.send(sendOpts);
   if (error) {
-    console.error(`[email] Failed to send "${subject}" to ${to}:`, error);
+    throw new Error(`Failed to send "${subject}" to ${normalizedTo}: ${error.message ?? JSON.stringify(error)}`);
+  }
+  if (!data?.id) {
+    throw new Error(`Email provider did not return a message id for "${subject}" to ${normalizedTo}`);
   }
 }
 
