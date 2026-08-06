@@ -4,13 +4,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Calendar, Plus, MessageSquarePlus, Clock, MapPin, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Calendar, Plus, MessageSquarePlus, Clock, MapPin } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useCalendarData } from "@/hooks/use-calendar-data";
-import { VisitIntentBadge } from "@/components/visit-intent-badge";
-import { PriorityBadge } from "@/components/priority-badge";
-import { AppointmentConfirmationBadge } from "@/components/appointment-confirmation-badge";
 
 type CalendarJob = {
   id: string;
@@ -277,6 +274,30 @@ function getJobTypeDisplay(job: CalendarJob): { label: string; intent: "standard
     : null;
   const inferredIntent = /\b(estimate|quote)\b/i.test(label) ? "estimate" : null;
   return { label, intent: explicitIntent || inferredIntent };
+}
+
+function getCompactJobTimeLabel(job: CalendarJob): string {
+  if (!job.scheduled_time) return "No time";
+  return formatTime(job.scheduled_time);
+}
+
+function CompactJobCardContent({ job, timeLabel }: { job: CalendarJob; timeLabel: string }) {
+  return (
+    <div className="space-y-0.5 min-w-0">
+      <div className="flex items-start justify-between gap-2 min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
+          <span className="text-sm font-semibold truncate">{job.customer_name || "Unknown"}</span>
+        </div>
+        <span className="text-xs font-medium opacity-80 shrink-0 whitespace-nowrap">{timeLabel}</span>
+      </div>
+      {job.property_address && (
+        <div className="ml-3.5 text-xs opacity-70 truncate">
+          {job.property_address}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface ScheduleCalendarProps {
@@ -959,28 +980,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                               onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
                               className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
                             >
-                              <div className="flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
-                                <span className="text-sm font-semibold truncate">{job.customer_name || "Unknown"}</span>
-                                <PriorityBadge priority={job.priority} />
-                                <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} />
-                                {(() => {
-                                  const { label, intent } = getJobTypeDisplay(job);
-                                  return (
-                                    <span className="ml-auto flex items-center gap-1.5">
-                                      <VisitIntentBadge intent={intent} jobTypeLabel={label} showStandard={false} />
-                                      <span className="text-xs opacity-60 capitalize">{label}</span>
-                                    </span>
-                                  );
-                                })()}
-                              </div>
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 ml-4">
-                                <span className="flex items-center gap-1 text-xs opacity-75"><Clock className="w-3 h-3" />{getJobTimeRangeLabel(job)}</span>
-                                {job.property_address && (
-                                  <span className="flex items-center gap-1 text-xs opacity-60 truncate max-w-[210px]"><MapPin className="w-3 h-3 shrink-0" />{job.property_address}</span>
-                                )}
-                                <span className="text-xs font-medium opacity-80 ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
-                              </div>
+                              <CompactJobCardContent job={job} timeLabel={getJobTimeRangeLabel(job)} />
                             </div>
                           ))}
                         </div>
@@ -1107,42 +1107,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                               onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
                               className={`px-3 py-2 rounded-lg border transition-all cursor-pointer min-w-0 ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
                             >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
-                                <span className="text-sm font-semibold truncate">{job.customer_name || "Unknown"}</span>
-                                <PriorityBadge priority={job.priority} />
-                                <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} />
-                                {(() => {
-                                  const { label, intent } = getJobTypeDisplay(job);
-                                  return (
-                                    <span className="ml-auto flex items-center gap-1.5 min-w-0">
-                                      <VisitIntentBadge intent={intent} jobTypeLabel={label} showStandard={false} />
-                                      <span className="text-xs opacity-60 capitalize truncate">{label}</span>
-                                      <span className="text-xs opacity-70 shrink-0">{durationLabel(durationMinutes)}</span>
-                                    </span>
-                                  );
-                                })()}
-                              </div>
-                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 ml-4 min-w-0">
-                                <span className="flex items-center gap-1 text-xs opacity-75"><Clock className="w-3 h-3" />{getJobTimeRangeLabel(job)}</span>
-                                {job.technician_name && (
-                                  <span className="flex items-center gap-1 text-xs opacity-75"><User className="w-3 h-3" />{job.technician_name}</span>
-                                )}
-                                {job.property_address && (
-                                  <span className="flex items-center gap-1 text-xs opacity-60 truncate max-w-[250px]"><MapPin className="w-3 h-3 shrink-0" />{job.property_address}</span>
-                                )}
-                                {isSubjectToConfirmation(job) && (
-                                  <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200">
-                                    Subject to confirmation
-                                  </span>
-                                )}
-                                {isOnlineBookingAwaitingAdminConfirmation(job) && (
-                                  <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300">
-                                    TBC
-                                  </span>
-                                )}
-                                <span className="text-xs font-medium opacity-80 ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
-                              </div>
+                              <CompactJobCardContent job={job} timeLabel={getJobTimeRangeLabel(job)} />
                             </div>
                             ) : (
                               <div
@@ -1169,6 +1134,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                                 <div className="text-[11px] opacity-70 mt-1 ml-4 truncate">
                                   {getJobTimeRangeLabel(job)}
                                 </div>
+                                  <CompactJobCardContent job={job} timeLabel={getJobTimeRangeLabel(job)} />
                               </div>
                             )
                           ))}
@@ -1209,40 +1175,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
                           className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
                         >
-                          <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
-                            <span className="text-sm font-semibold">{job.customer_name || "Unknown"}</span>
-                            <PriorityBadge priority={job.priority} />
-                            <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} />
-                            {(() => {
-                              const { label, intent } = getJobTypeDisplay(job);
-                              return (
-                                <span className="ml-auto flex items-center gap-1.5">
-                                  <VisitIntentBadge intent={intent} jobTypeLabel={label} showStandard={false} />
-                                  <span className="text-xs opacity-60 capitalize">{label}</span>
-                                </span>
-                              );
-                            })()}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 ml-4">
-                            {job.technician_name && (
-                              <span className="flex items-center gap-1 text-xs opacity-75"><User className="w-3 h-3" />{job.technician_name}</span>
-                            )}
-                            {job.property_address && (
-                              <span className="flex items-center gap-1 text-xs opacity-60 truncate max-w-[250px]"><MapPin className="w-3 h-3 shrink-0" />{job.property_address}</span>
-                            )}
-                            {isSubjectToConfirmation(job) && (
-                              <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200">
-                                Subject to confirmation
-                              </span>
-                            )}
-                            {isOnlineBookingAwaitingAdminConfirmation(job) && (
-                              <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300">
-                                TBC
-                              </span>
-                            )}
-                            <span className="text-xs font-medium opacity-80 ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
-                          </div>
+                              <CompactJobCardContent job={job} timeLabel={getJobTimeRangeLabel(job)} />
                         </div>
                       ))}
                     </div>
@@ -1345,16 +1278,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                               onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
                               className={`px-1.5 py-1 rounded border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
                             >
-                              <div className="flex items-center gap-1">
-                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
-                                <span className="text-[11px] font-semibold truncate">{job.customer_name || "Unknown"}</span>
-                                <PriorityBadge priority={job.priority} className="text-[9px] px-1.5 py-0" />
-                                <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} className="text-[9px] px-1.5 py-0" />
-                              </div>
-                              <div className="text-[10px] opacity-75 truncate ml-2.5">
-                                {getJobTimeRangeLabel(job)}
-                                {job.property_address ? ` · ${job.property_address}` : ""}
-                              </div>
+                              <CompactJobCardContent job={job} timeLabel={getJobTimeRangeLabel(job)} />
                             </div>
                           ))}
                         </div>
@@ -1397,14 +1321,14 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                 } ${isToday ? "ring-2 ring-inset ring-primary/30 bg-primary/[0.03]" : ""} ${
                   viewMode === "month" && !isCurrentMonth ? "opacity-40" : ""
                 } ${isDropTarget ? "bg-primary/10 ring-2 ring-inset ring-primary/50" : ""} ${
-                  (viewMode === "week" || onDayAction) ? "cursor-pointer hover:bg-muted/30" : ""
+                  (viewMode === "week" || viewMode === "month" || onDayAction) ? "cursor-pointer hover:bg-muted/30" : ""
                 }`}
                 onDragOver={(e) => handleDragOver(e, ds)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, ds)}
                 onClick={(e) => {
                   if ((e.target as HTMLElement).closest("[data-job-card]")) return;
-                  if (viewMode === "week") {
+                  if (viewMode === "week" || viewMode === "month") {
                     e.stopPropagation();
                     openDayView(day);
                     return;
@@ -1463,32 +1387,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                         dragJobId === job.id ? "opacity-50" : ""
                       } hover:shadow-sm`}
                     >
-                      <div className="flex items-center gap-1">
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            PRIORITY_DOT[job.priority] || "bg-slate-400"
-                          }`}
-                        />
-                        <span className="font-medium truncate">
-                          {job.customer_name || "Unknown"}
-                        </span>
-                        <PriorityBadge priority={job.priority} className="text-[9px] px-1.5 py-0" />
-                        <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} className="text-[9px] px-1.5 py-0" />
-                        {isSubjectToConfirmation(job) && (
-                          <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200 ml-1 shrink-0">
-                            Subject to confirmation
-                          </span>
-                        )}
-                        <span className="text-[10px] font-semibold opacity-70 ml-auto shrink-0">
-                          {STATUS_LABELS[job.status] ?? job.status}
-                        </span>
-                      </div>
-                      {job.scheduled_time && (
-                        <div className="ml-2.5 text-[10px] opacity-75 truncate">
-                          {viewMode === "week" ? getJobTimeRangeLabel(job) : formatTime(job.scheduled_time)}
-                          {job.property_address && <span className="opacity-80"> · {job.property_address}</span>}
-                        </div>
-                      )}
+                      <CompactJobCardContent job={job} timeLabel={getCompactJobTimeLabel(job)} />
                     </div>
                   ))}
                   {dayJobs.length > (viewMode === "month" ? 3 : 6) && (
@@ -1640,46 +1539,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                         STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"
                       } ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""}`}
                     >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`w-2 h-2 rounded-full shrink-0 ${
-                            PRIORITY_DOT[job.priority] || "bg-slate-400"
-                          }`}
-                        />
-                        <span className="font-medium">
-                          {job.customer_name || "Unknown"}
-                        </span>
-                        <PriorityBadge priority={job.priority} />
-                        <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} />
-                        {(() => {
-                          const { label, intent } = getJobTypeDisplay(job);
-                          return (
-                            <span className="ml-auto flex items-center gap-1.5">
-                              <VisitIntentBadge intent={intent} jobTypeLabel={label} showStandard={false} />
-                              <span className="text-xs opacity-75 capitalize">{label}</span>
-                            </span>
-                          );
-                        })()}
-                      </div>
-                      {job.property_address && (
-                        <p className="text-xs opacity-60 mt-1 ml-4 truncate">
-                          {job.property_address}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3 mt-1 ml-4 text-xs opacity-75">
-                        {job.scheduled_time && (
-                          <span>{viewMode === "week" ? getJobTimeRangeLabel(job) : formatTime(job.scheduled_time)}</span>
-                        )}
-                        {job.technician_name && (
-                          <span>{job.technician_name}</span>
-                        )}
-                        {isOnlineBookingAwaitingAdminConfirmation(job) && (
-                          <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 opacity-100">
-                            TBC
-                          </span>
-                        )}
-                        <span className="font-medium ml-auto">{STATUS_LABELS[job.status] ?? job.status}</span>
-                      </div>
+                      <CompactJobCardContent job={job} timeLabel={getCompactJobTimeLabel(job)} />
                     </div>
                   ))}
                 </div>
