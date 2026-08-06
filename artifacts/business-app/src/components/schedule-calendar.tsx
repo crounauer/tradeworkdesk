@@ -1357,6 +1357,19 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                       {dayJobs.length}
                     </span>
                   )}
+                  {viewMode === "month" && onDayAction && (
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPopoverDate(showPopover ? null : ds);
+                      }}
+                      title="Create job or enquiry for this day"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
+                  )}
                 </div>
 
                 <div className="space-y-0.5 overflow-y-auto max-h-[110px]">
