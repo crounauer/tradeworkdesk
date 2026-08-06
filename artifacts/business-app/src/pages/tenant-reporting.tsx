@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import WebsiteAnalytics from "@/pages/website-analytics";
 import Reports from "@/pages/reports";
 import AdminAuditLog from "@/pages/admin-audit-log";
+import EmailAuditReport from "@/pages/email-audit-report";
 
 export default function TenantReporting() {
   const defaultTab = useMemo(() => {
@@ -10,6 +11,7 @@ export default function TenantReporting() {
       const tab = new URLSearchParams(window.location.search).get("tab");
       if (tab === "reports") return "reports";
       if (tab === "audit") return "audit";
+      if (tab === "email") return "email";
       return "analytics";
     } catch {
       return "analytics";
@@ -28,6 +30,7 @@ export default function TenantReporting() {
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="audit">Audit Trail</TabsTrigger>
+          <TabsTrigger value="email">Email Log</TabsTrigger>
         </TabsList>
 
         <TabsContent value="analytics" className="mt-4">
@@ -40,6 +43,10 @@ export default function TenantReporting() {
 
         <TabsContent value="audit" className="mt-4">
           <AdminAuditLog />
+        </TabsContent>
+
+        <TabsContent value="email" className="mt-4">
+          <EmailAuditReport />
         </TabsContent>
       </Tabs>
     </div>
