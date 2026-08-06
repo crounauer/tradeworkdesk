@@ -1944,9 +1944,13 @@ function PostsTab() {
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [editImageUrl, setEditImageUrl] = useState("");
+  const [editPreviewImageUrl, setEditPreviewImageUrl] = useState("");
+  const [editPreviewFallbackTried, setEditPreviewFallbackTried] = useState(false);
+  const [editPreviewFailed, setEditPreviewFailed] = useState(false);
   const [editLinkUrl, setEditLinkUrl] = useState("");
   const [editScheduledDate, setEditScheduledDate] = useState("");
   const [editScheduledTime, setEditScheduledTime] = useState("");
+  const [editingPostStatus, setEditingPostStatus] = useState("");
   const { toast } = useToast();
 
   const { data, isLoading } = useQuery({
@@ -1967,7 +1971,7 @@ function PostsTab() {
   });
 
   const editMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (publishNow: boolean) => {
       if (!editingPostId) throw new Error("No post selected");
       const scheduledFor = editScheduledDate && editScheduledTime
         ? new Date(`${editScheduledDate}T${editScheduledTime}`).toISOString()
@@ -1980,6 +1984,7 @@ function PostsTab() {
           imageUrl: editImageUrl,
           linkUrl: editLinkUrl,
           scheduledFor,
+          publishNow,
         }),
       });
     },
@@ -2022,12 +2027,14 @@ function PostsTab() {
 
   const openEditDialog = (post: {
     id: string;
+    status: string;
     content: string;
     image_url?: string | null;
     link_url?: string | null;
     scheduled_for?: string | null;
   }) => {
     setEditingPostId(post.id);
+    setEditingPostStatus(post.status || "");
     setEditContent(post.content || "");
     setEditImageUrl(post.image_url || "");
     setEditLinkUrl(post.link_url || "");
@@ -2043,6 +2050,53 @@ function PostsTab() {
 
     setEditScheduledDate("");
     setEditScheduledTime("");
+  };
+
+  useEffect(() => {
+    setEditPreviewImageUrl(editImageUrl);
+    setEditPreviewFallbackTried(false);
+    setEditPreviewFailed(false);
+
+    if (!editImageUrl) return;
+    if (!editImageUrl.includes("/storage/v1/object/")) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await apiFetch(`/admin/social/preview-image-url?url=${encodeURIComponent(editImageUrl)}`);
+        const resolved = String(result?.url || "").trim();
+        if (!cancelled && resolved) {
+          setEditPreviewImageUrl(resolved);
+          setEditPreviewFallbackTried(true);
+        }
+      } catch {
+        // Keep the original URL as a fallback.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editImageUrl]);
+
+  const resolveEditPreviewFallback = async () => {
+    if (!editImageUrl || editPreviewFallbackTried) {
+      setEditPreviewFailed(true);
+      return;
+    }
+
+    setEditPreviewFallbackTried(true);
+    try {
+      const result = await apiFetch(`/admin/social/preview-image-url?url=${encodeURIComponent(editImageUrl)}`);
+      const fallbackUrl = String(result?.url || "").trim();
+      if (fallbackUrl && fallbackUrl !== editPreviewImageUrl) {
+        setEditPreviewImageUrl(fallbackUrl);
+        return;
+      }
+      setEditPreviewFailed(true);
+    } catch {
+      setEditPreviewFailed(true);
+    }
   };
 
   return (
@@ -2208,6 +2262,22 @@ function PostsTab() {
           </DialogHeader>
 
           <div className="space-y-3">
+            {editImageUrl && (
+              <div className="rounded-md border p-2 bg-muted/20 space-y-2">
+                <p className="text-xs text-muted-foreground">Image preview</p>
+                {!editPreviewFailed ? (
+                  <img
+                    src={editPreviewImageUrl || editImageUrl}
+                    alt="Edited social post preview"
+                    className="w-full max-h-64 object-contain rounded-md bg-background"
+                    loading="lazy"
+                    onError={() => { void resolveEditPreviewFallback(); }}
+                  />
+                ) : (
+                  <p className="text-xs text-amber-700">Preview unavailable for this URL, but the image URL is still saved.</p>
+                )}
+              </div>
+            )}
             <div>
               <Label>Content</Label>
               <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={4} />
@@ -2230,14 +2300,25 @@ function PostsTab() {
                 <Input type="time" value={editScheduledTime} onChange={(e) => setEditScheduledTime(e.target.value)} />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">Clear date/time to make this a draft post again.</p>
+            <p className="text-xs text-muted-foreground">Clear date/time to keep this as a draft. Use Publish Now to send it immediately.</p>
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setEditingPostId(null)}>Cancel</Button>
+            {(editingPostStatus === "draft" || editingPostStatus === "scheduled") && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => editMutation.mutate(true)}
+                disabled={editMutation.isPending || !editContent.trim()}
+              >
+                {editMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Publish Now
+              </Button>
+            )}
             <Button
               type="button"
-              onClick={() => editMutation.mutate()}
+              onClick={() => editMutation.mutate(false)}
               disabled={editMutation.isPending || !editContent.trim()}
             >
               {editMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

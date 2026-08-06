@@ -3439,7 +3439,7 @@ router.patch(
 
     let existingQuery = supabaseAdmin
       .from(isPlatformScope ? "platform_social_posts" : "social_posts")
-      .select("id, status, post_type, content, image_url, link_url, final_link_url, scheduled_for")
+      .select("id, status, post_type, content, image_url, link_url, final_link_url, scheduled_for, account_id, platform, tenant_id, created_by_user_id, website_page_id, website_page_url, utm_source, utm_medium, utm_campaign, utm_content, post_id, post_url, error")
       .eq("id", id)
       .limit(1);
 
@@ -3464,7 +3464,15 @@ router.patch(
       imageUrl?: unknown;
       linkUrl?: unknown;
       scheduledFor?: unknown;
+      publishNow?: unknown;
     };
+
+    const shouldPublishNow = body.publishNow === true || body.publishNow === "true";
+
+    if (shouldPublishNow && !hasFacebookPermission(req, "facebook_post_publish")) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -3510,6 +3518,11 @@ router.patch(
       }
     }
 
+    if (shouldPublishNow) {
+      updateData.scheduled_for = null;
+      updateData.status = "draft";
+    }
+
     let updateQuery = supabaseAdmin
       .from(isPlatformScope ? "platform_social_posts" : "social_posts")
       .update(updateData)
@@ -3523,6 +3536,75 @@ router.patch(
     if (error) {
       res.status(500).json({ error: error.message });
       return;
+    }
+
+    if (shouldPublishNow) {
+      const accountId = String(data.account_id || existingRow.account_id || "").trim();
+      if (!accountId) {
+        res.status(500).json({ error: "Unable to resolve active account for publish" });
+        return;
+      }
+
+      let accountQuery = supabaseAdmin
+        .from(isPlatformScope ? "platform_social_accounts" : "social_accounts")
+        .select("*")
+        .eq("id", accountId)
+        .eq("is_active", true)
+        .limit(1);
+
+      if (!isPlatformScope) {
+        accountQuery = accountQuery.eq("tenant_id", tenantId!);
+      }
+
+      const { data: account } = await accountQuery.single();
+      if (!account) {
+        await supabaseAdmin
+          .from(isPlatformScope ? "platform_social_posts" : "social_posts")
+          .update({ status: "failed", error: `No active ${data.platform} account found`, updated_at: new Date().toISOString() })
+          .eq("id", id);
+        res.status(400).json({ error: `No active ${data.platform} account connected` });
+        return;
+      }
+
+      let attempt = null;
+      try {
+        attempt = await beginSocialDeliveryAttempt({
+          post: data,
+          account,
+          scope: {
+            isPlatformScope,
+            tenantId: tenantId || null,
+            createdByUserId: req.userId || null,
+          },
+          triggerSource: "manual",
+        });
+
+        const result = await dispatchPost(data, account);
+        await markSocialDeliveryAttemptSucceeded({ attempt, result });
+        const { data: updated } = await supabaseAdmin
+          .from(isPlatformScope ? "platform_social_posts" : "social_posts")
+          .update({
+            status: "posted",
+            post_id: result.postId || null,
+            post_url: result.postUrl || null,
+            scheduled_for: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id)
+          .select()
+          .single();
+        res.json(updated);
+        return;
+      } catch (err) {
+        await markSocialDeliveryAttemptFailed({ attempt, err });
+        const message = err instanceof Error ? err.message : String(err);
+        await supabaseAdmin
+          .from(isPlatformScope ? "platform_social_posts" : "social_posts")
+          .update({ status: "failed", error: message, updated_at: new Date().toISOString() })
+          .eq("id", id);
+        res.status(500).json({ error: message });
+        return;
+      }
     }
 
     res.json(data);

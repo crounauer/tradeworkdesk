@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { MessageSquare, Loader2, FileText, AlertTriangle } from "lucide-react";
+import { MessageSquare, Loader2, FileText, AlertTriangle, Pencil } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -174,7 +174,19 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
           </div>
 
           <div className="space-y-1.5">
-            <Label>Use a template</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label>Use a template</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => window.open(`${import.meta.env.BASE_URL}admin/sms-templates`, "_blank", "noopener,noreferrer")}
+              >
+                <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                Edit templates
+              </Button>
+            </div>
             {templates.length > 0 ? (
               <Select onValueChange={val => {
                 const tmpl = templates.find(t => t.id === val);
