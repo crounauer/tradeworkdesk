@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Clock3, Loader2, UserRound } from "lucide-react";
 
 type AuditEntry = {
   id: string;
@@ -21,6 +22,26 @@ type AuditActor = {
   full_name: string;
   email: string | null;
 };
+
+function toTitleCaseFromSnakeCase(value: string): string {
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function toReadableDetail(value: unknown): string {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "object" ? JSON.stringify(item) : String(item)))
+      .join(", ");
+  }
+  return JSON.stringify(value);
+}
 
 export default function AdminAuditLog() {
   const [eventFilter, setEventFilter] = useState("");
@@ -137,16 +158,55 @@ export default function AdminAuditLog() {
           ) : (
             <div className="space-y-3">
               {rows.map((row) => (
-                <div key={row.id} className="border rounded-lg p-3">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <p className="font-medium text-sm">{row.event_type.replace(/_/g, " ")}</p>
-                    <span className="text-xs text-muted-foreground">{new Date(row.created_at).toLocaleString()}</span>
+                <div key={row.id} className="border rounded-xl p-4 bg-card/60">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-50">
+                        {toTitleCaseFromSnakeCase(row.event_type)}
+                      </Badge>
+                      {row.actor_role && (
+                        <Badge variant="outline" className="text-[11px] capitalize">
+                          {row.actor_role.replace(/_/g, " ")}
+                        </Badge>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                      <Clock3 className="w-3.5 h-3.5" />
+                      {new Date(row.created_at).toLocaleString()}
+                    </span>
                   </div>
-                  <div className="mt-2 text-xs text-muted-foreground space-y-1">
-                    <p>Actor: {row.actor_email || "Unknown"} {row.actor_role ? `(${row.actor_role})` : ""}</p>
-                    <p>Entity: {row.entity_type || "-"} {row.entity_id ? `#${row.entity_id}` : ""}</p>
-                    {row.detail && Object.keys(row.detail).length > 0 && (
-                      <pre className="mt-2 p-2 bg-slate-50 rounded border overflow-auto text-[11px]">{JSON.stringify(row.detail, null, 2)}</pre>
+
+                  <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                    <div className="rounded-lg border bg-muted/30 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Actor</p>
+                      <p className="mt-1 text-foreground inline-flex items-center gap-1.5">
+                        <UserRound className="w-3.5 h-3.5 text-muted-foreground" />
+                        {row.actor_email || "System"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg border bg-muted/30 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Entity</p>
+                      <p className="mt-1 text-foreground">
+                        {row.entity_type ? toTitleCaseFromSnakeCase(row.entity_type) : "-"}
+                        {row.entity_id ? ` #${row.entity_id}` : ""}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-lg border bg-muted/20 px-3 py-3">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">Details</p>
+                    {row.detail && Object.keys(row.detail).length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(row.detail).map(([key, value]) => (
+                          <div key={key} className="rounded-md border bg-background px-2.5 py-1.5 text-[11px] text-foreground">
+                            <span className="font-medium text-muted-foreground">{toTitleCaseFromSnakeCase(key)}:</span>{" "}
+                            <span>{toReadableDetail(value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No additional detail on this event.</p>
                     )}
                   </div>
                 </div>
