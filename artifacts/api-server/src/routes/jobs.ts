@@ -2202,7 +2202,7 @@ export async function buildInvoiceData(
   }
 
   if (timeEntries) {
-    for (const e of timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null; created_by?: string }[]) {
+    for (const e of timeEntries as { arrival_time: string; departure_time: string | null; hourly_rate: number | null; created_by?: string; notes?: string | null }[]) {
       if (!e.arrival_time || !e.departure_time) continue;
       const diffMs = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
       if (diffMs <= 0) continue;
@@ -2234,7 +2234,8 @@ export async function buildInvoiceData(
         timeZone: BUSINESS_TIMEZONE,
       });
       const techName = e.created_by ? techNameMap.get(e.created_by) : null;
-      attendanceSummaryLines.push(`${dateStr}: ${arrTime} - ${depTime} (${durationStr})${techName ? ` — ${techName}` : ""}`);
+      const entryNotes = typeof e.notes === "string" ? e.notes.trim() : "";
+      attendanceSummaryLines.push(`${dateStr}: ${arrTime} - ${depTime} (${durationStr})${techName ? ` — ${techName}` : ""}${entryNotes ? `\n  Note: ${entryNotes}` : ""}`);
 
       const rate = e.hourly_rate != null ? Number(e.hourly_rate) : defaultHourlyRate;
 

@@ -1831,42 +1831,29 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
     }
   }
 
-  const lineItems: LineItemInput[] = [];
-  for (const l of sourceLineItems) {
-    lineItems.push({
+  const hasMeaningfulJobLines = invoiceData.lines.some((l) => {
+    const qty = Number(l.quantity) || 0;
+    const unit = Number(l.unit_price) || 0;
+    const total = Number(l.total) || 0;
+    const hasType = !!l.item_name;
+    return hasType || total !== 0 || unit !== 0 || qty !== 1;
+  });
+
+  const mergedLineItems: LineItemInput[] = hasMeaningfulJobLines
+    ? invoiceData.lines.map((l, i) => ({
+      description: l.description,
+      quantity: Number(l.quantity) || 0,
+      unit_price: Number(l.unit_price) || 0,
+      item_type: normalizeInvoiceItemType(l.item_name),
+      sort_order: i,
+    }))
+    : sourceLineItems.map((l, i) => ({
       description: String(l.description || "").trim(),
       quantity: Number(l.quantity) || 0,
       unit_price: Number(l.unit_price) || 0,
       item_type: normalizeInvoiceItemType(l.item_type),
-      sort_order: typeof l.sort_order === "number" ? l.sort_order : lineItems.length,
-    });
-  }
-
-  for (const l of invoiceData.lines) {
-    lineItems.push({
-      description: l.description,
-      quantity: l.quantity,
-      unit_price: l.unit_price,
-      item_type: normalizeInvoiceItemType(l.item_name),
-      sort_order: lineItems.length,
-    });
-  }
-
-  const mergedLineItems: LineItemInput[] = [];
-  const seenKeys = new Set<string>();
-  for (const line of lineItems) {
-    const normalizedLine = {
-      description: line.description,
-      quantity: Number(line.quantity) || 0,
-      unit_price: Number(line.unit_price) || 0,
-      item_type: line.item_type,
-      sort_order: line.sort_order,
-    };
-    const key = buildLineKey(normalizedLine);
-    if (seenKeys.has(key)) continue;
-    seenKeys.add(key);
-    mergedLineItems.push(normalizedLine);
-  }
+      sort_order: typeof l.sort_order === "number" ? l.sort_order : i,
+    }));
 
   const { subtotal, vat_amount, total } = computeTotals(mergedLineItems, sourceVatRate);
 
