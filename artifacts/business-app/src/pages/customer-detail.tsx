@@ -342,6 +342,7 @@ export default function CustomerDetail() {
 }
 
 function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; onBookJob?: () => void }) {
+  const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
   const { data: jobsResponse } = useQuery({
     queryKey: ["customer-jobs", customerId],
     queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/jobs?customer_id=${customerId}&limit=100`),
@@ -350,17 +351,17 @@ function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; on
   const sortedJobs = [...jobs].sort((a, b) => {
     const aDate = String(a.scheduled_date || "").slice(0, 10);
     const bDate = String(b.scheduled_date || "").slice(0, 10);
-    if (aDate !== bDate) return bDate.localeCompare(aDate);
+    if (aDate !== bDate) return sortDirection === "desc" ? bDate.localeCompare(aDate) : aDate.localeCompare(bDate);
 
     const aTime = String(a.scheduled_time || "");
     const bTime = String(b.scheduled_time || "");
-    if (aTime !== bTime) return bTime.localeCompare(aTime);
+    if (aTime !== bTime) return sortDirection === "desc" ? bTime.localeCompare(aTime) : aTime.localeCompare(bTime);
 
     const aCreated = String(a.created_at || "");
     const bCreated = String(b.created_at || "");
-    if (aCreated !== bCreated) return bCreated.localeCompare(aCreated);
+    if (aCreated !== bCreated) return sortDirection === "desc" ? bCreated.localeCompare(aCreated) : aCreated.localeCompare(bCreated);
 
-    return b.id.localeCompare(a.id);
+    return sortDirection === "desc" ? b.id.localeCompare(a.id) : a.id.localeCompare(b.id);
   });
 
   const statusColors: Record<string, string> = {
@@ -392,11 +393,20 @@ function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; on
           <Briefcase className="w-5 h-5" /> Jobs
           <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{jobs.length}</span>
         </h2>
-        {onBookJob && (
-          <Button size="sm" variant="outline" onClick={onBookJob}>
-            <Plus className="w-4 h-4 mr-1" /> Book Job
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSortDirection((prev) => (prev === "desc" ? "asc" : "desc"))}
+          >
+            {sortDirection === "desc" ? "Newest First" : "Oldest First"}
           </Button>
-        )}
+          {onBookJob && (
+            <Button size="sm" variant="outline" onClick={onBookJob}>
+              <Plus className="w-4 h-4 mr-1" /> Book Job
+            </Button>
+          )}
+        </div>
       </div>
       <div className="space-y-2">
         {sortedJobs.map(job => (
