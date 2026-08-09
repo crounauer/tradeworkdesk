@@ -164,7 +164,11 @@ export default function OnlineBookingBlock({ content }: Props) {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [isComplex, setIsComplex] = useState(false);
   const [description, setDescription] = useState("");
+  const [addressMode, setAddressMode] = useState<"lookup" | "manual">("lookup");
   const [postcode, setPostcode] = useState("");
+  const [manualAddressLine1, setManualAddressLine1] = useState("");
+  const [manualAddressLine2, setManualAddressLine2] = useState("");
+  const [manualAddressLine3, setManualAddressLine3] = useState("");
   const [addressLookupLoading, setAddressLookupLoading] = useState(false);
   const [addressLookupResults, setAddressLookupResults] = useState<AddressResult[]>([]);
   const [addressLookupSearched, setAddressLookupSearched] = useState(false);
@@ -197,6 +201,7 @@ export default function OnlineBookingBlock({ content }: Props) {
   const [resultStatus, setResultStatus] = useState<"confirmed" | "pending" | null>(null);
   const [resultError, setResultError] = useState<string | null>(null);
   const submitIdempotencyKeyRef = useRef<string | null>(null);
+  const manualAddress = [manualAddressLine1, manualAddressLine2, manualAddressLine3].map((value) => value.trim()).filter(Boolean).join(", ");
 
   // Load services
   useEffect(() => {
@@ -265,6 +270,7 @@ export default function OnlineBookingBlock({ content }: Props) {
       if (res.status === 402) {
         const data = await res.json() as { error?: string };
         setAddressLookupMessage(data.error || "UK Address Lookup add-on is required for this feature.");
+        setAddressMode("manual");
         return;
       }
 
@@ -272,6 +278,7 @@ export default function OnlineBookingBlock({ content }: Props) {
         const data = await res.json() as { error?: string };
         setAddressLookupMessage(data.error || "No addresses found for this postcode.");
         setAddressLookupSearched(true);
+        setAddressMode("manual");
         return;
       }
 
@@ -284,7 +291,8 @@ export default function OnlineBookingBlock({ content }: Props) {
         setAddressLookupMessage(`Address lookup credits are running low: ${data.credits_remaining.toLocaleString()} remaining.`);
       }
     } catch {
-      setAddressLookupMessage("Failed to look up addresses. Please try again.");
+      setAddressLookupMessage("Failed to look up addresses. Please enter the address manually instead.");
+      setAddressMode("manual");
     } finally {
       setAddressLookupLoading(false);
     }
@@ -329,15 +337,16 @@ export default function OnlineBookingBlock({ content }: Props) {
 
   const handleProceedToSlots = useCallback(async () => {
     if (require_description && isComplex && !description.trim()) return;
-    if (require_postcode && !postcode.trim()) return;
+    const resolvedPostcode = addressMode === "manual" ? postcode.trim() : postcode.trim();
+    if (require_postcode && !resolvedPostcode) return;
 
     if (require_postcode) {
-      const ok = await runCoverageCheck(postcode);
+      const ok = await runCoverageCheck(resolvedPostcode);
       if (!ok) return;
     }
 
     setStep("slots");
-  }, [require_description, isComplex, description, require_postcode, postcode, runCoverageCheck]);
+  }, [addressMode, require_description, isComplex, description, require_postcode, postcode, runCoverageCheck]);
 
   const handleSelectAddress = useCallback((addr: AddressResult) => {
     const line = [addr.line_1, addr.line_2, addr.line_3].filter(Boolean).join(", ");
@@ -360,12 +369,14 @@ export default function OnlineBookingBlock({ content }: Props) {
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       }
+      const resolvedAddress = addressMode === "manual" ? manualAddress : address.trim();
+      const resolvedPostcode = postcode.trim();
       const body = {
         customer_name: name.trim(),
         customer_email: email.trim(),
         customer_phone: phone.trim() || undefined,
-        customer_address: address.trim() || undefined,
-        customer_postcode: postcode.trim() || undefined,
+        customer_address: resolvedAddress || undefined,
+        customer_postcode: resolvedPostcode || undefined,
         customer_latitude: selectedAddressCoords?.latitude,
         customer_longitude: selectedAddressCoords?.longitude,
         service_catalogue_id: selectedService.id,
@@ -623,7 +634,7 @@ export default function OnlineBookingBlock({ content }: Props) {
               }, { required: true, placeholder: "NE1 1AA" })}
 
               {require_postcode && (
-                <div style={{ marginTop: -4, marginBottom: 14 }}>
+                <div style={{ marginTop: -4, marginBottom: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <button
                     type="button"
                     onClick={handleAddressLookup}
@@ -641,41 +652,74 @@ export default function OnlineBookingBlock({ content }: Props) {
                   >
                     {addressLookupLoading ? "Looking up..." : "Find address"}
                   </button>
-                  {(addressLookupResults.length > 0 || addressLookupMessage) && (
-                    <div style={{ marginTop: 10, padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", background: "#fff" }}>
-                      {addressLookupMessage && (
-                        <p style={{ margin: 0, fontSize: 12, color: addressLookupMessage.toLowerCase().includes("low") ? "#b45309" : "#6b7280" }}>
-                          {addressLookupMessage}
-                        </p>
-                      )}
-                      {addressLookupResults.length > 0 && (
-                        <div style={{ marginTop: 10, display: "grid", gap: 8, maxHeight: 220, overflowY: "auto" }}>
-                          {addressLookupResults.map((addr, i) => (
-                            <button
-                              key={`${addr.postcode}-${i}`}
-                              type="button"
-                              onClick={() => handleSelectAddress(addr)}
-                              style={{
-                                textAlign: "left",
-                                padding: "10px 12px",
-                                borderRadius: 8,
-                                border: "1px solid #e5e7eb",
-                                background: "#f8fafc",
-                                color: "#111827",
-                                cursor: "pointer",
-                              }}
-                            >
-                              <div style={{ fontSize: 13, fontWeight: 600 }}>{addr.display}</div>
-                              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{addr.post_town}, {addr.postcode}</div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {addressLookupSearched && addressLookupResults.length === 0 && !addressLookupLoading && !addressLookupMessage?.toLowerCase().includes("low") && (
-                        <p style={{ margin: "8px 0 0", fontSize: 12, color: "#6b7280" }}>No addresses found for that postcode.</p>
-                      )}
+                  <button
+                    type="button"
+                    onClick={() => setAddressMode("manual")}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 8,
+                      fontWeight: 600,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      border: `1px solid #d1d5db`,
+                      background: "#fff",
+                      color: "#374151",
+                    }}
+                  >
+                    Enter address manually
+                  </button>
+                </div>
+              )}
+
+              {require_postcode && addressMode === "lookup" && (addressLookupResults.length > 0 || addressLookupMessage) && (
+                <div style={{ marginTop: 10, marginBottom: 14, padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", background: "#fff" }}>
+                  {addressLookupMessage && (
+                    <p style={{ margin: 0, fontSize: 12, color: addressLookupMessage.toLowerCase().includes("low") ? "#b45309" : "#6b7280" }}>
+                      {addressLookupMessage}
+                    </p>
+                  )}
+                  {addressLookupResults.length > 0 && (
+                    <div style={{ marginTop: 10, display: "grid", gap: 8, maxHeight: 220, overflowY: "auto" }}>
+                      {addressLookupResults.map((addr, i) => (
+                        <button
+                          key={`${addr.postcode}-${i}`}
+                          type="button"
+                          onClick={() => handleSelectAddress(addr)}
+                          style={{
+                            textAlign: "left",
+                            padding: "10px 12px",
+                            borderRadius: 8,
+                            border: "1px solid #e5e7eb",
+                            background: "#f8fafc",
+                            color: "#111827",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{addr.display}</div>
+                          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{addr.post_town}, {addr.postcode}</div>
+                        </button>
+                      ))}
                     </div>
                   )}
+                  {addressLookupSearched && addressLookupResults.length === 0 && !addressLookupLoading && !addressLookupMessage?.toLowerCase().includes("low") && (
+                    <p style={{ margin: "8px 0 0", fontSize: 12, color: "#6b7280" }}>No addresses found for that postcode.</p>
+                  )}
+                </div>
+              )}
+
+              {require_postcode && addressMode === "manual" && (
+                <div style={{ marginTop: 4, marginBottom: 14, padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", background: "#f8fafc" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 8 }}>
+                    Manual address entry
+                  </div>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {input("Address line 1", manualAddressLine1, setManualAddressLine1, { placeholder: "12 High Street" })}
+                    {input("Address line 2", manualAddressLine2, setManualAddressLine2, { placeholder: "Flat / building / estate (optional)" })}
+                    {input("Town / City", manualAddressLine3, setManualAddressLine3, { placeholder: "Newcastle upon Tyne" })}
+                  </div>
+                  <p style={{ margin: "8px 0 0", fontSize: 12, color: "#6b7280" }}>
+                    If postcode lookup is unavailable, enter the address manually here and continue.
+                  </p>
                 </div>
               )}
 
@@ -904,7 +948,7 @@ export default function OnlineBookingBlock({ content }: Props) {
               <button
                 onClick={() => {
                   setStep("service"); setSelectedService(null); setSelectedSlot(null);
-                  setDescription(""); setPostcode(""); setNotes(""); setName(""); setEmail(""); setPhone(""); setAddress(""); setSelectedAddressCoords(null);
+                  setDescription(""); setAddressMode("lookup"); setPostcode(""); setManualAddressLine1(""); setManualAddressLine2(""); setManualAddressLine3(""); setNotes(""); setName(""); setEmail(""); setPhone(""); setAddress(""); setSelectedAddressCoords(null);
                   setPropertyType("house"); setJobUrgency("standard"); setApplianceType(""); setHasNoHeatOrHotWater("no"); setParkingAccess("");
                   setResultStatus(null); setResultError(null);
                 }}
