@@ -4,6 +4,7 @@ import { requireAuth, requireRole, requireTenant, requirePlanFeature, type Authe
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
 import { getEffectiveLimits, getJobsThisMonth } from "../lib/tenant-limits";
 import { notifyUsersForEvent } from "../lib/push-events";
+import { sendEnquiryAcknowledgementEmail, type EmailCompanyDetails } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -45,6 +46,50 @@ function splitContactName(fullName: string): { first_name: string; last_name: st
   return { first_name: parts[0], last_name: parts.slice(1).join(" ") };
 }
 
+async function loadEnquiryEmailCompanyDetails(tenantId: string): Promise<{ companyName: string; details: EmailCompanyDetails }> {
+  const [{ data: companySettings }, { data: tenant }] = await Promise.all([
+    supabaseAdmin
+      .from("company_settings")
+      .select("name, trading_name, logo_url, address_line1, address_line2, city, county, postcode, phone, email, notification_emails, website, gas_safe_number, oftec_number, vat_number, rates_url, trading_terms_url, email_from_name, email_reply_to")
+      .eq("tenant_id", tenantId)
+      .eq("singleton_id", "default")
+      .maybeSingle(),
+    supabaseAdmin
+      .from("tenants")
+      .select("company_name")
+      .eq("id", tenantId)
+      .maybeSingle(),
+  ]);
+
+  const cs = companySettings as Record<string, unknown> | null;
+  const companyName = (cs?.name as string) || (cs?.trading_name as string) || (tenant?.company_name as string) || "Your Service Provider";
+
+  return {
+    companyName,
+    details: {
+      name: (cs?.name as string | null) || (tenant?.company_name as string | null) || null,
+      trading_name: (cs?.trading_name as string | null) || null,
+      logo_url: (cs?.logo_url as string | null) || null,
+      address_line1: (cs?.address_line1 as string | null) || null,
+      address_line2: (cs?.address_line2 as string | null) || null,
+      city: (cs?.city as string | null) || null,
+      county: (cs?.county as string | null) || null,
+      postcode: (cs?.postcode as string | null) || null,
+      phone: (cs?.phone as string | null) || null,
+      email: (cs?.email as string | null) || null,
+      notification_emails: (cs?.notification_emails as string[] | null) || null,
+      website: (cs?.website as string | null) || null,
+      gas_safe_number: (cs?.gas_safe_number as string | null) || null,
+      oftec_number: (cs?.oftec_number as string | null) || null,
+      vat_number: (cs?.vat_number as string | null) || null,
+      rates_url: (cs?.rates_url as string | null) || null,
+      trading_terms_url: (cs?.trading_terms_url as string | null) || null,
+      email_from_name: (cs?.email_from_name as string | null) || null,
+      email_reply_to: (cs?.email_reply_to as string | null) || null,
+    },
+  };
+}
+
 router.get("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { status, source, search } = req.query;
 
@@ -70,6 +115,7 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
   const { contact_name, contact_phone, contact_email, source, description, notes, address, priority,
     address_line1, address_line2, city, postcode, linked_customer_id } = req.body;
   const forceNewCustomer = req.body?.force_new_customer === true;
+  const sendAcknowledgementEmail = req.body?.send_acknowledgement_email !== false;
   const isLandlord = req.body?.new_is_landlord === true;
   const jobAddressLine1 = typeof req.body?.new_prop_address_line1 === "string" ? req.body.new_prop_address_line1.trim() : "";
   const jobAddressLine2 = typeof req.body?.new_prop_address_line2 === "string" ? req.body.new_prop_address_line2.trim() : "";
@@ -332,7 +378,32 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     }).catch((err) => console.error("[push-events] enquiry_priority failed:", err));
   }
 
-  res.status(201).json(data);
+  let acknowledgementEmailSent = false;
+    if (sendAcknowledgementEmail && typeof contact_email === "string" && contact_email.trim()) {
+      try {
+        const { companyName, details } = await loadEnquiryEmailCompanyDetails(req.tenantId!);
+        await sendEnquiryAcknowledgementEmail(
+          contact_email.trim(),
+          contact_name.trim(),
+          companyName,
+          {
+            enquiryId: String((data as { id: string }).id),
+            source: validSources.includes(source) ? source : "phone",
+            description: description?.trim() || notes?.trim() || null,
+            priority: validPriorities.includes(priority) ? priority : "medium",
+          },
+          details,
+        );
+        acknowledgementEmailSent = true;
+      } catch (ackErr) {
+        console.error("[enquiries] Failed to send acknowledgement email:", (ackErr as Error).message);
+      }
+    }
+
+    res.status(201).json({
+      ...data,
+      acknowledgement_email_sent: acknowledgementEmailSent,
+    });
 });
 
 router.get("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {

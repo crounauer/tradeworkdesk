@@ -30,7 +30,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { createHash } from "crypto";
 import { supabaseAdmin } from "../lib/supabase";
-import { sendBookingPendingApprovalEmail, sendJobConfirmationEmail, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
+import { sendBookingPendingApprovalEmail, sendJobConfirmationEmail, sendEnquiryAcknowledgementEmail, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { geocodeAddress, getIdealPostcodesKey, idealPostcodesLookup } from "../lib/geocode";
 import { hasActiveAddon, getAddonCredits, deductAddonCredit } from "../lib/tenant-limits";
@@ -1131,6 +1131,24 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
 
         if (enquiry?.id) {
           await db.from("bookings").update({ enquiry_id: enquiry.id }).eq("id", bookingId);
+
+          if (bookingRecord.customer_email) {
+            try {
+              await sendEnquiryAcknowledgementEmail(
+                bookingRecord.customer_email,
+                bookingRecord.customer_name || "Customer",
+                companyName,
+                {
+                  enquiryId: String(enquiry.id),
+                  source: "website",
+                  description: [serviceLabel, pendingNotes].filter(Boolean).join("\n") || null,
+                },
+                details,
+              );
+            } catch (ackErr) {
+              console.error("[booking] Failed to send enquiry acknowledgement:", (ackErr as Error).message);
+            }
+          }
         }
       }
     } else if (jobId) {

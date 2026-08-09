@@ -48,6 +48,7 @@ import { resolveCname, resolve4, resolve6 } from "node:dns/promises";
 import { getDnsInstructions } from "../lib/cloudflare-saas";
 import { addDomainToFly, removeDomainFromFly } from "../lib/fly-certs";
 import { sendSimpleNotification } from "../lib/email";
+import { sendEnquiryAcknowledgementEmail, type EmailCompanyDetails } from "../lib/email";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { isContactLikeBlockType } from "../lib/contact-block-type";
 import { hasActiveAddon, getAddonCredits, deductAddonCreditsAmount } from "../lib/tenant-limits";
@@ -2556,6 +2557,61 @@ async function createEnquiryFromFormSubmission(
     }
 
     const enquiryId = String((enquiry as Record<string, unknown>).id || "");
+
+    const [{ data: companySettings }, { data: tenant }] = await Promise.all([
+      (supabaseAdmin as any)
+        .from("company_settings")
+        .select("name, trading_name, logo_url, address_line1, address_line2, city, county, postcode, phone, email, notification_emails, website, gas_safe_number, oftec_number, vat_number, rates_url, trading_terms_url, email_from_name, email_reply_to")
+        .eq("tenant_id", tenantId)
+        .eq("singleton_id", "default")
+        .maybeSingle(),
+      (supabaseAdmin as any)
+        .from("tenants")
+        .select("company_name")
+        .eq("id", tenantId)
+        .maybeSingle(),
+    ]);
+    const cs = companySettings as Record<string, unknown> | null;
+    const companyName = (cs?.name as string) || (cs?.trading_name as string) || (tenant?.company_name as string) || "Your Service Provider";
+    const details: EmailCompanyDetails = {
+      name: (cs?.name as string | null) || (tenant?.company_name as string | null) || null,
+      trading_name: (cs?.trading_name as string | null) || null,
+      logo_url: (cs?.logo_url as string | null) || null,
+      address_line1: (cs?.address_line1 as string | null) || null,
+      address_line2: (cs?.address_line2 as string | null) || null,
+      city: (cs?.city as string | null) || null,
+      county: (cs?.county as string | null) || null,
+      postcode: (cs?.postcode as string | null) || null,
+      phone: (cs?.phone as string | null) || null,
+      email: (cs?.email as string | null) || null,
+      notification_emails: (cs?.notification_emails as string[] | null) || null,
+      website: (cs?.website as string | null) || null,
+      gas_safe_number: (cs?.gas_safe_number as string | null) || null,
+      oftec_number: (cs?.oftec_number as string | null) || null,
+      vat_number: (cs?.vat_number as string | null) || null,
+      rates_url: (cs?.rates_url as string | null) || null,
+      trading_terms_url: (cs?.trading_terms_url as string | null) || null,
+      email_from_name: (cs?.email_from_name as string | null) || null,
+      email_reply_to: (cs?.email_reply_to as string | null) || null,
+    };
+
+    if (email) {
+      try {
+        await sendEnquiryAcknowledgementEmail(
+          email,
+          contactName,
+          companyName,
+          {
+            enquiryId,
+            source,
+            description,
+          },
+          details,
+        );
+      } catch (ackErr) {
+        console.error("[website-form] Failed to send acknowledgement email:", (ackErr as Error).message);
+      }
+    }
 
     // Resolve a real tenant user for uploaded_by to satisfy stricter DB setups.
     const uploadedBy = await resolveAttachmentUploaderId(tenantId);

@@ -201,7 +201,6 @@ function EnquiriesContent() {
           onCreated={() => {
             qc.invalidateQueries({ queryKey: ["enquiries"] });
             qc.invalidateQueries({ queryKey: ["me-init"] });
-            toast({ title: "Enquiry created", description: "New enquiry has been recorded." });
           }}
         />
       )}
@@ -422,6 +421,7 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
     new_prop_county: "",
     new_prop_postcode: "",
     priority: "medium",
+    send_acknowledgement_email: true,
   });
 
   const selectedCustomer = customers?.find((customer: { id: string; first_name: string; last_name: string; email?: string | null; phone?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; postcode?: string | null }) => customer.id === selectedCustomerId);
@@ -474,8 +474,15 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
         const err = await res.json();
         throw new Error(err.error || "Failed to create enquiry");
       }
+      const result = await res.json() as { acknowledgement_email_sent?: boolean };
       onCreated();
       onOpenChange(false);
+      toast({
+        title: "Enquiry created",
+        description: result.acknowledgement_email_sent
+          ? "The enquiry has been logged and the customer was emailed a confirmation."
+          : "The enquiry has been logged.",
+      });
     } catch (err) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
     } finally {
@@ -542,6 +549,18 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
             <div className="space-y-1">
               <Label>Email</Label>
               <Input value={form.contact_email} onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))} placeholder="john@example.com" type="email" />
+            </div>
+          </div>
+          <div className="md:col-span-2 flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+            <input
+              type="checkbox"
+              className="rounded border-border"
+              checked={form.send_acknowledgement_email}
+              onChange={e => setForm(f => ({ ...f, send_acknowledgement_email: e.target.checked }))}
+            />
+            <div className="text-sm">
+              <p className="font-medium">Send acknowledgement email</p>
+              <p className="text-muted-foreground">Email the customer to confirm the enquiry has been logged.</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

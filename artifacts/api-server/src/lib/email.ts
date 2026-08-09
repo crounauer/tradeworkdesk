@@ -964,6 +964,13 @@ export interface JobConfirmationResponseLinks {
   requestChangeUrl: string;
 }
 
+export interface EnquiryAcknowledgementDetails {
+  enquiryId: string;
+  source?: string | null;
+  description?: string | null;
+  priority?: string | null;
+}
+
 function formatJobDurationLabel(minutesLike: unknown): string | null {
   const minutes = Number(minutesLike);
   if (!Number.isFinite(minutes) || minutes <= 0) return null;
@@ -1116,6 +1123,96 @@ export async function sendJobConfirmationEmail(
       replyTo,
       errorMessage: reason,
       metadata: { jobRef: jobDetails.jobRef },
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
+  }
+}
+
+export async function sendEnquiryAcknowledgementEmail(
+  to: string,
+  customerName: string,
+  companyName: string,
+  enquiryDetails: EnquiryAcknowledgementDetails,
+  companyDetails?: EmailCompanyDetails,
+): Promise<void> {
+  const subject = `We have logged your enquiry — ${escHtml(companyName)}`;
+  const sourceLabel = enquiryDetails.source
+    ? String(enquiryDetails.source).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : null;
+  const contactLine = companyDetails?.phone
+    ? `please contact us on <strong>${escHtml(companyDetails.phone)}</strong>${companyDetails.email ? ` or email <a href="mailto:${escHtml(companyDetails.email)}" style="color:#1d4ed8;">${escHtml(companyDetails.email)}</a>` : ""}.`
+    : `please contact <strong>${escHtml(companyName)}</strong> directly.`;
+  const html = baseHtml(subject, `
+    <h2>Enquiry received</h2>
+    <p>Dear ${escHtml(customerName)},</p>
+    <p>Thank you for getting in touch with <strong>${escHtml(companyName)}</strong>. We have logged your enquiry and a member of our team will review it as soon as possible.</p>
+    <div class="info-box">
+      <p><strong>Enquiry reference:</strong> ${escHtml(enquiryDetails.enquiryId)}</p>
+      ${sourceLabel ? `<p><strong>Source:</strong> ${escHtml(sourceLabel)}</p>` : ""}
+      ${enquiryDetails.priority ? `<p><strong>Priority:</strong> ${escHtml(String(enquiryDetails.priority))}</p>` : ""}
+    </div>
+    ${enquiryDetails.description ? `<p><strong>What you told us:</strong><br/>${escHtml(enquiryDetails.description).replace(/\n/g, "<br/>")}</p>` : ""}
+    <p>If you need to add anything to your enquiry, ${contactLine}</p>
+    ${renderDocumentLinks(companyDetails)}
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
+  `, companyDetails);
+
+  if (!resend) {
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "enquiry_acknowledgement",
+      to,
+      subject,
+      from: buildTenantFrom(companyDetails),
+      replyTo: companyDetails?.email ?? undefined,
+      errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
+      failureCategory: "platform",
+      metadata: { enquiryId: enquiryDetails.enquiryId },
+    });
+    throw new Error(getTenantEmailFailureMessage());
+  }
+
+  const replyTo = companyDetails?.email ?? undefined;
+  const from = buildTenantFrom(companyDetails);
+  try {
+    const sendResult = await sendResendEmailWithRetry({
+      from,
+      to,
+      subject,
+      html,
+      ...(replyTo ? { replyTo } : {}),
+    } as any);
+    await writeTenantEmailAudit({
+      status: "accepted",
+      emailType: "enquiry_acknowledgement",
+      to,
+      subject,
+      from,
+      replyTo,
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+      metadata: { enquiryId: enquiryDetails.enquiryId },
+    });
+  } catch (sendErr) {
+    const reason = sanitizeErrorForEmail(sendErr);
+    console.error(`[email] Failed to send "${subject}" to ${to}:`, reason);
+    await notifyEmailDeliveryFailure({
+      to,
+      subject,
+      reason,
+      from,
+      replyTo,
+    });
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "enquiry_acknowledgement",
+      to,
+      subject,
+      from,
+      replyTo,
+      errorMessage: reason,
+      metadata: { enquiryId: enquiryDetails.enquiryId },
     });
     throw new Error(getTenantEmailFailureMessage(reason));
   }
