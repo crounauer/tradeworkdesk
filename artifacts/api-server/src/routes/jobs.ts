@@ -542,6 +542,7 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
   const page = query.success && query.data.page ? query.data.page : 1;
   const offset = (page - 1) * limit;
   const searchTerm = query.success ? query.data.search : undefined;
+  const customerScoped = query.success && !!query.data.customer_id;
 
   let countQ = supabaseAdmin
     .from("jobs")
@@ -552,9 +553,6 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
     .from("jobs")
     .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, visit_intent, fuel_category, status, is_in_progress, is_awaiting_parts, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, customer_confirmation_status, customer_confirmed_at, customer_change_requested_at, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name, is_active), properties(address_line1, address_line2, city, county, postcode, latitude, longitude), profiles(full_name)")
     .eq("is_active", true)
-    .order("scheduled_date", { ascending: true, nullsFirst: false })
-    .order("scheduled_time", { ascending: true, nullsFirst: true })
-    .order("created_at", { ascending: true })
     .range(offset, offset + limit - 1);
 
   if (req.tenantId) {
@@ -592,6 +590,19 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
   if (searchTerm && searchTerm.trim()) {
     const s = searchTerm.trim();
     q = q.or(`description.ilike.%${s}%,notes.ilike.%${s}%,customers.first_name.ilike.%${s}%,customers.last_name.ilike.%${s}%`);
+  }
+
+  if (customerScoped) {
+    q = q
+      .order("scheduled_date", { ascending: false, nullsFirst: false })
+      .order("scheduled_time", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false });
+  } else {
+    q = q
+      .order("scheduled_date", { ascending: true, nullsFirst: false })
+      .order("scheduled_time", { ascending: true, nullsFirst: true })
+      .order("created_at", { ascending: true });
   }
 
   const cacheKey = `${req.tenantId || "none"}:${req.userRole}:${req.userId}:${JSON.stringify(req.query)}`;
