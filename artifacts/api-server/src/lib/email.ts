@@ -54,6 +54,21 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<T> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return promise;
+
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+    }),
+  ]);
+}
+
 function isTransientProviderFailure(reasonLike: string): boolean {
   const reason = reasonLike.toLowerCase();
   return [
@@ -301,12 +316,17 @@ export async function sendResendEmailWithRetry(
 
   const maxRetries = Math.max(0, Number(process.env.EMAIL_SEND_MAX_RETRIES || "2") || 2);
   const baseDelayMs = Math.max(100, Number(process.env.EMAIL_SEND_RETRY_BASE_DELAY_MS || "400") || 400);
+  const requestTimeoutMs = Math.max(1000, Number(process.env.EMAIL_SEND_TIMEOUT_MS || "15000") || 15000);
   let attempts = 0;
   let lastErrorReason = "Unknown email send failure";
 
   while (attempts <= maxRetries) {
     attempts += 1;
-    const { data, error } = await resend.emails.send(sendOptions);
+    const { data, error } = await withTimeout(
+      resend.emails.send(sendOptions),
+      requestTimeoutMs,
+      `Email provider timeout after ${requestTimeoutMs}ms`,
+    );
     if (!error && data?.id) {
       return { messageId: data.id, attempts };
     }
