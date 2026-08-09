@@ -346,7 +346,25 @@ function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; on
     queryKey: ["customer-jobs", customerId],
     queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/jobs?customer_id=${customerId}&limit=100`),
   });
-  const jobs = (jobsResponse as any)?.jobs as Array<{ id: string; job_ref?: string; status: string; job_type?: string; job_type_name?: string; scheduled_date?: string; scheduled_time?: string; description?: string }> || [];
+  const jobs = (jobsResponse as any)?.jobs as Array<{ id: string; job_ref?: string; status: string; job_type?: string; job_type_name?: string; scheduled_date?: string; scheduled_time?: string; created_at?: string; description?: string }> || [];
+  const sortedJobs = [...jobs].sort((a, b) => {
+    const getTimestamp = (job: { scheduled_date?: string; scheduled_time?: string; created_at?: string }) => {
+      if (job.scheduled_date) {
+        const dateTime = job.scheduled_time
+          ? `${job.scheduled_date}T${job.scheduled_time}`
+          : `${job.scheduled_date}T00:00:00`;
+        const value = Date.parse(dateTime);
+        if (!Number.isNaN(value)) return value;
+      }
+      if (job.created_at) {
+        const createdValue = Date.parse(job.created_at);
+        if (!Number.isNaN(createdValue)) return createdValue;
+      }
+      return 0;
+    };
+
+    return getTimestamp(b) - getTimestamp(a);
+  });
 
   const statusColors: Record<string, string> = {
     scheduled: "bg-blue-100 text-blue-700",
@@ -384,7 +402,7 @@ function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; on
         )}
       </div>
       <div className="space-y-2">
-        {jobs.map(job => (
+        {sortedJobs.map(job => (
           <Link key={job.id} href={`/jobs/${job.id}`}>
             <Card className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
               <div className="flex items-center justify-between gap-3">
