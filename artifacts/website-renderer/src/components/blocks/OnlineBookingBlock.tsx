@@ -780,7 +780,7 @@ export default function OnlineBookingBlock({ content }: Props) {
                 {btn(
                   "Next: Choose a time",
                   () => { void handleProceedToSlots(); },
-                  (require_postcode && !coverageCheckPassed) || coverageCheckLoading || !!(require_description && isComplex && !description.trim()) || !!(require_postcode && !postcode.trim())
+                  coverageCheckLoading || !!(require_description && isComplex && !description.trim()) || !!(require_postcode && !postcode.trim())
                 )}
               </div>
             </>
