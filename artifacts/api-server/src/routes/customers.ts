@@ -332,7 +332,7 @@ router.post("/customers/portal-invite/bulk", requireAuth, requireTenant, require
   const eligibleIds = eligible.map((c) => c.id);
   const { data: existingPortalUsers, error: portalErr } = await supabaseAdmin
     .from("customer_portal_users")
-    .select("id, customer_id, auth_user_id, is_active")
+    .select("id, customer_id, auth_user_id, is_active, invite_token, invite_expires_at")
     .eq("tenant_id", req.tenantId!)
     .in("customer_id", eligibleIds);
 
@@ -341,12 +341,14 @@ router.post("/customers/portal-invite/bulk", requireAuth, requireTenant, require
     return;
   }
 
-  const portalByCustomer = new Map<string, { id: string; auth_user_id: string | null; is_active: boolean }>();
-  for (const row of (existingPortalUsers || []) as Array<{ id: string; customer_id: string; auth_user_id: string | null; is_active: boolean }>) {
+  const portalByCustomer = new Map<string, { id: string; auth_user_id: string | null; is_active: boolean; invite_token: string | null; invite_expires_at: string | null }>();
+  for (const row of (existingPortalUsers || []) as Array<{ id: string; customer_id: string; auth_user_id: string | null; is_active: boolean; invite_token: string | null; invite_expires_at: string | null }>) {
     portalByCustomer.set(row.customer_id, {
       id: row.id,
       auth_user_id: row.auth_user_id,
       is_active: row.is_active,
+      invite_token: row.invite_token,
+      invite_expires_at: row.invite_expires_at,
     });
   }
 
@@ -377,6 +379,7 @@ router.post("/customers/portal-invite/bulk", requireAuth, requireTenant, require
   let emailFailed = 0;
   let failed = 0;
   const pendingInviteEmails: Array<{ to: string; customerName: string; registerUrl: string }> = [];
+  const nowMs = Date.now();
 
   for (const customer of eligible) {
     const email = customer.email?.toLowerCase().trim();
@@ -408,8 +411,18 @@ router.post("/customers/portal-invite/bulk", requireAuth, requireTenant, require
       continue;
     }
 
-    const token = generateInviteToken();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const hasReusableInvite = !!(
+      existing?.invite_token
+      && existing?.invite_expires_at
+      && new Date(existing.invite_expires_at).getTime() > nowMs
+      && existing.is_active
+      && !existing.auth_user_id
+    );
+
+    const token = hasReusableInvite ? String(existing!.invite_token) : generateInviteToken();
+    const expiresAt = hasReusableInvite
+      ? String(existing!.invite_expires_at)
+      : new Date(nowMs + 7 * 24 * 60 * 60 * 1000).toISOString();
 
     if (!dryRun) {
       if (existing) {
@@ -518,7 +531,7 @@ router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireR
 
   const { data: existing } = await supabaseAdmin
     .from("customer_portal_users")
-    .select("id, auth_user_id, is_active")
+    .select("id, auth_user_id, is_active, invite_token, invite_expires_at")
     .eq("customer_id", id)
     .eq("tenant_id", req.tenantId!)
     .maybeSingle();
@@ -528,8 +541,19 @@ router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireR
     return;
   }
 
-  const token = generateInviteToken();
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const nowMs = Date.now();
+  const hasReusableInvite = !!(
+    existing?.invite_token
+    && existing?.invite_expires_at
+    && new Date(existing.invite_expires_at).getTime() > nowMs
+    && existing.is_active
+    && !existing.auth_user_id
+  );
+
+  const token = hasReusableInvite ? String(existing!.invite_token) : generateInviteToken();
+  const expiresAt = hasReusableInvite
+    ? String(existing!.invite_expires_at)
+    : new Date(nowMs + 7 * 24 * 60 * 60 * 1000).toISOString();
 
   if (existing) {
     await supabaseAdmin
