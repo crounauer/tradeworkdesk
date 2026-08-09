@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 
 interface Customer {
   id: string;
+  business_name?: string | null;
   first_name: string;
   last_name: string;
 }
@@ -23,8 +24,8 @@ export function CustomerAutocomplete({ customers, selectedId, onSelect, classNam
 
   const sorted = useMemo(() =>
     [...customers].sort((a, b) => {
-      const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
-      const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+      const nameA = (a.business_name || `${a.first_name} ${a.last_name}`).toLowerCase();
+      const nameB = (b.business_name || `${b.first_name} ${b.last_name}`).toLowerCase();
       return nameA.localeCompare(nameB);
     }),
     [customers]
@@ -35,12 +36,15 @@ export function CustomerAutocomplete({ customers, selectedId, onSelect, classNam
     const q = search.toLowerCase().trim();
     return sorted.filter(c => {
       const full = `${c.first_name} ${c.last_name}`.toLowerCase();
-      return full.includes(q) || c.first_name.toLowerCase().startsWith(q) || c.last_name.toLowerCase().startsWith(q);
+      const business = (c.business_name || "").toLowerCase();
+      return full.includes(q) || business.includes(q) || c.first_name.toLowerCase().startsWith(q) || c.last_name.toLowerCase().startsWith(q);
     });
   }, [sorted, search]);
 
   const selectedCustomer = customers.find(c => c.id === selectedId);
-  const displayValue = selectedCustomer ? `${selectedCustomer.first_name} ${selectedCustomer.last_name}` : "";
+  const displayValue = selectedCustomer
+    ? (selectedCustomer.business_name || `${selectedCustomer.first_name} ${selectedCustomer.last_name}`)
+    : "";
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -90,7 +94,8 @@ export function CustomerAutocomplete({ customers, selectedId, onSelect, classNam
                     setIsOpen(false);
                   }}
                 >
-                  {c.first_name} {c.last_name}
+                  {c.business_name || `${c.first_name} ${c.last_name}`}
+                  {c.business_name ? <span className="ml-2 text-xs text-muted-foreground">{c.first_name} {c.last_name}</span> : null}
                 </button>
               ))
             )}

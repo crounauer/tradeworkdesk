@@ -65,7 +65,8 @@ function SearchContent() {
                     {data.customers.map((c) => (
                       <Link key={c.id} href={`/customers/${c.id}`}>
                         <Card className="p-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
-                          <p className="font-bold">{c.first_name} {c.last_name}</p>
+                          <p className="font-bold">{c.business_name || `${c.first_name} ${c.last_name}`}</p>
+                          {c.business_name ? <p className="text-xs text-muted-foreground">{c.first_name} {c.last_name}</p> : null}
                           <p className="text-sm text-muted-foreground">{c.phone || c.email || ""}</p>
                         </Card>
                       </Link>

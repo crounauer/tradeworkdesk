@@ -62,6 +62,7 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
     if (!q) return true;
     return (
       `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
+      (c.business_name || "").toLowerCase().includes(q) ||
       (c.phone || "").includes(q) ||
       (c.mobile || "").includes(q) ||
       (c.email || "").toLowerCase().includes(q) ||
@@ -77,7 +78,7 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
     if (!customerId) return;
     const c = customers?.find(c => c.id === customerId);
     if (!c) return;
-    setCustomerSearch(`${c.first_name} ${c.last_name}`);
+    setCustomerSearch(c.business_name || `${c.first_name} ${c.last_name}`);
     setForm(f => ({
       ...f,
       contact_name: `${c.first_name} ${c.last_name}`.trim(),
@@ -177,7 +178,8 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
                         className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between items-center gap-2"
                         onMouseDown={() => handleCustomerSelect(c.id)}
                       >
-                        <span className="font-medium">{c.first_name} {c.last_name}</span>
+                        <span className="font-medium">{c.business_name || `${c.first_name} ${c.last_name}`}</span>
+                        {c.business_name ? <span className="text-xs text-muted-foreground">{c.first_name} {c.last_name}</span> : null}
                         <span className="text-muted-foreground text-xs truncate">{c.mobile || c.phone || c.email || ""}</span>
                       </button>
                     ))}
@@ -190,7 +192,7 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
                 )}
               </div>
               {selectedCustomer && (
-                <p className="text-xs text-emerald-600 font-medium">✓ Linked to {selectedCustomer.first_name} {selectedCustomer.last_name}</p>
+                <p className="text-xs text-emerald-600 font-medium">✓ Linked to {selectedCustomer.business_name || `${selectedCustomer.first_name} ${selectedCustomer.last_name}`}</p>
               )}
             </div>
           )}

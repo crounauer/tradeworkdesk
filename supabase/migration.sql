@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 CREATE TABLE IF NOT EXISTS customers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   title TEXT,
+  business_name TEXT,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
   email TEXT,

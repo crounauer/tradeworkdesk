@@ -55,7 +55,7 @@ router.get("/customers", requireAuth, requireTenant, async (req: AuthenticatedRe
     }
     if (query.data.search) {
       const s = `%${query.data.search}%`;
-      q = q.or(`first_name.ilike.${s},last_name.ilike.${s},email.ilike.${s},phone.ilike.${s},mobile.ilike.${s},address_line1.ilike.${s},address_line2.ilike.${s},city.ilike.${s},county.ilike.${s},postcode.ilike.${s}`);
+      q = q.or(`business_name.ilike.${s},first_name.ilike.${s},last_name.ilike.${s},email.ilike.${s},phone.ilike.${s},mobile.ilike.${s},address_line1.ilike.${s},address_line2.ilike.${s},city.ilike.${s},county.ilike.${s},postcode.ilike.${s}`);
     }
   } else {
     q = q.eq("is_active", true);
@@ -159,6 +159,7 @@ router.delete("/customers/:id", requireAuth, requireTenant, requireRole("admin")
 
 const ImportCustomerRow = z.object({
   title: z.string().optional(),
+  business_name: z.string().optional(),
   first_name: z.string().min(1),
   last_name: z.string().min(1),
   email: z.string().optional(),

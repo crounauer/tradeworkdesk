@@ -48,6 +48,7 @@ type PropertyFormData = {
 
 type CustomerEditData = {
   title?: string;
+  business_name?: string;
   first_name: string;
   last_name: string;
   email?: string;
@@ -106,8 +107,9 @@ export default function CustomerDetail() {
           </div>
           <div>
             <h1 className="text-3xl font-display font-bold text-foreground">
-              {customer.title ? `${customer.title} ` : ''}{customer.first_name} {customer.last_name}
+              {customer.business_name || `${customer.title ? `${customer.title} ` : ""}${customer.first_name} ${customer.last_name}`.trim()}
             </h1>
+            {customer.business_name ? <p className="text-muted-foreground mt-1">{customer.title ? `${customer.title} ` : ""}{customer.first_name} {customer.last_name}</p> : null}
             <p className="text-muted-foreground mt-1">Customer since {new Date(customer.created_at).getFullYear()}</p>
           </div>
         </div>
@@ -800,7 +802,7 @@ function BookEnquiryDialog({
   );
 }
 
-function EditCustomerForm({ customer, onClose }: { customer: { id: string; title?: string | null; first_name: string; last_name: string; email?: string | null; phone?: string | null; mobile?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; county?: string | null; postcode?: string | null; notes?: string | null }; onClose: () => void }) {
+function EditCustomerForm({ customer, onClose }: { customer: { id: string; title?: string | null; business_name?: string | null; first_name: string; last_name: string; email?: string | null; phone?: string | null; mobile?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; county?: string | null; postcode?: string | null; notes?: string | null }; onClose: () => void }) {
   const qc = useQueryClient();
   const update = useUpdateCustomer();
   const { toast } = useToast();
@@ -808,6 +810,7 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
   const { register, handleSubmit, setValue } = useForm<CustomerEditData>({
     defaultValues: {
       title: customer.title || "",
+      business_name: customer.business_name || "",
       first_name: customer.first_name,
       last_name: customer.last_name,
       email: customer.email || "",
@@ -828,6 +831,7 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
         id: customer.id,
         data: {
           title: data.title || undefined,
+          business_name: data.business_name || undefined,
           first_name: data.first_name,
           last_name: data.last_name,
           email: data.email || undefined,
@@ -859,6 +863,12 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
             <Label>Title</Label>
             <Input {...register("title")} placeholder="Mr / Mrs / Ms..." />
           </div>
+          <div className="space-y-2 md:col-span-2">
+            <Label>Business Name</Label>
+            <Input {...register("business_name")} placeholder="Acme Heating Ltd" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>First Name *</Label>
             <Input {...register("first_name")} required />

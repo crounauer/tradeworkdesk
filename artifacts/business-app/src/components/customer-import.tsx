@@ -10,6 +10,7 @@ import { Upload, FileSpreadsheet, ArrowRight, ArrowLeft, CheckCircle2, AlertTria
 
 const CUSTOMER_FIELDS = [
   { value: "title", label: "Title" },
+  { value: "business_name", label: "Business Name" },
   { value: "first_name", label: "First Name", required: true },
   { value: "last_name", label: "Last Name", required: true },
   { value: "email", label: "Email" },
@@ -49,6 +50,12 @@ const AUTO_MAP: Record<string, string> = {
   "cell": "mobile",
   "cell phone": "mobile",
   "title": "title",
+  "business": "business_name",
+  "business name": "business_name",
+  "company": "business_name",
+  "company name": "business_name",
+  "organisation": "business_name",
+  "organization": "business_name",
   "address": "address_line1",
   "address line 1": "address_line1",
   "address_line1": "address_line1",

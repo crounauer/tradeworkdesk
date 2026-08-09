@@ -1861,6 +1861,8 @@ components:
           format: uuid
         title:
           type: ["string", "null"]
+        business_name:
+          type: ["string", "null"]
         first_name:
           type: string
         last_name:
@@ -1908,6 +1910,8 @@ components:
       properties:
         title:
           type: string
+        business_name:
+          type: string
         first_name:
           type: string
         last_name:
@@ -1939,6 +1943,8 @@ components:
       type: object
       properties:
         title:
+          type: ["string", "null"]
+        business_name:
           type: ["string", "null"]
         first_name:
           type: string

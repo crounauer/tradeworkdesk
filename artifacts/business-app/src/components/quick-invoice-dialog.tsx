@@ -42,6 +42,7 @@ export function QuickInvoiceDialog({ type, onOpenChange }: QuickInvoiceDialogPro
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newFirst, setNewFirst] = useState("");
   const [newLast, setNewLast] = useState("");
+  const [newBusinessName, setNewBusinessName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newAddr1, setNewAddr1] = useState("");
@@ -68,6 +69,7 @@ export function QuickInvoiceDialog({ type, onOpenChange }: QuickInvoiceDialogPro
     if (!search) return true;
     const q = search.toLowerCase();
     return `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
+      (c.business_name || "").toLowerCase().includes(q) ||
       (c.email || "").toLowerCase().includes(q) ||
       (c.postcode || "").toLowerCase().includes(q);
   });
@@ -80,6 +82,7 @@ export function QuickInvoiceDialog({ type, onOpenChange }: QuickInvoiceDialogPro
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(newBusinessName.trim() ? { business_name: newBusinessName.trim() } : {}),
           first_name: newFirst.trim(),
           last_name: newLast.trim(),
           ...(newEmail.trim() ? { email: newEmail.trim() } : {}),
@@ -122,8 +125,9 @@ export function QuickInvoiceDialog({ type, onOpenChange }: QuickInvoiceDialogPro
 
       queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey({}) });
       setSelectedId(customer.id);
-      setSelectedName(`${customer.first_name} ${customer.last_name}`);
-      setSearch(`${customer.first_name} ${customer.last_name}`);
+      const displayName = customer.business_name || `${customer.first_name} ${customer.last_name}`;
+      setSelectedName(displayName);
+      setSearch(displayName);
       setShowNewCustomer(false);
       toast({ title: "Customer created" });
     } catch (e) {
@@ -184,9 +188,15 @@ export function QuickInvoiceDialog({ type, onOpenChange }: QuickInvoiceDialogPro
                       key={c.id}
                       type="button"
                       className={`w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors ${selectedId === c.id ? "bg-primary/10 font-medium" : ""}`}
-                      onClick={() => { setSelectedId(c.id); setSelectedName(`${c.first_name} ${c.last_name}`); setSearch(`${c.first_name} ${c.last_name}`); }}
+                      onClick={() => {
+                        const displayName = c.business_name || `${c.first_name} ${c.last_name}`;
+                        setSelectedId(c.id);
+                        setSelectedName(displayName);
+                        setSearch(displayName);
+                      }}
                     >
-                      <span className="font-medium">{c.first_name} {c.last_name}</span>
+                      <span className="font-medium">{c.business_name || `${c.first_name} ${c.last_name}`}</span>
+                      {c.business_name ? <span className="text-muted-foreground ml-2">{c.first_name} {c.last_name}</span> : null}
                       {c.email && <span className="text-muted-foreground ml-2">{c.email}</span>}
                       {c.postcode && <span className="text-muted-foreground ml-2">{c.postcode}</span>}
                     </button>
@@ -214,6 +224,10 @@ export function QuickInvoiceDialog({ type, onOpenChange }: QuickInvoiceDialogPro
             <div className="space-y-4">
               <p className="text-sm font-semibold">New customer</p>
               <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Business Name</Label>
+                  <Input value={newBusinessName} onChange={(e) => setNewBusinessName(e.target.value)} placeholder="Acme Heating Ltd" />
+                </div>
                 <div className="space-y-1.5">
                   <Label>First name <span className="text-destructive">*</span></Label>
                   <Input value={newFirst} onChange={(e) => setNewFirst(e.target.value)} autoFocus />

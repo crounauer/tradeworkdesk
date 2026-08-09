@@ -67,6 +67,7 @@ type BookJobFormData = {
   customer_id: string;
   property_id: string;
   // New customer
+  new_business_name: string;
   new_first_name: string;
   new_last_name: string;
   new_phone: string;
@@ -450,6 +451,7 @@ export function BookJobDialog({
         const trimmedEmail = data.new_email?.trim() || undefined;
         const custRes = await createCustomer.mutateAsync({
           data: {
+            business_name: data.new_business_name?.trim() || undefined,
             first_name: data.new_first_name.trim(),
             last_name: data.new_last_name.trim(),
             phone: data.new_phone?.trim() || undefined,
@@ -463,7 +465,7 @@ export function BookJobDialog({
         });
         customerId = (custRes as { id: string }).id;
         customerEmail = trimmedEmail || "";
-        customerName = `${data.new_first_name.trim()} ${data.new_last_name.trim()}`;
+        customerName = data.new_business_name?.trim() || `${data.new_first_name.trim()} ${data.new_last_name.trim()}`;
 
         const propAddress = data.new_is_landlord ? {
           address_line1: data.new_prop_address_line1.trim(),
@@ -490,7 +492,7 @@ export function BookJobDialog({
       } else {
         const cust = customers?.find(c => c.id === data.customer_id);
         customerEmail = cust?.email || "";
-        customerName = cust ? `${cust.first_name} ${cust.last_name}` : "";
+        customerName = cust ? (cust.business_name || `${cust.first_name} ${cust.last_name}`) : "";
       }
 
       if (!customerId || !propertyId) {
@@ -777,6 +779,10 @@ export function BookJobDialog({
                 </div>
               ) : (
                 <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>Business Name</Label>
+                    <Input {...register("new_business_name")} placeholder="Acme Heating Ltd" />
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label>First Name *</Label>

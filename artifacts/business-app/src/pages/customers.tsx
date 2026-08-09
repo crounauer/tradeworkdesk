@@ -112,8 +112,9 @@ export default function Customers() {
                   </div>
                   <div>
                     <h3 className="font-bold text-foreground text-lg leading-tight">
-                      {customer.first_name} {customer.last_name}
+                      {customer.business_name || `${customer.first_name} ${customer.last_name}`}
                     </h3>
+                    {customer.business_name ? <p className="text-sm text-muted-foreground">{customer.first_name} {customer.last_name}</p> : null}
                   </div>
                 </div>
                 
@@ -169,6 +170,7 @@ function AddCustomerForm({ onClose }: { onClose: () => void }) {
     <Card className="p-6 border-primary/20 shadow-lg bg-primary/5 mb-6">
       <h3 className="font-bold text-lg mb-4">Add New Customer</h3>
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input placeholder="Business Name (optional)" className="md:col-span-2" {...register("business_name")} />
         <Input placeholder="First Name" required {...register("first_name")} />
         <Input placeholder="Last Name" required {...register("last_name")} />
         <Input placeholder="Email" type="email" {...register("email")} />

@@ -12,7 +12,7 @@ interface JobSearchRow {
   scheduled_date: string;
   description: string | null;
   assigned_technician_id: string | null;
-  customers?: { first_name: string; last_name: string } | null;
+  customers?: { first_name: string; last_name: string; business_name?: string | null } | null;
   properties?: { address_line1: string } | null;
   profiles?: { full_name: string } | null;
   [key: string]: unknown;
@@ -54,7 +54,7 @@ router.get("/search", requireAuth, requireTenant, requirePlanFeature("job_manage
 
   let customersQ = supabaseAdmin
     .from("customers").select("*").eq("is_active", true)
-    .or(`first_name.ilike.${s},last_name.ilike.${s},email.ilike.${s},phone.ilike.${s},postcode.ilike.${s}`)
+    .or(`business_name.ilike.${s},first_name.ilike.${s},last_name.ilike.${s},email.ilike.${s},phone.ilike.${s},postcode.ilike.${s}`)
     .limit(10);
   if (tid) customersQ = customersQ.eq("tenant_id", tid);
 
@@ -66,7 +66,7 @@ router.get("/search", requireAuth, requireTenant, requirePlanFeature("job_manage
 
   let jobsQuery = supabaseAdmin
     .from("jobs")
-    .select("*, customers(first_name, last_name), properties(address_line1), profiles(full_name)")
+    .select("*, customers(first_name, last_name, business_name), properties(address_line1), profiles(full_name)")
     .eq("is_active", true)
     .or(`description.ilike.${s},notes.ilike.${s}`)
     .limit(10);
@@ -95,7 +95,7 @@ router.get("/search", requireAuth, requireTenant, requirePlanFeature("job_manage
   if (matchedCustomerIds.length > 0 || matchedPropertyIds.length > 0) {
     let jobsByRelatedQuery = supabaseAdmin
       .from("jobs")
-      .select("*, customers(first_name, last_name), properties(address_line1), profiles(full_name)")
+      .select("*, customers(first_name, last_name, business_name), properties(address_line1), profiles(full_name)")
       .eq("is_active", true)
       .limit(10);
     if (tid) jobsByRelatedQuery = jobsByRelatedQuery.eq("tenant_id", tid);
@@ -121,7 +121,7 @@ router.get("/search", requireAuth, requireTenant, requirePlanFeature("job_manage
 
   const mappedJobs = Array.from(dedupedJobs.values()).map((j) => ({
     ...j,
-    customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
+    customer_name: j.customers ? (j.customers.business_name || `${j.customers.first_name} ${j.customers.last_name}`.trim()) : null,
     property_address: j.properties?.address_line1 || null,
     technician_name: j.profiles?.full_name || null,
     customers: undefined,

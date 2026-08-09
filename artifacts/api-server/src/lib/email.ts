@@ -12,7 +12,7 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 const PLATFORM_FROM = "TradeWorkDesk <noreply@tradeworkdesk.co.uk>";
 const FROM_EMAIL = "noreply@tradeworkdesk.co.uk";
-const OPS_EMAIL_FAILURE_RECIPIENT = (process.env.EMAIL_FAILURE_ALERT_RECIPIENT || "info@tradworkdesk.co.uk").trim().toLowerCase();
+const OPS_EMAIL_FAILURE_RECIPIENT = (process.env.EMAIL_FAILURE_ALERT_RECIPIENT || "info@tradeworkdesk.co.uk").trim().toLowerCase();
 const USER_SAFE_EMAIL_FAILURE_MESSAGE = "We couldn't send that email right now. Please try again.";
 const USER_ACTIONABLE_RECIPIENT_FAILURE_MESSAGE = "We couldn't deliver this email to the recipient. Please check the email address and ask the recipient to verify their mailbox can receive emails.";
 let sendingFailureAlert = false;

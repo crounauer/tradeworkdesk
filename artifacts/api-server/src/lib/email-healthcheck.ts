@@ -1,7 +1,7 @@
 import { sendSimpleNotification } from "./email";
 import { resolveTxt } from "node:dns/promises";
 
-const DEFAULT_RECIPIENT = "info@tradworkdesk.co.uk";
+const DEFAULT_RECIPIENT = "info@tradeworkdesk.co.uk";
 const DEFAULT_UTC_HOUR = 7;
 
 let healthTimer: NodeJS.Timeout | null = null;

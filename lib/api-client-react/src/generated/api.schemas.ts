@@ -39,6 +39,8 @@ export interface Customer {
   id: string;
   /** @nullable */
   title?: string | null;
+  /** @nullable */
+  business_name?: string | null;
   first_name: string;
   last_name: string;
   /** @nullable */
@@ -112,6 +114,7 @@ export type CustomerDetail = Customer & {
 
 export interface CreateCustomerBody {
   title?: string;
+  business_name?: string;
   first_name: string;
   last_name: string;
   email?: string;
@@ -130,6 +133,8 @@ export interface CreateCustomerBody {
 export interface UpdateCustomerBody {
   /** @nullable */
   title?: string | null;
+  /** @nullable */
+  business_name?: string | null;
   first_name?: string;
   last_name?: string;
   /** @nullable */

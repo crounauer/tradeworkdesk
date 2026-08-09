@@ -33,6 +33,7 @@ const FORM_TYPES = [
 ];
 
 function InlineCreateCustomer({ onCreated, onCancel }: { onCreated: (id: string) => void; onCancel: () => void }) {
+  const [businessName, setBusinessName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -49,7 +50,13 @@ function InlineCreateCustomer({ onCreated, onCancel }: { onCreated: (id: string)
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ first_name: firstName.trim(), last_name: lastName.trim(), phone: phone.trim() || undefined, email: email.trim() || undefined }),
+        body: JSON.stringify({
+          ...(businessName.trim() ? { business_name: businessName.trim() } : {}),
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          phone: phone.trim() || undefined,
+          email: email.trim() || undefined,
+        }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -73,6 +80,10 @@ function InlineCreateCustomer({ onCreated, onCancel }: { onCreated: (id: string)
         <Button variant="ghost" size="sm" onClick={onCancel}><X className="w-4 h-4" /></Button>
       </div>
       <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <Label className="text-xs">Business Name</Label>
+          <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Acme Heating Ltd" />
+        </div>
         <div>
           <Label className="text-xs">First Name *</Label>
           <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" />
@@ -182,7 +193,9 @@ export default function QuickRecord() {
   const filteredCustomers = customers?.filter((c) => {
     if (!searchTerm) return true;
     const name = `${c.first_name} ${c.last_name}`.toLowerCase();
-    return name.includes(searchTerm.toLowerCase());
+    const business = (c.business_name || "").toLowerCase();
+    const query = searchTerm.toLowerCase();
+    return name.includes(query) || business.includes(query);
   });
 
   const filteredProperties = properties?.filter(
@@ -300,7 +313,8 @@ export default function QuickRecord() {
                       : "hover:bg-slate-50 border border-transparent"
                   }`}
                 >
-                  <p className="font-medium">{c.first_name} {c.last_name}</p>
+                  <p className="font-medium">{c.business_name || `${c.first_name} ${c.last_name}`}</p>
+                  {c.business_name ? <p className="text-xs text-muted-foreground">{c.first_name} {c.last_name}</p> : null}
                   {c.phone && <p className="text-xs text-muted-foreground">{c.phone}</p>}
                 </button>
               ))}
@@ -322,7 +336,7 @@ export default function QuickRecord() {
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Showing properties for <span className="font-semibold text-foreground">{selectedCustomer?.first_name} {selectedCustomer?.last_name}</span>
+              Showing properties for <span className="font-semibold text-foreground">{selectedCustomer ? (selectedCustomer.business_name || `${selectedCustomer.first_name} ${selectedCustomer.last_name}`) : ""}</span>
             </p>
             {showCreateProperty && (
               <InlineCreateProperty
