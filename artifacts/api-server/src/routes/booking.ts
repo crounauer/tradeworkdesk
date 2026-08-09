@@ -32,7 +32,7 @@ import { createHash } from "crypto";
 import { supabaseAdmin } from "../lib/supabase";
 import { sendBookingPendingApprovalEmail, sendJobConfirmationEmail, sendEnquiryAcknowledgementEmail, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
 import { notifyUsersForEvent } from "../lib/push-events";
-import { geocodeAddress, getIdealPostcodesKey, idealPostcodesLookup } from "../lib/geocode";
+import { geocodeAddress, getIdealPostcodesKey, idealPostcodesLookup, normalizeUKPostcode } from "../lib/geocode";
 import { hasActiveAddon, getAddonCredits, deductAddonCredit } from "../lib/tenant-limits";
 import {
   requireAuth,
@@ -1332,6 +1332,7 @@ publicRouter.post("/public/booking/:tenantId/postcode-lookup", postcodeLookupLim
     res.status(400).json({ error: "Postcode is required" });
     return;
   }
+  const normalizedPostcode = normalizeUKPostcode(postcode);
 
   const addonActive = await hasActiveAddon(tenantId, "uk_address_lookup");
   if (!addonActive) {
@@ -1357,7 +1358,7 @@ publicRouter.post("/public/booking/:tenantId/postcode-lookup", postcodeLookupLim
       return;
     }
 
-    const addresses = await idealPostcodesLookup(postcode.trim(), apiKey);
+    const addresses = await idealPostcodesLookup(normalizedPostcode, apiKey);
     if (addresses.length === 0) {
       res.status(404).json({ error: "No addresses found for this postcode" });
       return;
@@ -1396,7 +1397,7 @@ publicRouter.post("/public/booking/:tenantId/coverage-check", bookingSlotsLimite
   try {
     const coverageCheck = await vetBookingCoverage({
       tenantId,
-      customerPostcode: customer_postcode,
+      customerPostcode: customer_postcode ? normalizeUKPostcode(customer_postcode) : customer_postcode,
     });
 
     if (!coverageCheck.allowed) {

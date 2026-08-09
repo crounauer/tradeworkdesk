@@ -7,6 +7,12 @@ function extractPostcode(address: string): string | null {
   return match ? match[1].trim() : null;
 }
 
+export function normalizeUKPostcode(value: string): string {
+  const compact = value.toUpperCase().replace(/\s+/g, "").trim();
+  if (compact.length <= 3) return compact;
+  return `${compact.slice(0, -3)} ${compact.slice(-3)}`.trim();
+}
+
 export interface GeoResult {
   latitude: number;
   longitude: number;
@@ -51,7 +57,8 @@ export interface IdealPostcodesAddress {
 }
 
 export async function idealPostcodesLookup(postcode: string, apiKey: string): Promise<IdealPostcodesAddress[]> {
-  const url = `https://api.ideal-postcodes.co.uk/v1/postcodes/${encodeURIComponent(postcode)}?api_key=${apiKey}`;
+  const normalized = normalizeUKPostcode(postcode);
+  const url = `https://api.ideal-postcodes.co.uk/v1/postcodes/${encodeURIComponent(normalized)}?api_key=${apiKey}`;
   const response = await fetch(url);
   if (!response.ok) return [];
   const data = await response.json() as { result: IdealPostcodesAddress[]; code: number };

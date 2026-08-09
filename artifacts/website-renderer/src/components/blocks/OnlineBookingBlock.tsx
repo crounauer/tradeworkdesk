@@ -47,6 +47,12 @@ interface AddressResult {
   display: string;
 }
 
+function normalizePostcode(value: string): string {
+  const compact = value.toUpperCase().replace(/\s+/g, "").trim();
+  if (compact.length <= 3) return compact;
+  return `${compact.slice(0, -3)} ${compact.slice(-3)}`.trim();
+}
+
 interface Props {
   content: {
     tenant_id?: string;
@@ -248,7 +254,7 @@ export default function OnlineBookingBlock({ content }: Props) {
 
   const handleAddressLookup = useCallback(async () => {
     if (!tenant_id) return;
-    const pc = postcode.trim();
+    const pc = normalizePostcode(postcode);
     if (!pc) {
       setAddressLookupMessage("Enter a postcode first.");
       return;
@@ -302,7 +308,7 @@ export default function OnlineBookingBlock({ content }: Props) {
 
   const runCoverageCheck = useCallback(async (inputPostcode: string): Promise<boolean> => {
     if (!tenant_id) return false;
-    const pc = inputPostcode.trim();
+    const pc = normalizePostcode(inputPostcode);
     if (!pc) {
       setCoverageCheckPassed(false);
       setCoverageCheckError("Please enter a valid postcode so we can confirm your address is within our service area.");
@@ -339,7 +345,7 @@ export default function OnlineBookingBlock({ content }: Props) {
 
   const handleProceedToSlots = useCallback(async () => {
     if (require_description && isComplex && !description.trim()) return;
-    const resolvedPostcode = addressMode === "manual" ? postcode.trim() : postcode.trim();
+    const resolvedPostcode = normalizePostcode(postcode);
     if (require_postcode && !resolvedPostcode) return;
 
     if (require_postcode) {
@@ -372,7 +378,7 @@ export default function OnlineBookingBlock({ content }: Props) {
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       }
       const resolvedAddress = addressMode === "manual" ? manualAddress : address.trim();
-      const resolvedPostcode = postcode.trim();
+      const resolvedPostcode = normalizePostcode(postcode);
       const body = {
         customer_name: name.trim(),
         customer_email: email.trim(),
