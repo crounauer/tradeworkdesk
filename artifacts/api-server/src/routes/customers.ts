@@ -512,6 +512,68 @@ router.post("/customers/portal-invite/bulk", requireAuth, requireTenant, require
   });
 });
 
+router.post("/customers/portal-invite/extend-bulk", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const body = z.object({ dry_run: z.boolean().optional() }).safeParse(req.body || {});
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const dryRun = !!body.data.dry_run;
+
+  const { data: pendingPortalUsers, error } = await supabaseAdmin
+    .from("customer_portal_users")
+    .select("id, invite_token")
+    .eq("tenant_id", req.tenantId!)
+    .eq("is_active", true)
+    .is("auth_user_id", null);
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  const rows = (pendingPortalUsers || []) as Array<{ id: string; invite_token: string | null }>;
+  const now = Date.now();
+  const inviteExpiresAt = new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  let extended = 0;
+  let failed = 0;
+
+  for (const row of rows) {
+    if (dryRun) {
+      extended += 1;
+      continue;
+    }
+
+    const token = row.invite_token || generateInviteToken();
+    const { error: updateErr } = await supabaseAdmin
+      .from("customer_portal_users")
+      .update({
+        invite_token: token,
+        invite_expires_at: inviteExpiresAt,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", row.id);
+
+    if (updateErr) {
+      failed += 1;
+      continue;
+    }
+
+    extended += 1;
+  }
+
+  res.json({
+    success: true,
+    dry_run: dryRun,
+    pending_total: rows.length,
+    extended,
+    failed,
+    invite_expires_at: inviteExpiresAt,
+  });
+});
+
 router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
 

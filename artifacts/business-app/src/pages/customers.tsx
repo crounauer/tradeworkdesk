@@ -20,6 +20,7 @@ export default function Customers() {
   const [isAdding, setIsAdding] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [isBulkPortalEnabling, setIsBulkPortalEnabling] = useState(false);
+  const [isBulkPortalExtending, setIsBulkPortalExtending] = useState(false);
   const { profile } = useAuth();
   const canImport = profile?.role === "admin" || profile?.role === "office_staff";
   const canBulkEnablePortal = profile?.role === "admin";
@@ -58,6 +59,35 @@ export default function Customers() {
     }
   };
 
+  const extendPortalInvitesForAll = async () => {
+    const confirmed = window.confirm("Extend expiry for all pending portal invites by 7 days?");
+    if (!confirmed) return;
+
+    try {
+      setIsBulkPortalExtending(true);
+      const result = await customFetch(`${import.meta.env.BASE_URL}api/customers/portal-invite/extend-bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }) as {
+        pending_total: number;
+        extended: number;
+        failed: number;
+        invite_expires_at?: string;
+      };
+
+      toast({
+        title: "Invite expiry extension complete",
+        description: `Pending ${result.pending_total}, extended ${result.extended}, failed ${result.failed}${result.invite_expires_at ? `, new expiry ${new Date(result.invite_expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}.`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to extend pending invites";
+      toast({ title: "Bulk invite extension failed", description: message, variant: "destructive" });
+    } finally {
+      setIsBulkPortalExtending(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -70,6 +100,12 @@ export default function Customers() {
             <Button variant="outline" onClick={enablePortalForAll} disabled={isBulkPortalEnabling}>
               {isBulkPortalEnabling ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               {isBulkPortalEnabling ? "Enabling Portal..." : "Enable Portal For All"}
+            </Button>
+          )}
+          {canBulkEnablePortal && (
+            <Button variant="outline" onClick={extendPortalInvitesForAll} disabled={isBulkPortalExtending}>
+              {isBulkPortalExtending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              {isBulkPortalExtending ? "Extending Invites..." : "Extend Pending Invites"}
             </Button>
           )}
           {canImport && (
