@@ -74,6 +74,13 @@ interface Props {
     require_postcode?: boolean;
     require_description?: boolean;
     complex_keywords?: string; // comma-separated words that flag a job as complex
+    booking_services?: Array<{
+      id: string;
+      name: string;
+      default_price: number | null;
+      booking_duration_minutes: number | null;
+      website_service_description?: string | null;
+    }>;
   } & Record<string, unknown>;
 }
 
@@ -140,6 +147,19 @@ export default function OnlineBookingBlock({ content }: Props) {
   const [services, setServices] = useState<Service[]>([]);
   const [loadingServices, setLoadingServices] = useState(true);
 
+  const bookingServices = Array.isArray(content.booking_services)
+    ? content.booking_services
+        .map((service) => ({
+          id: String(service.id),
+          name: String(service.name || "").trim(),
+          description: service.website_service_description ?? null,
+          duration_minutes: Number(service.booking_duration_minutes || 60),
+          price: service.default_price == null ? null : Number(service.default_price),
+          price_type: (service.default_price == null ? "tbc" : (Number(service.default_price) === 0 ? "free" : "fixed")) as Service["price_type"],
+        }))
+        .filter((service) => service.id && service.name)
+    : [];
+
   // Form state
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [isComplex, setIsComplex] = useState(false);
@@ -181,6 +201,11 @@ export default function OnlineBookingBlock({ content }: Props) {
   // Load services
   useEffect(() => {
     if (!tenant_id) return;
+    if (bookingServices.length > 0) {
+      setServices(bookingServices);
+      setLoadingServices(false);
+      return;
+    }
     fetch(`${API_BASE}/api/public/booking/${tenant_id}/services`)
       .then((r) => r.json())
       .then((data: Service[]) => {
@@ -188,7 +213,7 @@ export default function OnlineBookingBlock({ content }: Props) {
         setLoadingServices(false);
       })
       .catch(() => setLoadingServices(false));
-  }, [tenant_id]);
+  }, [tenant_id, bookingServices.length]);
 
   // Load slots for current week window
   const loadSlots = useCallback(() => {

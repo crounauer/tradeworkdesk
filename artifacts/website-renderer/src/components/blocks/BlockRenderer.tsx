@@ -365,6 +365,9 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
     ...rawContent,
     ...(tenantId ? { tenant_id: tenantId } : {}),
     ...(websiteId ? { website_id: websiteId } : {}),
+    ...(normalizedType === "online_booking" || normalizedType === "booking"
+      ? { booking_services: site?.service_catalogue || [] }
+      : {}),
     ...(normalizedType === "hero"
       ? {
           ...(Array.isArray(rawContent.trust_items) && rawContent.trust_items.length > 0
