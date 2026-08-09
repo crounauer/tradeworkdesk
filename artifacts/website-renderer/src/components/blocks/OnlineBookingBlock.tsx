@@ -278,7 +278,6 @@ export default function OnlineBookingBlock({ content }: Props) {
         const data = await res.json() as { error?: string };
         setAddressLookupMessage(data.error || "No addresses found for this postcode.");
         setAddressLookupSearched(true);
-        setAddressMode("manual");
         return;
       }
 
@@ -291,8 +290,7 @@ export default function OnlineBookingBlock({ content }: Props) {
         setAddressLookupMessage(`Address lookup credits are running low: ${data.credits_remaining.toLocaleString()} remaining.`);
       }
     } catch {
-      setAddressLookupMessage("Failed to look up addresses. Please enter the address manually instead.");
-      setAddressMode("manual");
+      setAddressLookupMessage("Failed to look up addresses. Please try again.");
     } finally {
       setAddressLookupLoading(false);
     }
