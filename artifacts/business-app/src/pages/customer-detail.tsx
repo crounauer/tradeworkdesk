@@ -973,6 +973,7 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
   const { toast } = useToast();
   const qc = useQueryClient();
   const [sendingInvite, setSendingInvite] = useState(false);
+  const [extendingInvite, setExtendingInvite] = useState(false);
   const [toggling, setToggling] = useState(false);
 
   const { data: portalStatus, isLoading } = useQuery({
@@ -1022,6 +1023,28 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
     }
   };
 
+  const extendInviteExpiry = async () => {
+    if (!status?.has_portal || status.is_registered) return;
+    setExtendingInvite(true);
+    try {
+      const result = await customFetch(`${import.meta.env.BASE_URL}api/customers/${customerId}/portal-invite/extend`, {
+        method: "POST",
+      }) as { invite_expires_at?: string };
+      toast({
+        title: "Invite expiry extended",
+        description: result.invite_expires_at
+          ? `Invite now expires ${new Date(result.invite_expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.`
+          : "Invite expiry has been extended by 7 days.",
+      });
+      qc.invalidateQueries({ queryKey: ["portal-status", customerId] });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to extend invite expiry";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setExtendingInvite(false);
+    }
+  };
+
   if (isLoading) return null;
 
   return (
@@ -1064,6 +1087,12 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
                 )}
               </div>
               <div className="flex w-full sm:w-auto flex-wrap items-center gap-2 sm:justify-end">
+                {!status.is_registered && (
+                  <Button size="sm" className="whitespace-nowrap" variant="outline" onClick={extendInviteExpiry} disabled={extendingInvite || toggling || sendingInvite}>
+                    {extendingInvite ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    {extendingInvite ? "Extending..." : "Extend 7 Days"}
+                  </Button>
+                )}
                 {!status.is_registered && (
                   <Button size="sm" className="whitespace-nowrap" variant="outline" onClick={sendInvite} disabled={sendingInvite || !customerEmail}>
                     {sendingInvite ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}

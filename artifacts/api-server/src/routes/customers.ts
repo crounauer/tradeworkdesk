@@ -688,6 +688,51 @@ router.patch("/customers/:id/portal-toggle", requireAuth, requireTenant, require
   res.json({ success: true, is_active });
 });
 
+router.post("/customers/:id/portal-invite/extend", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+
+  const { data: portalUser } = await supabaseAdmin
+    .from("customer_portal_users")
+    .select("id, auth_user_id, is_active, invite_token")
+    .eq("customer_id", id)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  if (!portalUser) {
+    res.status(404).json({ error: "No portal record found for this customer" });
+    return;
+  }
+
+  if (portalUser.auth_user_id) {
+    res.status(400).json({ error: "Customer already has a registered portal account" });
+    return;
+  }
+
+  if (!portalUser.is_active) {
+    res.status(400).json({ error: "Portal access is disabled. Enable access before extending invite." });
+    return;
+  }
+
+  const token = portalUser.invite_token || generateInviteToken();
+  const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { error: updateErr } = await supabaseAdmin
+    .from("customer_portal_users")
+    .update({
+      invite_token: token,
+      invite_expires_at: inviteExpiresAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", portalUser.id);
+
+  if (updateErr) {
+    res.status(500).json({ error: updateErr.message });
+    return;
+  }
+
+  res.json({ success: true, invite_expires_at: inviteExpiresAt });
+});
+
 // ─── GET /customers/:id/email-log ─────────────────────────────────────────────
 // All email logs for this customer, newest first.
 router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
