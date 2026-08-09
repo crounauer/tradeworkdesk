@@ -269,15 +269,16 @@ export default function OnlineBookingBlock({ content }: Props) {
 
       if (res.status === 402) {
         const data = await res.json() as { error?: string };
-        setAddressLookupMessage(data.error || "UK Address Lookup add-on is required for this feature.");
         setAddressMode("manual");
         return;
       }
 
       if (res.status === 404) {
-        const data = await res.json() as { error?: string };
-        setAddressLookupMessage(data.error || "No addresses found for this postcode.");
-        setAddressLookupSearched(true);
+        await res.json().catch(() => null);
+        setAddressLookupMessage(null);
+        setAddressLookupResults([]);
+        setAddressLookupSearched(false);
+        setAddressMode("manual");
         return;
       }
 
@@ -290,7 +291,10 @@ export default function OnlineBookingBlock({ content }: Props) {
         setAddressLookupMessage(`Address lookup credits are running low: ${data.credits_remaining.toLocaleString()} remaining.`);
       }
     } catch {
-      setAddressLookupMessage("Failed to look up addresses. Please try again.");
+      setAddressLookupMessage(null);
+      setAddressLookupResults([]);
+      setAddressLookupSearched(false);
+      setAddressMode("manual");
     } finally {
       setAddressLookupLoading(false);
     }
