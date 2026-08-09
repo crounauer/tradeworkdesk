@@ -73,6 +73,7 @@ export interface Invoice {
   line_items?: InvoiceLineItem[];
   payments?: InvoicePayment[];
   customer?: {
+    business_name?: string | null;
     first_name: string;
     last_name: string;
     email: string | null;
@@ -89,7 +90,7 @@ export interface Invoice {
     property_id?: string | null;
   } | null;
   // From list endpoint (nested relations)
-  customers?: { first_name: string; last_name: string } | null;
+  customers?: { first_name: string; last_name: string; business_name?: string | null } | null;
   jobs?: { description: string | null; scheduled_date: string | null } | null;
 }
 

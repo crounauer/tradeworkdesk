@@ -109,6 +109,16 @@ function resolveDateFromIssue(issueDate: string | null | undefined, dayOffset: n
   return base.toISOString().slice(0, 10);
 }
 
+function getCustomerDisplayName(
+  customer: { business_name?: string | null; first_name?: string | null; last_name?: string | null } | null | undefined,
+  fallback = "Customer",
+): string {
+  const business = String(customer?.business_name || "").trim();
+  if (business) return business;
+  const fullName = `${String(customer?.first_name || "")} ${String(customer?.last_name || "")}`.trim();
+  return fullName || fallback;
+}
+
 function buildLineKey(line: { description: string; quantity: number; unit_price: number }): string {
   return [
     line.description.trim().toLowerCase(),
@@ -151,13 +161,11 @@ async function buildPdfData(
   // Load customer
   const { data: customer } = await supabaseAdmin
     .from("customers")
-    .select("first_name, last_name, email, phone, mobile, address_line1, address_line2, city, county, postcode")
+    .select("business_name, first_name, last_name, email, phone, mobile, address_line1, address_line2, city, county, postcode")
     .eq("id", invoice.customer_id as string)
     .maybeSingle();
 
-  const customerName = customer
-    ? `${customer.first_name} ${customer.last_name}`.trim()
-    : "Unknown Customer";
+  const customerName = getCustomerDisplayName(customer, "Unknown Customer");
   const isQuote = (invoice.type as string) === "quote";
   const paymentTermsDays = normalizePositiveInt(settings?.default_payment_terms_days);
   const quoteValidityDays = normalizePositiveInt(settings?.quote_validity_days) ?? 30;
@@ -335,7 +343,7 @@ router.get("/invoices", ...protect, async (req: AuthenticatedRequest, res): Prom
 
   let q = supabaseAdmin
     .from("invoices")
-    .select("id, tenant_id, job_id, customer_id, type, status, invoice_number, issue_date, due_date, expiry_date, total, vat_amount, subtotal, currency, paid_amount, payment_date, created_at, customers(first_name, last_name), jobs!invoices_job_id_fkey(description, scheduled_date)", { count: "exact" })
+    .select("id, tenant_id, job_id, customer_id, type, status, invoice_number, issue_date, due_date, expiry_date, total, vat_amount, subtotal, currency, paid_amount, payment_date, created_at, customers(first_name, last_name, business_name), jobs!invoices_job_id_fkey(description, scheduled_date)", { count: "exact" })
     .eq("tenant_id", req.tenantId!)
     .order("created_at", { ascending: false })
     .range(offset, offset + limitNum - 1);
@@ -531,7 +539,7 @@ router.get("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
   // Enrich with customer + job info
   const { data: customer } = await supabaseAdmin
     .from("customers")
-    .select("first_name, last_name, email, phone, mobile, address_line1, city, postcode")
+    .select("business_name, first_name, last_name, email, phone, mobile, address_line1, city, postcode")
     .eq("id", invoice.customer_id as string)
     .maybeSingle();
 
@@ -702,7 +710,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
   const sendNote: string | undefined = req.body.send_note || undefined;
   const { data: customer } = await supabaseAdmin
     .from("customers")
-    .select("first_name, last_name, email")
+    .select("business_name, first_name, last_name, email")
     .eq("id", invoice.customer_id as string)
     .maybeSingle();
 
@@ -718,6 +726,8 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
     .select("*")
     .eq("invoice_id", req.params.id)
     .order("sort_order");
+
+  const customerDisplayName = getCustomerDisplayName(customer, "Customer");
 
   // Build PDF
   let pdfBuffer: Buffer;
@@ -803,7 +813,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       to: toEmail,
       type: invoice.type as "invoice" | "quote",
       invoiceNumber: invoice.invoice_number as string,
-      customerName: customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer",
+      customerName: customerDisplayName,
       total: Number(invoice.total),
       amountPaid,
       balanceDue,
@@ -881,7 +891,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
         const currency = ((invoice.currency as string) || "gbp").toLowerCase();
         const invoiceLabel = `Invoice ${invoice.invoice_number as string}`;
         const customerName = customer
-          ? `${customer.first_name} ${customer.last_name}`.trim()
+          ? getCustomerDisplayName(customer, "Customer")
           : "Customer";
         const portalUrl = `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`;
 
@@ -1073,7 +1083,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
         const amountMinor = Math.round(Number(invoice.total) * 100);
         const currency = ((invoice.currency as string) || "GBP").toUpperCase();
         const portalUrl = `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`;
-        const customerName = customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer";
+        const customerName = customer ? getCustomerDisplayName(customer, "Customer") : "Customer";
 
         const paymentRes = await fetch(`${TL_API_BASE}/v3/payments`, {
           method: "POST",
@@ -1138,7 +1148,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
     ? `Quote ${invoice.invoice_number}`
     : `Invoice ${invoice.invoice_number}`;
   const logBodyText = [
-    `Dear ${customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer"},`,
+    `Dear ${customerDisplayName},`,
     "",
     `Please find your ${invoice.type === "quote" ? "quotation" : "invoice"} attached.`,
     `${docLabel}`,
@@ -1156,7 +1166,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       tenant_id: req.tenantId,
       sent_by: req.userId,
       sent_to: toEmail,
-      subject: `${docLabel} — ${customer ? `${customer.first_name} ${customer.last_name}`.trim() : "Customer"}`,
+      subject: `${docLabel} — ${customerDisplayName}`,
       forms_included: [{ form_type: invoice.type, form_label: docLabel, form_id: req.params.id }],
       body_text: logBodyText,
     });
@@ -1327,7 +1337,7 @@ router.post("/invoices/:id/mark-paid", ...protect, async (req: AuthenticatedRequ
   if (req.tenantId && updated.customer_id) {
     const { data: customer } = await supabaseAdmin
       .from("customers")
-      .select("first_name, last_name, email, phone")
+      .select("business_name, first_name, last_name, email, phone")
       .eq("id", updated.customer_id)
       .eq("tenant_id", req.tenantId)
       .maybeSingle();
@@ -1339,7 +1349,7 @@ router.post("/invoices/:id/mark-paid", ...protect, async (req: AuthenticatedRequ
         entityId: toSingleParam(req.params.id),
         entityType: "invoice",
         metadata: {
-          customer_name: `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "Customer",
+          customer_name: getCustomerDisplayName(customer, "Customer"),
           customer_email: customer.email,
           customer_phone: customer.phone || null,
         },
@@ -1924,7 +1934,7 @@ router.get("/invoices/export.csv", ...protect, async (req: AuthenticatedRequest,
 
   let q = supabaseAdmin
     .from("invoices")
-    .select("id, type, status, invoice_number, issue_date, due_date, payment_date, subtotal, vat_amount, total, currency, customers(first_name, last_name), jobs!invoices_job_id_fkey(description)")
+    .select("id, type, status, invoice_number, issue_date, due_date, payment_date, subtotal, vat_amount, total, currency, customers(first_name, last_name, business_name), jobs!invoices_job_id_fkey(description)")
     .eq("tenant_id", req.tenantId!)
     .order("issue_date", { ascending: false });
 
@@ -1941,7 +1951,7 @@ router.get("/invoices/export.csv", ...protect, async (req: AuthenticatedRequest,
     type: string; status: string; invoice_number: string; issue_date: string;
     due_date: string | null; payment_date: string | null;
     subtotal: number; vat_amount: number; total: number; currency: string;
-    customers: { first_name: string; last_name: string } | null;
+    customers: { first_name: string; last_name: string; business_name?: string | null } | null;
     jobs: { description: string } | null;
   }> || []);
 
@@ -1958,9 +1968,7 @@ router.get("/invoices/export.csv", ...protect, async (req: AuthenticatedRequest,
   const lines: string[] = [headers.join(",")];
 
   for (const row of rows) {
-    const customerName = row.customers
-      ? `${row.customers.first_name} ${row.customers.last_name}`.trim()
-      : "";
+    const customerName = getCustomerDisplayName(row.customers, "");
     const cols = [
       csvEscape(row.type === "quote" ? "Quote" : "Invoice"),
       csvEscape(row.invoice_number),

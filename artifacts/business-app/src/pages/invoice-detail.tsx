@@ -697,7 +697,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   }
 
   const customerName = invoice.customer
-    ? `${invoice.customer.first_name} ${invoice.customer.last_name}`
+    ? (invoice.customer.business_name || `${invoice.customer.first_name} ${invoice.customer.last_name}`)
     : "—";
 
   // Section views derived from flat lines array

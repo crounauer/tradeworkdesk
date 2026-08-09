@@ -317,7 +317,7 @@ function InvoicesContent() {
                     </td>
                     <td className="px-4 py-3">
                       {inv.customers
-                        ? `${inv.customers.first_name} ${inv.customers.last_name}`
+                        ? (inv.customers.business_name || `${inv.customers.first_name} ${inv.customers.last_name}`)
                         : "—"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{formatDate(inv.issue_date)}</td>
@@ -355,7 +355,7 @@ function InvoicesContent() {
                     <p className="font-mono font-medium text-primary text-sm">{inv.invoice_number}</p>
                     <p className="text-sm">
                       {inv.customers
-                        ? `${inv.customers.first_name} ${inv.customers.last_name}`
+                        ? (inv.customers.business_name || `${inv.customers.first_name} ${inv.customers.last_name}`)
                         : "—"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
