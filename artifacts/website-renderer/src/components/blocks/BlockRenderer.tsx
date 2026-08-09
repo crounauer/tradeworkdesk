@@ -350,8 +350,6 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
     phone: companyContact?.phone ?? undefined,
     email: companyContact?.email ?? undefined,
   };
-  const tenantOverride = tenantId ? { tenant_id: tenantId } : {};
-  const websiteOverride = websiteId ? { website_id: websiteId } : {};
   const rawContent = (block.content as Record<string, unknown>) || {};
   const templateSlug = String(site?.website?.template_slug || "").toLowerCase();
 
@@ -363,10 +361,10 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
   const content = {
     ...base,
     ...companyBase,
-    ...tenantOverride,
-    ...websiteOverride,
     ...(fallbackContent || {}),
     ...rawContent,
+    ...(tenantId ? { tenant_id: tenantId } : {}),
+    ...(websiteId ? { website_id: websiteId } : {}),
     ...(normalizedType === "hero"
       ? {
           ...(Array.isArray(rawContent.trust_items) && rawContent.trust_items.length > 0
