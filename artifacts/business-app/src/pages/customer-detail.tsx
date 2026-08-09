@@ -348,26 +348,17 @@ function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; on
   });
   const jobs = (jobsResponse as any)?.jobs as Array<{ id: string; job_ref?: string; status: string; job_type?: string; job_type_name?: string; scheduled_date?: string; scheduled_time?: string; created_at?: string; description?: string }> || [];
   const sortedJobs = [...jobs].sort((a, b) => {
-    const getScheduledTimestamp = (job: { scheduled_date?: string; scheduled_time?: string }) => {
-      if (!job.scheduled_date) return 0;
-      const dateTime = job.scheduled_time
-        ? `${job.scheduled_date}T${job.scheduled_time}`
-        : `${job.scheduled_date}T00:00:00`;
-      const value = Date.parse(dateTime);
-      return Number.isNaN(value) ? 0 : value;
-    };
+    const aDate = String(a.scheduled_date || "").slice(0, 10);
+    const bDate = String(b.scheduled_date || "").slice(0, 10);
+    if (aDate !== bDate) return bDate.localeCompare(aDate);
 
-    const getCreatedTimestamp = (job: { created_at?: string }) => {
-      if (!job.created_at) return 0;
-      const value = Date.parse(job.created_at);
-      return Number.isNaN(value) ? 0 : value;
-    };
+    const aTime = String(a.scheduled_time || "");
+    const bTime = String(b.scheduled_time || "");
+    if (aTime !== bTime) return bTime.localeCompare(aTime);
 
-    const scheduledDiff = getScheduledTimestamp(b) - getScheduledTimestamp(a);
-    if (scheduledDiff !== 0) return scheduledDiff;
-
-    const createdDiff = getCreatedTimestamp(b) - getCreatedTimestamp(a);
-    if (createdDiff !== 0) return createdDiff;
+    const aCreated = String(a.created_at || "");
+    const bCreated = String(b.created_at || "");
+    if (aCreated !== bCreated) return bCreated.localeCompare(aCreated);
 
     return b.id.localeCompare(a.id);
   });
