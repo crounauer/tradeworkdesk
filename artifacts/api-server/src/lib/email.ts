@@ -501,6 +501,13 @@ async function send(
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const normalizedTo = String(to || "").trim().toLowerCase();
   if (!EMAIL_RE.test(normalizedTo)) {
+    await notifyEmailDeliveryFailure({
+      to: normalizedTo || String(to || ""),
+      subject,
+      reason: "invalid recipient email format",
+      from: opts?.from || FROM,
+      replyTo: opts?.replyTo,
+    });
     await writeTenantEmailAudit({
       tenantId: opts?.tenantId,
       status: "failed",

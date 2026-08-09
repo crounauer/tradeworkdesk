@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { getStripe } from "../lib/stripe";
 import { supabaseAdmin } from "../lib/supabase";
 import {
+  notifyEmailDeliveryFailure,
   sendInvoiceEmail,
   sendPaymentFailedEmail,
   updateTenantEmailAuditLifecycleByMessageId,
@@ -203,6 +204,47 @@ router.post(
         },
       },
     });
+
+    if (["failed", "bounced", "suppressed", "complained"].includes(mappedStatus)) {
+      try {
+        const { data: latestAudit } = await supabaseAdmin
+          .from("tenant_email_audit_log")
+          .select("id, to_email, subject, from_email, reply_to, metadata")
+          .eq("provider_message_id", messageId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestAudit?.id) {
+          const metadata = ((latestAudit.metadata as Record<string, unknown> | null) || {});
+          const alreadyAlerted = typeof metadata.delivery_failure_alert_sent_at === "string";
+
+          if (!alreadyAlerted) {
+            await notifyEmailDeliveryFailure({
+              to: String(latestAudit.to_email || "unknown"),
+              subject: String(latestAudit.subject || "Email delivery failure"),
+              reason: bounceReason || `Delivery status: ${mappedStatus}`,
+              from: latestAudit.from_email ? String(latestAudit.from_email) : undefined,
+              replyTo: latestAudit.reply_to ? String(latestAudit.reply_to) : undefined,
+            });
+
+            await supabaseAdmin
+              .from("tenant_email_audit_log")
+              .update({
+                metadata: {
+                  ...metadata,
+                  delivery_failure_alert_sent_at: new Date().toISOString(),
+                  delivery_failure_alert_status: mappedStatus,
+                  delivery_failure_alert_reason: bounceReason,
+                },
+              })
+              .eq("id", latestAudit.id);
+          }
+        }
+      } catch (alertErr) {
+        console.error("[webhooks/resend] Failed to send delivery failure alert:", (alertErr as Error).message);
+      }
+    }
 
     res.json({ received: true, status: mappedStatus });
   },

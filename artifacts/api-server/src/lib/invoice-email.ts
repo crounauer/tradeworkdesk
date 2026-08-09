@@ -64,6 +64,11 @@ export async function sendInvoiceDocumentEmail(opts: {
 
   const toEmail = String(opts.to || "").trim().toLowerCase();
   if (!EMAIL_RE.test(toEmail)) {
+    await notifyEmailDeliveryFailure({
+      to: toEmail || String(opts.to || ""),
+      subject: `${opts.type === "quote" ? "Quotation" : "Invoice"} ${opts.invoiceNumber}`,
+      reason: "invalid recipient email format",
+    });
     await writeTenantEmailAudit({
       tenantId: opts.tenantId,
       status: "failed",
