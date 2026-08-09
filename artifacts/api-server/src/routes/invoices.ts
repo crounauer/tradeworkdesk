@@ -1857,6 +1857,65 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
 
   const { subtotal, vat_amount, total } = computeTotals(mergedLineItems, sourceVatRate);
 
+  // If a draft invoice already exists for this job, refresh it in place so linked
+  // invoice totals remain in sync with the latest job pricing breakdown.
+  const { data: existingDraftInvoice } = await supabaseAdmin
+    .from("invoices")
+    .select("id, invoice_number")
+    .eq("tenant_id", req.tenantId!)
+    .eq("job_id", jobId)
+    .eq("type", "invoice")
+    .eq("status", "draft")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingDraftInvoice) {
+    const { error: updateErr } = await supabaseAdmin
+      .from("invoices")
+      .update({
+        notes: sourceNotes,
+        customer_notes: sourceCustomerNotes,
+        works_order: sourceWorksOrder,
+        subtotal,
+        vat_rate: sourceVatRate,
+        vat_amount,
+        total,
+        currency: sourceCurrency,
+      })
+      .eq("id", (existingDraftInvoice as { id: string }).id)
+      .eq("tenant_id", req.tenantId!);
+
+    if (updateErr) { res.status(500).json({ error: updateErr.message || "Failed to refresh draft invoice" }); return; }
+
+    const existingInvoiceId = (existingDraftInvoice as { id: string }).id;
+    await supabaseAdmin.from("invoice_line_items").delete().eq("invoice_id", existingInvoiceId).eq("tenant_id", req.tenantId!);
+
+    if (mergedLineItems.length > 0) {
+      const refreshedItems = mergedLineItems.map((l, i) => ({
+        invoice_id: existingInvoiceId,
+        tenant_id: req.tenantId,
+        description: l.description,
+        quantity: l.quantity,
+        unit_price: l.unit_price,
+        total: Math.round(l.quantity * l.unit_price * 100) / 100,
+        item_type: l.item_type || "other",
+        sort_order: l.sort_order ?? i,
+      }));
+
+      const { error: insertErr } = await supabaseAdmin.from("invoice_line_items").insert(refreshedItems);
+      if (insertErr) { res.status(500).json({ error: `Failed to save refreshed invoice line items: ${insertErr.message}` }); return; }
+    }
+
+    bustInvoicingCache(req.tenantId!);
+    res.status(200).json({
+      id: existingInvoiceId,
+      invoice_number: (existingDraftInvoice as { invoice_number: string }).invoice_number,
+      refreshed: true,
+    });
+    return;
+  }
+
   const invoiceNumber = await getNextInvoiceNumber(req.tenantId!, "invoice").catch(
     (e) => { res.status(500).json({ error: (e as Error).message }); return null; },
   );

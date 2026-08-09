@@ -2819,10 +2819,15 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
     try {
       const result = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/create-internal-invoice`, {
         method: "POST",
-      }) as { id: string; invoice_number: string };
+      }) as { id: string; invoice_number: string; refreshed?: boolean };
       setInternalInvoiceResult(result);
       await qc.invalidateQueries({ queryKey: ["/api/invoices"] });
-      toast({ title: "Invoice created", description: `Final invoice ${result.invoice_number} created in your invoice facility.` });
+      toast({
+        title: result.refreshed ? "Invoice refreshed" : "Invoice created",
+        description: result.refreshed
+          ? `Linked draft ${result.invoice_number} was updated from the latest job pricing.`
+          : `Final invoice ${result.invoice_number} created in your invoice facility.`,
+      });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to create invoice";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -3011,14 +3016,27 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
                     <span className="font-mono font-medium">{inv.invoice_number}</span>
                     <span className="text-xs text-muted-foreground capitalize">{inv.status}</span>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => navigate(`/invoices/${inv.id}`)}
-                    className="gap-1.5 text-violet-600 border-violet-200 hover:bg-violet-50"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" /> Edit Invoice
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {inv.type === "invoice" && inv.status === "draft" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={creatingInternalInvoice}
+                        onClick={handleCreateInternalInvoice}
+                        className="gap-1.5 text-violet-600 border-violet-200 hover:bg-violet-50"
+                      >
+                        {creatingInternalInvoice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Receipt className="w-3.5 h-3.5" />} Refresh from Job
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => navigate(`/invoices/${inv.id}`)}
+                      className="gap-1.5 text-violet-600 border-violet-200 hover:bg-violet-50"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Edit Invoice
+                    </Button>
+                  </div>
                 </div>
               ))}
               {hasQuoteDocs && !hasInvoiceDocs && !internalInvoiceResult && (
