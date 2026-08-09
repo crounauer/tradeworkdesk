@@ -348,22 +348,28 @@ function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; on
   });
   const jobs = (jobsResponse as any)?.jobs as Array<{ id: string; job_ref?: string; status: string; job_type?: string; job_type_name?: string; scheduled_date?: string; scheduled_time?: string; created_at?: string; description?: string }> || [];
   const sortedJobs = [...jobs].sort((a, b) => {
-    const getTimestamp = (job: { scheduled_date?: string; scheduled_time?: string; created_at?: string }) => {
-      if (job.scheduled_date) {
-        const dateTime = job.scheduled_time
-          ? `${job.scheduled_date}T${job.scheduled_time}`
-          : `${job.scheduled_date}T00:00:00`;
-        const value = Date.parse(dateTime);
-        if (!Number.isNaN(value)) return value;
-      }
-      if (job.created_at) {
-        const createdValue = Date.parse(job.created_at);
-        if (!Number.isNaN(createdValue)) return createdValue;
-      }
-      return 0;
+    const getScheduledTimestamp = (job: { scheduled_date?: string; scheduled_time?: string }) => {
+      if (!job.scheduled_date) return 0;
+      const dateTime = job.scheduled_time
+        ? `${job.scheduled_date}T${job.scheduled_time}`
+        : `${job.scheduled_date}T00:00:00`;
+      const value = Date.parse(dateTime);
+      return Number.isNaN(value) ? 0 : value;
     };
 
-    return getTimestamp(b) - getTimestamp(a);
+    const getCreatedTimestamp = (job: { created_at?: string }) => {
+      if (!job.created_at) return 0;
+      const value = Date.parse(job.created_at);
+      return Number.isNaN(value) ? 0 : value;
+    };
+
+    const scheduledDiff = getScheduledTimestamp(b) - getScheduledTimestamp(a);
+    if (scheduledDiff !== 0) return scheduledDiff;
+
+    const createdDiff = getCreatedTimestamp(b) - getCreatedTimestamp(a);
+    if (createdDiff !== 0) return createdDiff;
+
+    return b.id.localeCompare(a.id);
   });
 
   const statusColors: Record<string, string> = {
