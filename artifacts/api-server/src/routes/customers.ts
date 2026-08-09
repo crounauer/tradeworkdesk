@@ -376,6 +376,7 @@ router.post("/customers/portal-invite/bulk", requireAuth, requireTenant, require
   let alreadyActive = 0;
   let emailFailed = 0;
   let failed = 0;
+  const pendingInviteEmails: Array<{ to: string; customerName: string; registerUrl: string }> = [];
 
   for (const customer of eligible) {
     const email = customer.email?.toLowerCase().trim();
@@ -447,23 +448,41 @@ router.post("/customers/portal-invite/bulk", requireAuth, requireTenant, require
 
       const registerUrl = `${baseUrl}/portal/register?token=${token}`;
       const customerName = `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "Customer";
-      try {
-        await sendPortalInviteEmail(customer.email!, customerName, companyName, registerUrl, {
-          name: (cs as { name?: string } | null)?.name,
-          trading_name: (cs as { trading_name?: string } | null)?.trading_name,
-          email: (cs as { email?: string } | null)?.email,
-          notification_emails: (cs as { notification_emails?: string[] } | null)?.notification_emails,
-          logo_url: (cs as { logo_url?: string } | null)?.logo_url,
-          phone: (cs as { phone?: string } | null)?.phone,
-          website: (cs as { website?: string } | null)?.website,
-        });
-      } catch (e) {
-        emailFailed += 1;
-        console.error("[portal] Bulk invite email failed:", e);
-      }
+      pendingInviteEmails.push({
+        to: customer.email!,
+        customerName,
+        registerUrl,
+      });
     }
 
     invited += 1;
+  }
+
+  if (!dryRun && pendingInviteEmails.length > 0) {
+    const batchSize = 10;
+    for (let i = 0; i < pendingInviteEmails.length; i += batchSize) {
+      const batch = pendingInviteEmails.slice(i, i + batchSize);
+      const results = await Promise.allSettled(
+        batch.map((entry) =>
+          sendPortalInviteEmail(entry.to, entry.customerName, companyName, entry.registerUrl, {
+            name: (cs as { name?: string } | null)?.name,
+            trading_name: (cs as { trading_name?: string } | null)?.trading_name,
+            email: (cs as { email?: string } | null)?.email,
+            notification_emails: (cs as { notification_emails?: string[] } | null)?.notification_emails,
+            logo_url: (cs as { logo_url?: string } | null)?.logo_url,
+            phone: (cs as { phone?: string } | null)?.phone,
+            website: (cs as { website?: string } | null)?.website,
+          })
+        )
+      );
+
+      for (const result of results) {
+        if (result.status === "rejected") {
+          emailFailed += 1;
+          console.error("[portal] Bulk invite email failed:", result.reason);
+        }
+      }
+    }
   }
 
   res.json({

@@ -1022,13 +1022,13 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-4">
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full ${status.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full ${status.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                     {status.is_active ? "Active" : "Disabled"}
                   </span>
-                  <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full ${status.is_registered ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                  <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full ${status.is_registered ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
                     {status.is_registered ? "Registered" : "Invite Pending"}
                   </span>
                 </div>
@@ -1038,15 +1038,16 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex w-full sm:w-auto flex-wrap items-center gap-2 sm:justify-end">
                 {!status.is_registered && (
-                  <Button size="sm" variant="outline" onClick={sendInvite} disabled={sendingInvite || !customerEmail}>
+                  <Button size="sm" className="whitespace-nowrap" variant="outline" onClick={sendInvite} disabled={sendingInvite || !customerEmail}>
                     {sendingInvite ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                     Resend Invite
                   </Button>
                 )}
                 <Button
                   size="sm"
+                  className="whitespace-nowrap"
                   variant={status.is_active ? "destructive" : "default"}
                   onClick={toggleAccess}
                   disabled={toggling}
