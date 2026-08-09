@@ -405,7 +405,13 @@ export default function PropertyDetail() {
               <div>
                 <h2 className="text-xl font-display font-bold mb-4 flex items-center gap-2"><Briefcase className="w-5 h-5 text-purple-500" /> Recent Jobs</h2>
                 <div className="space-y-3">
-                  {property.recent_jobs.map((job) => (
+                  {[...property.recent_jobs]
+                    .sort((a, b) => {
+                      const aTime = a.scheduled_date ? Date.parse(`${a.scheduled_date}T00:00:00`) : 0;
+                      const bTime = b.scheduled_date ? Date.parse(`${b.scheduled_date}T00:00:00`) : 0;
+                      return bTime - aTime;
+                    })
+                    .map((job) => (
                     <Link key={job.id} href={`/jobs/${job.id}`}>
                       <Card className="p-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
                         <div className="flex justify-between items-start">

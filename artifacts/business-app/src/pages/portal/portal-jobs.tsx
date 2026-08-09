@@ -37,6 +37,23 @@ export default function PortalJobs() {
     staleTime: 30_000,
   });
 
+  const sortedJobs = Array.isArray(jobs)
+    ? [...jobs].sort((a: any, b: any) => {
+      const getTime = (job: any) => {
+        if (job?.scheduled_date) {
+          const scheduled = Date.parse(`${job.scheduled_date}T${job.scheduled_time || "00:00:00"}`);
+          if (!Number.isNaN(scheduled)) return scheduled;
+        }
+        if (job?.created_at) {
+          const created = Date.parse(job.created_at);
+          if (!Number.isNaN(created)) return created;
+        }
+        return 0;
+      };
+      return getTime(b) - getTime(a);
+    })
+    : [];
+
   return (
     <PortalLayout>
       <div className="space-y-6 animate-in fade-in">
@@ -58,7 +75,7 @@ export default function PortalJobs() {
           </Card>
         ) : (
           <div className="space-y-2">
-            {jobs.map((job: any) => (
+            {sortedJobs.map((job: any) => (
               <Link key={job.id} href={`/portal/jobs/${job.id}`}>
                 <Card className="p-4 border border-slate-200 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
                   <div className="flex items-center justify-between gap-3">
