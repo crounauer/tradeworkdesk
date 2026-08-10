@@ -678,6 +678,13 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   const parsed = CreateJobBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
+  const rawAllDay = req.body.all_day as boolean | undefined;
+  if (rawAllDay !== undefined && typeof rawAllDay !== "boolean") {
+    res.status(400).json({ error: "all_day must be a boolean" });
+    return;
+  }
+  const isAllDay = rawAllDay === true;
+
   const [limits, jobsThisMonth] = await Promise.all([
     getEffectiveLimits(req.tenantId!),
     getJobsThisMonth(req.tenantId!),
@@ -789,7 +796,7 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
 
   const insertPayload = {
     ...jobCoreData,
-    estimated_duration: hasEstimatedDuration ? parsedEstimatedDuration : defaultEstimatedDuration,
+    estimated_duration: isAllDay ? null : (hasEstimatedDuration ? parsedEstimatedDuration : defaultEstimatedDuration),
     assigned_technician_id: autoAssignedTechnicianId || null,
     job_type: resolvedJobType,
     visit_intent: visitIntent ?? "standard",
@@ -1383,6 +1390,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   const rawUpdateServiceCatalogueId = req.body.service_catalogue_id as string | null | undefined;
   const rawVisitIntent = req.body.visit_intent as string | null | undefined;
   const updateCoreData = body.data;
+  const rawAllDay = req.body.all_day as boolean | undefined;
 
   const rawCalloutRateId = req.body.callout_rate_id as string | null | undefined;
   const rawIsInProgress = req.body.is_in_progress as boolean | undefined;
@@ -1395,6 +1403,13 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   if (rawIsAwaitingParts !== undefined && typeof rawIsAwaitingParts !== "boolean") {
     res.status(400).json({ error: "is_awaiting_parts must be a boolean" });
     return;
+  }
+  if (rawAllDay !== undefined && typeof rawAllDay !== "boolean") {
+    res.status(400).json({ error: "all_day must be a boolean" });
+    return;
+  }
+  if (rawAllDay === true) {
+    updateCoreData.estimated_duration = null;
   }
 
   if (rawIsInProgress !== undefined || rawIsAwaitingParts !== undefined) {

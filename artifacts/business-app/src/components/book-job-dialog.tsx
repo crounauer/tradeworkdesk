@@ -96,6 +96,7 @@ type BookJobFormData = {
   scheduled_date: string;
   scheduled_end_date: string;
   scheduled_time: string;
+  all_day: boolean;
   assigned_technician_id: string;
   description: string;
 };
@@ -204,6 +205,7 @@ export function BookJobDialog({
       visit_intent: "standard",
       priority: "medium",
       scheduled_date: initialDate || todayStr,
+      all_day: false,
       new_is_landlord: false,
     },
   });
@@ -211,6 +213,7 @@ export function BookJobDialog({
   const customerMode = watch("customer_mode");
   const selectedCustomerId = watch("customer_id");
   const isLandlord = watch("new_is_landlord");
+  const isAllDay = watch("all_day");
   const filteredProperties = properties?.filter(p => !selectedCustomerId || p.customer_id === selectedCustomerId);
 
   const selectedCustomer = customers?.find(c => c.id === selectedCustomerId);
@@ -525,8 +528,9 @@ export function BookJobDialog({
         priority: (data.priority || "medium") as "low" | "medium" | "high" | "urgent",
         scheduled_date: data.scheduled_date,
         scheduled_end_date: data.scheduled_end_date || undefined,
-        scheduled_time: data.scheduled_time || undefined,
-        estimated_duration: estimatedDuration,
+        scheduled_time: data.all_day ? undefined : (data.scheduled_time || undefined),
+        estimated_duration: data.all_day ? null : estimatedDuration,
+        all_day: data.all_day,
         description: data.description || undefined,
         assigned_technician_id: technicianId,
       };
@@ -988,7 +992,7 @@ export function BookJobDialog({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Time</Label>
-                    <Input type="time" {...register("scheduled_time")} />
+                    <Input type="time" {...register("scheduled_time")} disabled={isAllDay} />
                   </div>
                   {isAdminOrOffice && !autoAssign && (
                     <div className="space-y-1.5">
@@ -1002,6 +1006,20 @@ export function BookJobDialog({
                     </div>
                   )}
                 </div>
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none pt-1">
+                  <input
+                    type="checkbox"
+                    className="rounded border-border"
+                    {...register("all_day", {
+                      onChange: (event) => {
+                        if ((event.target as HTMLInputElement).checked) {
+                          setValue("scheduled_time", "", { shouldDirty: true });
+                        }
+                      },
+                    })}
+                  />
+                  <span className="text-muted-foreground">All day</span>
+                </label>
                 <div className="space-y-1.5">
                   <Label>Notes</Label>
                   <textarea

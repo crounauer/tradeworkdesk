@@ -48,6 +48,7 @@ type JobEditData = {
   scheduled_date: string;
   scheduled_end_date?: string;
   scheduled_time?: string;
+  all_day?: boolean;
   estimated_duration?: string;
   description?: string;
   job_type_id?: string;
@@ -3577,7 +3578,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
   const qc = useQueryClient();
   const { toast } = useToast();
   const { isOnline, queueJobUpdate } = useOffline();
-  const { register, handleSubmit, reset, setValue } = useForm<JobEditData>();
+  const { register, handleSubmit, reset, setValue, watch } = useForm<JobEditData>();
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -3610,6 +3611,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
 
   const customerEmail = (job.customer as Record<string, unknown>)?.email as string || "";
   const customerName = `${(job.customer as Record<string, unknown>)?.first_name || ""} ${(job.customer as Record<string, unknown>)?.last_name || ""}`.trim();
+  const isAllDay = watch("all_day");
 
   useEffect(() => {
     reset({
@@ -3619,6 +3621,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
       scheduled_date: (job.scheduled_date as string)?.split('T')[0] || "",
       scheduled_end_date: (job.scheduled_end_date as string)?.split('T')[0] || "",
       scheduled_time: (job.scheduled_time as string) || "",
+      all_day: job.estimated_duration == null,
       estimated_duration: job.estimated_duration != null ? String(job.estimated_duration) : "",
       description: (job.description as string) || "",
     });
@@ -3649,6 +3652,11 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
   };
 
   const onSubmit = async (data: JobEditData) => {
+    if (data.all_day) {
+      data.estimated_duration = "";
+      data.scheduled_time = "";
+    }
+
     const estimatedDurationValue = String(data.estimated_duration || "").trim();
     const parsedEstimatedDuration = estimatedDurationValue ? Number(estimatedDurationValue) : null;
     if (estimatedDurationValue && !Number.isFinite(parsedEstimatedDuration)) {
@@ -3662,8 +3670,9 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
       visit_intent: data.visit_intent === "estimate" ? "estimate" : "standard",
       scheduled_date: data.scheduled_date,
       scheduled_end_date: data.scheduled_end_date || null,
-      scheduled_time: data.scheduled_time || null,
-      estimated_duration: parsedEstimatedDuration,
+      scheduled_time: data.all_day ? null : (data.scheduled_time || null),
+      estimated_duration: data.all_day ? null : parsedEstimatedDuration,
+      all_day: Boolean(data.all_day),
       description: (data.description || "").trim() || null,
     };
     if (selectedJobTypeId) {
@@ -3808,7 +3817,7 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
           </div>
           <div className="space-y-2">
             <Label>Scheduled Time</Label>
-            <Input type="time" {...register("scheduled_time")} />
+            <Input type="time" {...register("scheduled_time")} disabled={Boolean(isAllDay)} />
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -3818,9 +3827,24 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
           </div>
           <div className="space-y-2">
             <Label>Estimated Duration</Label>
-            <Input {...register("estimated_duration")} placeholder="e.g. 1 hour" />
+            <Input {...register("estimated_duration")} placeholder="e.g. 1 hour" disabled={Boolean(isAllDay)} />
           </div>
         </div>
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            className="rounded border-border"
+            {...register("all_day", {
+              onChange: (event) => {
+                if ((event.target as HTMLInputElement).checked) {
+                  setValue("scheduled_time", "", { shouldDirty: true });
+                  setValue("estimated_duration", "", { shouldDirty: true });
+                }
+              },
+            })}
+          />
+          <span className="text-muted-foreground">All day</span>
+        </label>
         <div className="space-y-2">
           <Label>Description</Label>
           <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]" {...register("description")} />
