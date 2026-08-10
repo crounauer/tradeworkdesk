@@ -1335,15 +1335,6 @@ publicRouter.post("/public/booking/:tenantId/postcode-lookup", postcodeLookupLim
   const normalizedPostcode = normalizeUKPostcode(postcode);
 
   const creditInfo = await getAddonCredits(tenantId, "uk_address_lookup");
-  if (creditInfo !== null && creditInfo.credits_remaining <= 0) {
-    res.status(402).json({
-      error: "No Address Lookup credits remaining. Purchase more credits on the Billing page.",
-      credits_remaining: 0,
-      bundle_size: creditInfo.bundle_size,
-      bundle_price: creditInfo.bundle_price,
-    });
-    return;
-  }
 
   try {
     const apiKey = await getIdealPostcodesKey();
@@ -1372,11 +1363,13 @@ publicRouter.post("/public/booking/:tenantId/postcode-lookup", postcodeLookupLim
 
     res.json({
       addresses: results,
-      credits_remaining: creditInfo ? creditInfo.credits_remaining - 1 : null,
+      credits_remaining: creditInfo ? Math.max(0, creditInfo.credits_remaining - 1) : null,
       bundle_size: creditInfo?.bundle_size ?? null,
     });
 
-    await deductAddonCredit(tenantId, "uk_address_lookup");
+    if (creditInfo && creditInfo.credits_remaining > 0) {
+      await deductAddonCredit(tenantId, "uk_address_lookup");
+    }
   } catch (err) {
     console.error("[booking] postcode lookup failed:", err);
     res.status(500).json({ error: "Postcode lookup failed" });
