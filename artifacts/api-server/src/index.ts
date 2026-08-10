@@ -9,6 +9,7 @@ import { runStartupMigrations } from "./lib/migrations";
 import { startPushEventScheduler } from "./lib/push-events";
 import { startEmailHealthcheckScheduler } from "./lib/email-healthcheck";
 import { startEmailOpsMonitorScheduler } from "./lib/email-ops-monitor";
+import { startDomainReconcileCron } from "./lib/domain-reconcile-cron";
 
 const rawPort = process.env["PORT"] ?? "3001";
 
@@ -42,6 +43,7 @@ if (Number.isNaN(port) || port <= 0) {
       startPushEventScheduler();
       startEmailHealthcheckScheduler();
       startEmailOpsMonitorScheduler();
+      startDomainReconcileCron();
       runStartupMigrations().catch((err) =>
         console.error("[migrations] Startup check failed:", err)
       );

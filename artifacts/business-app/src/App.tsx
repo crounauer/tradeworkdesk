@@ -356,9 +356,13 @@ function RootRoute() {
 
 function PortalProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { session, isLoading } = usePortalAuth();
+  const [location] = useLocation();
 
   if (isLoading) return <PageFallback />;
-  if (!session) return <Redirect to="/portal/login" />;
+  if (!session) {
+    const next = location !== "/portal/login" ? `?next=${encodeURIComponent(location)}` : "";
+    return <Redirect to={`/portal/login${next}`} />;
+  }
 
   return (
     <Suspense fallback={<div className="flex-1 flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>

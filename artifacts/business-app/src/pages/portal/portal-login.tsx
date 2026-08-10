@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { usePortalAuth } from "@/hooks/use-portal-auth";
-import { Redirect, Link } from "wouter";
+import { Redirect, Link, useSearch } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,8 @@ import { LogIn, Eye, EyeOff } from "lucide-react";
 
 export default function PortalLogin() {
   const { session, isLoading } = usePortalAuth();
+  const search = useSearch();
+  const nextPath = new URLSearchParams(search).get("next") || "/portal";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -27,7 +29,7 @@ export default function PortalLogin() {
     );
   }
 
-  if (session) return <Redirect to="/portal" />;
+  if (session) return <Redirect to={nextPath} />;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

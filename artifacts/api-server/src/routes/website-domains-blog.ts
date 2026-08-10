@@ -791,13 +791,11 @@ router.post(
 
     if (dnsOk) {
       updates.verification_status = "verified";
-      updates.ssl_status = "active";  // SSL handled by Railway/platform
       updates.is_active = true;
       updates.activated_at = new Date().toISOString();
-      // Provision SSL cert on Fly renderer
-      addDomainToFly(domain.domain).catch((e) =>
-        console.error("[fly-certs] addDomainToFly failed:", e)
-      );
+      const flyResult = await addDomainToFly(domain.domain);
+      // Reflect actual cert status so the UI can warn if Fly registration failed
+      updates.ssl_status = flyResult.ok ? "active" : "pending";
     } else {
       updates.verification_status = "pending";
     }
