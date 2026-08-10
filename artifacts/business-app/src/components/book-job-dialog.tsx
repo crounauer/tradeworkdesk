@@ -133,6 +133,8 @@ interface BookJobDialogProps {
     service_catalogue_id?: string | null;
     notes?: string | null;
     scheduled_start?: string | null;
+    scheduled_end?: string | null;
+    duration_minutes?: number | null;
   };
 }
 
@@ -372,12 +374,20 @@ export function BookJobDialog({
     };
     const cleanNotes = String(initialBookingPrefill.notes || "").replace(/\n?\[BOOKING_GEO\][^\n]+/g, "").trim();
     const scheduled = initialBookingPrefill.scheduled_start ? new Date(initialBookingPrefill.scheduled_start) : null;
+    const scheduledEnd = initialBookingPrefill.scheduled_end ? new Date(initialBookingPrefill.scheduled_end) : null;
     const dateStr = scheduled && !Number.isNaN(scheduled.getTime())
       ? `${scheduled.getFullYear()}-${String(scheduled.getMonth() + 1).padStart(2, "0")}-${String(scheduled.getDate()).padStart(2, "0")}`
       : undefined;
     const timeStr = scheduled && !Number.isNaN(scheduled.getTime())
       ? `${String(scheduled.getHours()).padStart(2, "0")}:${String(scheduled.getMinutes()).padStart(2, "0")}`
       : undefined;
+    const providedDuration = Number(initialBookingPrefill.duration_minutes ?? 0);
+    const derivedDuration = (scheduled && scheduledEnd && !Number.isNaN(scheduled.getTime()) && !Number.isNaN(scheduledEnd.getTime()))
+      ? Math.round((scheduledEnd.getTime() - scheduled.getTime()) / 60000)
+      : 0;
+    const durationMinutes = Number.isFinite(providedDuration) && providedDuration > 0
+      ? providedDuration
+      : (Number.isFinite(derivedDuration) && derivedDuration > 0 ? derivedDuration : 0);
     const parsedAddress = parseAddress(initialBookingPrefill.customer_address || "");
 
     setValue("customer_mode", "new");
@@ -395,6 +405,7 @@ export function BookJobDialog({
     if (cleanNotes) setValue("description", cleanNotes);
     if (dateStr) setValue("scheduled_date", dateStr);
     if (timeStr) setValue("scheduled_time", timeStr);
+    if (durationMinutes > 0) setValue("job_duration_minutes", String(durationMinutes));
   }, [open, initialBookingPrefill, initialCustomerId, setValue]);
 
   const prefillPropertyFromCustomer = () => {
@@ -547,13 +558,20 @@ export function BookJobDialog({
       }
       const durationInput = String(data.job_duration_minutes || "").trim();
       const parsedDuration = durationInput ? Number(durationInput) : NaN;
-      if (!data.all_day && (!Number.isFinite(parsedDuration) || parsedDuration <= 0)) {
+      const selectedTypeDuration = Number(selectedType.booking_duration_minutes ?? 0);
+      const fallbackDuration = Number.isFinite(selectedTypeDuration) && selectedTypeDuration > 0
+        ? selectedTypeDuration
+        : NaN;
+      const resolvedDuration = Number.isFinite(parsedDuration) && parsedDuration > 0
+        ? parsedDuration
+        : fallbackDuration;
+      if (!data.all_day && (!Number.isFinite(resolvedDuration) || resolvedDuration <= 0)) {
         toast({ title: "Missing info", description: "Please enter a valid job duration in minutes.", variant: "destructive" });
         setSubmitting(false);
         return;
       }
-      const estimatedDuration = Number.isFinite(parsedDuration) && parsedDuration > 0
-        ? Math.round(parsedDuration)
+      const estimatedDuration = Number.isFinite(resolvedDuration) && resolvedDuration > 0
+        ? Math.round(resolvedDuration)
         : undefined;
       const technicianId = autoAssign && profile?.id
         ? profile.id

@@ -404,6 +404,10 @@ export default function Bookings() {
           service_catalogue_id: convertingBooking.service_catalogue_id,
           notes: String(convertingBooking.notes || "").replace(/\n?\[BOOKING_GEO\][^\n]+/g, "").trim() || null,
           scheduled_start: convertingBooking.scheduled_start,
+          scheduled_end: convertingBooking.scheduled_end,
+          duration_minutes: convertingBooking.booking_services?.duration_minutes
+            ?? convertingBooking.service_catalogue?.booking_duration_minutes
+            ?? null,
         } : undefined}
         onJobCreated={handleFinalizeConvert}
       />
