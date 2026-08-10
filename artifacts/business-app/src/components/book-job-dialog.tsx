@@ -6,7 +6,7 @@ import {
   getListCustomersQueryKey, getListPropertiesQueryKey,
 } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -668,6 +668,9 @@ export function BookJobDialog({
           <>
             <DialogHeader>
               <DialogTitle className="text-xl">Send Booking Confirmation?</DialogTitle>
+              <DialogDescription>
+                Confirm whether to email the customer with their new booking details.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="flex items-start gap-4 p-4 rounded-lg bg-blue-50 border border-blue-200">
@@ -697,6 +700,9 @@ export function BookJobDialog({
           <>
             <DialogHeader>
               <DialogTitle className="text-xl">Book Job</DialogTitle>
+              <DialogDescription>
+                Create a new job by selecting customer, property, schedule, and assignment details.
+              </DialogDescription>
             </DialogHeader>
 
             {!isOnline && (
