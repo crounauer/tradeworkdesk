@@ -1450,7 +1450,7 @@ publicRouter.post("/public/booking/:tenantId/postcode-lookup", postcodeLookupLim
       postcode: a.postcode,
       latitude: a.latitude,
       longitude: a.longitude,
-      display: [a.line_1, a.line_2, a.line_3].filter(Boolean).join(", "),
+      display: [a.line_1, a.line_2, a.line_3, a.county, a.post_town].filter(Boolean).join(", "),
     }));
 
     res.json({

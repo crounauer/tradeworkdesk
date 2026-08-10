@@ -358,8 +358,8 @@ export default function OnlineBookingBlock({ content }: Props) {
   }, [addressMode, require_description, isComplex, description, require_postcode, postcode, runCoverageCheck]);
 
   const handleSelectAddress = useCallback((addr: AddressResult) => {
-    const line = [addr.line_1, addr.line_2, addr.line_3].filter(Boolean).join(", ");
-    setAddress(line);
+    const fullAddress = [addr.line_1, addr.line_2, addr.line_3, addr.county, addr.post_town].filter(Boolean).join(", ");
+    setAddress(fullAddress || addr.display);
     setPostcode(addr.postcode);
     setSelectedAddressCoords({ latitude: addr.latitude, longitude: addr.longitude });
     setAddressLookupResults([]);
