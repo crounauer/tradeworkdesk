@@ -907,9 +907,19 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 )}
                 {invoice.customer?.address_line1 && (
                   <div>
-                    <Label className="text-xs text-muted-foreground">Address</Label>
+                    <Label className="text-xs text-muted-foreground">Billing Address</Label>
                     <p className="text-sm mt-1">
                       {[invoice.customer.address_line1, invoice.customer.city, invoice.customer.postcode].filter(Boolean).join(", ")}
+                    </p>
+                  </div>
+                )}
+                {invoice.job?.property_address?.address_line1 &&
+                  invoice.job.property_address.postcode?.replace(/\s/g, "").toUpperCase() !==
+                  invoice.customer?.postcode?.replace(/\s/g, "").toUpperCase() && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Service Address</Label>
+                    <p className="text-sm mt-1">
+                      {[invoice.job.property_address.address_line1, invoice.job.property_address.city, invoice.job.property_address.postcode].filter(Boolean).join(", ")}
                     </p>
                   </div>
                 )}

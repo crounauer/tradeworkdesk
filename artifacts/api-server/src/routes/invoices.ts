@@ -198,7 +198,7 @@ async function buildPdfData(
         .maybeSingle()
     : { data: null };
 
-  // Load property address as fallback when customer record has no address
+  // Load property address: used as billing fallback and as service address when it differs
   const { data: property } = job?.property_id
     ? await supabaseAdmin
         .from("properties")
@@ -206,6 +206,11 @@ async function buildPdfData(
         .eq("id", job.property_id as string)
         .maybeSingle()
     : { data: null };
+
+  // Include service address when the work location differs from the customer's billing address
+  const billingPostcode = (customer?.postcode || "").trim().toUpperCase().replace(/\s+/g, "");
+  const propertyPostcode = (property?.postcode || "").trim().toUpperCase().replace(/\s+/g, "");
+  const showWorkAddress = !!(property?.address_line1 && propertyPostcode && propertyPostcode !== billingPostcode);
 
   return {
     type: invoice.type as "invoice" | "quote",
@@ -245,6 +250,11 @@ async function buildPdfData(
     customer_postcode: customer?.postcode || property?.postcode,
     customer_email: customer?.email,
     customer_phone: customer?.phone || customer?.mobile,
+    work_address_line1: showWorkAddress ? property!.address_line1 : null,
+    work_address_line2: showWorkAddress ? property!.address_line2 : null,
+    work_address_city: showWorkAddress ? property!.city : null,
+    work_address_county: showWorkAddress ? property!.county : null,
+    work_address_postcode: showWorkAddress ? property!.postcode : null,
     // Job
     job_reference: (job?.job_ref as string | null) || null,
     job_description: (job?.description as string | null) || null,
@@ -549,6 +559,14 @@ router.get("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     .eq("id", invoice.job_id as string)
     .maybeSingle();
 
+  const { data: jobProperty } = (job as any)?.property_id
+    ? await supabaseAdmin
+        .from("properties")
+        .select("address_line1, city, postcode")
+        .eq("id", (job as any).property_id)
+        .maybeSingle()
+    : { data: null };
+
   const settings = await getCompanySettings(req.tenantId!);
   const paymentTermsDays = normalizePositiveInt(settings?.default_payment_terms_days);
   const quoteValidityDays = normalizePositiveInt(settings?.quote_validity_days) ?? 30;
@@ -570,7 +588,7 @@ router.get("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     amount_paid: payments.totalPaid,
     balance_due: payments.balanceDue,
     customer,
-    job,
+    job: job ? { ...job, property_address: jobProperty } : job,
   });
 });
 

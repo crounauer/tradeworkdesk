@@ -47,6 +47,12 @@ export interface InvoicePdfData {
   customer_postcode?: string | null;
   customer_email?: string | null;
   customer_phone?: string | null;
+  // Service address (where work was carried out — shown when different from billing address)
+  work_address_line1?: string | null;
+  work_address_line2?: string | null;
+  work_address_city?: string | null;
+  work_address_county?: string | null;
+  work_address_postcode?: string | null;
   // Job
   job_reference?: string | null;
   job_description?: string | null;
@@ -254,6 +260,24 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
   if (custCityLine)        { doc.text(custCityLine,        margin, billY); billY += 4.5; }
   if (data.customer_email) { doc.text(data.customer_email, margin, billY); billY += 4.5; }
   if (data.customer_phone) { doc.text(data.customer_phone, margin, billY); billY += 4.5; }
+
+  // Service address block — shown when work was carried out at a different address
+  const hasWorkAddress = !!(data.work_address_line1 || data.work_address_postcode);
+  if (hasWorkAddress) {
+    billY += 2;
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...clrAccent);
+    doc.text("SERVICE ADDRESS", margin, billY);
+    billY += 4;
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...clrMid);
+    if (data.work_address_line1) { doc.text(data.work_address_line1, margin, billY); billY += 4.5; }
+    if (data.work_address_line2) { doc.text(data.work_address_line2, margin, billY); billY += 4.5; }
+    const waCityLine = [data.work_address_city, data.work_address_county, data.work_address_postcode].filter(Boolean).join(", ");
+    if (waCityLine) { doc.text(waCityLine, margin, billY); billY += 4.5; }
+  }
 
   y = Math.max(metaCurY, billY) + 6;
 
