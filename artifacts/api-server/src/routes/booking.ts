@@ -615,9 +615,12 @@ async function getAvailableSlots(
           return slotStartMs < dayEndMs && slotEndMs > dayStartMs;
         }
 
-        const durationMinutes = Number(j.estimated_duration || serviceDurationMinutes || slotDuration || 60);
+        const parsedDuration = Number(j.estimated_duration);
+        const hasExplicitDuration = Number.isFinite(parsedDuration) && parsedDuration > 0;
         const jStart = localDateTimeToUtc(j.scheduled_date, j.scheduled_time).getTime() - buffer * 60000;
-        const jEnd = jStart + (durationMinutes + (buffer * 2)) * 60000;
+        const jEnd = hasExplicitDuration
+          ? jStart + (parsedDuration + (buffer * 2)) * 60000
+          : localDateTimeToUtc(j.scheduled_date, "23:59").getTime() + buffer * 60000 + 60000;
         return slotStartMs < jEnd && slotEndMs > jStart;
       });
 
@@ -729,9 +732,12 @@ async function selectAvailableEngineerForSlot(args: {
         const spansMultipleDays = Boolean(job.scheduled_end_date && String(job.scheduled_end_date).slice(0, 10) > String(job.scheduled_date).slice(0, 10));
         if (spansMultipleDays) return true;
 
-        const jobDurationMinutes = Number(job.estimated_duration || durationMinutes || 60);
+        const parsedDuration = Number(job.estimated_duration);
+        const hasExplicitDuration = Number.isFinite(parsedDuration) && parsedDuration > 0;
         const jobStart = localDateTimeToUtc(job.scheduled_date, job.scheduled_time).getTime();
-        const jobEnd = jobStart + (Math.max(1, jobDurationMinutes) * 60000);
+        const jobEnd = hasExplicitDuration
+          ? jobStart + (Math.max(1, parsedDuration) * 60000)
+          : localDateTimeToUtc(job.scheduled_date, "23:59").getTime() + 60000;
         return slotStartMs < jobEnd && slotEndMs > jobStart;
       });
       return !hasConflict;
