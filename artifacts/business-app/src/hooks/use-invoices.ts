@@ -88,6 +88,7 @@ export interface Invoice {
     scheduled_date: string | null;
     job_type?: string | null;
     property_id?: string | null;
+    property_address?: { address_line1: string | null; city: string | null; postcode: string | null } | null;
   } | null;
   // From list endpoint (nested relations)
   customers?: { first_name: string; last_name: string; business_name?: string | null } | null;
