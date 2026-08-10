@@ -261,6 +261,7 @@ export default function OnlineBookingBlock({ content }: Props) {
     }
 
     setAddressLookupLoading(true);
+    setAddressMode("lookup");
     setAddressLookupResults([]);
     setAddressLookupSearched(false);
     setAddressLookupMessage(null);
@@ -636,6 +637,7 @@ export default function OnlineBookingBlock({ content }: Props) {
 
               {require_postcode && input("Postcode", postcode, (value) => {
                 setPostcode(value);
+                setAddressMode("lookup");
                 setSelectedAddressCoords(null);
                 setCoverageCheckPassed(false);
                 setCoverageCheckError(null);
