@@ -981,6 +981,29 @@ function formatJobDurationLabel(minutesLike: unknown): string | null {
   return `${hours}h ${remainder}m`;
 }
 
+function isAllDayJobDuration(minutesLike: unknown): boolean {
+  return minutesLike == null;
+}
+
+function formatTimeMeridiem(timeLike: string | null | undefined): string | null {
+  if (!timeLike) return null;
+  const [hh = "00", mm = "00"] = String(timeLike).split(":");
+  const h = parseInt(hh, 10);
+  if (!Number.isFinite(h)) return null;
+  const ampm = h >= 12 ? "pm" : "am";
+  const h12 = h % 12 || 12;
+  return `${h12}:${mm}${ampm}`;
+}
+
+function formatScheduledDateLine(details: JobConfirmationDetails): string {
+  const dateStr = new Date(details.scheduledDate).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  if (isAllDayJobDuration(details.jobDurationMinutes)) {
+    return `${dateStr} (All day)`;
+  }
+  const timeLabel = formatTimeMeridiem(details.scheduledTime);
+  return timeLabel ? `${dateStr} at ${timeLabel}` : dateStr;
+}
+
 export function renderJobConfirmationHtml(
   customerName: string,
   companyName: string,
@@ -988,17 +1011,9 @@ export function renderJobConfirmationHtml(
   companyDetails?: EmailCompanyDetails,
   responseLinks?: JobConfirmationResponseLinks,
 ): string {
-  const dateStr = new Date(jobDetails.scheduledDate).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-
-  let timeStr = "";
-  if (jobDetails.scheduledTime) {
-    const [hh, mm] = jobDetails.scheduledTime.split(":");
-    const h = parseInt(hh, 10);
-    const ampm = h >= 12 ? "pm" : "am";
-    const h12 = h % 12 || 12;
-    timeStr = ` at ${h12}:${mm}${ampm}`;
-  }
-  const durationLabel = formatJobDurationLabel(jobDetails.jobDurationMinutes);
+  const scheduledDateLine = formatScheduledDateLine(jobDetails);
+  const isAllDay = isAllDayJobDuration(jobDetails.jobDurationMinutes);
+  const durationLabel = isAllDay ? "All day" : formatJobDurationLabel(jobDetails.jobDurationMinutes);
 
   const contactLine = companyDetails?.phone
     ? `please contact us on <strong>${escHtml(companyDetails.phone)}</strong>${companyDetails.email ? ` or email <a href="mailto:${escHtml(companyDetails.email)}" style="color:#1d4ed8;">${escHtml(companyDetails.email)}</a>` : ""}.`
@@ -1040,14 +1055,14 @@ export function renderJobConfirmationHtml(
     <div class="info-box">
       <p><strong>Job Reference:</strong> ${escHtml(jobDetails.jobRef)}</p>
       <p><strong>Type of Work:</strong> ${escHtml(jobDetails.jobType)}</p>
-      <p><strong>Date:</strong> ${escHtml(dateStr)}${escHtml(timeStr)}</p>
+      <p><strong>Date:</strong> ${escHtml(scheduledDateLine)}</p>
       ${durationLabel ? `<p><strong>Job Duration:</strong> ${escHtml(durationLabel)}</p>` : ""}
       <p><strong>Property:</strong> ${escHtml(jobDetails.propertyAddress)}</p>
       ${jobDetails.technicianName ? `<p><strong>Engineer:</strong> ${escHtml(jobDetails.technicianName)}</p>` : ""}
     </div>
     ${responseActions}
     ${jobDetails.description ? `<p><strong>Notes:</strong> ${escHtml(jobDetails.description)}</p>` : ""}
-    <p>Please ensure there is access to the property at the scheduled time. If you need to reschedule or have any questions, ${contactLine}</p>
+    <p>Please ensure there is access to the property on the scheduled ${isAllDay ? "date" : "time"}. If you need to reschedule or have any questions, ${contactLine}</p>
     ${renderDocumentLinks(companyDetails)}
     ${contactSection}
     <hr class="divider"/>
@@ -1225,17 +1240,9 @@ export async function sendBookingPendingApprovalEmail(
   jobDetails: JobConfirmationDetails,
   companyDetails?: EmailCompanyDetails,
 ): Promise<void> {
-  const dateStr = new Date(jobDetails.scheduledDate).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-
-  let timeStr = "";
-  if (jobDetails.scheduledTime) {
-    const [hh, mm] = jobDetails.scheduledTime.split(":");
-    const h = parseInt(hh, 10);
-    const ampm = h >= 12 ? "pm" : "am";
-    const h12 = h % 12 || 12;
-    timeStr = ` at ${h12}:${mm}${ampm}`;
-  }
-  const durationLabel = formatJobDurationLabel(jobDetails.jobDurationMinutes);
+  const scheduledDateLine = formatScheduledDateLine(jobDetails);
+  const isAllDay = isAllDayJobDuration(jobDetails.jobDurationMinutes);
+  const durationLabel = isAllDay ? "All day" : formatJobDurationLabel(jobDetails.jobDurationMinutes);
 
   const contactLine = companyDetails?.phone
     ? `please contact us on <strong>${escHtml(companyDetails.phone)}</strong>${companyDetails.email ? ` or email <a href="mailto:${escHtml(companyDetails.email)}" style="color:#1d4ed8;">${escHtml(companyDetails.email)}</a>` : ""}.`
@@ -1252,7 +1259,7 @@ export async function sendBookingPendingApprovalEmail(
     <div class="info-box">
       <p><strong>Reference:</strong> ${escHtml(jobDetails.jobRef)}</p>
       <p><strong>Type of Work:</strong> ${escHtml(jobDetails.jobType)}</p>
-      <p><strong>Requested Date:</strong> ${escHtml(dateStr)}${escHtml(timeStr)}</p>
+      <p><strong>Requested Date:</strong> ${escHtml(scheduledDateLine)}</p>
       ${durationLabel ? `<p><strong>Job Duration:</strong> ${escHtml(durationLabel)}</p>` : ""}
       <p><strong>Property:</strong> ${escHtml(jobDetails.propertyAddress)}</p>
     </div>

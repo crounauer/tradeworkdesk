@@ -697,6 +697,7 @@ export default function JobDetail() {
                   <p className="font-medium text-foreground">
                     {(() => {
                       const dateOnly = String(job.scheduled_date).slice(0, 10);
+                      if (isAllDayJob) return `${formatDate(dateOnly)} (All day)`;
                       return job.scheduled_time
                         ? formatDateTime(`${dateOnly}T${job.scheduled_time}`)
                         : formatDate(dateOnly);

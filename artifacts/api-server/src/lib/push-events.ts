@@ -318,7 +318,7 @@ async function scanAppointmentsAndSla(): Promise<void> {
 
   const { data: jobs } = await supabaseAdmin
     .from("jobs")
-    .select("id, tenant_id, assigned_technician_id, scheduled_date, scheduled_time, status, priority, job_ref")
+    .select("id, tenant_id, assigned_technician_id, scheduled_date, scheduled_time, estimated_duration, status, priority, job_ref")
     .in("status", ["scheduled", "in_progress", "requires_follow_up", "awaiting_parts"])
     .not("scheduled_date", "is", null);
 
@@ -326,26 +326,44 @@ async function scanAppointmentsAndSla(): Promise<void> {
     const tenantId = String(job.tenant_id || "");
     if (!tenantId) continue;
 
-    const dueAt = parseDateTime(job.scheduled_date as string | null, job.scheduled_time as string | null);
-    if (!dueAt) continue;
-
-    const diffMs = dueAt.getTime() - now.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
     const jobRef = (job.job_ref as string | null) || String(job.id);
     const assignee = job.assigned_technician_id as string | null;
+    const isAllDay = job.estimated_duration == null;
 
-    if (diffMins >= 0 && diffMins <= 60) {
-      await notifyUsersForEvent({
-        tenantId,
-        eventType: "appointment_due",
-        title: "Appointment Due Soon",
-        body: `Job ${jobRef} is due in ${Math.max(diffMins, 0)} minutes.`,
-        url: `/jobs/${job.id}`,
-        eventKey: `job_due:${job.id}:${job.scheduled_date}:${job.scheduled_time}`,
-        targetUserIds: assignee ? [assignee] : undefined,
-        targetRoles: assignee ? undefined : ["admin", "office_staff"],
-        data: { jobId: job.id },
-      });
+    if (isAllDay) {
+      if ((job.scheduled_date as string) === today) {
+        await notifyUsersForEvent({
+          tenantId,
+          eventType: "appointment_due",
+          title: "All-Day Appointment Due",
+          body: `All-day job ${jobRef} is scheduled for today.`,
+          url: `/jobs/${job.id}`,
+          eventKey: `job_due_allday:${job.id}:${today}`,
+          targetUserIds: assignee ? [assignee] : undefined,
+          targetRoles: assignee ? undefined : ["admin", "office_staff"],
+          data: { jobId: job.id },
+        });
+      }
+    } else {
+      const dueAt = parseDateTime(job.scheduled_date as string | null, job.scheduled_time as string | null);
+      if (!dueAt) continue;
+
+      const diffMs = dueAt.getTime() - now.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+
+      if (diffMins >= 0 && diffMins <= 60) {
+        await notifyUsersForEvent({
+          tenantId,
+          eventType: "appointment_due",
+          title: "Appointment Due Soon",
+          body: `Job ${jobRef} is due in ${Math.max(diffMins, 0)} minutes.`,
+          url: `/jobs/${job.id}`,
+          eventKey: `job_due:${job.id}:${job.scheduled_date}:${job.scheduled_time}`,
+          targetUserIds: assignee ? [assignee] : undefined,
+          targetRoles: assignee ? undefined : ["admin", "office_staff"],
+          data: { jobId: job.id },
+        });
+      }
     }
 
     if ((job.scheduled_date as string) < today) {

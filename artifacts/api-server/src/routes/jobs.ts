@@ -339,12 +339,18 @@ function buildJobConfirmationEmailBodyText(opts: {
   confirmUrl?: string;
   requestChangeUrl?: string;
 }): string {
+  const isAllDay = opts.jobDurationMinutes == null;
   const durationMinutes = Number(opts.jobDurationMinutes ?? 0);
-  const durationLabel = Number.isFinite(durationMinutes) && durationMinutes > 0
+  const durationLabel = isAllDay
+    ? "All day"
+    : Number.isFinite(durationMinutes) && durationMinutes > 0
     ? (durationMinutes % 60 === 0
       ? `${durationMinutes / 60} hour${durationMinutes / 60 === 1 ? "" : "s"}`
       : `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`)
     : null;
+  const scheduledLabel = isAllDay
+    ? `${opts.scheduledDate} (All day)`
+    : `${opts.scheduledDate}${opts.scheduledTime ? ` at ${opts.scheduledTime}` : ""}`;
 
   const lines = [
     `Dear ${opts.customerName},`,
@@ -353,7 +359,7 @@ function buildJobConfirmationEmailBodyText(opts: {
     "",
     `Reference: ${opts.jobRef}`,
     `Job type: ${opts.jobTypeName}`,
-    `Scheduled date: ${opts.scheduledDate}${opts.scheduledTime ? ` at ${opts.scheduledTime}` : ""}`,
+    `Scheduled date: ${scheduledLabel}`,
     ...(durationLabel ? [`Job duration: ${durationLabel}`] : []),
   ];
 
