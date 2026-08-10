@@ -49,7 +49,23 @@ const corsOptions: cors.CorsOptions = {
   },
   credentials: true,
 };
-app.use(cors(corsOptions));
+
+// Public website endpoints are consumed from many tenant custom domains.
+// Allow browser CORS for all origins here (no credentials required).
+const publicCors: cors.CorsOptions = {
+  origin: true,
+  credentials: false,
+};
+app.use("/api/public", cors(publicCors));
+
+// Keep stricter CORS policy for authenticated/private API routes.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.path.startsWith("/api/public/")) {
+    next();
+    return;
+  }
+  cors(corsOptions)(req, res, next);
+});
 
 const registrationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
