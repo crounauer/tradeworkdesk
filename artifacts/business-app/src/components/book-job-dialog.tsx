@@ -96,6 +96,7 @@ type BookJobFormData = {
   scheduled_date: string;
   scheduled_end_date: string;
   scheduled_time: string;
+  job_duration_minutes: string;
   all_day: boolean;
   assigned_technician_id: string;
   description: string;
@@ -206,6 +207,7 @@ export function BookJobDialog({
       visit_intent: "standard",
       priority: "medium",
       scheduled_date: initialDate || todayStr,
+      job_duration_minutes: "",
       all_day: false,
       new_is_landlord: false,
     },
@@ -213,9 +215,20 @@ export function BookJobDialog({
 
   const customerMode = watch("customer_mode");
   const selectedCustomerId = watch("customer_id");
+  const selectedJobTypeId = watch("job_type_id");
   const isLandlord = watch("new_is_landlord");
   const isAllDay = watch("all_day");
+  const enteredDuration = watch("job_duration_minutes");
   const filteredProperties = properties?.filter(p => !selectedCustomerId || p.customer_id === selectedCustomerId);
+
+  useEffect(() => {
+    if (!selectedJobTypeId) return;
+    const selectedType = jobTypes.find((t) => t.id === selectedJobTypeId);
+    const selectedDuration = Number(selectedType?.booking_duration_minutes ?? 0);
+    if (Number.isFinite(selectedDuration) && selectedDuration > 0 && !enteredDuration) {
+      setValue("job_duration_minutes", String(selectedDuration), { shouldDirty: false });
+    }
+  }, [selectedJobTypeId, jobTypes, enteredDuration, setValue]);
 
   const selectedCustomer = customers?.find(c => c.id === selectedCustomerId);
   const existingCustomerEmail = selectedCustomer?.email || null;
@@ -532,9 +545,15 @@ export function BookJobDialog({
         setSubmitting(false);
         return;
       }
-      const selectedDuration = Number(selectedType.booking_duration_minutes ?? 0);
-      const estimatedDuration = Number.isFinite(selectedDuration) && selectedDuration > 0
-        ? selectedDuration
+      const durationInput = String(data.job_duration_minutes || "").trim();
+      const parsedDuration = durationInput ? Number(durationInput) : NaN;
+      if (!data.all_day && (!Number.isFinite(parsedDuration) || parsedDuration <= 0)) {
+        toast({ title: "Missing info", description: "Please enter a valid job duration in minutes.", variant: "destructive" });
+        setSubmitting(false);
+        return;
+      }
+      const estimatedDuration = Number.isFinite(parsedDuration) && parsedDuration > 0
+        ? Math.round(parsedDuration)
         : undefined;
       const technicianId = autoAssign && profile?.id
         ? profile.id
@@ -936,6 +955,11 @@ export function BookJobDialog({
                         setShowAddJobTypeInline(false);
                         setNewJobTypeName("");
                         setValue("job_type_id", value, { shouldValidate: true, shouldDirty: true });
+                        const selectedType = jobTypes.find((t) => t.id === value);
+                        const selectedDuration = Number(selectedType?.booking_duration_minutes ?? 0);
+                        if (Number.isFinite(selectedDuration) && selectedDuration > 0) {
+                          setValue("job_duration_minutes", String(selectedDuration), { shouldValidate: true, shouldDirty: true });
+                        }
                       }}
                     >
                       <option value="">Select type...</option>
@@ -1015,6 +1039,29 @@ export function BookJobDialog({
                   <div className="space-y-1.5">
                     <Label>Time</Label>
                     <Input type="time" {...register("scheduled_time")} disabled={isAllDay} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Job Duration (minutes)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={5}
+                      placeholder="e.g. 60"
+                      {...register("job_duration_minutes")}
+                      disabled={isAllDay}
+                    />
+                    {selectedJobTypeId && (
+                      <p className="text-xs text-muted-foreground">
+                        {(() => {
+                          const selectedType = jobTypes.find((t) => t.id === selectedJobTypeId);
+                          const selectedDuration = Number(selectedType?.booking_duration_minutes ?? 0);
+                          if (Number.isFinite(selectedDuration) && selectedDuration > 0) {
+                            return `Default from job type: ${selectedDuration} min (editable)`;
+                          }
+                          return "No default duration on this job type - set one manually.";
+                        })()}
+                      </p>
+                    )}
                   </div>
                   {isAdminOrOffice && !autoAssign && (
                     <div className="space-y-1.5">

@@ -289,6 +289,7 @@ function getCompactJobTimeLabel(job: CalendarJob): string {
 
 function CompactJobCardContent({ job, timeLabel }: { job: CalendarJob; timeLabel: string }) {
   const allDay = isAllDayJob(job);
+  const durationText = allDay ? null : durationLabel(getJobDurationMinutes(job));
   return (
     <div className="space-y-0.5 min-w-0">
       <div className="flex items-start justify-between gap-2 min-w-0">
@@ -301,6 +302,11 @@ function CompactJobCardContent({ job, timeLabel }: { job: CalendarJob; timeLabel
       {allDay && (
         <div className="ml-3.5">
           <span className="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-100 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-800">All-day</span>
+        </div>
+      )}
+      {durationText && (
+        <div className="ml-3.5 text-[10px] font-medium opacity-75">
+          Duration: {durationText}
         </div>
       )}
       {job.property_address && (
