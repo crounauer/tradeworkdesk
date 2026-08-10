@@ -466,10 +466,10 @@ async function getAvailableSlots(
       .gte("date", fromDate)
       .lte("date", toDate),
     db.from("jobs")
-      .select("scheduled_date, scheduled_time, estimated_duration, status, assigned_technician_id")
+      .select("scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, status, assigned_technician_id")
       .eq("tenant_id", tenantId)
-      .gte("scheduled_date", fromDate)
       .lte("scheduled_date", toDate)
+      .or(`scheduled_date.gte.${fromDate},scheduled_end_date.gte.${fromDate}`)
       .not("scheduled_time", "is", null),
     db.from("profiles")
       .select("id")
@@ -498,7 +498,7 @@ async function getAvailableSlots(
   const minAdvanceMs: number = minAdvanceHours * 60 * 60 * 1000;
 
   const existingBookings: { scheduled_start: string; scheduled_end: string }[] = bookingsResult.data || [];
-  const existingJobs: { scheduled_date: string; scheduled_time: string | null; estimated_duration: number | null; status: string | null; assigned_technician_id: string | null }[] = jobsResult.data || [];
+  const existingJobs: { scheduled_date: string; scheduled_end_date: string | null; scheduled_time: string | null; estimated_duration: number | null; status: string | null; assigned_technician_id: string | null }[] = jobsResult.data || [];
   const overrides: { date: string; start_time: string | null; end_time: string | null; type: string }[] = overridesResult.data || [];
   const assignableEngineers: { id: string }[] = assignableEngineersResult.data || [];
   const holidays: { technician_id: string | null; holiday_type?: string | null; start_date: string; end_date: string; start_time?: string | null; end_time?: string | null }[] = holidaysResult.data || [];
@@ -516,6 +516,13 @@ async function getAvailableSlots(
     const startMs = new Date(startIso).getTime() - buffer * 60000;
     const endMs = new Date(endIso).getTime() + buffer * 60000;
     return slotStartMs < endMs && slotEndMs > startMs;
+  }
+
+  function jobSpansDate(job: { scheduled_date: string; scheduled_end_date: string | null }, dateStr: string): boolean {
+    const jobStartDate = String(job.scheduled_date || "").slice(0, 10);
+    const jobEndDate = String(job.scheduled_end_date || job.scheduled_date || "").slice(0, 10);
+    if (!jobStartDate || !jobEndDate) return false;
+    return jobStartDate <= dateStr && jobEndDate >= dateStr;
   }
 
   function isBlockingHolidayType(type: string | null | undefined): boolean {
@@ -599,6 +606,15 @@ async function getAvailableSlots(
         const status = (j.status || "").toLowerCase();
         if (status === "cancelled" || status === "completed") return false;
 
+        if (!jobSpansDate(j, dateStr)) return false;
+
+        const spansMultipleDays = Boolean(j.scheduled_end_date && String(j.scheduled_end_date).slice(0, 10) > String(j.scheduled_date).slice(0, 10));
+        if (spansMultipleDays) {
+          const dayStartMs = localDateTimeToUtc(dateStr, "00:00").getTime() - buffer * 60000;
+          const dayEndMs = localDateTimeToUtc(dateStr, "23:59").getTime() + buffer * 60000 + 60000;
+          return slotStartMs < dayEndMs && slotEndMs > dayStartMs;
+        }
+
         const durationMinutes = Number(j.estimated_duration || serviceDurationMinutes || slotDuration || 60);
         const jStart = localDateTimeToUtc(j.scheduled_date, j.scheduled_time).getTime() - buffer * 60000;
         const jEnd = jStart + (durationMinutes + (buffer * 2)) * 60000;
@@ -656,9 +672,10 @@ async function selectAvailableEngineerForSlot(args: {
       .lte("start_date", dateStr)
       .gte("end_date", dateStr),
     db.from("jobs")
-      .select("assigned_technician_id, scheduled_date, scheduled_time, estimated_duration, status")
+      .select("assigned_technician_id, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, status")
       .eq("tenant_id", tenantId)
-      .eq("scheduled_date", dateStr)
+      .lte("scheduled_date", dateStr)
+      .or(`scheduled_date.eq.${dateStr},scheduled_end_date.gte.${dateStr}`)
       .not("scheduled_time", "is", null),
   ]);
 
@@ -687,9 +704,16 @@ async function selectAvailableEngineerForSlot(args: {
       .filter((id): id is string => Boolean(id)),
   );
 
-  const jobs: Array<{ assigned_technician_id: string | null; scheduled_date: string; scheduled_time: string | null; estimated_duration: number | null; status: string | null }> = jobsResult.data || [];
+  const jobs: Array<{ assigned_technician_id: string | null; scheduled_date: string; scheduled_end_date: string | null; scheduled_time: string | null; estimated_duration: number | null; status: string | null }> = jobsResult.data || [];
   const slotStartMs = slotStart.getTime();
   const slotEndMs = slotEnd.getTime();
+
+  function jobSpansDate(job: { scheduled_date: string; scheduled_end_date: string | null }, localDate: string): boolean {
+    const jobStartDate = String(job.scheduled_date || "").slice(0, 10);
+    const jobEndDate = String(job.scheduled_end_date || job.scheduled_date || "").slice(0, 10);
+    if (!jobStartDate || !jobEndDate) return false;
+    return jobStartDate <= localDate && jobEndDate >= localDate;
+  }
 
   const availableEngineerIds = engineers
     .map((engineer) => engineer.id)
@@ -699,6 +723,12 @@ async function selectAvailableEngineerForSlot(args: {
         if (job.assigned_technician_id !== id || !job.scheduled_time) return false;
         const status = (job.status || "").toLowerCase();
         if (status === "cancelled" || status === "completed") return false;
+
+        if (!jobSpansDate(job, dateStr)) return false;
+
+        const spansMultipleDays = Boolean(job.scheduled_end_date && String(job.scheduled_end_date).slice(0, 10) > String(job.scheduled_date).slice(0, 10));
+        if (spansMultipleDays) return true;
+
         const jobDurationMinutes = Number(job.estimated_duration || durationMinutes || 60);
         const jobStart = localDateTimeToUtc(job.scheduled_date, job.scheduled_time).getTime();
         const jobEnd = jobStart + (Math.max(1, jobDurationMinutes) * 60000);
