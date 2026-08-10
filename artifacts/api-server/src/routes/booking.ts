@@ -130,6 +130,21 @@ function getLocalWeekdayIndex(date: Date, timeZone = BUSINESS_TIMEZONE): number 
   return parseWeekdayIndex(weekday);
 }
 
+function getLocalTimeString(date: Date, timeZone = BUSINESS_TIMEZONE): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const hour = parts.find((p) => p.type === "hour")?.value;
+  const minute = parts.find((p) => p.type === "minute")?.value;
+  if (!hour || !minute) {
+    throw new Error("Unable to format local time string");
+  }
+  return `${hour}:${minute}`;
+}
+
 function parseTimezoneOffsetMinutes(offsetLabel: string): number {
   if (offsetLabel === "GMT" || offsetLabel === "UTC") return 0;
   const match = offsetLabel.match(/^(?:GMT|UTC)([+-])(\d{1,2})(?::?(\d{2}))?$/i);
@@ -217,6 +232,22 @@ function splitContactName(fullName: string): { firstName: string; lastName: stri
   };
 }
 
+function parseCustomerAddressParts(addressRaw: string | null | undefined): { addressLine1: string; addressLine2: string | null; city: string | null } {
+  const raw = String(addressRaw || "").trim();
+  if (!raw) return { addressLine1: "", addressLine2: null, city: null };
+
+  const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length === 0) return { addressLine1: raw, addressLine2: null, city: null };
+  if (parts.length === 1) return { addressLine1: parts[0], addressLine2: null, city: null };
+  if (parts.length === 2) return { addressLine1: parts[0], addressLine2: null, city: parts[1] };
+
+  return {
+    addressLine1: parts[0],
+    addressLine2: parts.slice(1, -1).join(", ") || null,
+    city: parts[parts.length - 1] || null,
+  };
+}
+
 async function ensureBookingCustomerAndProperty(args: {
   tenantId: string;
   customerName: string;
@@ -240,7 +271,10 @@ async function ensureBookingCustomerAndProperty(args: {
 
   const email = (customerEmail || "").trim().toLowerCase() || null;
   const phone = (customerPhone || "").trim() || null;
-  const addressLine1 = (customerAddress || "").trim() || "Online Booking Address";
+  const parsedAddress = parseCustomerAddressParts(customerAddress);
+  const addressLine1 = parsedAddress.addressLine1 || "Online Booking Address";
+  const addressLine2 = parsedAddress.addressLine2;
+  const city = parsedAddress.city;
   const postcode = (customerPostcode || "").trim() || null;
 
   let customerId: string | null = null;
@@ -286,6 +320,8 @@ async function ensureBookingCustomerAndProperty(args: {
       email,
       phone,
       address_line1: addressLine1,
+      address_line2: addressLine2,
+      city,
       postcode,
       is_active: true,
     }).select("id").single();
@@ -317,6 +353,8 @@ async function ensureBookingCustomerAndProperty(args: {
       tenant_id: tenantId,
       customer_id: customerId,
       address_line1: addressLine1,
+      address_line2: addressLine2,
+      city,
       postcode,
       latitude: Number.isFinite(propertyLatitude ?? NaN) ? propertyLatitude : null,
       longitude: Number.isFinite(propertyLongitude ?? NaN) ? propertyLongitude : null,
@@ -1040,6 +1078,7 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
   const bookingRecord = booking as {
     id: string;
     job_id?: string | null;
+    service_catalogue_id?: string | null;
     customer_name: string | null;
     customer_email: string | null;
     customer_phone: string | null;
@@ -1089,8 +1128,10 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
 
     let jobId = bookingRecord.job_id || null;
     let jobRef: string | null = null;
-    const scheduledDate = bookingRecord.scheduled_start ? new Date(bookingRecord.scheduled_start).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
-    const scheduledTime = bookingRecord.scheduled_start ? new Date(bookingRecord.scheduled_start).toTimeString().slice(0, 5) : null;
+    const scheduledStartDate = bookingRecord.scheduled_start ? new Date(bookingRecord.scheduled_start) : new Date();
+    const scheduledDate = getLocalDateString(scheduledStartDate);
+    const scheduledTime = bookingRecord.scheduled_start ? getLocalTimeString(scheduledStartDate) : null;
+    const selectedServiceCatalogueId = bookingRecord.service_catalogue_id || null;
     const pendingNotes = stripBookingGeoMetadata(bookingRecord.notes);
     const pendingDescription = buildOnlineBookingDescription(pendingNotes);
     let confirmationDescription = stripOnlineBookingDescriptionPrefix(pendingDescription);
@@ -1192,7 +1233,7 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
       }
     } else if (jobId) {
       const { data: existingJob } = await db.from("jobs")
-        .select("job_ref, scheduled_date, scheduled_time, description, assigned_technician_id")
+        .select("job_ref, scheduled_date, scheduled_time, description, assigned_technician_id, service_catalogue_id")
         .eq("id", jobId)
         .eq("tenant_id", req.tenantId)
         .maybeSingle();
@@ -1200,12 +1241,24 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
       jobRef = (existingJob as { job_ref?: string | null } | null)?.job_ref || null;
       confirmationDescription = stripOnlineBookingDescriptionPrefix((existingJob as { description?: string | null } | null)?.description || pendingDescription);
 
+      const linkedJobUpdate: Record<string, unknown> = {
+        scheduled_date: scheduledDate,
+        scheduled_time: scheduledTime,
+        estimated_duration: safeDurationMinutes,
+      };
+
       if (!(existingJob as { assigned_technician_id?: string | null } | null)?.assigned_technician_id && selectedTechnicianId) {
-        await db.from("jobs")
-          .update({ assigned_technician_id: selectedTechnicianId, estimated_duration: safeDurationMinutes })
-          .eq("id", jobId)
-          .eq("tenant_id", req.tenantId);
+        linkedJobUpdate.assigned_technician_id = selectedTechnicianId;
       }
+
+      if (selectedServiceCatalogueId) {
+        linkedJobUpdate.service_catalogue_id = selectedServiceCatalogueId;
+      }
+
+      await db.from("jobs")
+        .update(linkedJobUpdate)
+        .eq("id", jobId)
+        .eq("tenant_id", req.tenantId);
     }
 
     if (settings?.confirmation_email_enabled !== false && bookingRecord.customer_email) {

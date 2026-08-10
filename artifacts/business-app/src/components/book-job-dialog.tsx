@@ -129,6 +129,7 @@ interface BookJobDialogProps {
     customer_phone?: string | null;
     customer_address?: string | null;
     customer_postcode?: string | null;
+    service_catalogue_id?: string | null;
     notes?: string | null;
     scheduled_start?: string | null;
   };
@@ -345,18 +346,39 @@ export function BookJobDialog({
     };
 
     const { firstName, lastName } = splitName(initialBookingPrefill.customer_name || "");
+    const parseAddress = (addressRaw: string) => {
+      const parts = addressRaw.split(",").map((part) => part.trim()).filter(Boolean);
+      if (parts.length === 0) return { line1: "", line2: "", city: "" };
+      if (parts.length === 1) return { line1: parts[0], line2: "", city: "" };
+      if (parts.length === 2) return { line1: parts[0], line2: "", city: parts[1] };
+      return {
+        line1: parts[0],
+        line2: parts.slice(1, -1).join(", "),
+        city: parts[parts.length - 1],
+      };
+    };
     const cleanNotes = String(initialBookingPrefill.notes || "").replace(/\n?\[BOOKING_GEO\][^\n]+/g, "").trim();
     const scheduled = initialBookingPrefill.scheduled_start ? new Date(initialBookingPrefill.scheduled_start) : null;
-    const dateStr = scheduled && !Number.isNaN(scheduled.getTime()) ? scheduled.toISOString().slice(0, 10) : undefined;
-    const timeStr = scheduled && !Number.isNaN(scheduled.getTime()) ? scheduled.toISOString().slice(11, 16) : undefined;
+    const dateStr = scheduled && !Number.isNaN(scheduled.getTime())
+      ? `${scheduled.getFullYear()}-${String(scheduled.getMonth() + 1).padStart(2, "0")}-${String(scheduled.getDate()).padStart(2, "0")}`
+      : undefined;
+    const timeStr = scheduled && !Number.isNaN(scheduled.getTime())
+      ? `${String(scheduled.getHours()).padStart(2, "0")}:${String(scheduled.getMinutes()).padStart(2, "0")}`
+      : undefined;
+    const parsedAddress = parseAddress(initialBookingPrefill.customer_address || "");
 
     setValue("customer_mode", "new");
     setValue("new_first_name", firstName);
     setValue("new_last_name", lastName);
     setValue("new_email", initialBookingPrefill.customer_email || "");
     setValue("new_phone", initialBookingPrefill.customer_phone || "");
-    setValue("new_address_line1", initialBookingPrefill.customer_address || "");
+    setValue("new_address_line1", parsedAddress.line1 || initialBookingPrefill.customer_address || "");
+    setValue("new_address_line2", parsedAddress.line2 || "");
+    setValue("new_city", parsedAddress.city || "");
     setValue("new_postcode", initialBookingPrefill.customer_postcode || "");
+    if (initialBookingPrefill.service_catalogue_id) {
+      setValue("job_type_id", initialBookingPrefill.service_catalogue_id);
+    }
     if (cleanNotes) setValue("description", cleanNotes);
     if (dateStr) setValue("scheduled_date", dateStr);
     if (timeStr) setValue("scheduled_time", timeStr);

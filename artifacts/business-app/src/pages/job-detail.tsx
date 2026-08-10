@@ -468,8 +468,7 @@ export default function JobDetail() {
           </div>
           <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             <span>{displayScheduledSummary}</span>
-            <span>{displayDuration}</span>
-            <span className="font-medium">{displayPriority}</span>
+            {!isAllDayJob && <span>{displayDuration}</span>}
           </div>
           {fromQuoteId && (
             <button

@@ -38,6 +38,7 @@ async function apiFetch(url: string, opts?: RequestInit) {
 
 interface Booking {
   id: string;
+  service_catalogue_id?: string | null;
   scheduled_start: string;
   scheduled_end: string;
   customer_name: string;
@@ -65,10 +66,34 @@ export default function Bookings() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("all");
+  const [viewingDay, setViewingDay] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [reopeningId, setReopeningId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [convertingBooking, setConvertingBooking] = useState<Booking | null>(null);
+
+  const { data: daySnapshot, isFetching: loadingDaySnapshot } = useQuery<{
+    jobs: Array<{
+      id: string;
+      customer_name?: string | null;
+      technician_name?: string | null;
+      status?: string | null;
+      scheduled_time?: string | null;
+      estimated_duration?: number | null;
+      scheduled_date?: string | null;
+    }>;
+    holidays: Array<{
+      id: string;
+      name: string;
+      start_time?: string | null;
+      end_time?: string | null;
+      technician_name?: string | null;
+    }>;
+  }>({
+    queryKey: ["/api/calendar/day-snapshot", viewingDay],
+    enabled: !!viewingDay,
+    queryFn: () => apiFetch(`/api/calendar?date_from=${viewingDay}&date_to=${viewingDay}`),
+  });
 
   const { data: bookings = [], isLoading } = useQuery<Booking[]>({
     queryKey: ["/api/booking/bookings", statusFilter],
@@ -148,6 +173,83 @@ export default function Bookings() {
         </Select>
       </div>
 
+      {viewingDay && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-sm text-muted-foreground">Day Snapshot</p>
+                <p className="font-semibold">{format(new Date(`${viewingDay}T00:00:00`), "EEEE d MMM yyyy")}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link href={`/schedule?view=day&date=${viewingDay}`}>
+                  <Button size="sm" variant="outline">Open Full Day View</Button>
+                </Link>
+                <Button size="sm" variant="ghost" onClick={() => setViewingDay(null)}>Close</Button>
+              </div>
+            </div>
+
+            {loadingDaySnapshot ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" /> Loading day details...
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {(daySnapshot?.jobs?.length || 0) === 0 && (daySnapshot?.holidays?.length || 0) === 0 && (
+                  <p className="text-sm text-muted-foreground">No jobs or holidays recorded for this date.</p>
+                )}
+
+                {(daySnapshot?.jobs?.length || 0) > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Jobs</p>
+                    {daySnapshot!.jobs
+                      .slice()
+                      .sort((a, b) => (a.scheduled_time || "99:99").localeCompare(b.scheduled_time || "99:99"))
+                      .map((job) => {
+                        const isAllDay = job.estimated_duration == null;
+                        const timeLabel = isAllDay
+                          ? "All day"
+                          : (job.scheduled_time ? job.scheduled_time.slice(0, 5) : "No time");
+                        return (
+                          <div key={job.id} className="rounded-md border px-3 py-2 text-sm flex items-center justify-between gap-2 flex-wrap">
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{job.customer_name || "Customer"}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {job.technician_name || "Unassigned"} · {job.status || "scheduled"}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="text-xs">{timeLabel}</Badge>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+
+                {(daySnapshot?.holidays?.length || 0) > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Holidays</p>
+                    {daySnapshot!.holidays.map((holiday) => {
+                      const holidayLabel = holiday.start_time && holiday.end_time
+                        ? `${holiday.start_time.slice(0, 5)}-${holiday.end_time.slice(0, 5)}`
+                        : "All day";
+                      return (
+                        <div key={holiday.id} className="rounded-md border px-3 py-2 text-sm flex items-center justify-between gap-2 flex-wrap">
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{holiday.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{holiday.technician_name || "All technicians"}</p>
+                          </div>
+                          <Badge variant="secondary" className="text-xs">{holidayLabel}</Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : bookings.length === 0 ? (
@@ -193,9 +295,16 @@ export default function Bookings() {
                     {b.notes && <p className="text-xs text-muted-foreground italic">{b.notes}</p>}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <Link href={`/schedule?view=day&date=${new Date(b.scheduled_start).toISOString().slice(0, 10)}`}>
-                      <Button size="sm" variant="outline">View Day</Button>
-                    </Link>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const day = new Date(b.scheduled_start).toISOString().slice(0, 10);
+                        setViewingDay((current) => current === day ? null : day);
+                      }}
+                    >
+                      View Day
+                    </Button>
                     {b.status === "pending" && (
                       <Button size="sm" variant="outline" onClick={() => setConvertingBooking(b)}>
                         <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-600" /> Convert to Job
@@ -292,6 +401,7 @@ export default function Bookings() {
           customer_phone: convertingBooking.customer_phone,
           customer_address: convertingBooking.customer_address,
           customer_postcode: convertingBooking.customer_postcode,
+          service_catalogue_id: convertingBooking.service_catalogue_id,
           notes: String(convertingBooking.notes || "").replace(/\n?\[BOOKING_GEO\][^\n]+/g, "").trim() || null,
           scheduled_start: convertingBooking.scheduled_start,
         } : undefined}
