@@ -138,6 +138,7 @@ function formatTimeFromMinutes(totalMinutes: number): string {
 }
 
 function getJobTimeRangeLabel(job: CalendarJob): string {
+  if (isAllDayJob(job)) return "All day";
   if (!job.scheduled_time) return "No time";
   const start = parseHourMinute(job.scheduled_time);
   const startLabel = formatTime(job.scheduled_time);
@@ -276,12 +277,18 @@ function getJobTypeDisplay(job: CalendarJob): { label: string; intent: "standard
   return { label, intent: explicitIntent || inferredIntent };
 }
 
+function isAllDayJob(job: CalendarJob): boolean {
+  return job.estimated_duration == null;
+}
+
 function getCompactJobTimeLabel(job: CalendarJob): string {
+  if (isAllDayJob(job)) return "All day";
   if (!job.scheduled_time) return "No time";
   return formatTime(job.scheduled_time);
 }
 
 function CompactJobCardContent({ job, timeLabel }: { job: CalendarJob; timeLabel: string }) {
+  const allDay = isAllDayJob(job);
   return (
     <div className="space-y-0.5 min-w-0">
       <div className="flex items-start justify-between gap-2 min-w-0">
@@ -291,6 +298,11 @@ function CompactJobCardContent({ job, timeLabel }: { job: CalendarJob; timeLabel
         </div>
         <span className="text-xs font-medium opacity-80 shrink-0 whitespace-nowrap">{timeLabel}</span>
       </div>
+      {allDay && (
+        <div className="ml-3.5">
+          <span className="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-100 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-800">All-day</span>
+        </div>
+      )}
       {job.property_address && (
         <div className="ml-3.5 text-xs opacity-70 truncate">
           {job.property_address}
@@ -1126,7 +1138,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                                   <div className="flex items-center gap-2 min-w-0">
                                     <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[job.priority] || "bg-slate-400"}`} />
                                     <span className="text-sm font-semibold truncate">{job.customer_name || "Unknown"} (continues)</span>
-                                    <span className="ml-auto text-xs opacity-80 shrink-0">{getSlotRangeLabel(slotStart, daySlotMinutes)}</span>
+                                    <span className="ml-auto text-xs opacity-80 shrink-0">{isAllDayJob(job) ? "All day" : getSlotRangeLabel(slotStart, daySlotMinutes)}</span>
                                   </div>
                                 ) : (
                                   <div className="h-2 rounded bg-current/20" />

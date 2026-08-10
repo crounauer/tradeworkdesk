@@ -209,7 +209,8 @@ export default function JobDetail() {
   const displayPriority = String(rawPriority)
     .replace(/_/g, " ")
     .replace(/\b\w/g, (ch) => ch.toUpperCase());
-  const displayDuration = formatJobDuration(jobRecord.estimated_duration);
+  const isAllDayJob = jobRecord.estimated_duration == null;
+  const displayDuration = isAllDayJob ? "All day" : formatJobDuration(jobRecord.estimated_duration);
   const jobRef = typeof jobRecord.job_ref === "string" ? jobRecord.job_ref : null;
   const customerRecord = (jobRecord.customer as Record<string, unknown> | undefined) || undefined;
   const customerDisplayName = `${String(customerRecord?.first_name || "")} ${String(customerRecord?.last_name || "")}`.trim() || "Customer";
@@ -220,6 +221,9 @@ export default function JobDetail() {
       ? formatDateTime(`${scheduledDateOnly}T${scheduledTime}`)
       : formatDate(scheduledDateOnly))
     : "Date not set";
+  const displayScheduledSummary = isAllDayJob && scheduledDateOnly
+    ? `${formatDate(scheduledDateOnly)} (All day)`
+    : scheduledSummary;
   const fromQuoteId = typeof jobRecord.from_quote_id === "string" ? jobRecord.from_quote_id : null;
   const customerConfirmationStatus =
     typeof jobRecord.customer_confirmation_status === "string"
@@ -458,9 +462,12 @@ export default function JobDetail() {
             {isOperationalAwaitingParts && (
               <span className="inline-flex items-center rounded-md border border-orange-200 bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800">Awaiting Parts</span>
             )}
+            {isAllDayJob && (
+              <span className="inline-flex items-center rounded-md border border-cyan-200 bg-cyan-100 px-2.5 py-1 text-xs font-semibold text-cyan-800">All Day</span>
+            )}
           </div>
           <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-            <span>{scheduledSummary}</span>
+            <span>{displayScheduledSummary}</span>
             <span>{displayDuration}</span>
             <span className="font-medium">{displayPriority}</span>
           </div>
