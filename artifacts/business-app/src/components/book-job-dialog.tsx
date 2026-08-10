@@ -1069,7 +1069,7 @@ export function BookJobDialog({
                     <Input
                       type="number"
                       min={1}
-                      step={5}
+                      step={1}
                       placeholder="e.g. 60"
                       {...register("job_duration_minutes")}
                       disabled={isAllDay}
