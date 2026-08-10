@@ -1334,12 +1334,6 @@ publicRouter.post("/public/booking/:tenantId/postcode-lookup", postcodeLookupLim
   }
   const normalizedPostcode = normalizeUKPostcode(postcode);
 
-  const addonActive = await hasActiveAddon(tenantId, "uk_address_lookup");
-  if (!addonActive) {
-    res.status(402).json({ error: "UK Address Lookup add-on required. Contact your administrator to activate this feature." });
-    return;
-  }
-
   const creditInfo = await getAddonCredits(tenantId, "uk_address_lookup");
   if (creditInfo !== null && creditInfo.credits_remaining <= 0) {
     res.status(402).json({
