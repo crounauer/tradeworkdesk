@@ -469,8 +469,7 @@ async function getAvailableSlots(
       .select("scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, status, assigned_technician_id")
       .eq("tenant_id", tenantId)
       .lte("scheduled_date", toDate)
-      .or(`scheduled_date.gte.${fromDate},scheduled_end_date.gte.${fromDate}`)
-      .not("scheduled_time", "is", null),
+      .or(`scheduled_date.gte.${fromDate},scheduled_end_date.gte.${fromDate}`),
     db.from("profiles")
       .select("id")
       .eq("tenant_id", tenantId)
@@ -602,11 +601,13 @@ async function getAvailableSlots(
       ).length;
 
       const overlappingJobs = existingJobs.filter((j) => {
-        if (!j.scheduled_time) return false;
         const status = (j.status || "").toLowerCase();
         if (status === "cancelled" || status === "completed") return false;
 
         if (!jobSpansDate(j, dateStr)) return false;
+
+        // Jobs without a start time are treated as all-day and block this entire date.
+        if (!j.scheduled_time) return true;
 
         const spansMultipleDays = Boolean(j.scheduled_end_date && String(j.scheduled_end_date).slice(0, 10) > String(j.scheduled_date).slice(0, 10));
         if (spansMultipleDays) {
@@ -678,8 +679,7 @@ async function selectAvailableEngineerForSlot(args: {
       .select("assigned_technician_id, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, status")
       .eq("tenant_id", tenantId)
       .lte("scheduled_date", dateStr)
-      .or(`scheduled_date.eq.${dateStr},scheduled_end_date.gte.${dateStr}`)
-      .not("scheduled_time", "is", null),
+      .or(`scheduled_date.eq.${dateStr},scheduled_end_date.gte.${dateStr}`),
   ]);
 
   const engineers: Array<{ id: string }> = engineersResult.data || [];
@@ -723,11 +723,14 @@ async function selectAvailableEngineerForSlot(args: {
     .filter((id) => !engineerHolidayIds.has(id))
     .filter((id) => {
       const hasConflict = jobs.some((job) => {
-        if (job.assigned_technician_id !== id || !job.scheduled_time) return false;
+        if (job.assigned_technician_id !== id) return false;
         const status = (job.status || "").toLowerCase();
         if (status === "cancelled" || status === "completed") return false;
 
         if (!jobSpansDate(job, dateStr)) return false;
+
+        // Jobs without a start time are treated as all-day and block this technician for the date.
+        if (!job.scheduled_time) return true;
 
         const spansMultipleDays = Boolean(job.scheduled_end_date && String(job.scheduled_end_date).slice(0, 10) > String(job.scheduled_date).slice(0, 10));
         if (spansMultipleDays) return true;
