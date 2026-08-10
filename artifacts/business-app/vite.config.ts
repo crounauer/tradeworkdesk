@@ -16,6 +16,7 @@ export default defineConfig({
   base: basePath,
   plugins: [react(), tailwindcss(), VitePWA({
     registerType: "autoUpdate",
+    injectRegister: null,
     includeAssets: ["favicon-32.png", "apple-touch-icon.png", "icon-192.png", "icon-512.png"],
     manifest: {
       name: "TradeWorkDesk",

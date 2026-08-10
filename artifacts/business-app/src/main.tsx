@@ -39,9 +39,18 @@ import { HelmetProvider } from "react-helmet-async";
 import App from "./App";
 import "./index.css";
 
-// Do not force-reload when a service worker takes control.
-// Automatic reloads were causing disruptive page refreshes shortly after navigation.
+// Register the service worker with proper error handling.
+// vite-plugin-pwa injectRegister is disabled so we control the registration here.
 if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .catch(() => {
+        // SW load can fail on poor connections (especially iOS Safari PWA wake-up).
+        // This is non-fatal; the app works without a service worker.
+      });
+  });
+
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     // Intentionally no hard reload.
     // Users can refresh manually if they need to pick up new assets immediately.

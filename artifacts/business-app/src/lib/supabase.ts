@@ -7,4 +7,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn("Supabase credentials missing. App will not function correctly.");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Bypass Web Locks API to prevent AbortError on Safari when tabs are backgrounded
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    lock: (_name, _acquireTimeout, fn) => fn(),
+  },
+});
