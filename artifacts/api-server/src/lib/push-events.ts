@@ -62,7 +62,8 @@ async function listTenantUsersSafe(tenantId: string): Promise<TenantUser[]> {
   const fullFields = await supabaseAdmin
     .from("profiles")
     .select("id, full_name, email, role, is_active")
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", tenantId)
+    .neq("role", "super_admin");
 
   if (!fullFields.error) {
     return (fullFields.data ?? []) as TenantUser[];
@@ -76,7 +77,8 @@ async function listTenantUsersSafe(tenantId: string): Promise<TenantUser[]> {
   const withoutActive = await supabaseAdmin
     .from("profiles")
     .select("id, full_name, email, role")
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", tenantId)
+    .neq("role", "super_admin");
 
   if (!withoutActive.error) {
     return ((withoutActive.data ?? []) as Array<Omit<TenantUser, "is_active">>).map((u) => ({
@@ -93,7 +95,8 @@ async function listTenantUsersSafe(tenantId: string): Promise<TenantUser[]> {
   const minimal = await supabaseAdmin
     .from("profiles")
     .select("id, full_name, role")
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", tenantId)
+    .neq("role", "super_admin");
 
   if (minimal.error) {
     throw new Error(minimal.error.message);
