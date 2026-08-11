@@ -719,7 +719,15 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               <StatusBadge status={invoice.status} />
             </div>
             <p className="text-sm text-muted-foreground">
-              {isInvoice ? "Invoice" : "Quote"} for {customerName}
+              {isInvoice ? "Invoice" : "Quote"} for{" "}
+              {invoice.customer_id ? (
+                <button
+                  className="text-primary hover:underline font-medium"
+                  onClick={() => navigate(`/customers/${invoice.customer_id}`)}
+                >
+                  {customerName}
+                </button>
+              ) : customerName}
             </p>
           </div>
         </div>
