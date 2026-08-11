@@ -27,6 +27,7 @@ type CalendarJob = {
   scheduled_date: string | Date;
   scheduled_time?: string | null;
   estimated_duration?: number | null;
+  all_day?: boolean | null;
   scheduled_end_date?: string | null;
   description?: string | null;
 };
@@ -126,7 +127,7 @@ function durationLabel(minutes: number): string {
 }
 
 function getJobDurationMinutes(job: CalendarJob): number {
-  if (job.estimated_duration == null) return 24 * 60;
+  if (job.all_day === true || job.estimated_duration == null) return 24 * 60;
   const parsed = Number(job.estimated_duration ?? 60);
   if (!Number.isFinite(parsed) || parsed <= 0) return 60;
   return parsed;
@@ -286,7 +287,7 @@ function getJobTypeDisplay(job: CalendarJob): { label: string; intent: "standard
 }
 
 function isAllDayJob(job: CalendarJob): boolean {
-  return job.estimated_duration == null;
+  return Boolean(job.all_day) || job.estimated_duration == null;
 }
 
 function getCompactJobTimeLabel(job: CalendarJob): string {

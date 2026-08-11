@@ -3,7 +3,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, requireRole, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 
 const CALENDAR_JOB_FIELDS =
-  "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, visit_intent, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, customer_confirmation_status, customer_confirmed_at, customer_change_requested_at, created_at, updated_at, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)";
+  "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, visit_intent, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, all_day, arrival_time, departure_time, customer_confirmation_status, customer_confirmed_at, customer_change_requested_at, created_at, updated_at, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)";
 
 const PROFILE_FIELDS =
   "id, email, full_name, role, phone, tenant_id, is_active, created_at, updated_at";
@@ -25,6 +25,7 @@ interface CalendarJobRow {
   scheduled_end_date: string | null;
   scheduled_time: string | null;
   estimated_duration: number | null;
+  all_day?: boolean | null;
   arrival_time: string | null;
   departure_time: string | null;
   customer_confirmation_status?: "pending" | "confirmed" | "change_requested" | null;
@@ -296,14 +297,19 @@ router.get("/calendar", requireAuth, requireTenant, async (req: AuthenticatedReq
   const serviceDurationMap = new Map(serviceRows.map((s) => [s.id, s.booking_duration_minutes ?? null]));
 
   const jobs = ((jobsRes.data as unknown as CalendarJobRow[] || [])).map((j) => {
+    const isAllDayJob = j.all_day === true || j.estimated_duration == null;
     const mappedDuration = j.service_catalogue_id ? (serviceDurationMap.get(j.service_catalogue_id) ?? null) : null;
-    const estimatedDuration =
-      Number.isFinite(Number(j.estimated_duration)) && Number(j.estimated_duration) > 0
-        ? Number(j.estimated_duration)
-        : (Number.isFinite(Number(mappedDuration)) && Number(mappedDuration) > 0 ? Number(mappedDuration) : null);
+    const estimatedDuration = isAllDayJob
+      ? null
+      : (
+        Number.isFinite(Number(j.estimated_duration)) && Number(j.estimated_duration) > 0
+          ? Number(j.estimated_duration)
+          : (Number.isFinite(Number(mappedDuration)) && Number(mappedDuration) > 0 ? Number(mappedDuration) : null)
+      );
 
     return {
       ...j,
+      all_day: j.all_day === true || j.estimated_duration == null,
       estimated_duration: estimatedDuration,
       customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
       property_address: j.properties?.address_line1 || null,
