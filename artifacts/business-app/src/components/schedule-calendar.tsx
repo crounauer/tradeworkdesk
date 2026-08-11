@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Calendar, Plus,
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useCalendarData } from "@/hooks/use-calendar-data";
+import { AppointmentConfirmationBadge } from "@/components/appointment-confirmation-badge";
 
 type CalendarJob = {
   id: string;
@@ -125,6 +126,7 @@ function durationLabel(minutes: number): string {
 }
 
 function getJobDurationMinutes(job: CalendarJob): number {
+  if (job.estimated_duration == null) return 24 * 60;
   const parsed = Number(job.estimated_duration ?? 60);
   if (!Number.isFinite(parsed) || parsed <= 0) return 60;
   return parsed;
@@ -191,6 +193,12 @@ function getSlotStartsForDuration(startTime: string, durationMinutes: number, sl
 
   return Array.from({ length: slotCount }, (_, idx) => slotAlignedStart + (idx * slotMinutes))
     .filter((m) => m >= 0 && m <= ((24 * 60) - slotMinutes));
+}
+
+function getAllDaySlotStarts(slotMinutes = DEFAULT_DAY_SLOT_MINUTES): number[] {
+  if (slotMinutes <= 0) return [0];
+  const totalSlots = Math.max(1, Math.floor((24 * 60) / slotMinutes));
+  return Array.from({ length: totalSlots }, (_, idx) => idx * slotMinutes);
 }
 
 function getJobEndDate(job: CalendarJob): string {
@@ -298,6 +306,9 @@ function CompactJobCardContent({ job, timeLabel }: { job: CalendarJob; timeLabel
           <span className="text-sm font-semibold truncate">{job.customer_name || "Unknown"}</span>
         </div>
         <span className="text-xs font-medium opacity-80 shrink-0 whitespace-nowrap">{timeLabel}</span>
+      </div>
+      <div className="ml-3.5 flex flex-wrap items-center gap-1">
+        <AppointmentConfirmationBadge status={job.customer_confirmation_status} showPending={false} />
       </div>
       {allDay && (
         <div className="ml-3.5">
@@ -888,6 +899,17 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
         let minSlotStart = 7 * 60;
         let maxSlotStart = 20 * 60;
         for (const job of dayJobs) {
+          if (isAllDayJob(job)) {
+            const slotStarts = getAllDaySlotStarts(daySlotMinutes);
+            minSlotStart = Math.min(minSlotStart, slotStarts[0]);
+            maxSlotStart = Math.max(maxSlotStart, slotStarts[slotStarts.length - 1]);
+            slotStarts.forEach((slotStart, slotIndex) => {
+              if (!jobsBySlot[slotStart]) jobsBySlot[slotStart] = [];
+              jobsBySlot[slotStart].push({ job, slotIndex, totalSlots: slotStarts.length, durationMinutes: 24 * 60 });
+            });
+            continue;
+          }
+
           if (job.scheduled_time) {
             const durationMinutes = getJobDurationMinutes(job);
             const slotStarts = getSlotStartsForDuration(job.scheduled_time, durationMinutes, daySlotMinutes);
