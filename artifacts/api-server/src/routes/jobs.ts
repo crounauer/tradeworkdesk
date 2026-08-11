@@ -56,6 +56,7 @@ interface SupabaseJobRow {
   scheduled_end_date: string | null;
   scheduled_time: string | null;
   estimated_duration: number | null;
+  all_day?: boolean | null;
   arrival_time: string | null;
   departure_time: string | null;
   customer_confirmation_status?: "pending" | "confirmed" | "change_requested" | null;
@@ -802,6 +803,7 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
 
   const insertPayload = {
     ...jobCoreData,
+    all_day: isAllDay,
     estimated_duration: isAllDay ? null : (hasEstimatedDuration ? parsedEstimatedDuration : defaultEstimatedDuration),
     assigned_technician_id: autoAssignedTechnicianId || null,
     job_type: resolvedJobType,
@@ -1414,8 +1416,11 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     res.status(400).json({ error: "all_day must be a boolean" });
     return;
   }
-  if (rawAllDay === true) {
-    updateCoreData.estimated_duration = null;
+  if (rawAllDay !== undefined) {
+    updateCoreData.all_day = rawAllDay;
+    if (rawAllDay === true) {
+      updateCoreData.estimated_duration = null;
+    }
   }
 
   if (rawIsInProgress !== undefined || rawIsAwaitingParts !== undefined) {
