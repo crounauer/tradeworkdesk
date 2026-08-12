@@ -120,6 +120,10 @@ function parseHourMinute(value: string): { hour: number; minute: number } | null
   return { hour, minute };
 }
 
+const BUSINESS_DAY_START_MINUTES = 9 * 60;
+const BUSINESS_DAY_END_MINUTES = 17 * 60;
+const BUSINESS_DAY_DURATION_MINUTES = BUSINESS_DAY_END_MINUTES - BUSINESS_DAY_START_MINUTES;
+
 function durationLabel(minutes: number): string {
   if (minutes <= 0) return "";
   if (minutes % 60 === 0) return `${minutes / 60}h`;
@@ -127,7 +131,7 @@ function durationLabel(minutes: number): string {
 }
 
 function getJobDurationMinutes(job: CalendarJob): number {
-  if (job.all_day === true || job.estimated_duration == null) return 24 * 60;
+  if (job.all_day === true || job.estimated_duration == null) return BUSINESS_DAY_DURATION_MINUTES;
   const parsed = Number(job.estimated_duration ?? 60);
   if (!Number.isFinite(parsed) || parsed <= 0) return 60;
   return parsed;
@@ -197,9 +201,11 @@ function getSlotStartsForDuration(startTime: string, durationMinutes: number, sl
 }
 
 function getAllDaySlotStarts(slotMinutes = DEFAULT_DAY_SLOT_MINUTES): number[] {
-  if (slotMinutes <= 0) return [0];
-  const totalSlots = Math.max(1, Math.floor((24 * 60) / slotMinutes));
-  return Array.from({ length: totalSlots }, (_, idx) => idx * slotMinutes);
+  if (slotMinutes <= 0) return [BUSINESS_DAY_START_MINUTES];
+  const start = BUSINESS_DAY_START_MINUTES;
+  const end = BUSINESS_DAY_END_MINUTES;
+  const totalSlots = Math.max(1, Math.floor((end - start) / slotMinutes));
+  return Array.from({ length: totalSlots }, (_, idx) => start + (idx * slotMinutes));
 }
 
 function getJobEndDate(job: CalendarJob): string {
@@ -890,6 +896,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
       {viewMode === "day" && (() => {
         const ds = toDateStr(anchorDate);
         const dayJobs = jobsByDate[ds] || [];
+        const allDayJobs = dayJobs.filter(isAllDayJob);
         const dayHolidays = holidaysByDate[ds] || [];
         const timedDayHolidays = dayHolidays.filter((h) => isTimedSingleDayHoliday(h, ds));
         const allDayDayHolidays = dayHolidays.filter((h) => !isTimedSingleDayHoliday(h, ds));
@@ -901,13 +908,6 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
         let maxSlotStart = 20 * 60;
         for (const job of dayJobs) {
           if (isAllDayJob(job)) {
-            const slotStarts = getAllDaySlotStarts(daySlotMinutes);
-            minSlotStart = Math.min(minSlotStart, slotStarts[0]);
-            maxSlotStart = Math.max(maxSlotStart, slotStarts[slotStarts.length - 1]);
-            slotStarts.forEach((slotStart, slotIndex) => {
-              if (!jobsBySlot[slotStart]) jobsBySlot[slotStart] = [];
-              jobsBySlot[slotStart].push({ job, slotIndex, totalSlots: slotStarts.length, durationMinutes: 24 * 60 });
-            });
             continue;
           }
 
@@ -971,6 +971,35 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                       {h.name}{h.technician_name ? ` - ${h.technician_name}` : ""}
                     </span>
                   ))}
+                </div>
+              )}
+
+              {allDayJobs.length > 0 && (
+                <div className="border-b border-border bg-sky-50/70">
+                  <div className="flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-sky-700">
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    All-day bookings
+                  </div>
+                  <div className="px-2 pb-2">
+                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                      {allDayJobs.map((job) => (
+                        <div
+                          key={job.id}
+                          data-job-card
+                          role="button"
+                          tabIndex={0}
+                          draggable={canDrag}
+                          onDragStart={(e) => handleDragStart(e, job.id)}
+                          onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
+                          onClick={(e) => handleJobClick(e, job.id)}
+                          onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                          className={`px-3 py-2 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-cyan-50 shadow-sm transition-all cursor-pointer ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-md`}
+                        >
+                          <CompactJobCardContent job={job} timeLabel="All day" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1064,6 +1093,35 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                     {h.name}{h.technician_name ? ` - ${h.technician_name}` : ""}
                   </span>
                 ))}
+              </div>
+            )}
+
+            {allDayJobs.length > 0 && (
+              <div className="border-b border-border bg-sky-50/70">
+                <div className="flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-sky-700">
+                  <CalendarDays className="w-3.5 h-3.5" />
+                  All-day bookings
+                </div>
+                <div className="px-2 pb-2">
+                  <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    {allDayJobs.map((job) => (
+                      <div
+                        key={job.id}
+                        data-job-card
+                        role="button"
+                        tabIndex={0}
+                        draggable={canDrag}
+                        onDragStart={(e) => handleDragStart(e, job.id)}
+                        onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
+                        onClick={(e) => handleJobClick(e, job.id)}
+                        onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                        className={`px-3 py-2 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-cyan-50 shadow-sm transition-all cursor-pointer ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-md`}
+                      >
+                        <CompactJobCardContent job={job} timeLabel="All day" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
