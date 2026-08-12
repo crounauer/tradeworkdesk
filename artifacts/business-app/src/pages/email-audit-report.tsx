@@ -98,9 +98,9 @@ export default function EmailAuditReport() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <select
-          className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           value={status}
           onChange={(e) => setStatus(e.target.value)}
         >
@@ -108,7 +108,7 @@ export default function EmailAuditReport() {
         </select>
 
         <select
-          className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           value={emailType}
           onChange={(e) => setEmailType(e.target.value)}
         >
@@ -116,7 +116,7 @@ export default function EmailAuditReport() {
         </select>
 
         <input
-          className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           placeholder="Search subject or recipient"
           value={searchDraft}
           onChange={(e) => setSearchDraft(e.target.value)}
@@ -126,7 +126,7 @@ export default function EmailAuditReport() {
         />
 
         <button
-          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-left hover:bg-accent"
+          className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-left hover:bg-accent"
           onClick={() => setSearch(searchDraft)}
           type="button"
         >
@@ -155,30 +155,30 @@ export default function EmailAuditReport() {
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="min-w-[820px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>When</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>To</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Issue</TableHead>
+                    <TableHead className="min-w-[140px]">When</TableHead>
+                    <TableHead className="min-w-[110px]">Status</TableHead>
+                    <TableHead className="min-w-[120px]">Type</TableHead>
+                    <TableHead className="min-w-[150px]">To</TableHead>
+                    <TableHead className="min-w-[200px]">Subject</TableHead>
+                    <TableHead className="min-w-[220px]">Issue</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rows.map((row) => (
                     <TableRow key={row.id}>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground align-top">
                         {new Date(row.created_at).toLocaleString()}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top">
                         <Badge variant="secondary" className={statusBadgeClass(row.status)}>{row.status}</Badge>
                       </TableCell>
-                      <TableCell className="text-sm">{row.email_type || "general"}</TableCell>
-                      <TableCell className="text-sm">{row.to_email || "-"}</TableCell>
-                      <TableCell className="text-sm max-w-[420px] truncate" title={row.subject}>{row.subject}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[460px]">
+                      <TableCell className="text-sm align-top">{row.email_type || "general"}</TableCell>
+                      <TableCell className="text-sm align-top break-all">{row.to_email || "-"}</TableCell>
+                      <TableCell className="text-sm align-top max-w-[220px] break-words" title={row.subject}>{row.subject}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground align-top max-w-[220px] break-words">
                         {row.error_message
                           ? `${row.failure_category ? `${row.failure_category}: ` : ""}${row.error_message}`
                           : row.needs_action

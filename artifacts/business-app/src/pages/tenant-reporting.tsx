@@ -26,11 +26,11 @@ export default function TenantReporting() {
       </div>
 
       <Tabs defaultValue={defaultTab}>
-        <TabsList>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
-          <TabsTrigger value="audit">Audit Trail</TabsTrigger>
-          <TabsTrigger value="email">Email Log</TabsTrigger>
+        <TabsList className="flex flex-wrap w-full justify-start gap-2 p-1">
+          <TabsTrigger value="analytics" className="flex-1 min-w-[120px] sm:flex-none">Analytics</TabsTrigger>
+          <TabsTrigger value="reports" className="flex-1 min-w-[120px] sm:flex-none">Reports</TabsTrigger>
+          <TabsTrigger value="audit" className="flex-1 min-w-[120px] sm:flex-none">Audit Trail</TabsTrigger>
+          <TabsTrigger value="email" className="flex-1 min-w-[120px] sm:flex-none">Email Log</TabsTrigger>
         </TabsList>
 
         <TabsContent value="analytics" className="mt-4">
