@@ -221,15 +221,25 @@ export default function JobDetail() {
   const customerRecord = (jobRecord.customer as Record<string, unknown> | undefined) || undefined;
   const customerDisplayName = `${String(customerRecord?.first_name || "")} ${String(customerRecord?.last_name || "")}`.trim() || "Customer";
   const scheduledDateOnly = String(jobRecord.scheduled_date || "").slice(0, 10);
+  const scheduledEndDateOnly = typeof jobRecord.scheduled_end_date === "string" ? String(jobRecord.scheduled_end_date).slice(0, 10) : null;
   const scheduledTime = typeof jobRecord.scheduled_time === "string" ? jobRecord.scheduled_time : null;
   const scheduledSummary = scheduledDateOnly
     ? (scheduledTime
       ? formatDateTime(`${scheduledDateOnly}T${scheduledTime}`)
       : formatDate(scheduledDateOnly))
     : "Date not set";
-  const displayScheduledSummary = isAllDayJob && scheduledDateOnly
-    ? `${formatDate(scheduledDateOnly)} (All day)`
-    : scheduledSummary;
+  const displayScheduledSummary = (() => {
+    if (!scheduledDateOnly) return "Date not set";
+    const start = formatDate(scheduledDateOnly);
+    const end = scheduledEndDateOnly && scheduledEndDateOnly !== scheduledDateOnly ? formatDate(scheduledEndDateOnly) : null;
+    if (isAllDayJob) {
+      return end ? `${start} – ${end} (All day)` : `${start} (All day)`;
+    }
+    if (end) {
+      return `${start} – ${end}`;
+    }
+    return scheduledTime ? formatDateTime(`${scheduledDateOnly}T${scheduledTime}`) : start;
+  })();
   const fromQuoteId = typeof jobRecord.from_quote_id === "string" ? jobRecord.from_quote_id : null;
   const customerConfirmationStatus =
     typeof jobRecord.customer_confirmation_status === "string"
@@ -700,15 +710,7 @@ export default function JobDetail() {
               <div className="grid sm:grid-cols-2 gap-y-4 gap-x-6">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><Calendar className="w-4 h-4"/> Scheduled</p>
-                  <p className="font-medium text-foreground">
-                    {(() => {
-                      const dateOnly = String(job.scheduled_date).slice(0, 10);
-                      if (isAllDayJob) return `${formatDate(dateOnly)} (All day)`;
-                      return job.scheduled_time
-                        ? formatDateTime(`${dateOnly}T${job.scheduled_time}`)
-                        : formatDate(dateOnly);
-                    })()}
-                  </p>
+                  <p className="font-medium text-foreground">{displayScheduledSummary}</p>
                 </div>
                 {currentUsers > 1 && (
                 <div>
