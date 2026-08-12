@@ -491,6 +491,11 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
     }
     for (const ds of Object.keys(map)) {
       map[ds].sort((a, b) => {
+        const aAllDay = isAllDayJob(a);
+        const bAllDay = isAllDayJob(b);
+        if (aAllDay !== bAllDay) {
+          return aAllDay ? -1 : 1;
+        }
         const ta = a.scheduled_time || "99:99";
         const tb = b.scheduled_time || "99:99";
         return ta.localeCompare(tb);
