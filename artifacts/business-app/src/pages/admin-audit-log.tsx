@@ -110,13 +110,13 @@ export default function AdminAuditLog() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold">Audit Trail</h1>
-        <p className="text-muted-foreground">Tenant-level activity history for admins, office staff and technicians.</p>
+      <div className="space-y-1">
+        <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight">Audit Trail</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Tenant-level activity history for admins, office staff and technicians.</p>
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle className="text-base">Filters</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -127,10 +127,10 @@ export default function AdminAuditLog() {
               setPage(0);
             }}
           >
-            <TabsList className="flex w-full overflow-x-auto justify-start">
-              <TabsTrigger value="all">All Users</TabsTrigger>
+            <TabsList className="flex w-full flex-wrap justify-start gap-2 p-1 overflow-x-auto">
+              <TabsTrigger value="all" className="min-w-[110px] flex-1 sm:flex-none">All Users</TabsTrigger>
               {actors.map((actor) => (
-                <TabsTrigger key={actor.id} value={actor.id}>
+                <TabsTrigger key={actor.id} value={actor.id} className="min-w-[110px] flex-1 sm:flex-none">
                   {actor.full_name || actor.email || "Unknown"}
                 </TabsTrigger>
               ))}
@@ -138,6 +138,7 @@ export default function AdminAuditLog() {
           </Tabs>
 
           <Input
+            className="w-full"
             placeholder="Filter by event type (e.g. user_updated)"
             value={eventFilter}
             onChange={(e) => {
@@ -177,17 +178,17 @@ export default function AdminAuditLog() {
                   </div>
 
                   <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-                    <div className="rounded-lg border bg-muted/30 px-3 py-2">
+                    <div className="rounded-lg border bg-muted/30 px-3 py-2 break-words">
                       <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Actor</p>
-                      <p className="mt-1 text-foreground inline-flex items-center gap-1.5">
-                        <UserRound className="w-3.5 h-3.5 text-muted-foreground" />
-                        {row.actor_email || "System"}
+                      <p className="mt-1 text-foreground inline-flex items-center gap-1.5 break-all">
+                        <UserRound className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="break-all">{row.actor_email || "System"}</span>
                       </p>
                     </div>
 
-                    <div className="rounded-lg border bg-muted/30 px-3 py-2">
+                    <div className="rounded-lg border bg-muted/30 px-3 py-2 break-words">
                       <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Entity</p>
-                      <p className="mt-1 text-foreground">
+                      <p className="mt-1 text-foreground break-all">
                         {row.entity_type ? toTitleCaseFromSnakeCase(row.entity_type) : "-"}
                         {row.entity_id ? ` #${row.entity_id}` : ""}
                       </p>
@@ -199,9 +200,9 @@ export default function AdminAuditLog() {
                     {row.detail && Object.keys(row.detail).length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {Object.entries(row.detail).map(([key, value]) => (
-                          <div key={key} className="rounded-md border bg-background px-2.5 py-1.5 text-[11px] text-foreground">
+                          <div key={key} className="rounded-md border bg-background px-2.5 py-1.5 text-[11px] text-foreground break-words max-w-full">
                             <span className="font-medium text-muted-foreground">{toTitleCaseFromSnakeCase(key)}:</span>{" "}
-                            <span>{toReadableDetail(value)}</span>
+                            <span className="break-all">{toReadableDetail(value)}</span>
                           </div>
                         ))}
                       </div>
