@@ -348,7 +348,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
 
   const [, navigate] = useLocation();
   const [viewMode, setViewMode] = useState<ViewMode>("week");
-  const [anchorDate, setAnchorDate] = useState(() => startOfWeek(new Date()));
+  const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [dragOverEngineerLane, setDragOverEngineerLane] = useState<string | null>(null);
@@ -383,7 +383,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
       setViewMode(view);
     } else {
       setViewMode("week");
-      setAnchorDate(startOfWeek(new Date()));
+      setAnchorDate(new Date());
     }
 
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -560,7 +560,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
   const goToday = useCallback(() => {
     if (viewMode === "day") setAnchorDate(new Date());
     else if (viewMode === "month") setAnchorDate(startOfMonth(new Date()));
-    else setAnchorDate(startOfWeek(new Date()));
+    else setAnchorDate(new Date());
   }, [viewMode]);
 
   const handleDragStart = useCallback(
@@ -797,7 +797,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
               type="button"
               onClick={() => {
                 setViewMode("week");
-                setAnchorDate(startOfWeek(new Date()));
+                setAnchorDate(new Date());
               }}
               className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md transition-all ${viewMode === "week" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
@@ -1469,7 +1469,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                   )}
                 </div>
 
-                <div className="space-y-0.5 overflow-y-auto max-h-[110px]">
+                <div className={`space-y-0.5 ${viewMode === "week" ? "overflow-visible sm:max-h-none" : "overflow-y-auto max-h-[110px]"}`}>
                   {dayHolidays.slice(0, 2).map((holiday) => (
                     <div
                       key={holiday.id}
@@ -1480,7 +1480,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                       {holiday.technician_name && <span className="opacity-80"> · {holiday.technician_name}</span>}
                     </div>
                   ))}
-                  {dayJobs.slice(0, viewMode === "month" ? 3 : 6).map((job) => (
+                  {dayJobs.slice(0, viewMode === "month" ? 3 : viewMode === "week" ? dayJobs.length : 6).map((job) => (
                     <div
                       key={job.id}
                       data-job-card
@@ -1500,9 +1500,9 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                       <CompactJobCardContent job={job} timeLabel={getCompactJobTimeLabel(job)} />
                     </div>
                   ))}
-                  {dayJobs.length > (viewMode === "month" ? 3 : 6) && (
+                  {dayJobs.length > (viewMode === "month" ? 3 : viewMode === "week" ? dayJobs.length : 6) && (
                     <span className="text-[10px] text-muted-foreground pl-1.5">
-                      +{dayJobs.length - (viewMode === "month" ? 3 : 6)} more
+                      +{dayJobs.length - (viewMode === "month" ? 3 : viewMode === "week" ? dayJobs.length : 6)} more
                     </span>
                   )}
                   {dayHolidays.length > 2 && (
