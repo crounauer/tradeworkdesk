@@ -26,6 +26,7 @@ type DashboardJob = {
   customer_change_requested_at?: string | null;
   scheduled_date: string | Date;
   scheduled_time?: string | null;
+  all_day?: boolean | null;
   description?: string | null;
   customer_name?: string | null;
   property_address?: string | null;
@@ -724,23 +725,25 @@ export default function Dashboard() {
             <div className="space-y-2">
               {todaysJobs.map(job => {
                 const sc = STATUS_CONFIG[job.status] ?? { label: job.status, className: "bg-slate-100 text-slate-600" };
-                const time = job.scheduled_time ? String(job.scheduled_time).slice(0, 5) : null;
+                const isAllDay = Boolean(job.all_day);
+                const time = isAllDay ? "All day" : (job.scheduled_time ? String(job.scheduled_time).slice(0, 5) : null);
                 const jobTypeLabel = getJobTypeLabel(job);
                 const confirmationStatus = getJobConfirmationStatus(job);
                 return (
                   <Link key={job.id} href={`/jobs/${job.id}`}>
                     <Card className="p-4 border border-border hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer">
                       <div className="flex items-center gap-3">
-                        {time && (
-                          <div className="shrink-0 min-w-[40px] text-center">
-                            <span className="text-sm font-semibold tabular-nums">{time}</span>
-                          </div>
-                        )}
+                        <div className="shrink-0 min-w-[56px] text-center">
+                          <span className={`text-sm font-semibold tabular-nums ${isAllDay ? "text-cyan-700" : ""}`}>{time ?? "—"}</span>
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-sm truncate">{job.customer_name ?? "Unknown Customer"}</span>
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${sc.className}`}>{sc.label}</span>
                             <AppointmentConfirmationBadge status={confirmationStatus} showPending={false} />
+                            {isAllDay && (
+                              <span className="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-100 px-2 py-0.5 text-[10px] font-semibold text-cyan-800">All day</span>
+                            )}
                           </div>
                           <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
                             {job.property_address && (
@@ -772,6 +775,7 @@ export default function Dashboard() {
           <div className="space-y-2">
             {upcomingJobs.map(job => {
               const sc = STATUS_CONFIG[job.status] ?? { label: job.status, className: "bg-slate-100 text-slate-600" };
+              const isAllDay = Boolean(job.all_day);
               const dateStr = job.scheduled_date
                 ? new Date(job.scheduled_date as string).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
                 : null;
@@ -790,6 +794,9 @@ export default function Dashboard() {
                           <span className="font-medium text-sm truncate">{job.customer_name ?? "Unknown Customer"}</span>
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${sc.className}`}>{sc.label}</span>
                           <AppointmentConfirmationBadge status={confirmationStatus} showPending={false} />
+                          {isAllDay && (
+                            <span className="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-100 px-2 py-0.5 text-[10px] font-semibold text-cyan-800">All day</span>
+                          )}
                         </div>
                         {job.property_address && (
                           <span className="text-xs text-muted-foreground flex items-center gap-1 truncate mt-0.5">

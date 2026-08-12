@@ -211,6 +211,12 @@ export default function JobDetail() {
     .replace(/\b\w/g, (ch) => ch.toUpperCase());
   const isAllDayJob = jobRecord.estimated_duration == null;
   const displayDuration = isAllDayJob ? "All day" : formatJobDuration(jobRecord.estimated_duration);
+  const completionDate = jobRecord.status === "completed" && typeof jobRecord.updated_at === "string"
+    ? new Date(jobRecord.updated_at)
+    : null;
+  const completionDateLabel = completionDate && Number.isFinite(completionDate.getTime())
+    ? `Completed ${formatDate(completionDate.toISOString().slice(0, 10))}`
+    : null;
   const jobRef = typeof jobRecord.job_ref === "string" ? jobRecord.job_ref : null;
   const customerRecord = (jobRecord.customer as Record<string, unknown> | undefined) || undefined;
   const customerDisplayName = `${String(customerRecord?.first_name || "")} ${String(customerRecord?.last_name || "")}`.trim() || "Customer";
@@ -469,6 +475,7 @@ export default function JobDetail() {
           <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             <span>{displayScheduledSummary}</span>
             {!isAllDayJob && <span>{displayDuration}</span>}
+            {completionDateLabel && <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">{completionDateLabel}</span>}
           </div>
           {fromQuoteId && (
             <button
