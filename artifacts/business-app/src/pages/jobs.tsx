@@ -559,7 +559,7 @@ function JobCard({
         >
         <Card className={`p-4 sm:p-5 border border-border/50 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center gap-4 ${isSelected ? "ring-2 ring-emerald-300 border-emerald-300" : ""}`}>
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${getStatusColor(job.status)}`}>
                 {job.status.replace(/_/g, ' ')}
               </span>
@@ -569,6 +569,9 @@ function JobCard({
               <PriorityBadge priority={job.priority as string | null | undefined} />
               <VisitIntentBadge intent={job.visit_intent as string | null | undefined} jobTypeLabel={(job.job_type_name ?? job.job_type) as string | null | undefined} showStandard={false} />
               <AppointmentConfirmationBadge status={job.customer_confirmation_status as string | null | undefined} showPending={false} />
+              {Boolean(job.all_day) || job.estimated_duration == null ? (
+                <span className="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-100 px-2 py-0.5 text-[10px] font-semibold text-cyan-800">All day</span>
+              ) : null}
               {hasPending && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 border border-amber-200">
                   <CloudOff className="w-3 h-3" /> Pending sync
@@ -599,6 +602,12 @@ function JobCard({
               {(() => {
                 const startStr = String(job.scheduled_date).slice(0, 10);
                 const endStr = job.scheduled_end_date ? String(job.scheduled_end_date).slice(0, 10) : null;
+                const isAllDay = Boolean(job.all_day) || job.estimated_duration == null;
+                if (isAllDay) {
+                  return endStr && endStr !== startStr
+                    ? `${formatDate(startStr)} – ${formatDate(endStr)} (All day)`
+                    : `${formatDate(startStr)} (All day)`;
+                }
                 if (endStr && endStr !== startStr) {
                   return `${formatDate(startStr)} – ${formatDate(endStr)}`;
                 }
