@@ -21,17 +21,12 @@
       (function(){
         var entryScript = document.querySelector('script[type="module"][src]');
         var v = entryScript ? entryScript.getAttribute("src") : "sw-default";
-        if (navigator.serviceWorker && localStorage.getItem("sw-version") !== v) {
-          navigator.serviceWorker.getRegistrations().then(function(regs) {
-            regs.forEach(function(r) { r.unregister(); });
-            if (window.caches && caches.keys) {
-              caches.keys().then(function(names) {
-                names.forEach(function(n) { caches.delete(n); });
-              });
-            }
+        if (navigator.serviceWorker) {
+          try {
             localStorage.setItem("sw-version", v);
-            if (regs.length > 0) location.reload();
-          });
+          } catch (err) {
+            // Ignore storage failures; do not unregister the active service worker.
+          }
         }
       })();
     </script>
