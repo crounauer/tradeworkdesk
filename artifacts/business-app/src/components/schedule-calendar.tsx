@@ -347,8 +347,8 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
   const updateJob = useUpdateJob();
 
   const [, navigate] = useLocation();
-  const [viewMode, setViewMode] = useState<ViewMode>("month");
-  const [anchorDate, setAnchorDate] = useState(() => startOfMonth(new Date()));
+  const [viewMode, setViewMode] = useState<ViewMode>("week");
+  const [anchorDate, setAnchorDate] = useState(() => startOfWeek(new Date()));
   const [dragJobId, setDragJobId] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [dragOverEngineerLane, setDragOverEngineerLane] = useState<string | null>(null);
@@ -376,16 +376,14 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search || "");
-    const storedView = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
     const view = params.get("view");
     const date = params.get("date");
 
-    if (storedView === "day" || storedView === "week" || storedView === "month") {
-      setViewMode(storedView);
-    }
-
     if (view === "day" || view === "week" || view === "month") {
       setViewMode(view);
+    } else {
+      setViewMode("week");
+      setAnchorDate(startOfWeek(new Date()));
     }
 
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
