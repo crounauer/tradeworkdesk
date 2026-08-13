@@ -589,6 +589,14 @@ function EnquiryDetailContent() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {enquiry.customer?.id && (
+            <Link href={`/customers/${enquiry.customer.id}`}>
+              <Button variant="outline" size="sm" className="gap-1">
+                <ArrowLeft className="w-4 h-4 rotate-180" />
+                View Customer
+              </Button>
+            </Link>
+          )}
           {canConvert && (
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2" onClick={() => setShowConvert(true)}>
               <Briefcase className="w-4 h-4" /> Convert to Job

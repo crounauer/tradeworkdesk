@@ -719,17 +719,32 @@ function BookEnquiryDialog({
       toast({ title: "Missing info", description: "Please enter a contact name.", variant: "destructive" });
       return;
     }
+    const contactName = form.contact_name.trim();
+    const contactEmail = form.contact_email.trim();
     setSubmitting(true);
     try {
+      let sendAcknowledgementEmail = false;
+      if (contactEmail) {
+        sendAcknowledgementEmail = window.confirm(
+          `Send an acknowledgement email to ${contactName} at ${contactEmail}?`,
+        );
+      }
+
       const res = await customFetch("/api/enquiries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          send_acknowledgement_email: sendAcknowledgementEmail,
           linked_customer_id: initialCustomerId,
         }),
-      }) as { id?: string };
-      toast({ title: "Enquiry created", description: "The enquiry has been logged." });
+      }) as { id?: string; acknowledgement_email_sent?: boolean };
+      toast({
+        title: "Enquiry created",
+        description: res.acknowledgement_email_sent
+          ? "The enquiry has been logged and the customer was emailed a confirmation."
+          : "The enquiry has been logged.",
+      });
       onCreated?.();
       onOpenChange(false);
       if (res?.id) navigate(`/enquiries/${res.id}`);

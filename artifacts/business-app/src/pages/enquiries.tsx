@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -219,10 +219,25 @@ function EnquiryCard({
   getStatusBadge: (s: string) => React.ReactNode;
   getAge: (c: string) => string;
 }) {
+  const [, navigate] = useLocation();
   const job = enq.job as { id: string; status: string; job_type: string } | null;
+  const customer = enq.customer as { id: string; first_name: string; last_name: string } | null;
+
+  const handleOpenEnquiry = () => navigate(`/enquiries/${enq.id}`);
+
   return (
-    <Link href={`/enquiries/${enq.id}`}>
-      <Card className="p-5 hover:border-primary/50 hover:shadow-md cursor-pointer transition-all">
+    <Card
+      className="p-5 hover:border-primary/50 hover:shadow-md cursor-pointer transition-all"
+      role="button"
+      tabIndex={0}
+      onClick={handleOpenEnquiry}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleOpenEnquiry();
+        }
+      }}
+    >
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -250,6 +265,17 @@ function EnquiryCard({
             {formatEnquiryAddress(enq) && (
               <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-line">{formatEnquiryAddressMultiline(enq)}</p>
             )}
+            {customer?.id && (
+              <div className="mt-1">
+                <Link
+                  href={`/customers/${customer.id}`}
+                  className="text-xs text-primary hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  View Customer: {customer.first_name} {customer.last_name}
+                </Link>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -259,7 +285,6 @@ function EnquiryCard({
           </div>
         </div>
       </Card>
-    </Link>
   );
 }
 
@@ -421,7 +446,6 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
     new_prop_county: "",
     new_prop_postcode: "",
     priority: "medium",
-    send_acknowledgement_email: true,
   });
 
   const selectedCustomer = customers?.find((customer: { id: string; first_name: string; last_name: string; email?: string | null; phone?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; postcode?: string | null }) => customer.id === selectedCustomerId);
@@ -449,6 +473,7 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
     const contactName = customerMode === "new"
       ? `${form.new_first_name} ${form.new_last_name}`.trim()
       : form.contact_name.trim();
+    const contactEmail = form.contact_email.trim();
 
     if (!contactName) {
       toast({ title: "Missing info", description: customerMode === "new" ? "Please enter first name and surname." : "Please enter a contact name.", variant: "destructive" });
@@ -460,11 +485,19 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
     }
     setSubmitting(true);
     try {
+      let sendAcknowledgementEmail = false;
+      if (contactEmail) {
+        sendAcknowledgementEmail = window.confirm(
+          `Send an acknowledgement email to ${contactName} at ${contactEmail}?`,
+        );
+      }
+
       const res = await fetch("/api/enquiries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          send_acknowledgement_email: sendAcknowledgementEmail,
           contact_name: contactName,
           linked_customer_id: customerMode === "existing" ? selectedCustomerId || undefined : undefined,
           force_new_customer: customerMode === "new",
@@ -549,18 +582,6 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
             <div className="space-y-1">
               <Label>Email</Label>
               <Input value={form.contact_email} onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))} placeholder="john@example.com" type="email" />
-            </div>
-          </div>
-          <div className="md:col-span-2 flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-            <input
-              type="checkbox"
-              className="rounded border-border"
-              checked={form.send_acknowledgement_email}
-              onChange={e => setForm(f => ({ ...f, send_acknowledgement_email: e.target.checked }))}
-            />
-            <div className="text-sm">
-              <p className="font-medium">Send acknowledgement email</p>
-              <p className="text-muted-foreground">Email the customer to confirm the enquiry has been logged.</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

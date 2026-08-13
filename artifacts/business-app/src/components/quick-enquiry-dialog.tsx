@@ -96,6 +96,7 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
     const contactName = customerMode === "new"
       ? `${form.new_first_name} ${form.new_last_name}`.trim()
       : form.contact_name.trim();
+    const contactEmail = form.contact_email.trim();
 
     if (!contactName) {
       toast({ title: "Missing info", description: customerMode === "new" ? "Please enter first name and surname." : "Please enter a contact name.", variant: "destructive" });
@@ -107,9 +108,17 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
     }
     setSubmitting(true);
     try {
+      let sendAcknowledgementEmail = false;
+      if (contactEmail) {
+        sendAcknowledgementEmail = window.confirm(
+          `Send an acknowledgement email to ${contactName} at ${contactEmail}?`,
+        );
+      }
+
       const payload: Record<string, unknown> = {
         ...form,
         contact_name: contactName,
+        send_acknowledgement_email: sendAcknowledgementEmail,
         linked_customer_id: selectedCustomerId || undefined,
         force_new_customer: customerMode === "new",
       };
@@ -122,10 +131,16 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
         const err = await res.json();
         throw new Error(err.error || "Failed to create enquiry");
       }
+      const result = await res.json() as { acknowledgement_email_sent?: boolean };
       qc.invalidateQueries({ queryKey: ["enquiries"] });
       qc.invalidateQueries({ queryKey: ["me-init"] });
       qc.invalidateQueries({ queryKey: ["homepage"] });
-      toast({ title: "Enquiry added", description: `Enquiry for ${contactName} created.` });
+      toast({
+        title: "Enquiry added",
+        description: result.acknowledgement_email_sent
+          ? `Enquiry for ${contactName} created and acknowledgement email sent.`
+          : `Enquiry for ${contactName} created.`,
+      });
       onOpenChange(false);
     } catch (err) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });

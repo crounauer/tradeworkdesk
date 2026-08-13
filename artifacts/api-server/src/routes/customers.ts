@@ -989,7 +989,49 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     created_at: request.sent_at || request.created_at,
   }));
 
-  const combined = [...mappedCustomerEmails, ...mappedReviewEmails]
+  let mappedEnquiryAcknowledgements: Array<{
+    id: string;
+    job_id: null;
+    job_ref: null;
+    sent_to: string;
+    subject: string;
+    forms_included: Array<{ form_type: string; form_label: string; form_id: string }>;
+    body_text: string | null;
+    sent_by_name: null;
+    created_at: string;
+  }> = [];
+
+  if (customerEmail) {
+    const { data: enquiryEmailAuditRows, error: enquiryEmailAuditError } = await supabaseAdmin
+      .from("tenant_email_audit_log")
+      .select("id, to_email, subject, metadata, created_at, status")
+      .eq("tenant_id", req.tenantId!)
+      .eq("email_type", "enquiry_acknowledgement")
+      .eq("to_email", customerEmail)
+      .in("status", ["accepted", "delivered", "sent"])
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    if (enquiryEmailAuditError) { res.status(500).json({ error: enquiryEmailAuditError.message }); return; }
+
+    mappedEnquiryAcknowledgements = (enquiryEmailAuditRows || []).map((row: Record<string, unknown>) => {
+      const metadata = (row.metadata as Record<string, unknown> | null) || null;
+      const enquiryId = metadata?.enquiryId ? String(metadata.enquiryId) : String(row.id);
+      return {
+        id: `enquiry-ack-${String(row.id)}`,
+        job_id: null,
+        job_ref: null,
+        sent_to: String(row.to_email || customerEmail),
+        subject: String(row.subject || "Enquiry acknowledgement"),
+        forms_included: [{ form_type: "enquiry_acknowledgement", form_label: "Enquiry Acknowledgement", form_id: enquiryId }],
+        body_text: null,
+        sent_by_name: null,
+        created_at: String(row.created_at),
+      };
+    });
+  }
+
+  const combined = [...mappedCustomerEmails, ...mappedReviewEmails, ...mappedEnquiryAcknowledgements]
     .sort((a, b) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime())
     .slice(0, 200);
 
