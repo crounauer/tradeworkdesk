@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,32 @@ const TEMPLATE_DEFS: EditableTemplateDef[] = [
   },
 ];
 
+interface ReviewTemplateSettings {
+  email_subject?: string;
+  email_body?: string | null;
+}
+
+interface ReminderTemplateSettings {
+  email_subject?: string;
+  email_body?: string | null;
+}
+
+const REVIEW_DEFAULT_SUBJECT = "How did we do? Leave us a review";
+const REVIEW_DEFAULT_BODY = "Hi {{customer_name}},\n\nThank you for choosing {{company_name}}. We'd love to hear your feedback - it only takes a minute!\n\nClick below to leave a review:\n{{review_link}}\n\nMany thanks,\n{{company_name}}";
+
+const REMINDER_DEFAULT_SUBJECT = "Your annual boiler service is due";
+const REMINDER_DEFAULT_BODY = "Hi {{customer_name}},\n\nYour annual boiler service is due on {{due_date}}.\n\nPlease contact us to book your appointment.\n\nRegards,\n{{company_name}}";
+
+async function apiFetch(url: string, opts?: RequestInit) {
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || `HTTP ${res.status}`);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
 function parseTemplateMap(settings?: CompanySettings) {
   const raw = settings?.email_templates;
   if (!raw || typeof raw !== "object") return {} as Record<string, { subject?: string | null; body?: string | null }>;
@@ -65,9 +92,61 @@ export default function AdminEmailTemplates() {
   const { toast } = useToast();
   const { data: settings, isLoading } = useCompanySettings();
   const update = useUpdateCompanySettings();
+  const { data: reviewSettings, isLoading: reviewLoading } = useQuery<ReviewTemplateSettings>({
+    queryKey: ["/api/review-requests/settings", "template-only"],
+    queryFn: () => apiFetch("/api/review-requests/settings"),
+  });
+  const { data: reminderSettings, isLoading: reminderLoading } = useQuery<ReminderTemplateSettings>({
+    queryKey: ["/api/maintenance/reminder-settings", "template-only"],
+    queryFn: () => apiFetch("/api/maintenance/reminder-settings"),
+  });
+
+  const saveReviewTemplate = useMutation({
+    mutationFn: (payload: ReviewTemplateSettings) => apiFetch("/api/review-requests/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  });
+
+  const saveReminderTemplate = useMutation({
+    mutationFn: (payload: ReminderTemplateSettings) => apiFetch("/api/maintenance/reminder-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  });
 
   const templateMap = useMemo(() => parseTemplateMap(settings), [settings]);
   const [drafts, setDrafts] = useState<Record<string, { subject: string; body: string }>>({});
+  const [reviewDraft, setReviewDraft] = useState<{ subject: string; body: string }>({
+    subject: REVIEW_DEFAULT_SUBJECT,
+    body: REVIEW_DEFAULT_BODY,
+  });
+  const [reminderDraft, setReminderDraft] = useState<{ subject: string; body: string }>({
+    subject: REMINDER_DEFAULT_SUBJECT,
+    body: REMINDER_DEFAULT_BODY,
+  });
+  const [reviewInitialized, setReviewInitialized] = useState(false);
+  const [reminderInitialized, setReminderInitialized] = useState(false);
+
+  useEffect(() => {
+    if (reviewInitialized) return;
+    setReviewDraft({
+      subject: reviewSettings?.email_subject || REVIEW_DEFAULT_SUBJECT,
+      body: reviewSettings?.email_body || REVIEW_DEFAULT_BODY,
+    });
+    setReviewInitialized(true);
+  }, [reviewSettings, reviewInitialized]);
+
+  useEffect(() => {
+    if (reminderInitialized) return;
+    setReminderDraft({
+      subject: reminderSettings?.email_subject || REMINDER_DEFAULT_SUBJECT,
+      body: reminderSettings?.email_body || REMINDER_DEFAULT_BODY,
+    });
+    setReminderInitialized(true);
+  }, [reminderSettings, reminderInitialized]);
 
   const getDraft = (def: EditableTemplateDef) => {
     const fromState = drafts[def.key];
@@ -101,16 +180,26 @@ export default function AdminEmailTemplates() {
 
     try {
       await update.mutateAsync({ email_templates: payload });
-      toast({ title: "Email templates saved", description: "Your wording changes will apply to new outgoing emails." });
+      await saveReviewTemplate.mutateAsync({
+        email_subject: reviewDraft.subject.trim() || REVIEW_DEFAULT_SUBJECT,
+        email_body: reviewDraft.body.trim() || REVIEW_DEFAULT_BODY,
+      });
+      await saveReminderTemplate.mutateAsync({
+        email_subject: reminderDraft.subject.trim() || REMINDER_DEFAULT_SUBJECT,
+        email_body: reminderDraft.body.trim() || REMINDER_DEFAULT_BODY,
+      });
+      toast({ title: "Email templates saved", description: "Core, review, and service reminder templates have been updated." });
       setDrafts({});
     } catch (e) {
       toast({ title: "Save failed", description: e instanceof Error ? e.message : "Could not save templates", variant: "destructive" });
     }
   };
 
-  if (isLoading) {
+  if (isLoading || reviewLoading || reminderLoading) {
     return <div className="p-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
   }
+
+  const isSaving = update.isPending || saveReviewTemplate.isPending || saveReminderTemplate.isPending;
 
   return (
     <div className="space-y-6 animate-in fade-in p-4 sm:p-6">
@@ -155,14 +244,72 @@ export default function AdminEmailTemplates() {
         );
       })}
 
+      <Card className="p-4 sm:p-5 space-y-3 border border-border/50 shadow-sm">
+        <div>
+          <h2 className="text-lg font-semibold">Review Request Email</h2>
+          <p className="text-sm text-muted-foreground">Used when sending a customer review request by email.</p>
+        </div>
+
+        <div className="space-y-1">
+          <Label>Subject</Label>
+          <Input
+            value={reviewDraft.subject}
+            onChange={(e) => setReviewDraft((prev) => ({ ...prev, subject: e.target.value }))}
+            placeholder={REVIEW_DEFAULT_SUBJECT}
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label>Body</Label>
+          <Textarea
+            value={reviewDraft.body}
+            onChange={(e) => setReviewDraft((prev) => ({ ...prev, body: e.target.value }))}
+            rows={8}
+            className="font-mono text-xs"
+            placeholder={REVIEW_DEFAULT_BODY}
+          />
+        </div>
+
+        <p className="text-xs text-muted-foreground">Variables: {"{{customer_name}}"}, {"{{company_name}}"}, {"{{review_link}}"}</p>
+      </Card>
+
+      <Card className="p-4 sm:p-5 space-y-3 border border-border/50 shadow-sm">
+        <div>
+          <h2 className="text-lg font-semibold">Service Reminder Email</h2>
+          <p className="text-sm text-muted-foreground">Used for automated due-service reminder emails.</p>
+        </div>
+
+        <div className="space-y-1">
+          <Label>Subject</Label>
+          <Input
+            value={reminderDraft.subject}
+            onChange={(e) => setReminderDraft((prev) => ({ ...prev, subject: e.target.value }))}
+            placeholder={REMINDER_DEFAULT_SUBJECT}
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label>Body</Label>
+          <Textarea
+            value={reminderDraft.body}
+            onChange={(e) => setReminderDraft((prev) => ({ ...prev, body: e.target.value }))}
+            rows={8}
+            className="font-mono text-xs"
+            placeholder={REMINDER_DEFAULT_BODY}
+          />
+        </div>
+
+        <p className="text-xs text-muted-foreground">Variables: {"{{customer_name}}"}, {"{{company_name}}"}, {"{{due_date}}"}</p>
+      </Card>
+
       <Card className="p-4 border border-border/50 bg-muted/30">
-        <p className="text-sm font-medium mb-2">Other message editors</p>
+        <p className="text-sm font-medium mb-2">Related Editors</p>
         <div className="flex flex-wrap gap-2">
           <Link href="/review-requests">
-            <Button variant="outline" size="sm">Review Request Template <ExternalLink className="w-3.5 h-3.5 ml-1" /></Button>
+            <Button variant="outline" size="sm">Review Request Automation <ExternalLink className="w-3.5 h-3.5 ml-1" /></Button>
           </Link>
           <Link href="/maintenance">
-            <Button variant="outline" size="sm">Maintenance Reminder Template <ExternalLink className="w-3.5 h-3.5 ml-1" /></Button>
+            <Button variant="outline" size="sm">Maintenance Reminder Rules <ExternalLink className="w-3.5 h-3.5 ml-1" /></Button>
           </Link>
           <Link href="/admin/sms-templates">
             <Button variant="outline" size="sm">SMS Templates <ExternalLink className="w-3.5 h-3.5 ml-1" /></Button>
@@ -171,8 +318,8 @@ export default function AdminEmailTemplates() {
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={update.isPending}>
-          {update.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Save Email Templates
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Save Email Templates
         </Button>
       </div>
     </div>
