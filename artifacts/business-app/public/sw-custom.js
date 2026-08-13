@@ -57,19 +57,31 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = event.notification?.data?.url || "/";
+
+  const rawUrl = event.notification?.data?.url || "/";
+  const targetUrl = (() => {
+    try {
+      return new URL(rawUrl, self.location.origin).toString();
+    } catch {
+      return new URL("/", self.location.origin).toString();
+    }
+  })();
 
   event.waitUntil((async () => {
     const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
 
     for (const client of clientList) {
-      if ("focus" in client) {
-        if ("navigate" in client) {
+      try {
+        if ("navigate" in client && targetUrl.startsWith(self.location.origin)) {
           await client.navigate(targetUrl);
         }
+        if ("focus" in client) {
+          await client.focus();
+        }
         client.postMessage({ type: "PUSH_NAVIGATE", payload: { url: targetUrl } });
-        await client.focus();
         return;
+      } catch (error) {
+        console.warn("[sw] failed to focus/navigate notification client:", error);
       }
     }
 

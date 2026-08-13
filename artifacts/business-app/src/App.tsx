@@ -531,6 +531,77 @@ const AdminWebsiteTemplatePreviewRoute = protect(lazyRetry(() => import("@/pages
 const PlatformSupportTicketsRoute = protect(PlatformSupportTicketsPage, ["super_admin"]);
 const NotFoundRoute = () => <Suspense fallback={<PageFallback />}><NotFound /></Suspense>;
 
+function DebugPushNotificationPage() {
+  const [status, setStatus] = useState("Ready");
+
+  const sendDebugNotification = async () => {
+    if (!("Notification" in window)) {
+      setStatus("This browser does not support notifications.");
+      return;
+    }
+
+    if (Notification.permission === "default") {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setStatus("Notification permission was not granted.");
+        return;
+      }
+    }
+
+    if (Notification.permission !== "granted") {
+      setStatus("Notification permission is required to test this flow.");
+      return;
+    }
+
+    if (!("serviceWorker" in navigator)) {
+      setStatus("Service worker support is unavailable in this browser.");
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification("Debug: New Enquiry", {
+        body: "Tap this to confirm the popup opens the enquiry page.",
+        tag: "debug-enquiry-popup",
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        data: {
+          url: "/enquiries",
+        },
+      });
+      setStatus("Debug notification sent. Tap it to confirm the popup opens successfully.");
+    } catch (err) {
+      console.error("[debug-push] failed to send notification:", err);
+      setStatus("Failed to send the debug notification. Check service worker registration and permissions.");
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
+      <div className="max-w-lg w-full rounded-xl border border-border bg-card p-6 shadow-sm">
+        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">Debug</p>
+        <h1 className="text-2xl font-semibold mb-3">Push popup test</h1>
+        <p className="text-sm text-muted-foreground mb-5">
+          This simulates a new enquiry notification and uses the same service worker click handler used by live alerts.
+        </p>
+
+        <button
+          type="button"
+          onClick={sendDebugNotification}
+          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+        >
+          Send debug enquiry popup
+        </button>
+
+        <p className="mt-4 text-sm text-muted-foreground">Status: {status}</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Target route: /enquiries
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function PortalRoutes() {
   return (
     <PortalAuthProvider>
@@ -576,6 +647,7 @@ function AppRouter() {
         </Route>
 
         <Route path="/dashboard">{() => <Redirect to="/" />}</Route>
+        <Route path="/debug/push-test" component={DebugPushNotificationPage} />
 
         <Route path="/" component={RootRoute} />
 
