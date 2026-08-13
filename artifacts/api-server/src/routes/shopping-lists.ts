@@ -1056,8 +1056,23 @@ router.post("/shopping-lists/:id/email", requireAuth, requireTenant, async (req:
     ...lines,
   ].join("\n");
 
+  const { data: companySettings } = await supabaseAdmin
+    .from("company_settings")
+    .select("name, trading_name, email")
+    .eq("tenant_id", req.tenantId!)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+
   for (const email of recipients) {
-    await sendSimpleNotification(email, `Shopping List: ${list.title}`, bodyText);
+    await sendSimpleNotification(email, `Shopping List: ${list.title}`, bodyText, {
+      tenantId: req.tenantId,
+      emailType: "shopping_list_notification",
+      companyDetails: {
+        name: (companySettings as { name?: string | null } | null)?.name || null,
+        trading_name: (companySettings as { trading_name?: string | null } | null)?.trading_name || null,
+        email: (companySettings as { email?: string | null } | null)?.email || null,
+      },
+    });
   }
 
   res.json({ success: true, emailed_to: recipients.length });

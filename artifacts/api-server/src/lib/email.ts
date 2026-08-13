@@ -376,6 +376,18 @@ export interface EmailCompanyDetails {
   // White-label email branding
   email_from_name?: string | null;
   email_reply_to?: string | null;
+  email_templates?: Partial<Record<ManagedEmailTemplateKey, ManagedEmailTemplateOverride>> | null;
+}
+
+type ManagedEmailTemplateKey =
+  | "enquiry_acknowledgement"
+  | "job_confirmation"
+  | "booking_pending_approval"
+  | "portal_invite";
+
+interface ManagedEmailTemplateOverride {
+  subject?: string | null;
+  body?: string | null;
 }
 
 function normalizeAdditionalRecipients(
@@ -813,6 +825,44 @@ function escHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+function normalizeTemplateText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const next = value.trim();
+  return next.length > 0 ? next : null;
+}
+
+function getTemplateOverride(
+  company: EmailCompanyDetails | undefined,
+  key: ManagedEmailTemplateKey,
+): ManagedEmailTemplateOverride | null {
+  const templates = company?.email_templates;
+  if (!templates || typeof templates !== "object") return null;
+  const template = templates[key];
+  if (!template || typeof template !== "object") return null;
+  return template;
+}
+
+function applyTemplateVariables(template: string, variables: Record<string, string | null | undefined>): string {
+  const normalizedVars: Record<string, string> = {};
+  for (const [key, value] of Object.entries(variables)) {
+    normalizedVars[key.toLowerCase()] = value == null ? "" : String(value);
+  }
+
+  return template.replace(/{{\s*([a-z0-9_]+)\s*}}/gi, (_match, token) => {
+    const variableName = String(token || "").toLowerCase();
+    return normalizedVars[variableName] ?? "";
+  });
+}
+
+function renderTemplateBodyHtml(bodyText: string): string {
+  const paragraphs = bodyText
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => `<p>${escHtml(part).replace(/\n/g, "<br/>")}</p>`);
+  return paragraphs.join("\n");
+}
+
 export interface EmailAttachment {
   filename: string;
   content: Buffer;
@@ -884,14 +934,16 @@ export async function sendJobFormsEmail(
     <hr class="divider"/>
     <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
   `, companyDetails);
+  const from = buildTenantFrom(companyDetails);
+  const replyTo = companyDetails?.email ?? undefined;
   if (!resend) {
     await writeTenantEmailAudit({
       status: "failed",
       emailType: "job_forms",
       to,
       subject,
-      from: FROM,
-      replyTo: companyDetails?.email ?? undefined,
+      from,
+      replyTo,
       errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
       failureCategory: "platform",
       metadata: { jobRef },
@@ -907,9 +959,9 @@ export async function sendJobFormsEmail(
     cc?: string[];
     replyTo?: string;
     attachments?: Array<{ filename: string; content: Buffer }>;
-  } = { from: FROM, to: recipients, subject, html };
+  } = { from, to: recipients, subject, html };
   if (cc) sendOptions.cc = [cc];
-  if (companyDetails?.email) sendOptions.replyTo = companyDetails.email;
+  if (replyTo) sendOptions.replyTo = replyTo;
   if (attachments.length > 0) sendOptions.attachments = attachments;
   try {
     const sendResult = await sendResendEmailWithRetry(sendOptions as any);
@@ -918,8 +970,8 @@ export async function sendJobFormsEmail(
       emailType: "job_forms",
       to,
       subject,
-      from: FROM,
-      replyTo: companyDetails?.email ?? undefined,
+      from,
+      replyTo,
       providerMessageId: sendResult.messageId,
       retryCount: Math.max(0, sendResult.attempts - 1),
       metadata: { jobRef },
@@ -931,16 +983,16 @@ export async function sendJobFormsEmail(
       to,
       subject,
       reason,
-      from: FROM,
-      replyTo: companyDetails?.email ?? undefined,
+      from,
+      replyTo,
     });
     await writeTenantEmailAudit({
       status: "failed",
       emailType: "job_forms",
       to,
       subject,
-      from: FROM,
-      replyTo: companyDetails?.email ?? undefined,
+      from,
+      replyTo,
       errorMessage: reason,
       metadata: { jobRef },
     });
@@ -1078,14 +1130,57 @@ export async function sendJobConfirmationEmail(
   companyDetails?: EmailCompanyDetails,
   responseLinks?: JobConfirmationResponseLinks,
 ): Promise<void> {
-  const html = renderJobConfirmationHtml(customerName, companyName, jobDetails, companyDetails, responseLinks);
+  const defaultSubject = `Appointment Confirmation — ${jobDetails.jobRef}`;
+  const templateOverride = getTemplateOverride(companyDetails, "job_confirmation");
+  const templateVariables = {
+    customer_name: customerName,
+    company_name: companyName,
+    job_ref: jobDetails.jobRef,
+    job_type: jobDetails.jobType,
+    scheduled_date: formatScheduledDateLine(jobDetails),
+    scheduled_time: jobDetails.scheduledTime || "",
+    job_duration: isAllDayJobDuration(jobDetails.jobDurationMinutes) ? "All day" : formatJobDurationLabel(jobDetails.jobDurationMinutes),
+    property_address: jobDetails.propertyAddress,
+    technician_name: jobDetails.technicianName || "",
+    description: jobDetails.description || "",
+    confirm_url: responseLinks?.confirmUrl || "",
+    request_change_url: responseLinks?.requestChangeUrl || "",
+  };
+
+  const overriddenSubject = normalizeTemplateText(templateOverride?.subject);
+  const subject = overriddenSubject
+    ? applyTemplateVariables(overriddenSubject, templateVariables).replace(/\s+/g, " ").trim()
+    : defaultSubject;
+  const overriddenBody = normalizeTemplateText(templateOverride?.body);
+
+  const html = overriddenBody
+    ? baseHtml(subject, `
+      <h2>Appointment Confirmation</h2>
+      ${renderTemplateBodyHtml(applyTemplateVariables(overriddenBody, templateVariables))}
+      ${responseLinks ? `
+        <div class="info-box" style="margin-top:16px;">
+          <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#1e293b;">Please confirm this appointment</p>
+          <p style="margin:0 0 14px;font-size:13px;color:#475569;">Use one of the options below so the office can plan your visit accurately.</p>
+          <p style="margin:0 0 10px;">
+            <a href="${escHtml(responseLinks.confirmUrl)}" style="display:inline-block;background:#059669;color:#fff;text-decoration:none;border-radius:8px;padding:10px 16px;font-weight:600;font-size:13px;">Confirm appointment</a>
+          </p>
+          <p style="margin:0;">
+            <a href="${escHtml(responseLinks.requestChangeUrl)}" style="display:inline-block;background:#b45309;color:#fff;text-decoration:none;border-radius:8px;padding:10px 16px;font-weight:600;font-size:13px;">Request date change</a>
+          </p>
+        </div>
+      ` : ""}
+      ${renderDocumentLinks(companyDetails)}
+      <hr class="divider"/>
+      <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
+    `, companyDetails)
+    : renderJobConfirmationHtml(customerName, companyName, jobDetails, companyDetails, responseLinks);
 
   if (!resend) {
     await writeTenantEmailAudit({
       status: "failed",
       emailType: "job_confirmation",
       to,
-      subject: `Appointment Confirmation — ${escHtml(jobDetails.jobRef)}`,
+      subject,
       from: buildTenantFrom(companyDetails),
       replyTo: companyDetails?.email ?? undefined,
       errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
@@ -1095,7 +1190,6 @@ export async function sendJobConfirmationEmail(
     throw new Error(getTenantEmailFailureMessage());
   }
 
-  const subject = `Appointment Confirmation — ${escHtml(jobDetails.jobRef)}`;
   const replyTo = companyDetails?.email ?? undefined;
   const from = buildTenantFrom(companyDetails);
   const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
@@ -1150,28 +1244,50 @@ export async function sendEnquiryAcknowledgementEmail(
   enquiryDetails: EnquiryAcknowledgementDetails,
   companyDetails?: EmailCompanyDetails,
 ): Promise<void> {
-  const subject = `We have logged your enquiry — ${escHtml(companyName)}`;
+  const defaultSubject = `We have logged your enquiry — ${companyName}`;
   const sourceLabel = enquiryDetails.source
     ? String(enquiryDetails.source).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
     : null;
   const contactLine = companyDetails?.phone
     ? `please contact us on <strong>${escHtml(companyDetails.phone)}</strong>${companyDetails.email ? ` or email <a href="mailto:${escHtml(companyDetails.email)}" style="color:#1d4ed8;">${escHtml(companyDetails.email)}</a>` : ""}.`
     : `please contact <strong>${escHtml(companyName)}</strong> directly.`;
-  const html = baseHtml(subject, `
-    <h2>Enquiry received</h2>
-    <p>Dear ${escHtml(customerName)},</p>
-    <p>Thank you for getting in touch with <strong>${escHtml(companyName)}</strong>. We have logged your enquiry and a member of our team will review it as soon as possible.</p>
-    <div class="info-box">
-      <p><strong>Enquiry reference:</strong> ${escHtml(enquiryDetails.enquiryId)}</p>
-      ${sourceLabel ? `<p><strong>Source:</strong> ${escHtml(sourceLabel)}</p>` : ""}
-      ${enquiryDetails.priority ? `<p><strong>Priority:</strong> ${escHtml(String(enquiryDetails.priority))}</p>` : ""}
-    </div>
-    ${enquiryDetails.description ? `<p><strong>What you told us:</strong><br/>${escHtml(enquiryDetails.description).replace(/\n/g, "<br/>")}</p>` : ""}
-    <p>If you need to add anything to your enquiry, ${contactLine}</p>
-    ${renderDocumentLinks(companyDetails)}
-    <hr class="divider"/>
-    <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
-  `, companyDetails);
+  const templateOverride = getTemplateOverride(companyDetails, "enquiry_acknowledgement");
+  const templateVariables = {
+    customer_name: customerName,
+    company_name: companyName,
+    enquiry_id: enquiryDetails.enquiryId,
+    source: sourceLabel || "",
+    priority: enquiryDetails.priority ? String(enquiryDetails.priority) : "",
+    description: enquiryDetails.description || "",
+  };
+  const overriddenSubject = normalizeTemplateText(templateOverride?.subject);
+  const subject = overriddenSubject
+    ? applyTemplateVariables(overriddenSubject, templateVariables).replace(/\s+/g, " ").trim()
+    : defaultSubject;
+  const overriddenBody = normalizeTemplateText(templateOverride?.body);
+  const html = overriddenBody
+    ? baseHtml(subject, `
+      <h2>Enquiry received</h2>
+      ${renderTemplateBodyHtml(applyTemplateVariables(overriddenBody, templateVariables))}
+      ${renderDocumentLinks(companyDetails)}
+      <hr class="divider"/>
+      <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
+    `, companyDetails)
+    : baseHtml(subject, `
+      <h2>Enquiry received</h2>
+      <p>Dear ${escHtml(customerName)},</p>
+      <p>Thank you for getting in touch with <strong>${escHtml(companyName)}</strong>. We have logged your enquiry and a member of our team will review it as soon as possible.</p>
+      <div class="info-box">
+        <p><strong>Enquiry reference:</strong> ${escHtml(enquiryDetails.enquiryId)}</p>
+        ${sourceLabel ? `<p><strong>Source:</strong> ${escHtml(sourceLabel)}</p>` : ""}
+        ${enquiryDetails.priority ? `<p><strong>Priority:</strong> ${escHtml(String(enquiryDetails.priority))}</p>` : ""}
+      </div>
+      ${enquiryDetails.description ? `<p><strong>What you told us:</strong><br/>${escHtml(enquiryDetails.description).replace(/\n/g, "<br/>")}</p>` : ""}
+      <p>If you need to add anything to your enquiry, ${contactLine}</p>
+      ${renderDocumentLinks(companyDetails)}
+      <hr class="divider"/>
+      <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
+    `, companyDetails);
 
   if (!resend) {
     await writeTenantEmailAudit({
@@ -1248,27 +1364,52 @@ export async function sendBookingPendingApprovalEmail(
     ? `please contact us on <strong>${escHtml(companyDetails.phone)}</strong>${companyDetails.email ? ` or email <a href="mailto:${escHtml(companyDetails.email)}" style="color:#1d4ed8;">${escHtml(companyDetails.email)}</a>` : ""}.`
     : `please contact <strong>${escHtml(companyName)}</strong> directly.`;
 
-  const subject = `Booking Request Received — Pending Approval (${escHtml(jobDetails.jobRef)})`;
-  const html = baseHtml(subject, `
-    <h2>Booking Request Received</h2>
-    <p>Dear ${escHtml(customerName)},</p>
-    <p>Thank you for your booking request with <strong>${escHtml(companyName)}</strong>. Your request is currently <strong>pending approval</strong>.</p>
-    <div class="warning-box">
-      <p style="margin:0;"><strong>This is not yet a confirmed appointment.</strong> Our team will review your request and contact you to confirm.</p>
-    </div>
-    <div class="info-box">
-      <p><strong>Reference:</strong> ${escHtml(jobDetails.jobRef)}</p>
-      <p><strong>Type of Work:</strong> ${escHtml(jobDetails.jobType)}</p>
-      <p><strong>Requested Date:</strong> ${escHtml(scheduledDateLine)}</p>
-      ${durationLabel ? `<p><strong>Job Duration:</strong> ${escHtml(durationLabel)}</p>` : ""}
-      <p><strong>Property:</strong> ${escHtml(jobDetails.propertyAddress)}</p>
-    </div>
-    ${jobDetails.description ? `<p><strong>Notes:</strong> ${escHtml(jobDetails.description)}</p>` : ""}
-    <p>If you need to update anything about this request, ${contactLine}</p>
-    ${renderDocumentLinks(companyDetails)}
-    <hr class="divider"/>
-    <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
-  `, companyDetails);
+  const defaultSubject = `Booking Request Received — Pending Approval (${jobDetails.jobRef})`;
+  const templateOverride = getTemplateOverride(companyDetails, "booking_pending_approval");
+  const templateVariables = {
+    customer_name: customerName,
+    company_name: companyName,
+    job_ref: jobDetails.jobRef,
+    job_type: jobDetails.jobType,
+    scheduled_date: scheduledDateLine,
+    scheduled_time: jobDetails.scheduledTime || "",
+    job_duration: durationLabel,
+    property_address: jobDetails.propertyAddress,
+    description: jobDetails.description || "",
+  };
+  const overriddenSubject = normalizeTemplateText(templateOverride?.subject);
+  const subject = overriddenSubject
+    ? applyTemplateVariables(overriddenSubject, templateVariables).replace(/\s+/g, " ").trim()
+    : defaultSubject;
+  const overriddenBody = normalizeTemplateText(templateOverride?.body);
+  const html = overriddenBody
+    ? baseHtml(subject, `
+      <h2>Booking Request Received</h2>
+      ${renderTemplateBodyHtml(applyTemplateVariables(overriddenBody, templateVariables))}
+      ${renderDocumentLinks(companyDetails)}
+      <hr class="divider"/>
+      <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
+    `, companyDetails)
+    : baseHtml(subject, `
+      <h2>Booking Request Received</h2>
+      <p>Dear ${escHtml(customerName)},</p>
+      <p>Thank you for your booking request with <strong>${escHtml(companyName)}</strong>. Your request is currently <strong>pending approval</strong>.</p>
+      <div class="warning-box">
+        <p style="margin:0;"><strong>This is not yet a confirmed appointment.</strong> Our team will review your request and contact you to confirm.</p>
+      </div>
+      <div class="info-box">
+        <p><strong>Reference:</strong> ${escHtml(jobDetails.jobRef)}</p>
+        <p><strong>Type of Work:</strong> ${escHtml(jobDetails.jobType)}</p>
+        <p><strong>Requested Date:</strong> ${escHtml(scheduledDateLine)}</p>
+        ${durationLabel ? `<p><strong>Job Duration:</strong> ${escHtml(durationLabel)}</p>` : ""}
+        <p><strong>Property:</strong> ${escHtml(jobDetails.propertyAddress)}</p>
+      </div>
+      ${jobDetails.description ? `<p><strong>Notes:</strong> ${escHtml(jobDetails.description)}</p>` : ""}
+      <p>If you need to update anything about this request, ${contactLine}</p>
+      ${renderDocumentLinks(companyDetails)}
+      <hr class="divider"/>
+      <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
+    `, companyDetails);
 
   if (!resend) {
     await writeTenantEmailAudit({
@@ -1358,34 +1499,56 @@ export async function sendNewRegistrationNotification(
 }
 
 export async function sendPortalInviteEmail(to: string, customerName: string, companyName: string, registerUrl: string, companyDetails?: EmailCompanyDetails): Promise<void> {
-  const html = baseHtml(`${companyName} — Customer Portal Invitation`, `
-    <h2>You've been invited to the Customer Portal</h2>
-    <p>Dear ${escHtml(customerName)},</p>
-    <p><strong>${escHtml(companyName)}</strong> has invited you to access your service records, certificates, invoices, quotes, and property details through our secure customer portal.</p>
-    <div class="info-box">
-      <p><strong>What you can do:</strong></p>
-      <ul style="margin:8px 0 0;padding-left:20px;">
-        <li>View your property details and appliance information</li>
-        <li>Access service history and job records</li>
-        <li>View, download and pay invoices online</li>
-        <li>Review and respond to quotes</li>
-        <li>Download certificates and reports as PDFs</li>
-        <li>See upcoming appointments</li>
-      </ul>
-    </div>
-    <p style="margin-top:24px;">
-      <a href="${escHtml(registerUrl)}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;border-radius:8px;padding:12px 24px;font-weight:600;font-size:14px;">Create Your Account</a>
-    </p>
-    <hr class="divider"/>
-    <p style="font-size:13px; color:#64748b;">This invitation link expires in 7 days. If you didn't expect this email, you can safely ignore it.</p>
-  `, companyDetails);
+  const defaultSubject = `${companyName} — You're invited to the Customer Portal`;
+  const templateOverride = getTemplateOverride(companyDetails, "portal_invite");
+  const templateVariables = {
+    customer_name: customerName,
+    company_name: companyName,
+    register_url: registerUrl,
+  };
+  const overriddenSubject = normalizeTemplateText(templateOverride?.subject);
+  const subject = overriddenSubject
+    ? applyTemplateVariables(overriddenSubject, templateVariables).replace(/\s+/g, " ").trim()
+    : defaultSubject;
+  const overriddenBody = normalizeTemplateText(templateOverride?.body);
+  const html = overriddenBody
+    ? baseHtml(subject, `
+      <h2>You've been invited to the Customer Portal</h2>
+      ${renderTemplateBodyHtml(applyTemplateVariables(overriddenBody, templateVariables))}
+      <p style="margin-top:24px;">
+        <a href="${escHtml(registerUrl)}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;border-radius:8px;padding:12px 24px;font-weight:600;font-size:14px;">Create Your Account</a>
+      </p>
+      <hr class="divider"/>
+      <p style="font-size:13px; color:#64748b;">This invitation link expires in 7 days. If you didn't expect this email, you can safely ignore it.</p>
+    `, companyDetails)
+    : baseHtml(`${companyName} — Customer Portal Invitation`, `
+      <h2>You've been invited to the Customer Portal</h2>
+      <p>Dear ${escHtml(customerName)},</p>
+      <p><strong>${escHtml(companyName)}</strong> has invited you to access your service records, certificates, invoices, quotes, and property details through our secure customer portal.</p>
+      <div class="info-box">
+        <p><strong>What you can do:</strong></p>
+        <ul style="margin:8px 0 0;padding-left:20px;">
+          <li>View your property details and appliance information</li>
+          <li>Access service history and job records</li>
+          <li>View, download and pay invoices online</li>
+          <li>Review and respond to quotes</li>
+          <li>Download certificates and reports as PDFs</li>
+          <li>See upcoming appointments</li>
+        </ul>
+      </div>
+      <p style="margin-top:24px;">
+        <a href="${escHtml(registerUrl)}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;border-radius:8px;padding:12px 24px;font-weight:600;font-size:14px;">Create Your Account</a>
+      </p>
+      <hr class="divider"/>
+      <p style="font-size:13px; color:#64748b;">This invitation link expires in 7 days. If you didn't expect this email, you can safely ignore it.</p>
+    `, companyDetails);
   if (!resend) {
     console.error("[email] Resend not configured for portal invite");
     await writeTenantEmailAudit({
       status: "failed",
       emailType: "portal_invite",
       to,
-      subject: `${companyName} — You're invited to the Customer Portal`,
+      subject,
       from: buildTenantFrom(companyDetails),
       replyTo: companyDetails?.email ?? undefined,
       errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
@@ -1401,7 +1564,7 @@ export async function sendPortalInviteEmail(to: string, customerName: string, co
     const sendResult = await sendResendEmailWithRetry({
     from,
     to,
-    subject: `${companyName} — You're invited to the Customer Portal`,
+    subject,
     html,
     ...(replyTo ? { replyTo } : {}),
     ...(cc.length > 0 ? { cc } : {}),
@@ -1410,7 +1573,7 @@ export async function sendPortalInviteEmail(to: string, customerName: string, co
       status: "accepted",
       emailType: "portal_invite",
       to,
-      subject: `${companyName} — You're invited to the Customer Portal`,
+      subject,
       from,
       replyTo,
       providerMessageId: sendResult.messageId,
@@ -1422,7 +1585,7 @@ export async function sendPortalInviteEmail(to: string, customerName: string, co
     console.error(`[email] Failed to send portal invite to ${to}:`, reason);
     await notifyEmailDeliveryFailure({
       to,
-      subject: `${companyName} — You're invited to the Customer Portal`,
+      subject,
       reason,
       from,
       replyTo,
@@ -1431,7 +1594,7 @@ export async function sendPortalInviteEmail(to: string, customerName: string, co
       status: "failed",
       emailType: "portal_invite",
       to,
-      subject: `${companyName} — You're invited to the Customer Portal`,
+      subject,
       from,
       replyTo,
       errorMessage: reason,
@@ -1561,16 +1724,27 @@ export async function sendSimpleNotification(
   to: string,
   subject: string,
   bodyText: string,
+  opts?: {
+    companyDetails?: EmailCompanyDetails;
+    tenantId?: string;
+    emailType?: string;
+  },
 ): Promise<void> {
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const normalizedTo = String(to || "").trim().toLowerCase();
+  const from = buildTenantFrom(opts?.companyDetails);
+  const replyTo = opts?.companyDetails?.email ?? undefined;
+  const companyDisplay = opts?.companyDetails?.name || opts?.companyDetails?.trading_name || "TradeWorkDesk";
+  const emailType = opts?.emailType || "simple_notification";
   if (!EMAIL_RE.test(normalizedTo)) {
     await writeTenantEmailAudit({
+      tenantId: opts?.tenantId,
       status: "failed",
-      emailType: "simple_notification",
+      emailType,
       to: normalizedTo || String(to || ""),
       subject,
-      from: FROM,
+      from,
+      replyTo,
       errorMessage: "invalid recipient email format",
       failureCategory: "recipient",
     });
@@ -1578,11 +1752,13 @@ export async function sendSimpleNotification(
   }
   if (!resend) {
     await writeTenantEmailAudit({
+      tenantId: opts?.tenantId,
       status: "failed",
-      emailType: "simple_notification",
+      emailType,
       to: normalizedTo,
       subject,
-      from: FROM,
+      from,
+      replyTo,
       errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
       failureCategory: "platform",
     });
@@ -1596,16 +1772,24 @@ export async function sendSimpleNotification(
   const html = `<div style="font-family:sans-serif;font-size:14px;color:#1e293b;max-width:600px;margin:0 auto;padding:24px">
     <p style="margin:0 0 16px;">${linked.replace(/\n/g, "<br>")}</p>
     <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
-    <p style="font-size:12px;color:#94a3b8;">Sent from TradeWorkDesk</p>
+    <p style="font-size:12px;color:#94a3b8;">Sent from ${escHtml(companyDisplay)} via TradeWorkDesk</p>
   </div>`;
   try {
-    const sendResult = await sendResendEmailWithRetry({ from: FROM, to: normalizedTo, subject, html } as any);
-    await writeTenantEmailAudit({
-      status: "accepted",
-      emailType: "simple_notification",
+    const sendResult = await sendResendEmailWithRetry({
+      from,
       to: normalizedTo,
       subject,
-      from: FROM,
+      html,
+      ...(replyTo ? { replyTo } : {}),
+    } as any);
+    await writeTenantEmailAudit({
+      tenantId: opts?.tenantId,
+      status: "accepted",
+      emailType,
+      to: normalizedTo,
+      subject,
+      from,
+      replyTo,
       providerMessageId: sendResult.messageId,
       retryCount: Math.max(0, sendResult.attempts - 1),
     });
@@ -1616,14 +1800,17 @@ export async function sendSimpleNotification(
       to: normalizedTo,
       subject,
       reason,
-      from: FROM,
+      from,
+      replyTo,
     });
     await writeTenantEmailAudit({
+      tenantId: opts?.tenantId,
       status: "failed",
-      emailType: "simple_notification",
+      emailType,
       to: normalizedTo,
       subject,
-      from: FROM,
+      from,
+      replyTo,
       errorMessage: reason,
     });
     throw new Error(getTenantEmailFailureMessage(reason));

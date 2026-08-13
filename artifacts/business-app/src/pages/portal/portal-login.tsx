@@ -17,6 +17,9 @@ export default function PortalLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [requestPostcode, setRequestPostcode] = useState("");
+  const [requestingAccess, setRequestingAccess] = useState(false);
+  const [requestAccessMessage, setRequestAccessMessage] = useState("");
 
   if (isLoading) {
     return (
@@ -46,6 +49,42 @@ export default function PortalLogin() {
       setError("An error occurred. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRequestAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setRequestAccessMessage("");
+
+    if (!email.trim()) {
+      setError("Enter your email first to request access.");
+      return;
+    }
+
+    setRequestingAccess(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/portal/request-access`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          postcode: requestPostcode.trim() || undefined,
+        }),
+      });
+
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body.error || "Could not submit access request");
+      }
+
+      setRequestAccessMessage(
+        "Request submitted. If your details match our records, your service provider will review and send an invite.",
+      );
+    } catch (requestErr) {
+      setError(requestErr instanceof Error ? requestErr.message : "Could not submit access request");
+    } finally {
+      setRequestingAccess(false);
     }
   };
 
@@ -105,6 +144,30 @@ export default function PortalLogin() {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
+
+          <div className="mt-6 pt-4 border-t border-slate-200">
+            <p className="text-sm font-medium text-slate-900">Need portal access?</p>
+            <p className="text-xs text-slate-500 mt-1">Request access and your service provider can approve and send your invite.</p>
+            <form onSubmit={handleRequestAccess} className="mt-3 space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="request-postcode">Postcode (optional)</Label>
+                <Input
+                  id="request-postcode"
+                  value={requestPostcode}
+                  onChange={(e) => setRequestPostcode(e.target.value.toUpperCase())}
+                  placeholder="AB12 3CD"
+                />
+              </div>
+              <Button type="submit" variant="outline" className="w-full" disabled={requestingAccess}>
+                {requestingAccess ? "Submitting..." : "Request Access"}
+              </Button>
+            </form>
+            {requestAccessMessage && (
+              <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
+                {requestAccessMessage}
+              </div>
+            )}
+          </div>
         </Card>
 
         <p className="text-center text-sm text-slate-500 mt-6">

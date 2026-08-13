@@ -969,6 +969,9 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     vat_number: (cs?.vat_number as string | null) || null,
     rates_url: (cs?.rates_url as string | null) || null,
     trading_terms_url: (cs?.trading_terms_url as string | null) || null,
+    email_from_name: (cs?.email_from_name as string | null) || null,
+    email_reply_to: (cs?.email_reply_to as string | null) || null,
+    email_templates: (cs?.email_templates as EmailCompanyDetails["email_templates"]) || null,
   };
 
   const jobRef = job.job_ref || `JOB-${job.id.slice(0, 8).toUpperCase()}`;

@@ -14,7 +14,7 @@ import {
 } from "@workspace/api-zod";
 import { z } from "zod";
 import { generateInviteToken, portalUserCache } from "./portal";
-import { sendPortalInviteEmail } from "../lib/email";
+import { sendPortalInviteEmail, type EmailCompanyDetails } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -360,7 +360,7 @@ router.post("/customers/portal-invite/bulk", requireAuth, requireTenant, require
 
   const { data: cs } = await supabaseAdmin
     .from("company_settings")
-    .select("name, trading_name, phone, email, notification_emails, website, logo_url")
+    .select("name, trading_name, phone, email, notification_emails, website, logo_url, email_from_name, email_reply_to, email_templates")
     .eq("tenant_id", req.tenantId!)
     .eq("singleton_id", "default")
     .maybeSingle();
@@ -485,6 +485,9 @@ router.post("/customers/portal-invite/bulk", requireAuth, requireTenant, require
             logo_url: (cs as { logo_url?: string } | null)?.logo_url,
             phone: (cs as { phone?: string } | null)?.phone,
             website: (cs as { website?: string } | null)?.website,
+            email_from_name: (cs as { email_from_name?: string } | null)?.email_from_name,
+            email_reply_to: (cs as { email_reply_to?: string } | null)?.email_reply_to,
+            email_templates: (cs as { email_templates?: EmailCompanyDetails["email_templates"] } | null)?.email_templates,
           })
         )
       );
@@ -654,7 +657,7 @@ router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireR
 
   const { data: cs } = await supabaseAdmin
     .from("company_settings")
-    .select("name, trading_name, phone, email, notification_emails, website, logo_url")
+    .select("name, trading_name, phone, email, notification_emails, website, logo_url, email_from_name, email_reply_to, email_templates")
     .eq("tenant_id", req.tenantId!)
     .eq("singleton_id", "default")
     .maybeSingle();
@@ -676,6 +679,9 @@ router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireR
       logo_url: (cs as any)?.logo_url,
       phone: (cs as any)?.phone,
       website: (cs as any)?.website,
+      email_from_name: (cs as any)?.email_from_name,
+      email_reply_to: (cs as any)?.email_reply_to,
+      email_templates: (cs as any)?.email_templates,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to send invite email";
@@ -690,6 +696,16 @@ router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireR
 router.get("/customers/:id/portal-status", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
 
+  const { data: pendingRequest } = await supabaseAdmin
+    .from("customer_portal_access_requests")
+    .select("id, requested_email, requested_postcode, requested_at")
+    .eq("customer_id", id)
+    .eq("tenant_id", req.tenantId!)
+    .eq("status", "pending")
+    .order("requested_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const { data: portalUser } = await supabaseAdmin
     .from("customer_portal_users")
     .select("id, auth_user_id, is_active, invite_expires_at, created_at")
@@ -698,7 +714,7 @@ router.get("/customers/:id/portal-status", requireAuth, requireTenant, requireRo
     .maybeSingle();
 
   if (!portalUser) {
-    res.json({ has_portal: false, is_active: false, is_registered: false });
+    res.json({ has_portal: false, is_active: false, is_registered: false, pending_access_request: pendingRequest || null });
     return;
   }
 
@@ -708,7 +724,194 @@ router.get("/customers/:id/portal-status", requireAuth, requireTenant, requireRo
     is_registered: !!portalUser.auth_user_id,
     invite_expires_at: portalUser.invite_expires_at,
     created_at: portalUser.created_at,
+    pending_access_request: pendingRequest || null,
   });
+});
+
+router.post("/customers/:id/portal-access-requests/:requestId/approve", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id, requestId } = req.params;
+
+  const { data: requestRow, error: requestErr } = await supabaseAdmin
+    .from("customer_portal_access_requests")
+    .select("id, customer_id, tenant_id, status")
+    .eq("id", requestId)
+    .eq("customer_id", id)
+    .eq("tenant_id", req.tenantId!)
+    .single();
+
+  if (requestErr || !requestRow) {
+    res.status(404).json({ error: "Portal access request not found" });
+    return;
+  }
+
+  if (requestRow.status !== "pending") {
+    res.status(400).json({ error: "Portal access request has already been processed" });
+    return;
+  }
+
+  const { data: customer } = await supabaseAdmin
+    .from("customers")
+    .select("id, first_name, last_name, email, tenant_id")
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId!)
+    .single();
+
+  if (!customer) {
+    res.status(404).json({ error: "Customer not found" });
+    return;
+  }
+
+  if (!customer.email) {
+    res.status(400).json({ error: "Customer does not have an email address. Add an email first." });
+    return;
+  }
+
+  const { data: existing } = await supabaseAdmin
+    .from("customer_portal_users")
+    .select("id, auth_user_id, is_active, invite_token, invite_expires_at")
+    .eq("customer_id", id)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  const nowMs = Date.now();
+  const hasReusableInvite = !!(
+    existing?.invite_token
+    && existing?.invite_expires_at
+    && new Date(existing.invite_expires_at).getTime() > nowMs
+    && existing.is_active
+    && !existing.auth_user_id
+  );
+
+  const token = hasReusableInvite ? String(existing!.invite_token) : generateInviteToken();
+  const expiresAt = hasReusableInvite
+    ? String(existing!.invite_expires_at)
+    : new Date(nowMs + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  if (existing) {
+    await supabaseAdmin
+      .from("customer_portal_users")
+      .update({
+        invite_token: token,
+        invite_email: customer.email.toLowerCase().trim(),
+        invite_expires_at: expiresAt,
+        is_active: true,
+        auth_user_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+  } else {
+    const { error: insertErr } = await supabaseAdmin
+      .from("customer_portal_users")
+      .insert({
+        customer_id: id,
+        tenant_id: req.tenantId!,
+        invite_token: token,
+        invite_email: customer.email.toLowerCase().trim(),
+        invite_expires_at: expiresAt,
+      });
+
+    if (insertErr) {
+      res.status(500).json({ error: "Failed to create portal invite" });
+      return;
+    }
+  }
+
+  const { data: tenant } = await supabaseAdmin
+    .from("tenants")
+    .select("company_name")
+    .eq("id", req.tenantId!)
+    .single();
+
+  const { data: cs } = await supabaseAdmin
+    .from("company_settings")
+    .select("name, trading_name, phone, email, notification_emails, website, logo_url, email_from_name, email_reply_to, email_templates")
+    .eq("tenant_id", req.tenantId!)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+
+  const companyName = (cs as any)?.name || (cs as any)?.trading_name || tenant?.company_name || "Your Service Provider";
+
+  const baseUrl = process.env.APP_URL
+    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://tradeworkdesk.co.uk");
+  const registerUrl = `${baseUrl}/portal/register?token=${token}`;
+
+  const customerName = `${customer.first_name} ${customer.last_name}`;
+
+  try {
+    await sendPortalInviteEmail(customer.email, customerName, companyName, registerUrl, {
+      name: (cs as any)?.name,
+      trading_name: (cs as any)?.trading_name,
+      email: (cs as any)?.email,
+      notification_emails: (cs as any)?.notification_emails,
+      logo_url: (cs as any)?.logo_url,
+      phone: (cs as any)?.phone,
+      website: (cs as any)?.website,
+      email_from_name: (cs as any)?.email_from_name,
+      email_reply_to: (cs as any)?.email_reply_to,
+      email_templates: (cs as any)?.email_templates,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to send invite email";
+    console.error("[portal] Failed to send invite email on request approval:", e);
+    res.status(502).json({ error: msg });
+    return;
+  }
+
+  await supabaseAdmin
+    .from("customer_portal_access_requests")
+    .update({
+      status: "approved",
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: req.userId,
+      review_notes: "Approved and portal invite sent",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", requestId)
+    .eq("tenant_id", req.tenantId!);
+
+  res.json({ success: true, sent_to: customer.email });
+});
+
+router.post("/customers/:id/portal-access-requests/:requestId/reject", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id, requestId } = req.params;
+  const reviewNotes = typeof req.body?.review_notes === "string" ? req.body.review_notes.trim() : "";
+
+  const { data: requestRow, error: requestErr } = await supabaseAdmin
+    .from("customer_portal_access_requests")
+    .select("id, customer_id, tenant_id, status")
+    .eq("id", requestId)
+    .eq("customer_id", id)
+    .eq("tenant_id", req.tenantId!)
+    .single();
+
+  if (requestErr || !requestRow) {
+    res.status(404).json({ error: "Portal access request not found" });
+    return;
+  }
+
+  if (requestRow.status !== "pending") {
+    res.status(400).json({ error: "Portal access request has already been processed" });
+    return;
+  }
+
+  const { error: updateErr } = await supabaseAdmin
+    .from("customer_portal_access_requests")
+    .update({
+      status: "rejected",
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: req.userId,
+      review_notes: reviewNotes || "Rejected by staff",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", requestId)
+    .eq("tenant_id", req.tenantId!);
+
+  if (updateErr) {
+    res.status(500).json({ error: updateErr.message });
+    return;
+  }
+
+  res.json({ success: true });
 });
 
 router.patch("/customers/:id/portal-toggle", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {

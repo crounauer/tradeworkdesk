@@ -305,6 +305,8 @@ export default function CustomerDetail() {
 
             <CustomerJobsSection customerId={customer.id} onBookJob={() => setShowBookJob(true)} />
 
+            <CustomerEnquiriesSection customerId={customer.id} onNewEnquiry={() => setShowBookEnquiry(true)} />
+
             <CustomerInvoicesSection customerId={customer.id} />
 
             <CustomerCommsSection customerId={customer.id} />
@@ -528,6 +530,95 @@ function CustomerInvoicesSection({ customerId }: { customerId: string }) {
   );
 }
 
+function CustomerEnquiriesSection({ customerId, onNewEnquiry }: { customerId: string; onNewEnquiry?: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["customer-enquiries", customerId],
+    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/enquiries?customer_id=${customerId}`),
+  });
+
+  const enquiries = (data as Array<{
+    id: string;
+    contact_name?: string;
+    source?: string;
+    status?: string;
+    description?: string;
+    created_at?: string;
+  }> | undefined) ?? [];
+
+  if (isLoading || enquiries.length === 0) return null;
+
+  const statusColors: Record<string, string> = {
+    new: "bg-blue-100 text-blue-700",
+    contacted: "bg-amber-100 text-amber-700",
+    quoted: "bg-purple-100 text-purple-700",
+    converted: "bg-emerald-100 text-emerald-700",
+    lost: "bg-slate-100 text-slate-500",
+  };
+
+  const sourceLabels: Record<string, string> = {
+    phone: "Phone",
+    email: "Email",
+    text: "Text/SMS",
+    facebook: "Facebook",
+    whatsapp: "WhatsApp",
+    messenger: "Messenger",
+    website: "Website",
+    website_contact_form: "Website Contact Form",
+    website_free_survey: "Website Free Survey",
+    referral: "Referral",
+    other: "Other",
+    walk_in: "Walk-in",
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-display font-bold flex items-center gap-2">
+          <MessageSquare className="w-5 h-5" /> Enquiries
+          <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{enquiries.length}</span>
+        </h2>
+        {onNewEnquiry && (
+          <Button size="sm" variant="outline" onClick={onNewEnquiry}>
+            <Plus className="w-4 h-4 mr-1" /> New Enquiry
+          </Button>
+        )}
+      </div>
+      <div className="space-y-2">
+        {enquiries.map((enquiry) => (
+          <Link key={enquiry.id} href={`/enquiries/${enquiry.id}`}>
+            <Card className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[String(enquiry.status || "")] || "bg-slate-100 text-slate-600"}`}>
+                    {String(enquiry.status || "new").replace(/_/g, " ")}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm text-foreground truncate">
+                      {enquiry.contact_name || "Enquiry"}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {sourceLabels[String(enquiry.source || "")] || String(enquiry.source || "Other")}
+                    </p>
+                    {enquiry.description && (
+                      <p className="text-xs text-muted-foreground truncate">{enquiry.description}</p>
+                    )}
+                  </div>
+                </div>
+                {enquiry.created_at && (
+                  <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {new Date(enquiry.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  </span>
+                )}
+              </div>
+            </Card>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Email history — all emails sent for this customer's jobs & invoices
 // ---------------------------------------------------------------------------
@@ -593,6 +684,8 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
         {logs.map(log => {
           const isOpen = openEntries.has(log.id);
           const emailBody = getCustomerEmailLogBodyText(log);
+          const enquiryAttachment = (log.forms_included || []).find((entry) => entry.form_type === "enquiry_acknowledgement");
+          const enquiryId = enquiryAttachment?.form_id || null;
           const card = (
             <Card className={`p-4 border border-border/50 transition-all ${log.job_id ? "hover:border-primary/50 hover:shadow-md" : ""}`}>
               <div className="flex items-start justify-between gap-3">
@@ -620,6 +713,13 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
                     <Link href={`/jobs/${log.job_id}`}>
                       <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={(e) => e.stopPropagation()}>
                         View job
+                      </Button>
+                    </Link>
+                  )}
+                  {enquiryId && (
+                    <Link href={`/enquiries/${enquiryId}`}>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={(e) => e.stopPropagation()}>
+                        View enquiry
                       </Button>
                     </Link>
                   )}
@@ -997,7 +1097,19 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
     staleTime: 30_000,
   });
 
-  const status = portalStatus as { has_portal: boolean; is_active: boolean; is_registered: boolean; invite_expires_at?: string; created_at?: string } | undefined;
+  const status = portalStatus as {
+    has_portal: boolean;
+    is_active: boolean;
+    is_registered: boolean;
+    invite_expires_at?: string;
+    created_at?: string;
+    pending_access_request?: {
+      id: string;
+      requested_email: string;
+      requested_postcode?: string | null;
+      requested_at: string;
+    } | null;
+  } | undefined;
 
   const sendInvite = async () => {
     if (!customerEmail) {
@@ -1060,6 +1172,42 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
     }
   };
 
+  const approvePendingRequest = async () => {
+    if (!status?.pending_access_request?.id) return;
+    setSendingInvite(true);
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/customers/${customerId}/portal-access-requests/${status.pending_access_request.id}/approve`, {
+        method: "POST",
+      });
+      toast({ title: "Request approved", description: "Portal invite sent to customer." });
+      qc.invalidateQueries({ queryKey: ["portal-status", customerId] });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to approve access request";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSendingInvite(false);
+    }
+  };
+
+  const rejectPendingRequest = async () => {
+    if (!status?.pending_access_request?.id) return;
+    setToggling(true);
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/customers/${customerId}/portal-access-requests/${status.pending_access_request.id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ review_notes: "Rejected by staff" }),
+      });
+      toast({ title: "Request rejected" });
+      qc.invalidateQueries({ queryKey: ["portal-status", customerId] });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to reject access request";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setToggling(false);
+    }
+  };
+
   if (isLoading) return null;
 
   return (
@@ -1069,19 +1217,42 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
       </h2>
       <Card className="p-5 border border-border/50 shadow-sm">
         {!status?.has_portal ? (
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
               <p className="text-sm text-muted-foreground">
                 This customer doesn't have portal access yet. Send an invitation to let them view their service history, properties, and certificates online.
               </p>
               {!customerEmail && (
                 <p className="text-sm text-amber-600 mt-1">An email address is required to send an invitation.</p>
               )}
+              </div>
+              <Button size="sm" onClick={sendInvite} disabled={sendingInvite || !customerEmail}>
+                {sendingInvite ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                {sendingInvite ? "Sending..." : "Send Portal Invite"}
+              </Button>
             </div>
-            <Button size="sm" onClick={sendInvite} disabled={sendingInvite || !customerEmail}>
-              {sendingInvite ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-              {sendingInvite ? "Sending..." : "Send Portal Invite"}
-            </Button>
+
+            {status?.pending_access_request && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-3">
+                <p className="text-sm font-medium text-amber-900">Customer requested portal access</p>
+                <p className="text-xs text-amber-800">
+                  {status.pending_access_request.requested_email}
+                  {status.pending_access_request.requested_postcode ? ` · ${status.pending_access_request.requested_postcode}` : ""}
+                  {` · ${new Date(status.pending_access_request.requested_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={approvePendingRequest} disabled={sendingInvite}>
+                    {sendingInvite ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                    Approve & Send Invite
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={rejectPendingRequest} disabled={toggling || sendingInvite}>
+                    {toggling ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <X className="w-4 h-4 mr-2" />}
+                    Reject Request
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">

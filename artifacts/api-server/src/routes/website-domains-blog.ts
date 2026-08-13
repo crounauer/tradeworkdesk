@@ -2428,7 +2428,16 @@ async function sendFormSubmissionNotifications(
           "Open this enquiry directly:",
           enquiryUrl,
         ].join("\n");
-        await sendSimpleNotification(toEmail, subject, body).catch((e) =>
+        await sendSimpleNotification(toEmail, subject, body, {
+          tenantId,
+          emailType: "website_form_notification",
+          companyDetails: {
+            name: cs?.name || null,
+            trading_name: cs?.trading_name || null,
+            email: cs?.email || null,
+            phone: cs?.phone || null,
+          },
+        }).catch((e) =>
           console.error("[website-form] Failed to send notification email:", (e as Error).message)
         );
       }
@@ -2559,7 +2568,7 @@ async function createEnquiryFromFormSubmission(
     const [{ data: companySettings }, { data: tenant }] = await Promise.all([
       (supabaseAdmin as any)
         .from("company_settings")
-        .select("name, trading_name, logo_url, address_line1, address_line2, city, county, postcode, phone, email, notification_emails, website, gas_safe_number, oftec_number, vat_number, rates_url, trading_terms_url, email_from_name, email_reply_to")
+        .select("name, trading_name, logo_url, address_line1, address_line2, city, county, postcode, phone, email, notification_emails, website, gas_safe_number, oftec_number, vat_number, rates_url, trading_terms_url, email_from_name, email_reply_to, email_templates")
         .eq("tenant_id", tenantId)
         .eq("singleton_id", "default")
         .maybeSingle(),
@@ -2591,6 +2600,7 @@ async function createEnquiryFromFormSubmission(
       trading_terms_url: (cs?.trading_terms_url as string | null) || null,
       email_from_name: (cs?.email_from_name as string | null) || null,
       email_reply_to: (cs?.email_reply_to as string | null) || null,
+      email_templates: (cs?.email_templates as EmailCompanyDetails["email_templates"]) || null,
     };
 
     if (email) {

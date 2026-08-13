@@ -55,6 +55,10 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
+function normalizePostcode(value: string | null | undefined): string {
+  return String(value || "").replace(/\s+/g, "").toUpperCase();
+}
+
 async function requireCustomerAuth(
   req: CustomerPortalRequest,
   res: Response,
@@ -274,6 +278,59 @@ router.get("/portal/invite-info", async (req: CustomerPortalRequest, res): Promi
     customer_name: customer ? `${customer.first_name} ${customer.last_name}` : null,
     customer_email: customer?.email || null,
     company_name: tenant?.company_name || null,
+  });
+});
+
+router.post("/portal/request-access", async (req: CustomerPortalRequest, res): Promise<void> => {
+  const rawEmail = String(req.body?.email || "").trim().toLowerCase();
+  const rawPostcode = String(req.body?.postcode || "").trim();
+  const normalizedPostcode = normalizePostcode(rawPostcode);
+
+  if (!rawEmail || !/^\S+@\S+\.\S+$/.test(rawEmail)) {
+    res.status(400).json({ error: "A valid email address is required" });
+    return;
+  }
+
+  const { data: candidateCustomers } = await supabaseAdmin
+    .from("customers")
+    .select("id, tenant_id, email, postcode, is_active")
+    .eq("is_active", true)
+    .ilike("email", rawEmail)
+    .limit(20);
+
+  const matchedCustomers = (candidateCustomers || []).filter((customer) => {
+    if (!normalizedPostcode) return true;
+    return normalizePostcode(customer.postcode) === normalizedPostcode;
+  });
+
+  for (const customer of matchedCustomers as Array<{ id: string; tenant_id: string; email: string | null; postcode: string | null }>) {
+    const { data: existingPending } = await supabaseAdmin
+      .from("customer_portal_access_requests")
+      .select("id")
+      .eq("tenant_id", customer.tenant_id)
+      .eq("customer_id", customer.id)
+      .eq("requested_email", rawEmail)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (existingPending) continue;
+
+    await supabaseAdmin
+      .from("customer_portal_access_requests")
+      .insert({
+        tenant_id: customer.tenant_id,
+        customer_id: customer.id,
+        requested_email: rawEmail,
+        requested_postcode: rawPostcode || null,
+        status: "pending",
+        source: "portal_login",
+      });
+  }
+
+  // Always return a generic success response to avoid revealing customer/account existence.
+  res.json({
+    success: true,
+    message: "If your details match our records, we have sent your request to your service provider.",
   });
 });
 
@@ -870,6 +927,15 @@ async function handleQuoteAction(
         companyEmail,
         `Quote ${(invoice as any).invoice_number} ${action === "accept" ? "Accepted" : "Declined"} by Customer`,
         `${customerName} has ${action === "accept" ? "accepted" : "declined"} quote ${(invoice as any).invoice_number} for ${amount}.\n\nLog in to TradeWorkDesk to view the quote.`,
+        {
+          tenantId: req.tenantId,
+          emailType: "quote_status_notification",
+          companyDetails: {
+            name: (cs as any)?.name || null,
+            trading_name: (cs as any)?.trading_name || null,
+            email: (cs as any)?.email || null,
+          },
+        },
       );
     }
   } catch {

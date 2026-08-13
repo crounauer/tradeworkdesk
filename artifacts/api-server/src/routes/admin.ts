@@ -538,6 +538,7 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     // White-label branding
     "white_label_enabled", "brand_name", "primary_color", "accent_color",
     "favicon_url", "email_from_name", "email_reply_to",
+    "email_templates",
     // Website enquiry notifications
     "website_enquiry_email_notify", "website_enquiry_sms_notify",
     // Website closure notice banner

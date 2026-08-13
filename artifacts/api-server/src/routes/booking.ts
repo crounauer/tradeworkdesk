@@ -917,7 +917,7 @@ function stripBookingGeoMetadata(notes: string | null | undefined): string | nul
 async function loadBookingEmailCompanyDetails(tenantId: string): Promise<{ companyName: string; details: EmailCompanyDetails }> {
   const [{ data: companySettings }, { data: tenant }] = await Promise.all([
     db.from("company_settings")
-      .select("name, trading_name, logo_url, address_line1, address_line2, city, county, postcode, phone, email, notification_emails, website, gas_safe_number, oftec_number, vat_number, rates_url, trading_terms_url")
+      .select("name, trading_name, logo_url, address_line1, address_line2, city, county, postcode, phone, email, notification_emails, website, gas_safe_number, oftec_number, vat_number, rates_url, trading_terms_url, email_from_name, email_reply_to, email_templates")
       .eq("tenant_id", tenantId)
       .eq("singleton_id", "default")
       .maybeSingle(),
@@ -950,6 +950,9 @@ async function loadBookingEmailCompanyDetails(tenantId: string): Promise<{ compa
       vat_number: (cs?.vat_number as string | null) || null,
       rates_url: (cs?.rates_url as string | null) || null,
       trading_terms_url: (cs?.trading_terms_url as string | null) || null,
+      email_from_name: (cs?.email_from_name as string | null) || null,
+      email_reply_to: (cs?.email_reply_to as string | null) || null,
+      email_templates: (cs?.email_templates as EmailCompanyDetails["email_templates"]) || null,
     },
   };
 }

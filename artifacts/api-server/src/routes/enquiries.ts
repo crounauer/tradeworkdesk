@@ -50,7 +50,7 @@ async function loadEnquiryEmailCompanyDetails(tenantId: string): Promise<{ compa
   const [{ data: companySettings }, { data: tenant }] = await Promise.all([
     supabaseAdmin
       .from("company_settings")
-      .select("name, trading_name, logo_url, address_line1, address_line2, city, county, postcode, phone, email, notification_emails, website, gas_safe_number, oftec_number, vat_number, rates_url, trading_terms_url, email_from_name, email_reply_to")
+      .select("name, trading_name, logo_url, address_line1, address_line2, city, county, postcode, phone, email, notification_emails, website, gas_safe_number, oftec_number, vat_number, rates_url, trading_terms_url, email_from_name, email_reply_to, email_templates")
       .eq("tenant_id", tenantId)
       .eq("singleton_id", "default")
       .maybeSingle(),
@@ -86,12 +86,13 @@ async function loadEnquiryEmailCompanyDetails(tenantId: string): Promise<{ compa
       trading_terms_url: (cs?.trading_terms_url as string | null) || null,
       email_from_name: (cs?.email_from_name as string | null) || null,
       email_reply_to: (cs?.email_reply_to as string | null) || null,
+      email_templates: (cs?.email_templates as EmailCompanyDetails["email_templates"]) || null,
     },
   };
 }
 
 router.get("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { status, source, search } = req.query;
+  const { status, source, search, customer_id } = req.query;
 
   let q = supabaseAdmin
     .from("enquiries")
@@ -99,6 +100,7 @@ router.get("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_man
     .order("created_at", { ascending: true });
 
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  if (customer_id && typeof customer_id === "string") q = q.eq("linked_customer_id", customer_id);
   if (status && typeof status === "string") q = q.eq("status", status);
   if (source && typeof source === "string") q = q.eq("source", source);
   if (search && typeof search === "string") {

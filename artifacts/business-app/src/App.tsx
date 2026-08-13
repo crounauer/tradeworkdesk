@@ -119,6 +119,7 @@ const AdminCompanySettings = lazyRetry(() => import("@/pages/admin-company-setti
 const AdminBranding = lazyRetry(() => import("@/pages/admin-branding"));
 const AdminSocial = lazyRetry(() => import("@/pages/admin-social"));
 const AdminSmsTemplates = lazyRetry(() => import("@/pages/admin-sms-templates"));
+const AdminEmailTemplates = lazyRetry(() => import("@/pages/admin-email-templates"));
 const AdminReassignJobs = lazyRetry(() => import("@/pages/admin-reassign-jobs"));
 const AdminInvoiceLog = lazyRetry(() => import("@/pages/admin-invoice-log"));
 const AdminStripeConnect = lazyRetry(() => import("@/pages/admin-stripe-connect"));
@@ -461,6 +462,7 @@ const AdminInviteCodesRoute = protect(AdminInviteCodes);
 const AdminLookupOptionsRoute = protect(AdminLookupOptions);
 const AdminSocialRoute = protect(AdminSocial, ["admin", "super_admin"]);
 const AdminSmsTemplatesRoute = protect(AdminSmsTemplates, ["admin", "super_admin"]);
+const AdminEmailTemplatesRoute = protect(AdminEmailTemplates, ["admin", "super_admin"]);
 const AdminReassignJobsRoute = protect(AdminReassignJobs, ["admin"]);
 const AdminInvoiceLogRoute = protect(AdminInvoiceLog, ["admin", "office_staff"]);
 const AdminStripeConnectRoute = protect(AdminStripeConnect, ["admin"]);
@@ -641,6 +643,7 @@ function AppRouter() {
         <Route path="/admin/lookup-options" component={AdminLookupOptionsRoute} />
         <Route path="/admin/social" component={AdminSocialRoute} />
         <Route path="/admin/sms-templates" component={AdminSmsTemplatesRoute} />
+        <Route path="/admin/email-templates" component={AdminEmailTemplatesRoute} />
         <Route path="/admin/reassign-jobs" component={AdminReassignJobsRoute} />
         <Route path="/admin/job-types">{() => <Redirect to="/admin/company-settings?tab=catalogue" />}</Route>
         <Route path="/admin/invoice-log" component={AdminInvoiceLogRoute} />
