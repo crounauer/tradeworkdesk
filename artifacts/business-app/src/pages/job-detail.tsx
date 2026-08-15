@@ -1,4 +1,4 @@
-import { useGetJob, useUpdateJob, useDeleteJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote, useListJobTimeEntries, useCreateJobTimeEntry, useDeleteJobTimeEntry, useUpdateJobTimeEntry, useGetJobCompletionReportByJob, type JobDetail as JobDetailType } from "@workspace/api-client-react";
+import { useGetJob, useUpdateJob, useDeleteJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote, useListJobTimeEntries, useCreateJobTimeEntry, useDeleteJobTimeEntry, useUpdateJobTimeEntry, useGetJobCompletionReportByJob, useCreateAppliance, type JobDetail as JobDetailType } from "@workspace/api-client-react";
 import { customFetch } from "@workspace/api-client-react";
 import { useParams, Link, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -64,6 +64,18 @@ type JobLike = {
   estimated_duration?: number | null;
   description?: string | null;
   [k: string]: unknown;
+};
+
+type ApplianceCreateData = {
+  manufacturer: string;
+  model: string;
+  serial_number: string;
+  boiler_type: string;
+  fuel_type: string;
+  system_type: string;
+  installation_date: string;
+  next_service_due: string;
+  notes: string;
 };
 
 function getJobTypeDisplay(job: JobLike): { label: string; isEstimate: boolean } {
@@ -143,6 +155,21 @@ export default function JobDetail() {
   const [sendingCertificate, setSendingCertificate] = useState(false);
   const [showExtraForms, setShowExtraForms] = useState(false);
   const [downloadingCp12, setDownloadingCp12] = useState(false);
+  const [showAddAppliance, setShowAddAppliance] = useState(false);
+  const createAppliance = useCreateAppliance();
+  const { register: registerAppliance, handleSubmit: handleSubmitAppliance, reset: resetAppliance } = useForm<ApplianceCreateData>({
+    defaultValues: {
+      manufacturer: "",
+      model: "",
+      serial_number: "",
+      boiler_type: "boiler",
+      fuel_type: "gas",
+      system_type: "",
+      installation_date: "",
+      next_service_due: "",
+      notes: "",
+    },
+  });
 
   useEffect(() => {
     if (isOnline && onlineJob && id) {
@@ -424,6 +451,45 @@ export default function JobDetail() {
   if (isLoading || loadingCache) return <div className="p-8">Loading job details...</div>;
 
   if (!job) return <div>Job not found{!isOnline ? " — this job hasn't been cached for offline viewing." : ""}</div>;
+
+  const onAddAppliance = async (data: ApplianceCreateData) => {
+    if (!propertyId) {
+      toast({ title: "Property missing", description: "This job is not linked to a property.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const createdAppliance = await createAppliance.mutateAsync({
+        data: {
+          property_id: propertyId,
+          manufacturer: data.manufacturer.trim() || undefined,
+          model: data.model.trim() || undefined,
+          serial_number: data.serial_number.trim() || undefined,
+          boiler_type: data.boiler_type || undefined,
+          fuel_type: data.fuel_type || undefined,
+          system_type: data.system_type || undefined,
+          installation_date: data.installation_date || undefined,
+          next_service_due: data.next_service_due || undefined,
+          notes: data.notes.trim() || undefined,
+        },
+      });
+
+      await updateJob.mutateAsync({
+        id: job.id,
+        data: { appliance_id: createdAppliance.id },
+      });
+
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
+      qc.invalidateQueries({ queryKey: [`/api/properties/${propertyId}`] });
+      qc.invalidateQueries({ queryKey: ["/api/appliances"] });
+      setShowAddAppliance(false);
+      resetAppliance();
+      toast({ title: "Appliance added", description: "The appliance has been created and linked to this job." });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to add appliance";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in pb-20 max-w-full min-w-0">
@@ -1193,6 +1259,117 @@ export default function JobDetail() {
                 </button>
               </div>
             </Card>
+
+            {propertyId && isOfficeOrAdmin && (
+              <Card className="p-6 border border-border/50 shadow-sm bg-slate-50/50">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold flex items-center gap-2"><Flame className="w-5 h-5 text-orange-500" /> Appliance</h3>
+                  <Button size="sm" variant="secondary" onClick={() => setShowAddAppliance((v) => !v)}>
+                    {showAddAppliance ? <><X className="w-4 h-4 mr-2" /> Cancel</> : <><Plus className="w-4 h-4 mr-2" /> Add Appliance</>}
+                  </Button>
+                </div>
+
+                {showAddAppliance && (
+                  <form onSubmit={handleSubmitAppliance(onAddAppliance)} className="space-y-4 mb-4">
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label>Manufacturer</Label>
+                        <Input placeholder="e.g. Worcester Bosch" {...registerAppliance("manufacturer")} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Model</Label>
+                        <Input placeholder="e.g. Greenstar 30i" {...registerAppliance("model")} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Serial Number</Label>
+                        <Input placeholder="Optional" {...registerAppliance("serial_number")} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Appliance Type</Label>
+                        <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...registerAppliance("boiler_type")}>
+                          <option value="boiler">Boiler</option>
+                          <option value="heat_pump">Heat Pump</option>
+                          <option value="stove">Stove</option>
+                          <option value="fire">Fire</option>
+                          <option value="cooker">Cooker</option>
+                          <option value="water_heater">Water Heater</option>
+                          <option value="cylinder">Cylinder</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Fuel Type</Label>
+                        <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...registerAppliance("fuel_type")}>
+                          <option value="gas">Gas</option>
+                          <option value="oil">Oil</option>
+                          <option value="lpg">LPG</option>
+                          <option value="electric">Electric</option>
+                          <option value="biomass">Biomass</option>
+                          <option value="solid_fuel">Solid Fuel</option>
+                          <option value="heat_pump">Heat Pump</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>System Type</Label>
+                        <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...registerAppliance("system_type")}>
+                          <option value="">Select...</option>
+                          <option value="combi">Combi</option>
+                          <option value="system">System</option>
+                          <option value="conventional">Conventional</option>
+                          <option value="open_vent">Open Vent</option>
+                          <option value="sealed">Sealed</option>
+                          <option value="direct">Direct</option>
+                          <option value="indirect">Indirect</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Installation Date</Label>
+                        <Input type="date" {...registerAppliance("installation_date")} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Next Service Due</Label>
+                        <Input type="date" {...registerAppliance("next_service_due")} />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Notes</Label>
+                      <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...registerAppliance("notes")} />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="submit" disabled={createAppliance.isPending}>
+                        <Check className="w-4 h-4 mr-2" /> {createAppliance.isPending ? "Adding..." : "Add Appliance"}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => { setShowAddAppliance(false); resetAppliance(); }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
+                {job.appliance ? (
+                  <Link href={`/appliances/${job.appliance.id}`} className="block rounded-lg border border-border/50 bg-background p-4 hover:border-primary/50 hover:shadow-sm transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Flame className="w-4 h-4 text-orange-500" />
+                      <p className="font-semibold text-foreground truncate">
+                        {[job.appliance.manufacturer, job.appliance.model].filter(Boolean).join(" ") || "Unnamed Appliance"}
+                      </p>
+                    </div>
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      <p>Type: <span className="text-foreground capitalize">{String(job.appliance.boiler_type || "n/a").replace(/_/g, " ")}</span></p>
+                      <p>Fuel: <span className="text-foreground capitalize">{String(job.appliance.fuel_type || "n/a").replace(/_/g, " ")}</span></p>
+                      {job.appliance.serial_number && <p>Serial: <span className="text-foreground font-mono">{job.appliance.serial_number}</span></p>}
+                      {job.appliance.next_service_due && <p>Next Service: <span className="text-foreground">{formatDate(job.appliance.next_service_due)}</span></p>}
+                    </div>
+                  </Link>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-border bg-background/80 p-4 text-sm text-muted-foreground">
+                    No appliance is linked to this job yet.
+                  </div>
+                )}
+              </Card>
+            )}
             
           </div>
         </div>
