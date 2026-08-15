@@ -44,8 +44,36 @@ type ApplianceCreateData = {
   system_type: string;
   installation_date: string;
   next_service_due: string;
+  warranty_expiry: string;
+  nozzle_size: string;
   notes: string;
 };
+
+const APPLIANCE_NOZZLE_SIZE_OPTIONS = [
+  "0.40 60 EH", "0.40 80 EH", "0.45 60 EH", "0.45 80 EH", "0.50 60 EH", "0.50 80 EH", "0.55 60 EH", "0.55 80 EH",
+  "0.60 60 EH", "0.60 80 EH", "0.65 60 EH", "0.65 80 EH", "0.75 60 EH", "0.75 80 EH", "0.85 60 EH", "0.85 80 EH",
+  "1.00 60 EH", "1.00 80 EH", "1.10 60 EH", "1.10 80 EH",
+  "0.40 60 ES", "0.40 80 ES", "0.45 60 ES", "0.45 80 ES", "0.50 60 ES", "0.50 80 ES", "0.55 60 ES", "0.55 80 ES",
+  "0.60 60 ES", "0.60 80 ES", "0.65 60 ES", "0.65 80 ES", "0.75 60 ES", "0.75 80 ES", "0.85 60 ES", "0.85 80 ES",
+  "1.00 60 ES", "1.00 80 ES", "1.10 60 ES", "1.10 80 ES",
+  "0.30 60 H", "0.30 80 H", "0.35 60 H", "0.35 80 H", "0.40 60 H", "0.40 80 H", "0.45 60 H", "0.45 80 H",
+  "0.50 45 H", "0.50 60 H", "0.50 80 H", "0.55 45 H", "0.55 60 H", "0.55 80 H", "0.60 45 H", "0.60 60 H",
+  "0.60 80 H", "0.65 45 H", "0.65 60 H", "0.65 80 H", "0.75 45 H", "0.75 60 H", "0.75 80 H", "0.85 45 H",
+  "0.85 60 H", "0.85 80 H", "1.00 45 H", "1.00 60 H", "1.00 80 H", "1.10 45 H", "1.10 60 H", "1.10 80 H",
+  "1.20 45 H", "1.20 60 H", "1.20 80 H", "1.25 45 H", "1.25 60 H", "1.25 80 H", "1.35 45 H", "1.35 60 H",
+  "1.35 80 H", "1.50 45 H", "1.50 60 H", "1.50 80 H", "1.65 45 H", "1.65 60 H", "1.65 80 H", "1.75 45 H",
+  "1.75 60 H", "1.75 80 H", "2.00 45 H", "2.00 60 H", "2.00 80 H",
+  "0.20 60 S", "0.25 60 S", "0.30 60 S", "0.30 80 S", "0.35 60 S", "0.35 80 S", "0.40 45 S", "0.40 60 S",
+  "0.40 80 S", "0.45 45 S", "0.45 60 S", "0.45 80 S", "0.50 30 S", "0.50 45 S", "0.50 60 S", "0.50 80 S",
+  "0.55 30 S", "0.55 45 S", "0.55 60 S", "0.55 80 S", "0.60 30 S", "0.60 45 S", "0.60 60 S", "0.60 80 S",
+  "0.65 30 S", "0.65 45 S", "0.65 60 S", "0.65 80 S", "0.75 30 S", "0.75 45 S", "0.75 60 S", "0.75 80 S",
+  "0.85 30 S", "0.85 45 S", "0.85 60 S", "0.85 80 S", "1.00 30 S", "1.00 45 S", "1.00 60 S", "1.00 80 S",
+  "1.10 30 S", "1.10 45 S", "1.10 60 S", "1.10 80 S", "1.20 45 S", "1.20 60 S", "1.20 80 S", "1.25 30 S",
+  "1.25 45 S", "1.25 60 S", "1.25 80 S", "1.35 30 S", "1.35 45 S", "1.35 60 S", "1.35 80 S", "1.50 30 S",
+  "1.50 45 S", "1.50 60 S", "1.50 80 S", "1.65 30 S", "1.65 45 S", "1.65 60 S", "1.65 80 S", "1.75 30 S",
+  "1.75 45 S", "1.75 60 S", "1.75 80 S", "2.00 30 S", "2.00 45 S", "2.00 60 S", "2.00 80 S",
+  "Custom..."
+];
 
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
@@ -66,19 +94,29 @@ export default function PropertyDetail() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const { register: registerAppliance, handleSubmit: handleSubmitAppliance, reset: resetAppliance } = useForm<ApplianceCreateData>({
+  const { register: registerAppliance, handleSubmit: handleSubmitAppliance, reset: resetAppliance, watch: watchAppliance, setValue: setApplianceValue } = useForm<ApplianceCreateData>({
     defaultValues: {
       manufacturer: "",
       model: "",
       serial_number: "",
-      boiler_type: "boiler",
+      boiler_type: "regular",
       fuel_type: "gas",
       system_type: "",
       installation_date: "",
       next_service_due: "",
+      warranty_expiry: "",
+      nozzle_size: "",
       notes: "",
     },
   });
+  const [customApplianceNozzle, setCustomApplianceNozzle] = useState("");
+  const applianceNozzleValue = watchAppliance("nozzle_size") || "";
+
+  useEffect(() => {
+    if (applianceNozzleValue && !APPLIANCE_NOZZLE_SIZE_OPTIONS.includes(applianceNozzleValue)) {
+      setCustomApplianceNozzle(applianceNozzleValue);
+    }
+  }, [applianceNozzleValue]);
 
   // Lazy geocode: if this property has no coords, trigger a background PATCH
   // which the API will use to geocode and persist the coordinates.
@@ -123,6 +161,8 @@ export default function PropertyDetail() {
           system_type: data.system_type || undefined,
           installation_date: data.installation_date || undefined,
           next_service_due: data.next_service_due || undefined,
+          warranty_expiry: data.warranty_expiry || undefined,
+          nozzle_size: data.nozzle_size || undefined,
           notes: data.notes.trim() || undefined,
         },
       });
@@ -307,40 +347,42 @@ export default function PropertyDetail() {
                       <div className="space-y-1.5">
                         <Label>Appliance Type</Label>
                         <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...registerAppliance("boiler_type")}>
-                          <option value="boiler">Boiler</option>
-                          <option value="heat_pump">Heat Pump</option>
-                          <option value="stove">Stove</option>
-                          <option value="fire">Fire</option>
-                          <option value="cooker">Cooker</option>
-                          <option value="water_heater">Water Heater</option>
-                          <option value="cylinder">Cylinder</option>
-                          <option value="other">Other</option>
+                          <option value="">Select...</option>
+                          {[
+                            { value: "regular", label: "Regular" },
+                            { value: "combi", label: "Combi" },
+                            { value: "system", label: "System" },
+                            { value: "back_boiler", label: "Back Boiler" },
+                            { value: "other", label: "Other" },
+                          ].map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
                         </select>
                       </div>
                       <div className="space-y-1.5">
                         <Label>Fuel Type</Label>
                         <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...registerAppliance("fuel_type")}>
-                          <option value="gas">Gas</option>
-                          <option value="oil">Oil</option>
-                          <option value="lpg">LPG</option>
-                          <option value="electric">Electric</option>
-                          <option value="biomass">Biomass</option>
-                          <option value="solid_fuel">Solid Fuel</option>
-                          <option value="heat_pump">Heat Pump</option>
-                          <option value="other">Other</option>
+                          <option value="">Select...</option>
+                          {[
+                            { value: "gas", label: "Gas" },
+                            { value: "oil", label: "Oil" },
+                            { value: "lpg", label: "LPG" },
+                            { value: "electric", label: "Electric" },
+                            { value: "solid_fuel", label: "Solid Fuel" },
+                            { value: "other", label: "Other" },
+                          ].map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
                         </select>
                       </div>
                       <div className="space-y-1.5">
                         <Label>System Type</Label>
                         <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...registerAppliance("system_type")}>
                           <option value="">Select...</option>
-                          <option value="combi">Combi</option>
-                          <option value="system">System</option>
-                          <option value="conventional">Conventional</option>
-                          <option value="open_vent">Open Vent</option>
+                          <option value="open_vented">Open Vented</option>
                           <option value="sealed">Sealed</option>
-                          <option value="direct">Direct</option>
-                          <option value="indirect">Indirect</option>
+                          <option value="gravity_fed">Gravity Fed</option>
+                          <option value="pressurised">Pressurised</option>
                           <option value="other">Other</option>
                         </select>
                       </div>
@@ -351,6 +393,46 @@ export default function PropertyDetail() {
                       <div className="space-y-1.5">
                         <Label>Next Service Due</Label>
                         <Input type="date" {...registerAppliance("next_service_due")} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Warranty Expiry</Label>
+                        <Input type="date" {...registerAppliance("warranty_expiry")} />
+                      </div>
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label>Nozzle Size</Label>
+                        <select
+                          className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                          value={applianceNozzleValue && !APPLIANCE_NOZZLE_SIZE_OPTIONS.includes(applianceNozzleValue) ? "Custom..." : (applianceNozzleValue || "")}
+                          onChange={(event) => {
+                            const nextValue = event.target.value;
+                            if (nextValue === "Custom...") {
+                              setCustomApplianceNozzle(applianceNozzleValue && !APPLIANCE_NOZZLE_SIZE_OPTIONS.includes(applianceNozzleValue) ? applianceNozzleValue : "");
+                              setApplianceValue("nozzle_size", "");
+                              return;
+                            }
+                            setCustomApplianceNozzle("");
+                            setApplianceValue("nozzle_size", nextValue);
+                          }}
+                        >
+                          <option value="">Select...</option>
+                          {APPLIANCE_NOZZLE_SIZE_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                        {(applianceNozzleValue === "" || (applianceNozzleValue && !APPLIANCE_NOZZLE_SIZE_OPTIONS.includes(applianceNozzleValue))) && (
+                          <Input
+                            value={customApplianceNozzle}
+                            onChange={(event) => {
+                              const nextValue = event.target.value.trim();
+                              setCustomApplianceNozzle(nextValue);
+                              setApplianceValue("nozzle_size", nextValue);
+                            }}
+                            placeholder="Enter custom nozzle size"
+                            className="mt-2"
+                          />
+                        )}
                       </div>
                     </div>
                     <div className="space-y-1.5">
