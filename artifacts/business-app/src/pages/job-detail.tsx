@@ -1264,9 +1264,16 @@ export default function JobDetail() {
               <Card className="p-6 border border-border/50 shadow-sm bg-slate-50/50">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold flex items-center gap-2"><Flame className="w-5 h-5 text-orange-500" /> Appliance</h3>
-                  <Button size="sm" variant="secondary" onClick={() => setShowAddAppliance((v) => !v)}>
-                    {showAddAppliance ? <><X className="w-4 h-4 mr-2" /> Cancel</> : <><Plus className="w-4 h-4 mr-2" /> Add Appliance</>}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {job.appliance && (
+                      <Link href={`/appliances/${job.appliance.id}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary">
+                        <Edit className="w-3 h-3" /> Edit
+                      </Link>
+                    )}
+                    <Button size="sm" variant="secondary" onClick={() => setShowAddAppliance((v) => !v)}>
+                      {showAddAppliance ? <><X className="w-4 h-4 mr-2" /> Cancel</> : <><Plus className="w-4 h-4 mr-2" /> Add Appliance</>}
+                    </Button>
+                  </div>
                 </div>
 
                 {showAddAppliance && (

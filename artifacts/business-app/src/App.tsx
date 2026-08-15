@@ -93,6 +93,8 @@ const Customers = lazyRetry(() => import("@/pages/customers"));
 const CustomerDetail = lazyRetry(() => import("@/pages/customer-detail"));
 const Properties = lazyRetry(() => import("@/pages/properties"));
 const PropertyDetail = lazyRetry(() => import("@/pages/property-detail"));
+const Appliances = lazyRetry(() => import("@/pages/appliances"));
+const ApplianceDetail = lazyRetry(() => import("@/pages/appliance-detail"));
 const Jobs = lazyRetry(() => import("@/pages/jobs"));
 const JobDetail = lazyRetry(() => import("@/pages/job-detail"));
 const ServiceRecordForm = lazyRetry(() => import("@/pages/service-record-form"));
@@ -429,6 +431,8 @@ const CustomersRoute = protectFeature(Customers, "job_management");
 const CustomerDetailRoute = protectFeature(CustomerDetail, "job_management");
 const PropertiesRoute = protectFeature(Properties, "job_management");
 const PropertyDetailRoute = protectFeature(PropertyDetail, "job_management");
+const AppliancesRoute = protectFeature(Appliances, "job_management");
+const ApplianceDetailRoute = protectFeature(ApplianceDetail, "job_management");
 const JobsRoute = protectFeature(Jobs, "job_management");
 const JobDetailRoute = protectFeature(JobDetail, "job_management");
 const ServiceRecordRoute = protectFeature(ServiceRecordForm, "job_management");
@@ -678,6 +682,9 @@ function AppRouter() {
 
         <Route path="/properties" component={PropertiesRoute} />
         <Route path="/properties/:id" component={PropertyDetailRoute} />
+
+        <Route path="/appliances" component={AppliancesRoute} />
+        <Route path="/appliances/:id" component={ApplianceDetailRoute} />
 
         <Route path="/jobs" component={JobsRoute} />
         <Route path="/jobs/:id" component={JobDetailRoute} />
