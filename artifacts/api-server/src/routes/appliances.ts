@@ -13,6 +13,7 @@ import {
   UpdateApplianceResponse,
   DeleteApplianceParams,
 } from "@workspace/api-zod";
+import { normalizeAppliancePayload } from "../lib/appliance-enum-normalization";
 
 interface ApplianceRow {
   id: string;
@@ -91,7 +92,8 @@ router.post("/appliances", requireAuth, requireTenant, async (req: Authenticated
   );
   if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
-  const { data, error } = await supabaseAdmin.from("appliances").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
+  const payload = normalizeAppliancePayload(parsed.data);
+  const { data, error } = await supabaseAdmin.from("appliances").insert({ ...payload, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(201).json(data);
 });
@@ -143,7 +145,8 @@ router.patch("/appliances/:id", requireAuth, requireTenant, async (req: Authenti
     if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
   }
 
-  let q = supabaseAdmin.from("appliances").update(body.data).eq("id", params.data.id);
+  const payload = normalizeAppliancePayload(body.data);
+  let q = supabaseAdmin.from("appliances").update(payload).eq("id", params.data.id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data, error } = await q.select().single();
   if (error || !data) { res.status(404).json({ error: "Appliance not found" }); return; }
