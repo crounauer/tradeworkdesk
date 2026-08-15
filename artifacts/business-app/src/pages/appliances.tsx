@@ -1,14 +1,32 @@
-import { useListAppliances } from "@workspace/api-client-react";
+import { useListAppliances, useDeleteAppliance } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
-import { Search, Flame, Settings } from "lucide-react";
+import { Search, Flame, Settings, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 
 export default function Appliances() {
   const [search, setSearch] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const { data: appliances, isLoading } = useListAppliances({ search: search || undefined });
+  const deleteAppliance = useDeleteAppliance();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteAppliance.mutateAsync({ id });
+      qc.invalidateQueries({ queryKey: ["/api/appliances"] });
+      setPendingDeleteId(null);
+      toast({ title: "Appliance deleted", description: "The appliance has been removed." });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to delete appliance";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in">
@@ -36,42 +54,62 @@ export default function Appliances() {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {appliances?.map(app => (
-            <Link key={app.id} href={`/appliances/${app.id}`}>
-              <Card className="p-5 border border-border/50 hover:shadow-md hover:border-orange-500/30 transition-all cursor-pointer h-full">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl">
-                    <Flame className="w-6 h-6" />
+            <div key={app.id} className="relative">
+              <Link href={`/appliances/${app.id}`}>
+                <Card className="p-5 border border-border/50 hover:shadow-md hover:border-orange-500/30 transition-all cursor-pointer h-full">
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl">
+                        <Flame className="w-6 h-6" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-lg truncate">{app.manufacturer || 'Unknown Make'}</h3>
+                        <p className="text-sm font-medium text-muted-foreground truncate">{app.model || 'Unknown Model'}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-lg">{app.manufacturer || 'Unknown Make'}</h3>
-                    <p className="text-sm font-medium text-muted-foreground">{app.model || 'Unknown Model'}</p>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between border-b border-border/50 pb-1">
+                      <span className="text-muted-foreground">Serial No.</span>
+                      <span className="font-mono">{app.serial_number || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-border/50 pb-1">
+                      <span className="text-muted-foreground">Fuel</span>
+                      <span className="capitalize">{app.fuel_type || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Next Service</span>
+                      <span className={`font-medium ${new Date(app.next_service_due || '') < new Date() ? 'text-destructive' : 'text-emerald-600'}`}>
+                        {formatDate(app.next_service_due)}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between border-b border-border/50 pb-1">
-                    <span className="text-muted-foreground">Serial No.</span>
-                    <span className="font-mono">{app.serial_number || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-border/50 pb-1">
-                    <span className="text-muted-foreground">Fuel</span>
-                    <span className="capitalize">{app.fuel_type || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Next Service</span>
-                    <span className={`font-medium ${new Date(app.next_service_due || '') < new Date() ? 'text-destructive' : 'text-emerald-600'}`}>
-                      {formatDate(app.next_service_due)}
-                    </span>
-                  </div>
-                </div>
-                
-                {app.property_address && (
-                  <p className="mt-4 text-xs text-muted-foreground flex items-center gap-1">
-                    <Settings className="w-3 h-3" /> Installed at: {app.property_address}
-                  </p>
-                )}
-              </Card>
-            </Link>
+                  
+                  {app.property_address && (
+                    <p className="mt-4 text-xs text-muted-foreground flex items-center gap-1">
+                      <Settings className="w-3 h-3" /> Installed at: {app.property_address}
+                    </p>
+                  )}
+                </Card>
+              </Link>
+
+              <button
+                type="button"
+                className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-[11px] font-medium text-destructive hover:bg-destructive/10"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (pendingDeleteId === app.id) {
+                    void handleDelete(app.id);
+                    return;
+                  }
+                  setPendingDeleteId(app.id);
+                }}
+              >
+                {pendingDeleteId === app.id ? "Confirm delete" : <><Trash2 className="w-3 h-3" /> Delete</>}
+              </button>
+            </div>
           ))}
         </div>
       )}

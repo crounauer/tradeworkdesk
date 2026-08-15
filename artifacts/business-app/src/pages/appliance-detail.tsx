@@ -1,10 +1,10 @@
-import { useGetAppliance, useUpdateAppliance } from "@workspace/api-client-react";
-import { useParams, Link } from "wouter";
+import { useGetAppliance, useUpdateAppliance, useDeleteAppliance } from "@workspace/api-client-react";
+import { useParams, Link, useLocation, useSearch } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Flame, Briefcase, Edit, X, Check } from "lucide-react";
+import { ArrowLeft, Flame, Briefcase, Edit, X, Check, Trash2 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -73,8 +73,35 @@ type ApplianceEditData = {
 
 export default function ApplianceDetail() {
   const { id } = useParams<{ id: string }>();
+  const search = useSearch();
   const { data: appliance, isLoading, error } = useGetAppliance(id);
-  const [editing, setEditing] = useState(false);
+  const [, navigate] = useLocation();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const deleteAppliance = useDeleteAppliance();
+  const [editing, setEditing] = useState(() => new URLSearchParams(search).get("edit") === "1");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(search).get("edit") === "1") setEditing(true);
+  }, [search]);
+
+  const handleDelete = async () => {
+    if (!appliance) return;
+
+    try {
+      await deleteAppliance.mutateAsync({ id: appliance.id });
+      qc.invalidateQueries({ queryKey: ["/api/appliances"] });
+      if (appliance.property_id) {
+        qc.invalidateQueries({ queryKey: [`/api/properties/${appliance.property_id}`] });
+      }
+      toast({ title: "Appliance deleted", description: "The appliance has been removed." });
+      navigate(appliance.property_id ? `/properties/${appliance.property_id}` : "/appliances");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to delete appliance";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
 
   if (isLoading) return <div className="p-8">Loading...</div>;
   if (error || !appliance) return <div className="p-8 text-destructive">Appliance not found</div>;
@@ -97,9 +124,26 @@ export default function ApplianceDetail() {
             )}
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
-          {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
+            {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
+          </Button>
+          {!editing && (
+            confirmDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-destructive font-medium">Are you sure?</span>
+                <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleteAppliance.isPending}>
+                  {deleteAppliance.isPending ? "Deleting..." : "Yes, Delete"}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+              </div>
+            ) : (
+              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="w-4 h-4 mr-2" /> Delete
+              </Button>
+            )
+          )}
+        </div>
       </div>
 
       {editing ? (

@@ -415,6 +415,7 @@ export default function JobDetail() {
     try {
       const res = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job!.id}/email-certificate`, { method: "POST" }) as { success: boolean; message: string; forms_sent: string[] };
       toast({ title: "Certificate sent", description: res.message || "Certificate emailed to customer." });
+      setEmailLogRefresh(k => k + 1);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to send certificate";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -1323,7 +1324,7 @@ export default function JobDetail() {
                   <h3 className="font-bold flex items-center gap-2"><Flame className="w-5 h-5 text-orange-500" /> Appliance</h3>
                   <div className="flex items-center gap-2">
                     {job.appliance && (
-                      <Link href={`/appliances/${job.appliance.id}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary">
+                      <Link href={`/appliances/${job.appliance.id}?edit=1`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary">
                         <Edit className="w-3 h-3" /> Edit
                       </Link>
                     )}
