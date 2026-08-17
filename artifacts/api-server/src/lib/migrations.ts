@@ -73,6 +73,36 @@ export async function runStartupMigrations() {
     .limit(1);
   if (e7) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS notification_emails TEXT[] DEFAULT ARRAY[]::TEXT[];");
 
+  const { error: e8 } = await supabaseAdmin
+    .from("company_settings")
+    .select("technician_daily_summary_enabled")
+    .limit(1);
+  if (e8) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS technician_daily_summary_enabled BOOLEAN NOT NULL DEFAULT FALSE;");
+
+  const { error: e9 } = await supabaseAdmin
+    .from("company_settings")
+    .select("technician_daily_summary_time_utc")
+    .limit(1);
+  if (e9) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS technician_daily_summary_time_utc VARCHAR(5) NOT NULL DEFAULT '17:00';");
+
+  const { error: e10 } = await supabaseAdmin
+    .from("company_settings")
+    .select("technician_daily_summary_last_sent_date")
+    .limit(1);
+  if (e10) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS technician_daily_summary_last_sent_date DATE DEFAULT NULL;");
+
+  const { error: e11 } = await supabaseAdmin
+    .from("company_settings")
+    .select("technician_daily_summary_send_if_no_jobs")
+    .limit(1);
+  if (e11) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS technician_daily_summary_send_if_no_jobs BOOLEAN NOT NULL DEFAULT FALSE;");
+
+  const { error: e12 } = await supabaseAdmin
+    .from("company_settings")
+    .select("technician_daily_summary_weekdays_only")
+    .limit(1);
+  if (e12) needed.push("ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS technician_daily_summary_weekdays_only BOOLEAN NOT NULL DEFAULT FALSE;");
+
   if (needed.length > 0) {
     console.warn("[migrations] Run this SQL in the Supabase SQL Editor:");
     console.warn(needed.join("\n"));

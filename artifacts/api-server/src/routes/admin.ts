@@ -541,6 +541,8 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "email_templates",
     // Website enquiry notifications
     "website_enquiry_email_notify", "website_enquiry_sms_notify",
+    // Technician daily job summary emails
+    "technician_daily_summary_enabled", "technician_daily_summary_time_utc", "technician_daily_summary_send_if_no_jobs", "technician_daily_summary_weekdays_only",
     // Website closure notice banner
     "website_closure_notice_enabled", "website_closure_notice_message",
     "website_closure_notice_start_date", "website_closure_notice_end_date",
@@ -605,6 +607,27 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     updates.custom_leave_types = normalized.length > 0 ? Array.from(new Set(normalized)) : null;
   }
 
+  if ("technician_daily_summary_enabled" in updates) {
+    updates.technician_daily_summary_enabled = Boolean(updates.technician_daily_summary_enabled);
+  }
+
+  if ("technician_daily_summary_send_if_no_jobs" in updates) {
+    updates.technician_daily_summary_send_if_no_jobs = Boolean(updates.technician_daily_summary_send_if_no_jobs);
+  }
+
+  if ("technician_daily_summary_weekdays_only" in updates) {
+    updates.technician_daily_summary_weekdays_only = Boolean(updates.technician_daily_summary_weekdays_only);
+  }
+
+  if ("technician_daily_summary_time_utc" in updates) {
+    const raw = String(updates.technician_daily_summary_time_utc || "").trim();
+    if (raw && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(raw)) {
+      res.status(400).json({ error: "technician_daily_summary_time_utc must be HH:mm in 24-hour format (UTC)" });
+      return;
+    }
+    updates.technician_daily_summary_time_utc = raw || "17:00";
+  }
+
   // Validate hex colour format
   for (const colorField of ["primary_color", "accent_color"] as const) {
     const val = updates[colorField];
@@ -649,6 +672,32 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
   ) {
     const fallbackUpdates = { ...updates };
     delete fallbackUpdates.technicians_can_update_shopping_list_items;
+
+    const retry = await supabaseAdmin
+      .from("company_settings")
+      .upsert(fallbackUpdates, { onConflict: "singleton_id,tenant_id" })
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+
+  // Backward-compatibility for technician daily summary settings columns.
+  if (
+    error &&
+    typeof error.message === "string" &&
+    (
+      error.message.includes("technician_daily_summary_enabled") ||
+      error.message.includes("technician_daily_summary_time_utc") ||
+      error.message.includes("technician_daily_summary_send_if_no_jobs") ||
+      error.message.includes("technician_daily_summary_weekdays_only")
+    )
+  ) {
+    const fallbackUpdates = { ...updates };
+    delete fallbackUpdates.technician_daily_summary_enabled;
+    delete fallbackUpdates.technician_daily_summary_time_utc;
+    delete fallbackUpdates.technician_daily_summary_send_if_no_jobs;
+    delete fallbackUpdates.technician_daily_summary_weekdays_only;
 
     const retry = await supabaseAdmin
       .from("company_settings")

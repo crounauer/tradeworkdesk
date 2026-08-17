@@ -801,6 +801,10 @@ export default function AdminCompanySettings() {
       // Notifications
       website_enquiry_email_notify: settings.website_enquiry_email_notify ?? true,
       website_enquiry_sms_notify: settings.website_enquiry_sms_notify ?? false,
+      technician_daily_summary_enabled: settings.technician_daily_summary_enabled ?? false,
+      technician_daily_summary_time_utc: settings.technician_daily_summary_time_utc ?? "17:00",
+      technician_daily_summary_send_if_no_jobs: settings.technician_daily_summary_send_if_no_jobs ?? false,
+      technician_daily_summary_weekdays_only: settings.technician_daily_summary_weekdays_only ?? false,
       custom_leave_types: settings.custom_leave_types ?? [],
     });
     setLogoPreview(settings.logo_url ?? null);
@@ -820,6 +824,9 @@ export default function AdminCompanySettings() {
     "white_label_enabled",
     "website_enquiry_email_notify",
     "website_enquiry_sms_notify",
+    "technician_daily_summary_enabled",
+    "technician_daily_summary_send_if_no_jobs",
+    "technician_daily_summary_weekdays_only",
     "show_rates_url_on_invoices",
     "show_rates_url_on_quotes",
     "show_rates_url_on_website_footer",
@@ -2245,6 +2252,67 @@ export default function AdminCompanySettings() {
                 )}
                 <div className="flex justify-end pt-4">
                   {renderSectionSaveButton("Save notification changes")}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Technician Next-Day Job Summary Emails
+                </CardTitle>
+                <CardDescription>
+                  Send each technician a daily summary of their jobs scheduled for tomorrow.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Enable technician daily summary</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">When enabled, technicians with assigned jobs tomorrow receive one summary email each day.</p>
+                  </div>
+                  <Switch
+                    checked={watch("technician_daily_summary_enabled") ?? false}
+                    onCheckedChange={(v) => setValue("technician_daily_summary_enabled", v, { shouldDirty: true })}
+                  />
+                </div>
+
+                <div className="space-y-1.5 max-w-xs">
+                  <Label htmlFor="technician_daily_summary_time_utc">Send time (UTC)</Label>
+                  <Input
+                    id="technician_daily_summary_time_utc"
+                    type="time"
+                    value={String(watch("technician_daily_summary_time_utc") || "17:00")}
+                    onChange={(e) => setValue("technician_daily_summary_time_utc", e.target.value, { shouldDirty: true })}
+                  />
+                  <p className="text-xs text-muted-foreground">Use 24-hour UTC time (for example 17:00).</p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Send email even with no jobs tomorrow</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">When enabled, technicians receive a "no jobs tomorrow" email instead of being skipped.</p>
+                  </div>
+                  <Switch
+                    checked={watch("technician_daily_summary_send_if_no_jobs") ?? false}
+                    onCheckedChange={(v) => setValue("technician_daily_summary_send_if_no_jobs", v, { shouldDirty: true })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Weekdays only</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Skip Saturday and Sunday summaries.</p>
+                  </div>
+                  <Switch
+                    checked={watch("technician_daily_summary_weekdays_only") ?? false}
+                    onCheckedChange={(v) => setValue("technician_daily_summary_weekdays_only", v, { shouldDirty: true })}
+                  />
+                </div>
+
+                <div className="flex justify-end pt-4">
+                  {renderSectionSaveButton("Save technician summary settings")}
                 </div>
               </CardContent>
             </Card>

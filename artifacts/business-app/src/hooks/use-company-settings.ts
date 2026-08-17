@@ -71,6 +71,10 @@ export interface CompanySettings {
   // Website enquiry notifications
   website_enquiry_email_notify?: boolean | null;
   website_enquiry_sms_notify?: boolean | null;
+  technician_daily_summary_enabled?: boolean | null;
+  technician_daily_summary_time_utc?: string | null;
+  technician_daily_summary_send_if_no_jobs?: boolean | null;
+  technician_daily_summary_weekdays_only?: boolean | null;
   website_closure_notice_enabled?: boolean | null;
   website_closure_notice_message?: string | null;
   website_closure_notice_start_date?: string | null;
