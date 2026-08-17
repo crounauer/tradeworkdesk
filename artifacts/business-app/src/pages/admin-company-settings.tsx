@@ -2279,14 +2279,14 @@ export default function AdminCompanySettings() {
                 </div>
 
                 <div className="space-y-1.5 max-w-xs">
-                  <Label htmlFor="technician_daily_summary_time_utc">Send time (UTC)</Label>
+                  <Label htmlFor="technician_daily_summary_time_utc">Send time (UK local)</Label>
                   <Input
                     id="technician_daily_summary_time_utc"
                     type="time"
                     value={String(watch("technician_daily_summary_time_utc") || "17:00")}
                     onChange={(e) => setValue("technician_daily_summary_time_utc", e.target.value, { shouldDirty: true })}
                   />
-                  <p className="text-xs text-muted-foreground">Use 24-hour UTC time (for example 17:00).</p>
+                  <p className="text-xs text-muted-foreground">Uses Europe/London time with automatic GMT/BST handling (for example 17:00).</p>
                 </div>
 
                 <div className="flex items-center justify-between">

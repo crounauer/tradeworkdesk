@@ -622,7 +622,7 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
   if ("technician_daily_summary_time_utc" in updates) {
     const raw = String(updates.technician_daily_summary_time_utc || "").trim();
     if (raw && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(raw)) {
-      res.status(400).json({ error: "technician_daily_summary_time_utc must be HH:mm in 24-hour format (UTC)" });
+      res.status(400).json({ error: "technician_daily_summary_time_utc must be HH:mm in 24-hour format" });
       return;
     }
     updates.technician_daily_summary_time_utc = raw || "17:00";

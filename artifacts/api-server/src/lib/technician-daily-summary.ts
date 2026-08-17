@@ -4,20 +4,42 @@ import { supabaseAdmin } from "./supabase";
 const SINGLETON_ID = "default";
 const ACTIVE_JOB_STATUSES = ["scheduled", "in_progress", "requires_follow_up", "awaiting_parts"];
 const SCHEDULER_POLL_MS = 60_000;
+const SUMMARY_TIMEZONE = "Europe/London";
 
 let schedulerTimer: NodeJS.Timeout | null = null;
 let schedulerRunning = false;
 
-function toUtcDateParts(now: Date): { today: string; tomorrow: string; hhmm: string } {
-  const today = now.toISOString().slice(0, 10);
-  const tomorrowDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
-  const tomorrow = tomorrowDate.toISOString().slice(0, 10);
-  const hh = String(now.getUTCHours()).padStart(2, "0");
-  const mm = String(now.getUTCMinutes()).padStart(2, "0");
+function toTimeZoneDateParts(now: Date): { today: string; tomorrow: string; hhmm: string } {
+  const dateFormatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: SUMMARY_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const timeFormatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: SUMMARY_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const dateParts = dateFormatter.formatToParts(now);
+  const year = Number(dateParts.find((p) => p.type === "year")?.value || "0");
+  const month = Number(dateParts.find((p) => p.type === "month")?.value || "0");
+  const day = Number(dateParts.find((p) => p.type === "day")?.value || "0");
+
+  const today = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+  const tomorrowUtc = new Date(Date.UTC(year, month - 1, day + 1));
+  const tomorrow = `${tomorrowUtc.getUTCFullYear()}-${String(tomorrowUtc.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrowUtc.getUTCDate()).padStart(2, "0")}`;
+
+  const timeParts = timeFormatter.formatToParts(now);
+  const hh = timeParts.find((p) => p.type === "hour")?.value || "00";
+  const mm = timeParts.find((p) => p.type === "minute")?.value || "00";
   return { today, tomorrow, hhmm: `${hh}:${mm}` };
 }
 
-function isUtcWeekend(yyyyMmDd: string): boolean {
+function isWeekend(yyyyMmDd: string): boolean {
   const d = new Date(`${yyyyMmDd}T00:00:00Z`);
   const weekday = d.getUTCDay();
   return weekday === 0 || weekday === 6;
@@ -106,7 +128,7 @@ function buildNoJobsBody(args: { technicianName: string; companyName: string; ta
 }
 
 export async function runTechnicianDailySummaryEmails(now = new Date()): Promise<{ processedTenants: number; sentEmails: number; skippedTechnicians: number; errors: number }> {
-  const { today, tomorrow, hhmm } = toUtcDateParts(now);
+  const { today, tomorrow, hhmm } = toTimeZoneDateParts(now);
   const result = { processedTenants: 0, sentEmails: 0, skippedTechnicians: 0, errors: 0 };
 
   const { data: dueTenants, error: dueTenantsError } = await supabaseAdmin
@@ -141,7 +163,7 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
     const sendIfNoJobs = Boolean(row.technician_daily_summary_send_if_no_jobs);
     const weekdaysOnly = Boolean(row.technician_daily_summary_weekdays_only);
 
-    if (weekdaysOnly && isUtcWeekend(tomorrow)) {
+    if (weekdaysOnly && isWeekend(tomorrow)) {
       continue;
     }
 
@@ -257,7 +279,7 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
   }
 
   if (result.processedTenants > 0) {
-    console.log(`[technician-summary] Completed run @ ${hhmm} UTC: tenants=${result.processedTenants}, sent=${result.sentEmails}, skipped=${result.skippedTechnicians}, errors=${result.errors}`);
+    console.log(`[technician-summary] Completed run @ ${hhmm} ${SUMMARY_TIMEZONE}: tenants=${result.processedTenants}, sent=${result.sentEmails}, skipped=${result.skippedTechnicians}, errors=${result.errors}`);
   }
 
   return result;
