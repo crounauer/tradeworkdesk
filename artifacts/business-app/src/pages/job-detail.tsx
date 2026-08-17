@@ -1747,10 +1747,22 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     const editDepartureValue = editDepartureInputRef.current?.value || editDeparture;
     const resolvedEditRate = editHourlyRate ? parseFloat(editHourlyRate) : (effectiveHourlyRate > 0 ? effectiveHourlyRate : null);
     const editArrivalDate = new Date(editArrival);
-    let editDepartureDate = editDepartureValue ? new Date(editDepartureValue) : null;
-    // Auto-advance departure by 1 day if it crosses midnight (departure before or equal to arrival)
+    const editDepartureDate = editDepartureValue ? new Date(editDepartureValue) : null;
+
+    if (Number.isNaN(editArrivalDate.getTime())) {
+      toast({ title: "Error", description: "Arrival date/time is invalid", variant: "destructive" });
+      return;
+    }
+
+    if (editDepartureDate && Number.isNaN(editDepartureDate.getTime())) {
+      toast({ title: "Error", description: "Departure date/time is invalid", variant: "destructive" });
+      return;
+    }
+
+    // In edit mode, preserve the date/time exactly as entered by the user.
     if (editDepartureDate && editDepartureDate <= editArrivalDate) {
-      editDepartureDate = new Date(editDepartureDate.getTime() + 24 * 60 * 60 * 1000);
+      toast({ title: "Error", description: "Departure must be after arrival", variant: "destructive" });
+      return;
     }
     try {
       await updateMutation.mutateAsync({
