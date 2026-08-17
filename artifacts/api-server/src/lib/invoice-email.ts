@@ -5,8 +5,14 @@
  */
 import { getTenantEmailFailureMessage, notifyEmailDeliveryFailure, sendResendEmailWithRetry, writeTenantEmailAudit, type EmailCompanyDetails } from "./email";
 const DEFAULT_FROM_NAME = "TradeWorkDesk";
-const FROM_EMAIL = "noreply@tradeworkdesk.co.uk";
+const PLATFORM_INVOICE_FROM_EMAIL = (process.env.INVOICE_FROM_EMAIL || "noreply@tradeworkdesk.co.uk").trim().toLowerCase();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function buildPlatformInvoiceFrom(company?: EmailCompanyDetails): string {
+  const tenantName = String(company?.email_from_name || company?.name || company?.trading_name || "").trim();
+  const displayName = tenantName ? `${tenantName} via ${DEFAULT_FROM_NAME}` : DEFAULT_FROM_NAME;
+  return `${displayName} <${PLATFORM_INVOICE_FROM_EMAIL}>`;
+}
 
 function escHtml(v: string | null | undefined): string {
   return String(v ?? "")
@@ -85,8 +91,7 @@ export async function sendInvoiceDocumentEmail(opts: {
   const isQuote = type === "quote";
   const label = isQuote ? "Quotation" : "Invoice";
   const companyName = opts.company?.name || opts.company?.trading_name || "Your Service Provider";
-  const fromName = opts.company?.email_from_name || opts.company?.name || opts.company?.trading_name || DEFAULT_FROM_NAME;
-  const FROM = `${fromName} <${FROM_EMAIL}>`;
+  const FROM = buildPlatformInvoiceFrom(opts.company);
   const balanceDue = opts.balanceDue != null ? Math.max(0, Number(opts.balanceDue)) : total;
   const formattedTotal = formatCurrency(currency, balanceDue);
 
@@ -295,8 +300,7 @@ export async function sendPaymentReceiptEmail(opts: {
 }): Promise<void> {
 
   const companyName = opts.company?.name || opts.company?.trading_name || "Your Service Provider";
-  const fromName = opts.company?.email_from_name || opts.company?.name || opts.company?.trading_name || DEFAULT_FROM_NAME;
-  const FROM = `${fromName} <${FROM_EMAIL}>`;
+  const FROM = buildPlatformInvoiceFrom(opts.company);
   const formattedAmount = formatCurrency(opts.currency, opts.paidAmount);
   const subject = `Payment received — Invoice ${opts.invoiceNumber} (${formattedAmount})`;
 
