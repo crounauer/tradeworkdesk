@@ -23,17 +23,18 @@ const statusLabels: Record<string, string> = {
 
 export default function PortalDashboard() {
   const { session } = usePortalAuth();
+  const accessToken = session?.access_token ?? null;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["portal-dashboard"],
+    queryKey: ["portal-dashboard", accessToken],
     queryFn: async () => {
       const res = await fetch(`${import.meta.env.BASE_URL}api/portal/dashboard`, {
-        headers: { Authorization: `Bearer ${session!.access_token}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!res.ok) throw new Error("Failed to load dashboard");
       return res.json();
     },
-    enabled: !!session,
+    enabled: !!accessToken,
     staleTime: 30_000,
   });
 

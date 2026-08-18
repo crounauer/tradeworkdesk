@@ -87,7 +87,7 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
     : null;
 
   const { data: profile } = useQuery<PortalProfile | null>({
-    queryKey: ["portal-profile"],
+    queryKey: ["portal-profile", authToken],
     queryFn: async () => {
       const token = authToken;
       if (!token) return null;

@@ -7,17 +7,18 @@ import { Building2, ChevronRight } from "lucide-react";
 
 export default function PortalProperties() {
   const { session } = usePortalAuth();
+  const accessToken = session?.access_token ?? null;
 
   const { data: properties, isLoading } = useQuery({
-    queryKey: ["portal-properties"],
+    queryKey: ["portal-properties", accessToken],
     queryFn: async () => {
       const res = await fetch(`${import.meta.env.BASE_URL}api/portal/properties`, {
-        headers: { Authorization: `Bearer ${session!.access_token}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!res.ok) throw new Error("Failed to load properties");
       return res.json();
     },
-    enabled: !!session,
+    enabled: !!accessToken,
     staleTime: 60_000,
   });
 

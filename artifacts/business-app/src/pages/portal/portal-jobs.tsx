@@ -23,17 +23,18 @@ const statusLabels: Record<string, string> = {
 
 export default function PortalJobs() {
   const { session } = usePortalAuth();
+  const accessToken = session?.access_token ?? null;
 
   const { data: jobs, isLoading } = useQuery({
-    queryKey: ["portal-jobs"],
+    queryKey: ["portal-jobs", accessToken],
     queryFn: async () => {
       const res = await fetch(`${import.meta.env.BASE_URL}api/portal/jobs`, {
-        headers: { Authorization: `Bearer ${session!.access_token}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!res.ok) throw new Error("Failed to load jobs");
       return res.json();
     },
-    enabled: !!session,
+    enabled: !!accessToken,
     staleTime: 30_000,
   });
 

@@ -7,17 +7,18 @@ import { ArrowLeft, Building2 } from "lucide-react";
 export default function PortalPropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const { session } = usePortalAuth();
+  const accessToken = session?.access_token ?? null;
 
   const { data: properties } = useQuery({
-    queryKey: ["portal-properties"],
+    queryKey: ["portal-properties", accessToken],
     queryFn: async () => {
       const res = await fetch(`${import.meta.env.BASE_URL}api/portal/properties`, {
-        headers: { Authorization: `Bearer ${session!.access_token}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    enabled: !!session,
+    enabled: !!accessToken,
     staleTime: 60_000,
   });
 

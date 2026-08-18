@@ -54,28 +54,29 @@ function formatCurrency(amount: number, currency: string) {
 
 export default function PortalInvoices() {
   const { session, isImpersonating } = usePortalAuth();
+  const accessToken = session?.access_token ?? null;
   const qc = useQueryClient();
   const [downloading, setDownloading] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
 
   const { data: invoices, isLoading } = useQuery<PortalInvoice[]>({
-    queryKey: ["portal-invoices"],
+    queryKey: ["portal-invoices", accessToken],
     queryFn: async () => {
       const res = await fetch(`${import.meta.env.BASE_URL}api/portal/invoices`, {
-        headers: { Authorization: `Bearer ${session!.access_token}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!res.ok) throw new Error("Failed to load invoices");
       return res.json();
     },
-    enabled: !!session,
+    enabled: !!accessToken,
     staleTime: 30_000,
   });
 
   const { data: meta } = useQuery<PortalMeta>({
-    queryKey: ["portal-dashboard-meta"],
+    queryKey: ["portal-dashboard-meta", accessToken],
     queryFn: async () => {
       const res = await fetch(`${import.meta.env.BASE_URL}api/portal/dashboard`, {
-        headers: { Authorization: `Bearer ${session!.access_token}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!res.ok) return {};
       const d = await res.json();
@@ -89,7 +90,7 @@ export default function PortalInvoices() {
         quote_validity_days: d.quote_validity_days ?? null,
       };
     },
-    enabled: !!session,
+    enabled: !!accessToken,
     staleTime: 300_000,
   });
 
