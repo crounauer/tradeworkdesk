@@ -11,6 +11,7 @@ import { runServiceDueReminders, previewServiceDueReminders } from "../lib/servi
 import { supabaseAdmin } from "../lib/supabase";
 import { grantTrialUsageCredits, syncUserAddonSeats } from "../lib/tenant-limits";
 import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
+import { cleanupProfileReferences } from "../lib/profile-delete-cleanup";
 
 const router: IRouter = Router();
 
@@ -126,6 +127,14 @@ router.delete("/admin/users/:id", requireAuth, requireTenant, requireRole("admin
       return;
     }
     targetProfile = profile as Record<string, unknown>;
+  }
+
+  try {
+    await cleanupProfileReferences(supabaseAdmin, id);
+  } catch (cleanupError) {
+    const message = cleanupError instanceof Error ? cleanupError.message : "Failed to clean up user references before removal";
+    res.status(500).json({ error: message });
+    return;
   }
 
   const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
