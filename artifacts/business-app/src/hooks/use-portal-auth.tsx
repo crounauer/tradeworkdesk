@@ -43,11 +43,11 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
 
     const params = new URLSearchParams(window.location.search);
     const tokenFromQuery = params.get("impersonation");
-    const tokenFromStorage = localStorage.getItem(PORTAL_IMPERSONATION_STORAGE_KEY);
+    const tokenFromStorage = sessionStorage.getItem(PORTAL_IMPERSONATION_STORAGE_KEY);
     const resolvedToken = tokenFromQuery || tokenFromStorage;
 
     if (resolvedToken) {
-      localStorage.setItem(PORTAL_IMPERSONATION_STORAGE_KEY, resolvedToken);
+      sessionStorage.setItem(PORTAL_IMPERSONATION_STORAGE_KEY, resolvedToken);
       setImpersonationToken(resolvedToken);
       setIsLoading(false);
     }
@@ -109,7 +109,7 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
 
   const signOut = () => {
     if (impersonationToken) {
-      localStorage.removeItem(PORTAL_IMPERSONATION_STORAGE_KEY);
+      sessionStorage.removeItem(PORTAL_IMPERSONATION_STORAGE_KEY);
       setImpersonationToken(null);
       setSession(null);
       queryClient.clear();

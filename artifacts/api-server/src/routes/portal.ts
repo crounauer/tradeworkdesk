@@ -417,6 +417,7 @@ router.get("/portal/invite-info", async (req: CustomerPortalRequest, res): Promi
     .from("customers")
     .select("first_name, last_name, email")
     .eq("id", invite.customer_id)
+    .eq("tenant_id", invite.tenant_id)
     .single();
 
   const { data: tenant } = await supabaseAdmin
@@ -491,6 +492,7 @@ router.get("/portal/profile", requireCustomerAuth, async (req: CustomerPortalReq
     .from("customers")
     .select("id, title, first_name, last_name, email, phone, mobile")
     .eq("id", req.customerId!)
+    .eq("tenant_id", req.tenantId!)
     .single();
 
   if (error || !customer) {
@@ -516,6 +518,7 @@ router.get("/portal/properties", requireCustomerAuth, async (req: CustomerPortal
     .from("properties")
     .select("id, address_line1, address_line2, city, county, postcode, property_type, occupancy_type")
     .eq("customer_id", req.customerId!)
+    .eq("tenant_id", req.tenantId!)
     .eq("is_active", true)
     .order("address_line1");
 
@@ -712,6 +715,7 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
       .from("properties")
       .select("id, address_line1, postcode, property_type")
       .eq("customer_id", req.customerId!)
+      .eq("tenant_id", req.tenantId!)
       .eq("is_active", true)
       .order("address_line1"),
     supabaseAdmin
@@ -726,6 +730,7 @@ router.get("/portal/dashboard", requireCustomerAuth, async (req: CustomerPortalR
       .from("customers")
       .select("first_name, last_name, email")
       .eq("id", req.customerId!)
+      .eq("tenant_id", req.tenantId!)
       .single(),
     supabaseAdmin
       .from("tenants")
