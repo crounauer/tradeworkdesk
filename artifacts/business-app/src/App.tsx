@@ -32,19 +32,24 @@ function resetChunkReloadAttempts() {
 
 async function clearSwAndReload() {
   try {
-    // Preserve service worker registration so push subscriptions stay intact.
-    // We only clear cache storage to force fresh assets on next load.
+    localStorage.removeItem(ACTIVE_SW_SCRIPT_KEY);
+
+    if ("serviceWorker" in navigator && navigator.serviceWorker.getRegistrations) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+
     if (window.caches && caches.keys) {
       const keys = await caches.keys();
       await Promise.all(keys.map(k => caches.delete(k)));
     }
   } catch (_) {
-    // Ignore — still reload even if SW unregister fails
+    // Ignore — still force a network navigation even if cleanup partially fails.
   }
 
   const cacheBustedUrl = new URL(window.location.href);
   cacheBustedUrl.searchParams.set("__reload", Date.now().toString());
-  window.location.replace(cacheBustedUrl.toString());
+  window.location.href = cacheBustedUrl.toString();
 }
 
 function lazyRetry(importFn: () => Promise<{ default: React.ComponentType<any> }>) {
