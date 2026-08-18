@@ -4,12 +4,14 @@ import WebsiteAnalytics from "@/pages/website-analytics";
 import Reports from "@/pages/reports";
 import AdminAuditLog from "@/pages/admin-audit-log";
 import EmailAuditReport from "@/pages/email-audit-report";
+import CustomerPortalReport from "@/pages/customer-portal-report";
 
 export default function TenantReporting() {
   const defaultTab = useMemo(() => {
     try {
       const tab = new URLSearchParams(window.location.search).get("tab");
       if (tab === "reports") return "reports";
+      if (tab === "portal") return "portal";
       if (tab === "audit") return "audit";
       if (tab === "email") return "email";
       return "analytics";
@@ -29,6 +31,7 @@ export default function TenantReporting() {
         <TabsList className="flex flex-wrap w-full justify-start gap-2 p-1">
           <TabsTrigger value="analytics" className="flex-1 min-w-[120px] sm:flex-none">Analytics</TabsTrigger>
           <TabsTrigger value="reports" className="flex-1 min-w-[120px] sm:flex-none">Reports</TabsTrigger>
+          <TabsTrigger value="portal" className="flex-1 min-w-[120px] sm:flex-none">Customer Portal</TabsTrigger>
           <TabsTrigger value="audit" className="flex-1 min-w-[120px] sm:flex-none">Audit Trail</TabsTrigger>
           <TabsTrigger value="email" className="flex-1 min-w-[120px] sm:flex-none">Email Log</TabsTrigger>
         </TabsList>
@@ -39,6 +42,10 @@ export default function TenantReporting() {
 
         <TabsContent value="reports" className="mt-4">
           <Reports />
+        </TabsContent>
+
+        <TabsContent value="portal" className="mt-4">
+          <CustomerPortalReport />
         </TabsContent>
 
         <TabsContent value="audit" className="mt-4">

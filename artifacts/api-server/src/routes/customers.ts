@@ -695,6 +695,7 @@ router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireR
 
 router.get("/customers/:id/portal-status", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
+  const visibleInvoiceStatuses = ["sent", "paid", "overdue", "accepted", "declined", "converted"] as const;
 
   const { data: pendingRequest } = await supabaseAdmin
     .from("customer_portal_access_requests")
@@ -708,23 +709,72 @@ router.get("/customers/:id/portal-status", requireAuth, requireTenant, requireRo
 
   const { data: portalUser } = await supabaseAdmin
     .from("customer_portal_users")
-    .select("id, auth_user_id, is_active, invite_expires_at, created_at")
+    .select("id, auth_user_id, is_active, invite_token, invite_expires_at, created_at")
     .eq("customer_id", id)
     .eq("tenant_id", req.tenantId!)
     .maybeSingle();
 
+  const { data: invoices } = await supabaseAdmin
+    .from("invoices")
+    .select("id, status, invoice_number, issue_date")
+    .eq("customer_id", id)
+    .eq("tenant_id", req.tenantId!)
+    .order("issue_date", { ascending: false })
+    .limit(200);
+
+  const rows = (invoices || []) as Array<{ id: string; status: string | null; invoice_number: string | null; issue_date: string | null }>;
+  const visibleInvoices = rows.filter((row) => !!row.status && visibleInvoiceStatuses.includes(row.status as (typeof visibleInvoiceStatuses)[number]));
+  const hiddenByStatus = new Map<string, number>();
+  for (const row of rows) {
+    const status = row.status || "unknown";
+    if (!visibleInvoiceStatuses.includes(status as (typeof visibleInvoiceStatuses)[number])) {
+      hiddenByStatus.set(status, (hiddenByStatus.get(status) || 0) + 1);
+    }
+  }
+
+  const portalDiagnostics = {
+    visible_invoice_statuses: [...visibleInvoiceStatuses],
+    invoice_totals: {
+      total: rows.length,
+      visible_in_portal: visibleInvoices.length,
+      hidden_from_portal: rows.length - visibleInvoices.length,
+    },
+    hidden_status_breakdown: Array.from(hiddenByStatus.entries()).map(([status, count]) => ({ status, count })),
+    latest_invoices: rows.slice(0, 5).map((row) => ({
+      id: row.id,
+      invoice_number: row.invoice_number,
+      status: row.status,
+      issue_date: row.issue_date,
+      visible_in_portal: !!row.status && visibleInvoiceStatuses.includes(row.status as (typeof visibleInvoiceStatuses)[number]),
+    })),
+  };
+
   if (!portalUser) {
-    res.json({ has_portal: false, is_active: false, is_registered: false, pending_access_request: pendingRequest || null });
+    res.json({
+      has_portal: false,
+      is_active: false,
+      is_registered: false,
+      pending_access_request: pendingRequest || null,
+      diagnostics: portalDiagnostics,
+    });
     return;
   }
 
+  const inviteExpiresAt = portalUser.invite_expires_at ? new Date(portalUser.invite_expires_at).getTime() : null;
+  const inviteExpired = inviteExpiresAt !== null && inviteExpiresAt < Date.now();
+
   res.json({
     has_portal: true,
+    portal_user_id: portalUser.id,
     is_active: portalUser.is_active,
     is_registered: !!portalUser.auth_user_id,
+    has_auth_user_id: !!portalUser.auth_user_id,
+    has_invite_token: !!portalUser.invite_token,
     invite_expires_at: portalUser.invite_expires_at,
+    invite_expired: inviteExpired,
     created_at: portalUser.created_at,
     pending_access_request: pendingRequest || null,
+    diagnostics: portalDiagnostics,
   });
 });
 

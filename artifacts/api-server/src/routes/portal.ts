@@ -23,6 +23,50 @@ const PORTAL_TOKEN_CACHE_TTL_MS = 60_000;
 
 export const portalUserCache = new Map<string, { portalUserId: string; customerId: string; tenantId: string; expiresAt: number }>();
 const PORTAL_USER_CACHE_TTL_MS = 120_000;
+const portalActivityAuditCache = new Map<string, number>();
+
+async function trackPortalActivity(opts: {
+  tenantId?: string;
+  authUserId?: string;
+  customerEmail?: string;
+  portalUserId?: string;
+  customerId?: string;
+  path?: string;
+}) {
+  if (!opts.tenantId || !opts.portalUserId) return;
+
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const cacheKey = `${opts.tenantId}:${opts.portalUserId}:${dayKey}`;
+  if (portalActivityAuditCache.has(cacheKey)) return;
+
+  portalActivityAuditCache.set(cacheKey, Date.now());
+  if (portalActivityAuditCache.size > 5000) {
+    let deleted = 0;
+    for (const key of portalActivityAuditCache.keys()) {
+      portalActivityAuditCache.delete(key);
+      deleted += 1;
+      if (deleted >= 1000) break;
+    }
+  }
+
+  try {
+    await supabaseAdmin.from("tenant_audit_log").insert({
+      tenant_id: opts.tenantId,
+      actor_id: opts.authUserId || null,
+      actor_email: opts.customerEmail || null,
+      actor_role: "customer_portal",
+      event_type: "customer_portal_activity",
+      entity_type: "customer_portal_user",
+      entity_id: opts.portalUserId,
+      detail: {
+        customer_id: opts.customerId || null,
+        source_path: opts.path || null,
+      },
+    });
+  } catch {
+    // Non-fatal: reporting should not block portal access.
+  }
+}
 
 function toSingleParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] || "";
@@ -100,6 +144,14 @@ async function requireCustomerAuth(
     req.tenantId = cachedPortal.tenantId;
     req.customerAuthUserId = user.id;
     req.customerEmail = user.email;
+    void trackPortalActivity({
+      tenantId: cachedPortal.tenantId,
+      authUserId: user.id,
+      customerEmail: user.email,
+      portalUserId: cachedPortal.portalUserId,
+      customerId: cachedPortal.customerId,
+      path: req.path,
+    });
     next();
     return;
   }
@@ -128,6 +180,14 @@ async function requireCustomerAuth(
   req.tenantId = portalUser.tenant_id;
   req.customerAuthUserId = user.id;
   req.customerEmail = user.email;
+  void trackPortalActivity({
+    tenantId: portalUser.tenant_id,
+    authUserId: user.id,
+    customerEmail: user.email,
+    portalUserId: portalUser.id,
+    customerId: portalUser.customer_id,
+    path: req.path,
+  });
   next();
 }
 
