@@ -26,6 +26,13 @@ export function getProfileDeleteCleanupPlan(): ProfileDeleteCleanupStep[] {
   ];
 }
 
+function isMissingTableError(error: { message?: string; code?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const msg = String(error.message || "").toLowerCase();
+  const code = String(error.code || "");
+  return code === "42P01" || msg.includes("does not exist") || msg.includes("relation") && msg.includes("does not exist");
+}
+
 export async function cleanupProfileReferences(supabase: any, userId: string): Promise<void> {
   const steps = getProfileDeleteCleanupPlan();
 
@@ -42,6 +49,7 @@ export async function cleanupProfileReferences(supabase: any, userId: string): P
 
     const { error } = await query;
     if (error) {
+      if (isMissingTableError(error)) continue;
       throw new Error(`Failed to clean up ${step.table}.${step.column}: ${error.message}`);
     }
   }
