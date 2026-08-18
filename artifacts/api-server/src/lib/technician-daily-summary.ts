@@ -39,6 +39,29 @@ function toTimeZoneDateParts(now: Date): { today: string; tomorrow: string; hhmm
   return { today, tomorrow, hhmm: `${hh}:${mm}` };
 }
 
+export function isSummaryTimeDue(configuredTime: string | null | undefined, now = new Date(), timeZone = SUMMARY_TIMEZONE, toleranceMinutes = 10): boolean {
+  const raw = String(configuredTime ?? "").trim();
+  if (!/^\d{2}:\d{2}$/.test(raw)) return false;
+
+  const timeFormatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const timeParts = timeFormatter.formatToParts(now);
+  const zoneHour = Number(timeParts.find((p) => p.type === "hour")?.value || "0");
+  const zoneMinute = Number(timeParts.find((p) => p.type === "minute")?.value || "0");
+  const nowMinutes = zoneHour * 60 + zoneMinute;
+
+  const [hours, minutes] = raw.split(":").map(Number);
+  const configuredMinutes = (hours || 0) * 60 + (minutes || 0);
+  const deltaMinutes = nowMinutes - configuredMinutes;
+
+  return deltaMinutes >= 0 && deltaMinutes <= toleranceMinutes;
+}
+
 function isWeekend(yyyyMmDd: string): boolean {
   const d = new Date(`${yyyyMmDd}T00:00:00Z`);
   const weekday = d.getUTCDay();
@@ -136,7 +159,6 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
     .select("tenant_id, name, trading_name, email, notification_emails, email_from_name, email_reply_to, technician_daily_summary_enabled, technician_daily_summary_time_utc, technician_daily_summary_send_if_no_jobs, technician_daily_summary_weekdays_only, technician_daily_summary_last_sent_date")
     .eq("singleton_id", SINGLETON_ID)
     .eq("technician_daily_summary_enabled", true)
-    .eq("technician_daily_summary_time_utc", hhmm)
     .or(`technician_daily_summary_last_sent_date.is.null,technician_daily_summary_last_sent_date.neq.${today}`);
 
   if (dueTenantsError) {
@@ -147,6 +169,11 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
   for (const row of (dueTenants || []) as Array<Record<string, unknown>>) {
     const tenantId = String(row.tenant_id || "").trim();
     if (!tenantId) continue;
+
+    const configuredTime = String(row.technician_daily_summary_time_utc || "").trim();
+    if (!isSummaryTimeDue(configuredTime, now, SUMMARY_TIMEZONE)) {
+      continue;
+    }
 
     result.processedTenants += 1;
 
