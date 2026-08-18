@@ -16,6 +16,7 @@ interface CustomerPortalRequest extends Request {
   tenantId?: string;
   customerAuthUserId?: string;
   customerEmail?: string;
+  isImpersonating?: boolean;
 }
 
 const portalTokenCache = new Map<string, { user: { id: string; email?: string }; expiresAt: number }>();
@@ -25,6 +26,49 @@ export const portalUserCache = new Map<string, { portalUserId: string; customerI
 const PORTAL_USER_CACHE_TTL_MS = 120_000;
 const portalActivityAuditCache = new Map<string, number>();
 
+type PortalImpersonationSession = {
+  portalUserId: string;
+  customerId: string;
+  tenantId: string;
+  customerEmail?: string | null;
+  createdByUserId?: string | null;
+  createdByEmail?: string | null;
+  expiresAt: number;
+};
+
+const portalImpersonationSessions = new Map<string, PortalImpersonationSession>();
+const PORTAL_IMPERSONATION_TTL_MS = 15 * 60_000;
+
+function cleanupExpiredPortalImpersonations(now = Date.now()) {
+  for (const [token, session] of portalImpersonationSessions) {
+    if (session.expiresAt <= now) portalImpersonationSessions.delete(token);
+  }
+}
+
+export function createPortalImpersonationSession(input: {
+  portalUserId: string;
+  customerId: string;
+  tenantId: string;
+  customerEmail?: string | null;
+  createdByUserId?: string | null;
+  createdByEmail?: string | null;
+}): { token: string; expiresAt: string } {
+  const now = Date.now();
+  cleanupExpiredPortalImpersonations(now);
+  const token = `imp_${crypto.randomBytes(24).toString("hex")}`;
+  const expiresAtMs = now + PORTAL_IMPERSONATION_TTL_MS;
+  portalImpersonationSessions.set(token, {
+    portalUserId: input.portalUserId,
+    customerId: input.customerId,
+    tenantId: input.tenantId,
+    customerEmail: input.customerEmail ?? null,
+    createdByUserId: input.createdByUserId ?? null,
+    createdByEmail: input.createdByEmail ?? null,
+    expiresAt: expiresAtMs,
+  });
+  return { token, expiresAt: new Date(expiresAtMs).toISOString() };
+}
+
 async function trackPortalActivity(opts: {
   tenantId?: string;
   authUserId?: string;
@@ -32,11 +76,14 @@ async function trackPortalActivity(opts: {
   portalUserId?: string;
   customerId?: string;
   path?: string;
+  impersonating?: boolean;
+  impersonatedByUserId?: string | null;
+  impersonatedByEmail?: string | null;
 }) {
   if (!opts.tenantId || !opts.portalUserId) return;
 
   const dayKey = new Date().toISOString().slice(0, 10);
-  const cacheKey = `${opts.tenantId}:${opts.portalUserId}:${dayKey}`;
+  const cacheKey = `${opts.tenantId}:${opts.portalUserId}:${dayKey}:${opts.impersonating ? "imp" : "real"}`;
   if (portalActivityAuditCache.has(cacheKey)) return;
 
   portalActivityAuditCache.set(cacheKey, Date.now());
@@ -54,13 +101,16 @@ async function trackPortalActivity(opts: {
       tenant_id: opts.tenantId,
       actor_id: opts.authUserId || null,
       actor_email: opts.customerEmail || null,
-      actor_role: "customer_portal",
+      actor_role: opts.impersonating ? "customer_portal_impersonated" : "customer_portal",
       event_type: "customer_portal_activity",
       entity_type: "customer_portal_user",
       entity_id: opts.portalUserId,
       detail: {
         customer_id: opts.customerId || null,
         source_path: opts.path || null,
+        impersonating: !!opts.impersonating,
+        impersonated_by_user_id: opts.impersonatedByUserId || null,
+        impersonated_by_email: opts.impersonatedByEmail || null,
       },
     });
   } catch {
@@ -117,6 +167,38 @@ async function requireCustomerAuth(
   const token = authHeader.substring(7);
 
   const now = Date.now();
+
+  if (token.startsWith("imp_")) {
+    cleanupExpiredPortalImpersonations(now);
+    const impSession = portalImpersonationSessions.get(token);
+    if (!impSession || impSession.expiresAt <= now) {
+      res.status(401).json({ error: "Impersonation session expired" });
+      return;
+    }
+
+    req.portalUserId = impSession.portalUserId;
+    req.customerId = impSession.customerId;
+    req.tenantId = impSession.tenantId;
+    req.customerAuthUserId = `impersonated:${impSession.portalUserId}`;
+    req.customerEmail = impSession.customerEmail || undefined;
+    req.isImpersonating = true;
+
+    void trackPortalActivity({
+      tenantId: impSession.tenantId,
+      authUserId: req.customerAuthUserId,
+      customerEmail: impSession.customerEmail || undefined,
+      portalUserId: impSession.portalUserId,
+      customerId: impSession.customerId,
+      path: req.path,
+      impersonating: true,
+      impersonatedByUserId: impSession.createdByUserId,
+      impersonatedByEmail: impSession.createdByEmail,
+    });
+
+    next();
+    return;
+  }
+
   const cachedToken = portalTokenCache.get(token);
   let user: { id: string; email?: string } | null = null;
 
@@ -144,6 +226,7 @@ async function requireCustomerAuth(
     req.tenantId = cachedPortal.tenantId;
     req.customerAuthUserId = user.id;
     req.customerEmail = user.email;
+    req.isImpersonating = false;
     void trackPortalActivity({
       tenantId: cachedPortal.tenantId,
       authUserId: user.id,
@@ -151,6 +234,7 @@ async function requireCustomerAuth(
       portalUserId: cachedPortal.portalUserId,
       customerId: cachedPortal.customerId,
       path: req.path,
+      impersonating: false,
     });
     next();
     return;
@@ -180,6 +264,7 @@ async function requireCustomerAuth(
   req.tenantId = portalUser.tenant_id;
   req.customerAuthUserId = user.id;
   req.customerEmail = user.email;
+  req.isImpersonating = false;
   void trackPortalActivity({
     tenantId: portalUser.tenant_id,
     authUserId: user.id,
@@ -187,8 +272,15 @@ async function requireCustomerAuth(
     portalUserId: portalUser.id,
     customerId: portalUser.customer_id,
     path: req.path,
+    impersonating: false,
   });
   next();
+}
+
+function ensureNotImpersonating(req: CustomerPortalRequest, res: Response): boolean {
+  if (!req.isImpersonating) return true;
+  res.status(403).json({ error: "This action is disabled in view-as-customer mode" });
+  return false;
 }
 
 router.post("/portal/register", async (req: CustomerPortalRequest, res): Promise<void> => {
@@ -849,6 +941,7 @@ router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: Customer
 
 // ─── PORTAL: On-demand Stripe Checkout ───────────────────────────────────
 router.post("/portal/invoices/:id/stripe-checkout", requireCustomerAuth, async (req: CustomerPortalRequest, res): Promise<void> => {
+  if (!ensureNotImpersonating(req, res)) return;
   const id = toSingleParam(req.params.id);
 
   const { data: invoice, error } = await supabaseAdmin
@@ -933,6 +1026,7 @@ async function handleQuoteAction(
   res: Response,
   action: "accept" | "decline",
 ): Promise<void> {
+  if (!ensureNotImpersonating(req, res)) return;
   const id = toSingleParam(req.params.id);
 
   const { data: invoice, error } = await supabaseAdmin

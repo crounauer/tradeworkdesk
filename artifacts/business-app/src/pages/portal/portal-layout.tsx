@@ -13,7 +13,7 @@ const navItems = [
 
 export function PortalLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
-  const { customerName, companyName, signOut } = usePortalAuth();
+  const { customerName, companyName, signOut, isImpersonating } = usePortalAuth();
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -42,12 +42,17 @@ export function PortalLayout({ children }: { children: ReactNode }) {
               </nav>
             </div>
             <div className="flex items-center gap-3">
+              {isImpersonating && (
+                <span className="hidden sm:inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-semibold">
+                  View-as-Customer
+                </span>
+              )}
               <span className="hidden sm:inline text-sm text-slate-600">
                 <User className="w-3.5 h-3.5 inline mr-1" />
                 {customerName}
               </span>
               <Button variant="ghost" size="sm" onClick={signOut} className="text-slate-500 hover:text-slate-700">
-                <LogOut className="w-4 h-4 mr-1" /> Sign Out
+                <LogOut className="w-4 h-4 mr-1" /> {isImpersonating ? "Exit View Mode" : "Sign Out"}
               </Button>
             </div>
           </div>

@@ -13,7 +13,7 @@ import {
   DeleteCustomerParams,
 } from "@workspace/api-zod";
 import { z } from "zod";
-import { generateInviteToken, portalUserCache } from "./portal";
+import { createPortalImpersonationSession, generateInviteToken, portalUserCache } from "./portal";
 import { sendPortalInviteEmail, type EmailCompanyDetails } from "../lib/email";
 
 const router: IRouter = Router();
@@ -775,6 +775,58 @@ router.get("/customers/:id/portal-status", requireAuth, requireTenant, requireRo
     created_at: portalUser.created_at,
     pending_access_request: pendingRequest || null,
     diagnostics: portalDiagnostics,
+  });
+});
+
+router.post("/customers/:id/portal-impersonation", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+  const { data: customer } = await supabaseAdmin
+    .from("customers")
+    .select("id, email")
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  if (!customer) {
+    res.status(404).json({ error: "Customer not found" });
+    return;
+  }
+
+  const { data: portalUser } = await supabaseAdmin
+    .from("customer_portal_users")
+    .select("id, is_active")
+    .eq("customer_id", id)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  if (!portalUser) {
+    res.status(400).json({ error: "Customer does not have portal access yet" });
+    return;
+  }
+
+  if (!portalUser.is_active) {
+    res.status(400).json({ error: "Customer portal access is disabled" });
+    return;
+  }
+
+  const { token, expiresAt } = createPortalImpersonationSession({
+    portalUserId: portalUser.id,
+    customerId: id,
+    tenantId: req.tenantId!,
+    customerEmail: customer.email,
+    createdByUserId: req.userId,
+    createdByEmail: req.userEmail,
+  });
+
+  const originHeader = String(req.headers.origin || "");
+  const appBaseUrl = originHeader.startsWith("http")
+    ? originHeader.replace(/\/$/, "")
+    : String(process.env.APP_URL || "https://tradeworkdesk.co.uk").replace(/\/$/, "");
+
+  res.json({
+    portal_url: `${appBaseUrl}/portal?impersonation=${encodeURIComponent(token)}`,
+    expires_at: expiresAt,
   });
 });
 

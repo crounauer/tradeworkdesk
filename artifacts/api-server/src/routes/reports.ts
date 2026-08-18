@@ -359,6 +359,7 @@ router.get("/reports/customer-portal", requireAuth, requireTenant, requireRole("
       .select("entity_id, created_at")
       .eq("tenant_id", tenantId)
       .eq("event_type", "customer_portal_activity")
+      .eq("actor_role", "customer_portal")
       .gte("created_at", thirtyDayStartIso),
   ]);
 

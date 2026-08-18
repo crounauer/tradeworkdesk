@@ -23,23 +23,51 @@ type PortalAuthContextType = {
   isLoading: boolean;
   customerName: string;
   companyName: string;
+  isImpersonating: boolean;
   signOut: () => void;
 };
 
 const PortalAuthContext = createContext<PortalAuthContextType | undefined>(undefined);
+const PORTAL_IMPERSONATION_STORAGE_KEY = "portal_impersonation_token";
 
 export function PortalAuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [impersonationToken, setImpersonationToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const queryClient = useQueryClient();
   const initialized = useRef(false);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromQuery = params.get("impersonation");
+    const tokenFromStorage = localStorage.getItem(PORTAL_IMPERSONATION_STORAGE_KEY);
+    const resolvedToken = tokenFromQuery || tokenFromStorage;
+
+    if (resolvedToken) {
+      localStorage.setItem(PORTAL_IMPERSONATION_STORAGE_KEY, resolvedToken);
+      setImpersonationToken(resolvedToken);
+      setIsLoading(false);
+    }
+
+    if (tokenFromQuery) {
+      params.delete("impersonation");
+      const nextQuery = params.toString();
+      const cleaned = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash || ""}`;
+      window.history.replaceState({}, "", cleaned);
+    }
+  }, []);
 
   useEffect(() => {
     const sessionTimeout = setTimeout(() => setIsLoading(false), 5000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       clearTimeout(sessionTimeout);
-      setSession(session);
+      if (!impersonationToken) {
+        setSession(session);
+      }
       setIsLoading(false);
 
       if (_event === "SIGNED_OUT") {
@@ -51,12 +79,17 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
       clearTimeout(sessionTimeout);
       subscription.unsubscribe();
     };
-  }, [queryClient]);
+  }, [impersonationToken, queryClient]);
+
+  const authToken = impersonationToken || session?.access_token || null;
+  const effectiveSession = authToken
+    ? ({ access_token: authToken } as Session)
+    : null;
 
   const { data: profile } = useQuery<PortalProfile | null>({
     queryKey: ["portal-profile"],
     queryFn: async () => {
-      const token = session?.access_token;
+      const token = authToken;
       if (!token) return null;
       const res = await fetch(`${import.meta.env.BASE_URL}api/portal/profile`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -64,7 +97,7 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: !!session,
+    enabled: !!authToken,
     staleTime: 60_000,
   });
 
@@ -72,8 +105,18 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
     ? `${profile.customer.first_name} ${profile.customer.last_name}`
     : "";
   const companyName = profile?.company_name || "";
+  const isImpersonating = !!impersonationToken;
 
   const signOut = () => {
+    if (impersonationToken) {
+      localStorage.removeItem(PORTAL_IMPERSONATION_STORAGE_KEY);
+      setImpersonationToken(null);
+      setSession(null);
+      queryClient.clear();
+      window.location.href = `${import.meta.env.BASE_URL}customers`;
+      return;
+    }
+
     supabase.auth.signOut({ scope: "local" }).catch(() => {});
     for (const key of Object.keys(localStorage)) {
       if (key.startsWith("sb-")) localStorage.removeItem(key);
@@ -84,7 +127,7 @@ export function PortalAuthProvider({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    <PortalAuthContext.Provider value={{ session, profile: profile || null, isLoading, customerName, companyName, signOut }}>
+    <PortalAuthContext.Provider value={{ session: effectiveSession, profile: profile || null, isLoading, customerName, companyName, isImpersonating, signOut }}>
       {children}
     </PortalAuthContext.Provider>
   );

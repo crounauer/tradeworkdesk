@@ -53,7 +53,7 @@ function formatCurrency(amount: number, currency: string) {
 }
 
 export default function PortalInvoices() {
-  const { session } = usePortalAuth();
+  const { session, isImpersonating } = usePortalAuth();
   const qc = useQueryClient();
   const [downloading, setDownloading] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
@@ -201,7 +201,7 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {invoiceList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} stripeConnectEnabled={meta?.stripe_connect_enabled && meta?.stripe_payments_enabled} onStripeCheckout={(id) => checkoutMutation.mutate(id)} stripeCheckoutLoading={checkoutMutation.isPending ? checkoutMutation.variables : null} gocardlessEnabled={meta?.gocardless_payments_enabled} onPreview={viewPdf} previewing={previewing} paymentTermsDays={meta?.default_payment_terms_days ?? null} quoteValidityDays={meta?.quote_validity_days ?? null} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} paymentLinkUrl={meta?.payment_link_url} stripeConnectEnabled={meta?.stripe_connect_enabled && meta?.stripe_payments_enabled} onStripeCheckout={(id) => checkoutMutation.mutate(id)} stripeCheckoutLoading={checkoutMutation.isPending ? checkoutMutation.variables : null} gocardlessEnabled={meta?.gocardless_payments_enabled} onPreview={viewPdf} previewing={previewing} paymentTermsDays={meta?.default_payment_terms_days ?? null} quoteValidityDays={meta?.quote_validity_days ?? null} readOnlyMode={isImpersonating} />
                   ))}
                 </div>
               </section>
@@ -213,12 +213,18 @@ export default function PortalInvoices() {
                 </h2>
                 <div className="space-y-2">
                   {quoteList.map((inv) => (
-                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} onQuoteAction={(id, action) => quoteActionMutation.mutate({ id, action })} quoteActioning={quoteActionMutation.isPending ? quoteActionMutation.variables?.id : null} onPreview={viewPdf} previewing={previewing} paymentTermsDays={meta?.default_payment_terms_days ?? null} quoteValidityDays={meta?.quote_validity_days ?? null} />
+                    <InvoiceRow key={inv.id} inv={inv} downloading={downloading} onDownload={downloadPdf} onQuoteAction={(id, action) => quoteActionMutation.mutate({ id, action })} quoteActioning={quoteActionMutation.isPending ? quoteActionMutation.variables?.id : null} onPreview={viewPdf} previewing={previewing} paymentTermsDays={meta?.default_payment_terms_days ?? null} quoteValidityDays={meta?.quote_validity_days ?? null} readOnlyMode={isImpersonating} />
                   ))}
                 </div>
               </section>
             )}
           </>
+        )}
+
+        {isImpersonating && (
+          <Card className="p-3 border border-amber-200 bg-amber-50 text-amber-900 text-sm">
+            View-as-customer mode is read-only. Payments and quote actions are disabled.
+          </Card>
         )}
 
         {meta?.invoice_bank_details && (
@@ -252,6 +258,7 @@ function InvoiceRow({
   previewing,
   paymentTermsDays,
   quoteValidityDays,
+  readOnlyMode,
 }: {
   inv: PortalInvoice;
   downloading: string | null;
@@ -267,6 +274,7 @@ function InvoiceRow({
   previewing: string | null;
   paymentTermsDays?: number | null;
   quoteValidityDays?: number | null;
+  readOnlyMode?: boolean;
 }) {
   const statusCfg = STATUS_CONFIG[inv.status] || { label: inv.status, className: "bg-slate-100 text-slate-600" };
   const terms = Number(paymentTermsDays || 0) > 0 ? `Net ${Number(paymentTermsDays)} days` : null;
@@ -287,13 +295,13 @@ function InvoiceRow({
 
   // Collect payment options
   const linkOptions: Array<{ label: string; url: string; className: string }> = [];
-  if (isPayable) {
+  if (isPayable && !readOnlyMode) {
     if (gocardlessEnabled !== false && inv.gocardless_payment_link_url) linkOptions.push({ label: "Pay by Bank", url: inv.gocardless_payment_link_url, className: "bg-teal-600 hover:bg-teal-700 text-white" });
     if (linkOptions.length === 0 && paymentLinkUrl) {
       linkOptions.push({ label: "Pay Now", url: paymentLinkUrl, className: "bg-green-600 hover:bg-green-700 text-white" });
     }
   }
-  const showQuoteActions = inv.type === "quote" && inv.status === "sent" && onQuoteAction;
+  const showQuoteActions = !readOnlyMode && inv.type === "quote" && inv.status === "sent" && onQuoteAction;
   const isActioning = quoteActioning === inv.id;
 
   return (
@@ -310,7 +318,7 @@ function InvoiceRow({
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           <p className="font-semibold text-slate-900">{formatCurrency(Number(inv.total), inv.currency)}</p>
-          {isPayable && stripeConnectEnabled && onStripeCheckout && (
+          {isPayable && !readOnlyMode && stripeConnectEnabled && onStripeCheckout && (
             <Button
               size="sm"
               className="h-8 text-xs bg-violet-600 hover:bg-violet-700 text-white"

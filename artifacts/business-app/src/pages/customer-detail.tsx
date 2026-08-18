@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt, ChevronRight, Copy } from "lucide-react";
+import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt, ChevronRight, LogIn } from "lucide-react";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -1090,7 +1090,7 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
   const [sendingInvite, setSendingInvite] = useState(false);
   const [extendingInvite, setExtendingInvite] = useState(false);
   const [toggling, setToggling] = useState(false);
-  const [copyingDiagnostics, setCopyingDiagnostics] = useState(false);
+  const [openingPortalView, setOpeningPortalView] = useState(false);
 
   const { data: portalStatus, isLoading } = useQuery({
     queryKey: ["portal-status", customerId],
@@ -1100,13 +1100,9 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
 
   const status = portalStatus as {
     has_portal: boolean;
-    portal_user_id?: string;
     is_active: boolean;
     is_registered: boolean;
-    has_auth_user_id?: boolean;
-    has_invite_token?: boolean;
     invite_expires_at?: string;
-    invite_expired?: boolean;
     created_at?: string;
     pending_access_request?: {
       id: string;
@@ -1114,22 +1110,6 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
       requested_postcode?: string | null;
       requested_at: string;
     } | null;
-    diagnostics?: {
-      visible_invoice_statuses: string[];
-      invoice_totals: {
-        total: number;
-        visible_in_portal: number;
-        hidden_from_portal: number;
-      };
-      hidden_status_breakdown: Array<{ status: string; count: number }>;
-      latest_invoices: Array<{
-        id: string;
-        invoice_number: string | null;
-        status: string | null;
-        issue_date: string | null;
-        visible_in_portal: boolean;
-      }>;
-    };
   } | undefined;
 
   const sendInvite = async () => {
@@ -1229,33 +1209,37 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
     }
   };
 
-  const copyDiagnostics = async () => {
-    if (!status) return;
-    const payload = {
-      customer_id: customerId,
-      captured_at: new Date().toISOString(),
-      portal: {
-        has_portal: status.has_portal,
-        portal_user_id: status.portal_user_id || null,
-        is_active: status.is_active,
-        is_registered: status.is_registered,
-        has_auth_user_id: status.has_auth_user_id ?? false,
-        has_invite_token: status.has_invite_token ?? false,
-        invite_expires_at: status.invite_expires_at || null,
-        invite_expired: status.invite_expired ?? false,
-        pending_access_request: status.pending_access_request || null,
-      },
-      diagnostics: status.diagnostics || null,
-    };
+  const openPortalView = async () => {
+    if (!status?.has_portal || !status.is_active) {
+      toast({ title: "Portal unavailable", description: "Enable customer portal access first.", variant: "destructive" });
+      return;
+    }
 
-    setCopyingDiagnostics(true);
+    setOpeningPortalView(true);
     try {
-      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-      toast({ title: "Diagnostics copied", description: "Portal troubleshooting diagnostics copied to clipboard." });
-    } catch {
-      toast({ title: "Copy failed", description: "Unable to access clipboard in this browser context.", variant: "destructive" });
+      const result = await customFetch(`${import.meta.env.BASE_URL}api/customers/${customerId}/portal-impersonation`, {
+        method: "POST",
+      }) as { portal_url?: string; expires_at?: string };
+
+      if (!result.portal_url) {
+        throw new Error("No portal URL returned");
+      }
+
+      window.open(result.portal_url, "_blank", "noopener,noreferrer");
+      const expiresText = result.expires_at
+        ? new Date(result.expires_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+        : null;
+      toast({
+        title: "Customer portal opened",
+        description: expiresText
+          ? `View-as-customer mode is active until ${expiresText}.`
+          : "View-as-customer mode started in a new tab.",
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to open customer portal";
+      toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
-      setCopyingDiagnostics(false);
+      setOpeningPortalView(false);
     }
   };
 
@@ -1352,52 +1336,17 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
                   )}
                   {status.is_active ? "Disable Access" : "Enable Access"}
                 </Button>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">Troubleshooting</p>
-                <Button size="sm" variant="outline" onClick={copyDiagnostics} disabled={copyingDiagnostics}>
-                  {copyingDiagnostics ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Copy className="w-4 h-4 mr-2" />}
-                  {copyingDiagnostics ? "Copying..." : "Copy Diagnostics"}
+                <Button
+                  size="sm"
+                  className="whitespace-nowrap"
+                  variant="outline"
+                  onClick={openPortalView}
+                  disabled={openingPortalView || !status.is_active}
+                >
+                  {openingPortalView ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LogIn className="w-4 h-4 mr-2" />}
+                  {openingPortalView ? "Opening..." : "View As Customer"}
                 </Button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-muted-foreground">
-                <p>Portal user ID: <span className="text-foreground">{status.portal_user_id || "-"}</span></p>
-                <p>Auth linked: <span className="text-foreground">{status.has_auth_user_id ? "Yes" : "No"}</span></p>
-                <p>Invite token: <span className="text-foreground">{status.has_invite_token ? "Present" : "Missing"}</span></p>
-                <p>Invite expired: <span className="text-foreground">{status.invite_expired ? "Yes" : "No"}</span></p>
-                <p>Invoices (total): <span className="text-foreground">{status.diagnostics?.invoice_totals.total ?? 0}</span></p>
-                <p>Invoices visible in portal: <span className="text-foreground">{status.diagnostics?.invoice_totals.visible_in_portal ?? 0}</span></p>
-                <p>Invoices hidden from portal: <span className="text-foreground">{status.diagnostics?.invoice_totals.hidden_from_portal ?? 0}</span></p>
-                <p>Allowed statuses: <span className="text-foreground">{(status.diagnostics?.visible_invoice_statuses || []).join(", ") || "-"}</span></p>
-              </div>
-
-              {(status.diagnostics?.hidden_status_breakdown?.length || 0) > 0 && (
-                <div className="pt-1">
-                  <p className="text-xs font-medium">Hidden invoice statuses</p>
-                  <p className="text-xs text-muted-foreground">
-                    {status.diagnostics?.hidden_status_breakdown.map((item) => `${item.status}: ${item.count}`).join(" | ")}
-                  </p>
-                </div>
-              )}
-
-              {(status.diagnostics?.latest_invoices?.length || 0) > 0 && (
-                <div className="pt-1">
-                  <p className="text-xs font-medium">Latest invoices</p>
-                  <div className="space-y-1">
-                    {status.diagnostics?.latest_invoices.map((invoice) => (
-                      <p key={invoice.id} className="text-xs text-muted-foreground">
-                        {(invoice.invoice_number || invoice.id.slice(0, 8))}
-                        {` · ${invoice.status || "unknown"}`}
-                        {invoice.issue_date ? ` · ${new Date(invoice.issue_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}
-                        {invoice.visible_in_portal ? " · visible" : " · hidden"}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
