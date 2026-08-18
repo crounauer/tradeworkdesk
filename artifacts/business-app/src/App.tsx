@@ -422,6 +422,7 @@ const PortalJobsRoute = portalPage(PortalJobs);
 const PortalJobDetailRoute = portalPage(PortalJobDetail);
 const PortalInvoicesRoute = portalPage(PortalInvoices);
 const PortalJobDetailStandaloneRoute = portalStandalonePage(PortalJobDetail);
+const PortalPropertyDetailStandaloneRoute = portalStandalonePage(PortalPropertyDetail);
 
 const FeaturesRoute = pub(FeaturesPage);
 const PricingRoute = pub(PricingPage);
@@ -651,7 +652,8 @@ function AppRouter() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Switch>
-          <Route path="/portal/jobs/:id" component={PortalJobDetailStandaloneRoute} />
+        <Route path="/portal/properties/:id" component={PortalPropertyDetailStandaloneRoute} />
+        <Route path="/portal/jobs/:id" component={PortalJobDetailStandaloneRoute} />
         <Route path="/portal/:rest*" component={PortalRoutes} />
         <Route path="/portal" component={PortalRoutes} />
 
