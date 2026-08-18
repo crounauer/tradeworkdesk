@@ -53,6 +53,16 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   }
 
   if (url.includes('/api/')) {
+    const existingHeaders = new Headers(init?.headers);
+    const hasExplicitAuthorization = existingHeaders.has('Authorization') || existingHeaders.has('authorization');
+
+    if (hasExplicitAuthorization) {
+      return originalFetch(input, {
+        ...init,
+        headers: existingHeaders,
+      });
+    }
+
     let token: string | null = null;
 
     if (cachedToken && Date.now() < tokenExpiresAt - 60_000) {
@@ -63,7 +73,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 
     if (token) {
       init = init || {};
-      const merged = new Headers(init.headers);
+      const merged = new Headers(existingHeaders);
       merged.set('Authorization', `Bearer ${token}`);
 
       const communityTenantId = localStorage.getItem('superadmin_community_tenant_id');
