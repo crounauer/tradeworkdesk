@@ -401,6 +401,18 @@ function portalPage(C: React.ComponentType) {
   return function PortalRoute() { return <PortalProtectedRoute component={C} />; };
 }
 
+function portalStandalonePage(C: React.ComponentType) {
+  return function PortalStandaloneRoute() {
+    return (
+      <PortalAuthProvider>
+        <Suspense fallback={<PageFallback />}>
+          <C />
+        </Suspense>
+      </PortalAuthProvider>
+    );
+  };
+}
+
 const PortalLoginRoute = () => <Suspense fallback={<PageFallback />}><PortalLogin /></Suspense>;
 const PortalRegisterRoute = () => <Suspense fallback={<PageFallback />}><PortalRegister /></Suspense>;
 const PortalDashboardRoute = portalPage(PortalDashboard);
@@ -409,6 +421,7 @@ const PortalPropertyDetailRoute = portalPage(PortalPropertyDetail);
 const PortalJobsRoute = portalPage(PortalJobs);
 const PortalJobDetailRoute = portalPage(PortalJobDetail);
 const PortalInvoicesRoute = portalPage(PortalInvoices);
+const PortalJobDetailStandaloneRoute = portalStandalonePage(PortalJobDetail);
 
 const FeaturesRoute = pub(FeaturesPage);
 const PricingRoute = pub(PricingPage);
@@ -638,6 +651,7 @@ function AppRouter() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Switch>
+          <Route path="/portal/jobs/:id" component={PortalJobDetailStandaloneRoute} />
         <Route path="/portal/:rest*" component={PortalRoutes} />
         <Route path="/portal" component={PortalRoutes} />
 
