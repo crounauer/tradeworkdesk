@@ -13,19 +13,34 @@ jobs:
     steps:
       - name: Trigger backup on Railway API
         run: |
+          set -o pipefail
           BASE_URL=$(echo "${{ secrets.PLATFORM_API_URL }}" | tr -d '[:space:]')
-          RESPONSE=$(curl -sf --max-time 300 \
+          HTTP_BODY=$(curl --silent --show-error --location --max-time 300 \
+            -w "\nHTTP_STATUS=%{http_code}" \
             -X POST \
             -H "x-cron-secret: ${{ secrets.INTERNAL_CRON_SECRET }}" \
             -H "Content-Type: application/json" \
             "${BASE_URL}/api/internal/run-backup")
-          echo "Backup response: $RESPONSE"
-          STATUS=$(echo "$RESPONSE" | jq -r '.status // "error"')
-          if [ "$STATUS" != "success" ]; then
-            echo "Backup failed: $RESPONSE"
+
+          echo "Backup response: $HTTP_BODY"
+
+          STATUS_LINE=$(printf '%s\n' "$HTTP_BODY" | tail -n 1)
+          HTTP_STATUS=${STATUS_LINE#HTTP_STATUS=}
+          RESPONSE_BODY=$(printf '%s\n' "$HTTP_BODY" | sed '$d')
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Backup request failed with HTTP $HTTP_STATUS"
+            echo "$RESPONSE_BODY"
             exit 1
           fi
-          FILENAME=$(echo "$RESPONSE" | jq -r '.filename')
-          SIZE_BYTES=$(echo "$RESPONSE" | jq -r '.sizeBytes')
-          PRUNED=$(echo "$RESPONSE" | jq -r '.pruned')
+
+          STATUS=$(echo "$RESPONSE_BODY" | jq -r '.status // "error"')
+          if [ "$STATUS" != "success" ]; then
+            echo "Backup failed: $RESPONSE_BODY"
+            exit 1
+          fi
+
+          FILENAME=$(echo "$RESPONSE_BODY" | jq -r '.filename')
+          SIZE_BYTES=$(echo "$RESPONSE_BODY" | jq -r '.sizeBytes')
+          PRUNED=$(echo "$RESPONSE_BODY" | jq -r '.pruned')
           echo "Backup complete: $FILENAME ($SIZE_BYTES bytes), pruned $PRUNED old file(s)"
