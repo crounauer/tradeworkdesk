@@ -613,12 +613,12 @@ function PortalRoutes() {
         <Switch>
           <Route path="/portal/login" component={PortalLoginRoute} />
           <Route path="/portal/register" component={PortalRegisterRoute} />
-          <Route path="/portal" component={PortalDashboardRoute} />
-          <Route path="/portal/properties" component={PortalPropertiesRoute} />
-          <Route path="/portal/properties/:id" component={PortalPropertyDetailRoute} />
-          <Route path="/portal/jobs" component={PortalJobsRoute} />
           <Route path="/portal/jobs/:id" component={PortalJobDetailRoute} />
+          <Route path="/portal/jobs" component={PortalJobsRoute} />
+          <Route path="/portal/properties/:id" component={PortalPropertyDetailRoute} />
+          <Route path="/portal/properties" component={PortalPropertiesRoute} />
           <Route path="/portal/invoices" component={PortalInvoicesRoute} />
+          <Route path="/portal" component={PortalDashboardRoute} />
         </Switch>
       </Suspense>
     </PortalAuthProvider>
@@ -633,8 +633,8 @@ function AppRouter() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Switch>
-        <Route path="/portal" component={PortalRoutes} />
         <Route path="/portal/:rest*" component={PortalRoutes} />
+        <Route path="/portal" component={PortalRoutes} />
 
         {isReadOnlySupportMode && <Route path="/platform/:rest*">{() => <Redirect to="/" />}</Route>}
 
