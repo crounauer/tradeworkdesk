@@ -550,7 +550,7 @@ router.post("/admin/company-settings/technician-daily-summary/test", requireAuth
         email_reply_to: companySettings?.email_reply_to || null,
       },
     });
-    res.json({ ok: true, sentTo: to });
+    res.json({ ok: true, sentTo: to, sentAt: new Date().toISOString() });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to send the technician test summary email.";
     res.status(400).json({ error: message });

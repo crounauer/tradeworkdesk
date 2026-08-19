@@ -686,6 +686,8 @@ export default function AdminCompanySettings() {
   const [bookingSettingsProfile, setBookingSettingsProfile] = useState<BookingSettingsProfile | null>(null);
   const [bookingHoursLoading, setBookingHoursLoading] = useState(false);
   const [bookingHoursSaving, setBookingHoursSaving] = useState(false);
+  const [summaryTestRecipient, setSummaryTestRecipient] = useState<string>(profile?.email ?? "");
+  const [summaryLastSentAt, setSummaryLastSentAt] = useState<string | null>(null);
   const [summaryTestState, setSummaryTestState] = useState<{ kind: "idle" | "success" | "error"; message: string }>({ kind: "idle", message: "" });
   const [sendingSummaryTest, setSendingSummaryTest] = useState(false);
   const bookingHoursLoadedRef = useRef(false);
@@ -738,6 +740,12 @@ export default function AdminCompanySettings() {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
   }, []);
+
+  useEffect(() => {
+    if (profile?.email && !summaryTestRecipient) {
+      setSummaryTestRecipient(profile.email);
+    }
+  }, [profile?.email, summaryTestRecipient]);
 
   useEffect(() => {
     if (!settings || settingsLoadedRef.current) return;
@@ -853,6 +861,7 @@ export default function AdminCompanySettings() {
   }, []);
 
   const handleSendSummaryTest = useCallback(async () => {
+    const targetRecipient = summaryTestRecipient.trim() || profile?.email || "";
     setSendingSummaryTest(true);
     setSummaryTestState({ kind: "idle", message: "" });
 
@@ -861,6 +870,7 @@ export default function AdminCompanySettings() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify({ to_email: targetRecipient }),
       });
 
       const payload = await res.json().catch(() => ({}));
@@ -868,9 +878,11 @@ export default function AdminCompanySettings() {
         throw new Error((payload as { error?: string }).error || "Failed to send the test summary email.");
       }
 
+      const sentAtIso = typeof (payload as { sentAt?: string }).sentAt === "string" ? (payload as { sentAt?: string }).sentAt! : new Date().toISOString();
+      setSummaryLastSentAt(new Date(sentAtIso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }));
       setSummaryTestState({
         kind: "success",
-        message: `Test email sent successfully to ${String((payload as { sentTo?: string }).sentTo || "your email address")}.`,
+        message: `Test email sent successfully to ${String((payload as { sentTo?: string }).sentTo || targetRecipient || "your email address")}.`,
       });
     } catch (err) {
       setSummaryTestState({
@@ -880,7 +892,7 @@ export default function AdminCompanySettings() {
     } finally {
       setSendingSummaryTest(false);
     }
-  }, []);
+  }, [profile?.email, summaryTestRecipient]);
 
   const doSave = useCallback(async (showToast = false) => {
     if (isSavingRef.current) return;
@@ -2343,22 +2355,40 @@ export default function AdminCompanySettings() {
                   />
                 </div>
 
-                <div className="flex items-center justify-between gap-4 pt-4">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Send a test email</p>
-                    <p className="text-xs text-muted-foreground">Sends a sample summary to your current account email.</p>
+                <div className="space-y-3 pt-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="technician-summary-test-recipient">Send test email to</Label>
+                    <Input
+                      id="technician-summary-test-recipient"
+                      type="email"
+                      value={summaryTestRecipient}
+                      onChange={(e) => setSummaryTestRecipient(e.target.value)}
+                      placeholder={profile?.email || "you@example.com"}
+                    />
+                    <p className="text-xs text-muted-foreground">Leave blank to use your current account email.</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleSendSummaryTest}
-                      disabled={sendingSummaryTest}
-                    >
-                      {sendingSummaryTest ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
-                      Send test email
-                    </Button>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Send a test email</p>
+                      {summaryLastSentAt ? (
+                        <p className="text-xs text-muted-foreground">Last sent: {summaryLastSentAt}</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Sends a sample summary to the recipient above.</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSendSummaryTest}
+                        disabled={sendingSummaryTest}
+                      >
+                        {sendingSummaryTest ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
+                        Send test email
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
