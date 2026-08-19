@@ -430,16 +430,6 @@ export default function HeroBlock({ content }: Props) {
         </div>
       )}
 
-      {/* Trust items */}
-      {(trust_items as TrustItem[]).length > 0 && (
-        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: textAlign === "center" ? "center" : "flex-start" }}>
-          {(trust_items as TrustItem[]).map((item, i) => (
-            <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: trustTextColor || (isDark ? "rgba(255,255,255,0.8)" : "#4b5563"), fontFamily: bodyFontFamily }}>
-              <span style={{ color: trustIconColor }}>{item.icon || "✓"}</span> {item.text}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 
@@ -473,6 +463,16 @@ export default function HeroBlock({ content }: Props) {
           )}
         </div>
       </section>
+      {(trust_items as TrustItem[]).length > 0 ? (
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "22px", borderTop: "1px solid rgba(26,58,107,0.14)", borderBottom: "1px solid rgba(26,58,107,0.14)", backgroundColor: "#eef3f8", padding: "12px 20px", color: "#1a3a6b", fontWeight: 700, fontSize: "0.875rem", fontFamily: bodyFontFamily }}>
+          {(trust_items as TrustItem[]).map((item, i) => (
+            <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "#00a8a8" }}>{item.icon || "✓"}</span>
+              <span>{item.text}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       {/* Emergency bar */}
       {(emergency_text || emergency_phone) && (

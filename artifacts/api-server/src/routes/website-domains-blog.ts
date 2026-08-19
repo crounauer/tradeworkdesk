@@ -53,7 +53,6 @@ import { notifyUsersForEvent } from "../lib/push-events";
 import { isContactLikeBlockType } from "../lib/contact-block-type";
 import { hasActiveAddon, getAddonCredits, deductAddonCreditsAmount } from "../lib/tenant-limits";
 import { runBlogAi, generateBlogFeaturedImage, generateBlogInlineImage, BLOG_IMAGE_CREDITS_ESTIMATE, type BlogAiOperation } from "../lib/blog-ai";
-import { runWebsiteBlockAi } from "../lib/website-block-ai";
 import { triggerTenantIndexNowAutoSubmit } from "../lib/indexnow-tenant";
 import { triggerRendererRevalidate } from "../lib/renderer-revalidate";
 
@@ -919,98 +918,6 @@ router.get(
 // ─── AI Blog Assist ───────────────────────────────────────────────────────────
 
 const AI_BLOG_FEATURE = "ai_blog_writing";
-
-const WEBSITE_BLOCK_AI_FIELDS: Record<string, string[]> = {
-  "site.header": ["logoText", "phone", "ctaLabel", "ctaHref", "scheduleText", "locationText", "layout", "headerStyle", "tone", "ctaStyle", "variant"],
-  hero: ["eyebrow", "heading", "title", "subheading", "subtitle", "cta_text", "cta_url", "primaryCtaLabel", "primaryCtaHref", "secondary_cta_text", "secondary_cta_url", "secondaryCtaLabel", "secondaryCtaHref", "layout", "variant", "heroStyle", "tone", "density", "trust_items", "trustBadges", "trust_badges", "background_color", "background_image_url", "hero_image_url"],
-  text: ["heading", "title", "subheading", "subtitle", "html", "body", "align"],
-  services_grid: ["eyebrow", "heading", "title", "subheading", "subtitle", "services", "items", "layout", "variant"],
-  services: ["eyebrow", "heading", "title", "subheading", "subtitle", "services", "items", "layout", "variant"],
-  contact: ["eyebrow", "heading", "title", "subheading", "subtitle", "contact_info", "fields"],
-  contact_form: ["eyebrow", "heading", "title", "subheading", "subtitle", "fields"],
-  cta: ["heading", "title", "subheading", "subtitle", "cta_text", "cta_url", "secondary_cta_text", "secondary_cta_url", "layout", "tone"],
-  cta_band: ["heading", "title", "subheading", "subtitle", "cta_text", "cta_url", "secondary_cta_text", "secondary_cta_url", "layout", "tone"],
-  faq: ["eyebrow", "heading", "title", "subheading", "subtitle", "faqs", "items"],
-  process: ["eyebrow", "heading", "title", "subheading", "subtitle", "steps", "items"],
-  testimonials: ["eyebrow", "heading", "title", "subheading", "subtitle", "testimonials", "items"],
-  reviews: ["eyebrow", "heading", "title", "subheading", "subtitle", "reviews", "items"],
-};
-
-const WEBSITE_BLOCK_AI_ALIASES: Record<string, string> = {
-  "hero.standard": "hero",
-  "services.grid": "services_grid",
-  "contact.split": "contact",
-  "faq.accordion": "faq",
-  "process.steps": "process",
-  "reviews.grid": "reviews",
-  "cta.banner": "cta_band",
-};
-
-router.post(
-  "/website/blocks/ai-assist",
-  requireAuth,
-  requireTenant,
-  requireRole("admin", "office_staff"),
-  requireWebsiteBuilder(),
-  async (req: AuthenticatedRequest, res): Promise<void> => {
-    const { blockType, content, instruction } = req.body as {
-      blockType?: string;
-      content?: Record<string, unknown>;
-      instruction?: string;
-    };
-    const normalizedType = WEBSITE_BLOCK_AI_ALIASES[String(blockType || "").trim().toLowerCase()] || String(blockType || "").trim().toLowerCase();
-    const editableFields = WEBSITE_BLOCK_AI_FIELDS[normalizedType];
-
-    if (!editableFields) {
-      res.status(400).json({ error: "AI assistance is not available for this block type yet.", code: "unsupported_block_type" });
-      return;
-    }
-    if (!content || typeof content !== "object" || Array.isArray(content)) {
-      res.status(400).json({ error: "content must be an object" });
-      return;
-    }
-    if (!instruction?.trim() || instruction.trim().length > 1000) {
-      res.status(400).json({ error: "instruction is required and must be 1000 characters or fewer" });
-      return;
-    }
-
-    if (!await hasActiveAddon(req.tenantId!, AI_BLOG_FEATURE)) {
-      res.status(402).json({ error: "AI Helper add-on is not active. Go to Billing → Add-on Packages to enable it.", code: "addon_not_active" });
-      return;
-    }
-    const credits = await getAddonCredits(req.tenantId!, AI_BLOG_FEATURE);
-    if (!credits || credits.credits_remaining <= 0) {
-      res.status(402).json({ error: "You have no AI credits remaining. Purchase more on the Billing page.", code: "no_credits", credits_remaining: 0 });
-      return;
-    }
-
-    const { data: company } = await supabaseAdmin
-      .from("company_settings")
-      .select("name, trading_name, trade_types")
-      .eq("tenant_id", req.tenantId!)
-      .eq("singleton_id", "default")
-      .maybeSingle() as { data: { name?: string; trading_name?: string; trade_types?: string } | null };
-
-    try {
-      const result = await runWebsiteBlockAi({
-        blockType: normalizedType,
-        content,
-        editableFields,
-        instruction,
-        companyName: company?.trading_name || company?.name,
-        tradeType: company?.trade_types?.split(",")[0]?.trim(),
-        tenantId: req.tenantId!,
-        userId: req.userId,
-      });
-      await deductAddonCreditsAmount(req.tenantId!, AI_BLOG_FEATURE, result.creditsUsed);
-      const updatedCredits = await getAddonCredits(req.tenantId!, AI_BLOG_FEATURE);
-      res.json({ patch: result.patch, credits_used: result.creditsUsed, credits_remaining: updatedCredits?.credits_remaining ?? credits.credits_remaining - result.creditsUsed });
-    } catch (error) {
-      console.error("[website-block-ai] generation error:", error);
-      res.status(500).json({ error: "AI generation failed. Please try again." });
-    }
-  },
-);
 
 function getContentText(content: unknown): string {
   if (!content) return "";

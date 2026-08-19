@@ -54,7 +54,6 @@ import {
   Eye, EyeOff, Globe, Save, Loader2, ChevronRight,
   ChevronLeft, Type, Image, Layout, MessageSquare, Star, Grid3X3,
   Phone, Award, Minus, Undo2, CalendarCheck, Copy,
-  Wand2,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -1143,13 +1142,10 @@ function BlockEditor({
       const heroPreviewSubtitle = subheading || "A short description of your services or offer.";
       const heroPreviewPrimary = primaryText || undefined;
       const heroPreviewSecondary = secondaryText || undefined;
-      const trustBadges = readArray<string>(c, ["trustBadges", "trust_badges"]);
       const trustItems = readArray<{ text?: string; icon?: string }>(c, ["trust_items"])
         .map((item) => ({ text: String(item.text || ""), icon: String(item.icon || "✓") }));
       const populatedTrustItems = trustItems.filter((item) => item.text.trim().length > 0);
-      const previewTrustBadges = populatedTrustItems.length > 0
-        ? populatedTrustItems.map((item) => `${item.icon || "✓"} ${item.text}`.trim())
-        : trustBadges;
+      const previewTrustBadges = populatedTrustItems.map((item) => `${item.icon || "✓"} ${item.text}`.trim());
       const isPreviewVisible = previewEnabled !== false;
 
       return (
@@ -1325,17 +1321,6 @@ function BlockEditor({
             <FieldRow label="Secondary Button Text (optional)"><Input value={secondaryText} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_text: e.target.value, secondaryCtaLabel: e.target.value, secondaryButtonText: e.target.value }, { secondary_cta_text: ["secondaryCtaLabel", "secondaryButtonText"], secondaryCtaLabel: ["secondary_cta_text", "secondaryButtonText"], secondaryButtonText: ["secondary_cta_text", "secondaryCtaLabel"] }))} /></FieldRow>
             <FieldRow label="Secondary Button URL"><Input value={secondaryUrl} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_url: e.target.value, secondaryCtaHref: e.target.value, secondaryButtonUrl: e.target.value }, { secondary_cta_url: ["secondaryCtaHref", "secondaryButtonUrl"], secondaryCtaHref: ["secondary_cta_url", "secondaryButtonUrl"], secondaryButtonUrl: ["secondary_cta_url", "secondaryCtaHref"] }))} placeholder="/services" /></FieldRow>
 
-            <FieldRow label="Trust Badges (legacy, one per line)">
-              <Textarea
-                value={trustBadges.join("\n")}
-                onChange={(e) => {
-                  const next = e.target.value.split("\n").map((item) => item.trim()).filter(Boolean);
-                  onChange(syncBlockContent(c, { trustBadges: next, trust_badges: next }, { trustBadges: ["trust_badges"], trust_badges: ["trustBadges"] }));
-                }}
-                rows={3}
-                placeholder={"Fully Insured\nLocal Engineers\nFast Response\nFree Quotes"}
-              />
-            </FieldRow>
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Trust Items (icon + text)</Label>
               {trustItems.map((item, i) => (
@@ -5391,7 +5376,6 @@ function BlockCard({
   onDelete,
   onContentChange,
   onCopyToMatchingBlocks,
-  onAiAssist,
   previewEnabled,
   onTogglePreview,
   backgroundInheritOptions,
@@ -5406,7 +5390,6 @@ function BlockCard({
   onDelete: (id: string) => void;
   onContentChange: (id: string, content: Record<string, unknown>) => void;
   onCopyToMatchingBlocks: (id: string) => void;
-  onAiAssist: (id: string) => void;
   previewEnabled?: boolean;
   onTogglePreview?: (enabled: boolean) => void;
   backgroundInheritOptions: BackgroundInheritOption[];
@@ -5482,13 +5465,6 @@ function BlockCard({
                 >
                   <Copy className="w-3.5 h-3.5" />
                 </Button>
-                <Button
-                  variant="ghost" size="icon" className="h-7 w-7"
-                  onClick={() => onAiAssist(block.id)}
-                  title={`Improve ${displayLabel} with AI`}
-                >
-                  <Wand2 className="w-3.5 h-3.5" />
-                </Button>
                 <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
               </div>
             </div>
@@ -5534,10 +5510,6 @@ export default function WebsitePageEditor() {
 
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [deletingBlockId, setDeletingBlockId] = useState<string | null>(null);
-  const [aiBlockId, setAiBlockId] = useState<string | null>(null);
-  const [aiInstruction, setAiInstruction] = useState("");
-  const [aiDraft, setAiDraft] = useState<Record<string, unknown> | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [showHeroPreview, setShowHeroPreview] = useState(true);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(() => readPanelCollapsedState(leftPanelStorageKey));
@@ -5742,41 +5714,6 @@ export default function WebsitePageEditor() {
       toast({ title: "Copy failed", description: error instanceof Error ? error.message : "Failed to copy block settings", variant: "destructive" });
     }
   }, [blocks, pageId, toast]);
-
-  const openAiAssist = useCallback((blockId: string) => {
-    setAiBlockId(blockId);
-    setAiInstruction("");
-    setAiDraft(null);
-  }, []);
-
-  const generateAiDraft = useCallback(async () => {
-    const source = blocks.find((block) => block.id === aiBlockId);
-    if (!source || !aiInstruction.trim()) return;
-
-    setAiLoading(true);
-    try {
-      const result = await apiFetch("/api/website/blocks/ai-assist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blockType: source.block_type, content: source.content, instruction: aiInstruction.trim() }),
-      }) as { patch?: Record<string, unknown> };
-      setAiDraft(result.patch || {});
-    } catch (error) {
-      toast({ title: "AI assist failed", description: error instanceof Error ? error.message : "AI generation failed", variant: "destructive" });
-    } finally {
-      setAiLoading(false);
-    }
-  }, [aiBlockId, aiInstruction, blocks, toast]);
-
-  const applyAiDraft = useCallback(() => {
-    if (!aiBlockId || !aiDraft) return;
-    const source = blocks.find((block) => block.id === aiBlockId);
-    if (!source) return;
-    updateBlockContent(aiBlockId, { ...source.content, ...aiDraft });
-    setAiBlockId(null);
-    setAiDraft(null);
-    toast({ title: "AI draft applied", description: "Review the block and save when ready." });
-  }, [aiBlockId, aiDraft, blocks, toast, updateBlockContent]);
 
   const handleSave = () => {
     if (isDirty) {
@@ -5993,7 +5930,6 @@ export default function WebsitePageEditor() {
                   onDelete={(id) => setDeletingBlockId(id)}
                   onContentChange={updateBlockContent}
                   onCopyToMatchingBlocks={copyToMatchingBlocks}
-                  onAiAssist={openAiAssist}
                   previewEnabled={showHeroPreview}
                   onTogglePreview={setShowHeroPreview}
                   backgroundInheritOptions={backgroundInheritOptions}
@@ -6151,50 +6087,6 @@ export default function WebsitePageEditor() {
           )}
         </aside>
       </div>
-
-      {/* ── AI block assistant ──────────────────────────────────────────── */}
-      <AlertDialog open={!!aiBlockId} onOpenChange={(open) => {
-        if (!open && !aiLoading) {
-          setAiBlockId(null);
-          setAiDraft(null);
-        }
-      }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Improve this block with AI</AlertDialogTitle>
-            <AlertDialogDescription>
-              AI will suggest changes to this block's editable fields only. Nothing is saved until you apply the draft and click Save.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-3">
-            <Textarea
-              value={aiInstruction}
-              onChange={(event) => setAiInstruction(event.target.value)}
-              placeholder="For example: Make this more focused on emergency boiler repairs in Aberdeen."
-              rows={4}
-              maxLength={1000}
-              disabled={aiLoading}
-            />
-            {aiDraft ? (
-              <div className="rounded-md border bg-muted/40 p-3">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">Draft configuration</p>
-                <pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(aiDraft, null, 2)}</pre>
-              </div>
-            ) : null}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={aiLoading}>Cancel</AlertDialogCancel>
-            {aiDraft ? (
-              <AlertDialogAction onClick={applyAiDraft}>Apply Draft</AlertDialogAction>
-            ) : (
-              <Button type="button" onClick={generateAiDraft} disabled={aiLoading || !aiInstruction.trim()}>
-                {aiLoading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Wand2 className="mr-1.5 h-3.5 w-3.5" />}
-                {aiLoading ? "Generating..." : "Generate Draft"}
-              </Button>
-            )}
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* ── Delete block confirmation ────────────────────────────────────── */}
       <AlertDialog open={!!deletingBlockId} onOpenChange={(o) => !o && setDeletingBlockId(null)}>
