@@ -50,15 +50,15 @@ export function SiteHeaderBlock({
 
   if (variant === 'figma') {
     return (
-      <header className="border-b border-slate-200 bg-white">
-        <div className="bg-[rgba(15,31,61,0.95)] text-white">
+      <header className="border-b border-[rgba(26,58,107,0.16)] bg-[#eef5ff] text-[#0f1f3d]">
+        <div className="border-b border-[rgba(26,58,107,0.12)] bg-[rgba(223,236,255,0.95)] text-[#1a3a6b]">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-2 text-xs font-medium lg:px-8">
-            <div className="flex items-center gap-4 text-white/90">
+            <div className="flex items-center gap-4 text-[rgba(26,58,107,0.82)]">
               {scheduleText ? <span>{scheduleText}</span> : null}
               {locationText ? <span>{locationText}</span> : null}
             </div>
             {phone ? (
-              <a href={'tel:' + phone.replace(/\s+/g, '')} className="font-bold text-white">
+              <a href={'tel:' + phone.replace(/\s+/g, '')} className="font-bold text-[#00a8a8]">
                 {phone}
               </a>
             ) : null}
@@ -66,13 +66,13 @@ export function SiteHeaderBlock({
         </div>
 
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-          <a href="/" className="text-2xl font-extrabold tracking-tight text-slate-950">
+          <a href="/" className="text-2xl font-extrabold tracking-tight text-[#0f1f3d]">
             {logoText}
           </a>
 
-          <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold text-slate-700">
+          <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold text-[#334155]">
             {navItems.map((item) => (
-              <a key={item.href} href={item.href} className="hover:text-slate-950">
+              <a key={item.href} href={item.href} className="hover:text-[#0f1f3d]">
                 {item.label}
               </a>
             ))}

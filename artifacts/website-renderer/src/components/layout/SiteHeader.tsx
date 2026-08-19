@@ -102,6 +102,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
   const homeHref = basePath ? (previewToken ? `${basePath}?token=${previewToken}` : basePath) : "/";
   const contactPage = pages.find((p) => p.page_type === "contact" || p.slug?.includes("contact"));
   const ctaHref = contactPage ? pageHref(contactPage) : (basePath ? `${basePath}?page=contact` : "/contact");
+  const headerLogoText = readHeaderString(headerContent, ["logoText", "logo_text"], siteName);
   const headerPhone = readHeaderString(headerContent, ["phone", "header_phone"], company?.phone || "");
   const headerCtaLabel = readHeaderString(headerContent, ["ctaLabel", "cta_label"], "Call Now");
   const headerCtaHref = readHeaderString(headerContent, ["ctaHref", "cta_url", "cta_href"], ctaHref);
@@ -128,8 +129,10 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
           .snav-phone { display: flex !important; }
           .snav-hamburger { display: none !important; }
           .snav-mobile { display: none; }
+          .snav-topbar { display: block; }
           nav ul li:hover > .twd-nav-children { display: block !important; }
           @media (max-width: 900px) {
+            .snav-topbar { display: none !important; }
             .snav-desktop { display: none !important; }
             .snav-phone { display: none !important; }
             .snav-hamburger { display: block !important; }
@@ -138,7 +141,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
         `}</style>
 
         {showTopBar && (topBarScheduleText || topBarLocationText || headerPhone) ? (
-          <div style={{ backgroundColor: topBarBg, color: topBarText, borderBottom: "1px solid rgba(26,58,107,0.12)" }}>
+          <div className="snav-topbar" style={{ backgroundColor: topBarBg, color: topBarText, borderBottom: "1px solid rgba(26,58,107,0.12)" }}>
             <div style={{ maxWidth: 1280, margin: "0 auto", padding: "6px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", fontSize: "14px", lineHeight: "20px", fontWeight: 400 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 24, color: "rgba(26,58,107,0.82)" }}>
                 {topBarScheduleText ? <span>{topBarScheduleText}</span> : null}
@@ -160,9 +163,9 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
             <Link href={homeHref} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "#0f1f3d", flexShrink: 0 }}>
               {logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt={siteName} style={{ height: 42, objectFit: "contain" }} />
+                <img src={logoUrl} alt={headerLogoText} style={{ height: 42, objectFit: "contain" }} />
               ) : (
-                <div style={{ fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em", color: "#0f1f3d" }}>🔧 {siteName}</div>
+                <div style={{ fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em", color: "#0f1f3d" }}>{headerLogoText ? `🔧 ${headerLogoText}` : "🔧"}</div>
               )}
             </Link>
 
@@ -256,11 +259,11 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
           <Link href={homeHref} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: navText, flexShrink: 0 }}>
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt={siteName} style={{ height: 44, objectFit: "contain" }} />
+              <img src={logoUrl} alt={headerLogoText} style={{ height: 44, objectFit: "contain" }} />
             ) : (
               <div style={{ width: 36, height: 36, backgroundColor: accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.125rem", color: isModernTrade ? "#0f172a" : "#fff" }}>🔧</div>
             )}
-            <span style={{ fontWeight: 700, fontSize: "1.0625rem", lineHeight: 1.2, maxWidth: 200 }}>{siteName}</span>
+            {headerLogoText ? <span style={{ fontWeight: 700, fontSize: "1.0625rem", lineHeight: 1.2, maxWidth: 200 }}>{headerLogoText}</span> : null}
           </Link>
 
           {/* Desktop nav links */}
