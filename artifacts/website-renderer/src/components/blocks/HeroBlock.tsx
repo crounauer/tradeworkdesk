@@ -462,7 +462,7 @@ export default function HeroBlock({ content }: Props) {
             contentBlock
           )}
           {(trust_items as TrustItem[]).length > 0 ? (
-            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "22px", borderTop: `1px solid ${isDark ? "rgba(255,255,255,0.2)" : "rgba(26,58,107,0.14)"}`, borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.2)" : "rgba(26,58,107,0.14)"}`, backgroundColor: "transparent", padding: "12px 20px", color: isDark ? "rgba(255,255,255,0.85)" : "#1a3a6b", fontWeight: 700, fontSize: "0.875rem", fontFamily: bodyFontFamily }}>
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "22px", backgroundColor: "transparent", padding: "12px 20px", color: isDark ? "rgba(255,255,255,0.85)" : "#1a3a6b", fontWeight: 700, fontSize: "0.875rem", fontFamily: bodyFontFamily }}>
               {(trust_items as TrustItem[]).map((item, i) => (
                 <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                   <span style={{ color: isDark ? accentColor : "#00a8a8" }}>{item.icon || "✓"}</span>
