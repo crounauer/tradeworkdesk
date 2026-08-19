@@ -12,6 +12,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { grantTrialUsageCredits, syncUserAddonSeats } from "../lib/tenant-limits";
 import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
 import { cleanupProfileReferences } from "../lib/profile-delete-cleanup";
+import { sendTestTechnicianDailySummaryEmail } from "../lib/technician-daily-summary";
 
 const router: IRouter = Router();
 
@@ -516,6 +517,44 @@ router.get("/admin/company-settings", requireAuth, requireTenant, requireRole("a
   const { data, error } = await q.maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.json(data ?? {});
+});
+
+router.post("/admin/company-settings/technician-daily-summary/test", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const to = String((req.body as { to_email?: string } | undefined)?.to_email || req.userEmail || "").trim().toLowerCase();
+  if (!to) {
+    res.status(400).json({ error: "No email address is available to send the test summary to." });
+    return;
+  }
+
+  const { data: companySettings, error: settingsError } = await supabaseAdmin
+    .from("company_settings")
+    .select("name, trading_name, email, email_from_name, email_reply_to")
+    .eq("tenant_id", req.tenantId)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+
+  if (settingsError) {
+    res.status(500).json({ error: settingsError.message });
+    return;
+  }
+
+  try {
+    await sendTestTechnicianDailySummaryEmail({
+      tenantId: req.tenantId!,
+      to,
+      companyDetails: {
+        name: companySettings?.name || null,
+        trading_name: companySettings?.trading_name || null,
+        email: companySettings?.email || null,
+        email_from_name: companySettings?.email_from_name || null,
+        email_reply_to: companySettings?.email_reply_to || null,
+      },
+    });
+    res.json({ ok: true, sentTo: to });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to send the technician test summary email.";
+    res.status(400).json({ error: message });
+  }
 });
 
 router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {

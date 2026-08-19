@@ -686,6 +686,8 @@ export default function AdminCompanySettings() {
   const [bookingSettingsProfile, setBookingSettingsProfile] = useState<BookingSettingsProfile | null>(null);
   const [bookingHoursLoading, setBookingHoursLoading] = useState(false);
   const [bookingHoursSaving, setBookingHoursSaving] = useState(false);
+  const [summaryTestState, setSummaryTestState] = useState<{ kind: "idle" | "success" | "error"; message: string }>({ kind: "idle", message: "" });
+  const [sendingSummaryTest, setSendingSummaryTest] = useState(false);
   const bookingHoursLoadedRef = useRef(false);
   const [coverageCenter, setCoverageCenter] = useState<GeoResult | null>(null);
   const [coverageLookupLoading, setCoverageLookupLoading] = useState(false);
@@ -847,6 +849,36 @@ export default function AdminCompanySettings() {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error((err as { error?: string }).error || "Failed to save settings");
+    }
+  }, []);
+
+  const handleSendSummaryTest = useCallback(async () => {
+    setSendingSummaryTest(true);
+    setSummaryTestState({ kind: "idle", message: "" });
+
+    try {
+      const res = await fetch("/api/admin/company-settings/technician-daily-summary/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((payload as { error?: string }).error || "Failed to send the test summary email.");
+      }
+
+      setSummaryTestState({
+        kind: "success",
+        message: `Test email sent successfully to ${String((payload as { sentTo?: string }).sentTo || "your email address")}.`,
+      });
+    } catch (err) {
+      setSummaryTestState({
+        kind: "error",
+        message: err instanceof Error ? err.message : "Failed to send the test summary email.",
+      });
+    } finally {
+      setSendingSummaryTest(false);
     }
   }, []);
 
@@ -2311,7 +2343,32 @@ export default function AdminCompanySettings() {
                   />
                 </div>
 
-                <div className="flex justify-end pt-4">
+                <div className="flex items-center justify-between gap-4 pt-4">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Send a test email</p>
+                    <p className="text-xs text-muted-foreground">Sends a sample summary to your current account email.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSendSummaryTest}
+                      disabled={sendingSummaryTest}
+                    >
+                      {sendingSummaryTest ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
+                      Send test email
+                    </Button>
+                  </div>
+                </div>
+
+                {summaryTestState.kind !== "idle" && (
+                  <div className={`rounded-md border px-3 py-2 text-sm ${summaryTestState.kind === "success" ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"}`}>
+                    {summaryTestState.message}
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-2">
                   {renderSectionSaveButton("Save technician summary settings")}
                 </div>
               </CardContent>

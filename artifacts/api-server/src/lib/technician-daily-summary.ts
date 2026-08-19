@@ -68,6 +68,36 @@ function isWeekend(yyyyMmDd: string): boolean {
   return weekday === 0 || weekday === 6;
 }
 
+export function shouldSkipTenantSummaryDispatch(args: {
+  lastSentDate: string | null | undefined;
+  today: string;
+  tomorrow: string;
+  configuredTime: string | null | undefined;
+  now?: Date;
+  sendIfNoJobs?: boolean;
+  weekdaysOnly?: boolean;
+}): boolean {
+  const { lastSentDate, today, tomorrow, configuredTime, now = new Date(), sendIfNoJobs = false, weekdaysOnly = false } = args;
+
+  if (lastSentDate === today) {
+    return true;
+  }
+
+  if (!isSummaryTimeDue(configuredTime, now, SUMMARY_TIMEZONE)) {
+    return true;
+  }
+
+  if (weekdaysOnly && isWeekend(tomorrow)) {
+    return true;
+  }
+
+  if (!sendIfNoJobs && !isSummaryTimeDue(configuredTime, now, SUMMARY_TIMEZONE)) {
+    return true;
+  }
+
+  return false;
+}
+
 function formatHumanDate(yyyyMmDd: string): string {
   const d = new Date(`${yyyyMmDd}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return yyyyMmDd;
@@ -94,7 +124,7 @@ function formatCustomerName(customer: { first_name?: string | null; last_name?: 
   return full || "Customer";
 }
 
-function buildSummaryBody(args: {
+export function buildSummaryBody(args: {
   technicianName: string;
   companyName: string;
   targetDate: string;
@@ -139,7 +169,7 @@ function buildSummaryBody(args: {
   return lines.join("\n");
 }
 
-function buildNoJobsBody(args: { technicianName: string; companyName: string; targetDate: string }): string {
+export function buildNoJobsBody(args: { technicianName: string; companyName: string; targetDate: string }): string {
   const dateLabel = formatHumanDate(args.targetDate);
   return [
     `Hi ${args.technicianName},`,
@@ -148,6 +178,39 @@ function buildNoJobsBody(args: { technicianName: string; companyName: string; ta
     "",
     `Sent automatically by ${args.companyName} via TradeWorkDesk.`,
   ].join("\n");
+}
+
+export async function sendTestTechnicianDailySummaryEmail(args: {
+  tenantId: string;
+  to: string;
+  companyDetails: EmailCompanyDetails;
+}): Promise<void> {
+  const companyName = String(args.companyDetails.name || args.companyDetails.trading_name || "Your Service Provider");
+  const targetDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const formattedTargetDate = `${targetDate.getUTCFullYear()}-${String(targetDate.getUTCMonth() + 1).padStart(2, "0")}-${String(targetDate.getUTCDate()).padStart(2, "0")}`;
+
+  const jobSample = [{
+    job_ref: "TEST-001",
+    scheduled_time: "09:00",
+    all_day: false,
+    status: "scheduled",
+    description: "Sample boiler service visit for a test email.",
+    customers: { first_name: "Test", last_name: "Technician", business_name: null },
+    properties: { address_line1: "1 Sample Street", postcode: "AB1 2CD" },
+  }];
+
+  const body = buildSummaryBody({
+    technicianName: "Test Technician",
+    companyName,
+    targetDate: formattedTargetDate,
+    jobs: jobSample,
+  });
+
+  await sendSimpleNotification(args.to, `Test: Tomorrow's jobs summary - ${formatHumanDate(formattedTargetDate)}`, body, {
+    companyDetails: args.companyDetails,
+    tenantId: args.tenantId,
+    emailType: "technician_daily_summary_test",
+  });
 }
 
 export async function runTechnicianDailySummaryEmails(now = new Date()): Promise<{ processedTenants: number; sentEmails: number; skippedTechnicians: number; errors: number }> {
@@ -171,7 +234,19 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
     if (!tenantId) continue;
 
     const configuredTime = String(row.technician_daily_summary_time_utc || "").trim();
-    if (!isSummaryTimeDue(configuredTime, now, SUMMARY_TIMEZONE)) {
+    const lastSentDate = String((row.technician_daily_summary_last_sent_date as string | null) || "").trim();
+    const sendIfNoJobs = Boolean(row.technician_daily_summary_send_if_no_jobs);
+    const weekdaysOnly = Boolean(row.technician_daily_summary_weekdays_only);
+
+    if (shouldSkipTenantSummaryDispatch({
+      lastSentDate,
+      today,
+      tomorrow,
+      configuredTime,
+      now,
+      sendIfNoJobs,
+      weekdaysOnly,
+    })) {
       continue;
     }
 
@@ -187,12 +262,6 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
     };
 
     const companyName = String(companyDetails.name || companyDetails.trading_name || "Your Service Provider");
-    const sendIfNoJobs = Boolean(row.technician_daily_summary_send_if_no_jobs);
-    const weekdaysOnly = Boolean(row.technician_daily_summary_weekdays_only);
-
-    if (weekdaysOnly && isWeekend(tomorrow)) {
-      continue;
-    }
 
     try {
       const { data: technicians, error: techError } = await supabaseAdmin
