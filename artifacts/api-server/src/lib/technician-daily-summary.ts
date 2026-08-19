@@ -39,7 +39,7 @@ function toTimeZoneDateParts(now: Date): { today: string; tomorrow: string; hhmm
   return { today, tomorrow, hhmm: `${hh}:${mm}` };
 }
 
-export function isSummaryTimeDue(configuredTime: string | null | undefined, now = new Date(), timeZone = SUMMARY_TIMEZONE, toleranceMinutes = 10): boolean {
+export function isSummaryTimeDue(configuredTime: string | null | undefined, now = new Date(), timeZone = SUMMARY_TIMEZONE): boolean {
   const raw = String(configuredTime ?? "").trim();
   if (!/^\d{2}:\d{2}$/.test(raw)) return false;
 
@@ -59,7 +59,7 @@ export function isSummaryTimeDue(configuredTime: string | null | undefined, now 
   const configuredMinutes = (hours || 0) * 60 + (minutes || 0);
   const deltaMinutes = nowMinutes - configuredMinutes;
 
-  return deltaMinutes >= 0 && deltaMinutes <= toleranceMinutes;
+  return deltaMinutes >= 0;
 }
 
 function isWeekend(yyyyMmDd: string): boolean {
@@ -88,10 +88,6 @@ export function shouldSkipTenantSummaryDispatch(args: {
   }
 
   if (weekdaysOnly && isWeekend(tomorrow)) {
-    return true;
-  }
-
-  if (!sendIfNoJobs && !isSummaryTimeDue(configuredTime, now, SUMMARY_TIMEZONE)) {
     return true;
   }
 

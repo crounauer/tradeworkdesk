@@ -13,6 +13,11 @@ test("isSummaryTimeDue does not trigger before the configured time", () => {
   assert.equal(due, false);
 });
 
+test("isSummaryTimeDue catches up after a delayed scheduler tick", () => {
+  const due = isSummaryTimeDue("21:55", new Date("2026-08-18T22:30:00+01:00"));
+  assert.equal(due, true);
+});
+
 test("shouldSkipTenantSummaryDispatch stops repeat sends for the same day even when the time is due", () => {
   const skip = shouldSkipTenantSummaryDispatch({
     lastSentDate: "2026-08-18",

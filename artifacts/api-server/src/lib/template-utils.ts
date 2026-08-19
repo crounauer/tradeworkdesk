@@ -356,7 +356,19 @@ export function getDefaultPagesForTemplate(templateSlug: string): Array<Record<s
         nav_label: null,
         nav_order: 7,
         blocks: [
-          { type: "hero", sort_order: 0 },
+          {
+            type: "hero",
+            sort_order: 0,
+            content: {
+              eyebrow: "Contact",
+              heading: "Get in touch about plumbing or heating work",
+              subheading: "A focused contact page with phone, email, opening hours and enquiry form placement.",
+              cta_text: "Send an enquiry",
+              cta_url: "#contact",
+              secondary_cta_text: "Call now",
+              secondary_cta_url: "#contact",
+            },
+          },
           { type: "contact", sort_order: 1 },
         ],
       },

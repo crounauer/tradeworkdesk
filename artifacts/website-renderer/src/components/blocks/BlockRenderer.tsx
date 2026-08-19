@@ -63,6 +63,25 @@ function buildLocalPlumbingFallback(
   switch (blockType) {
     case "hero":
     case "hero_split":
+      if (pageSlug?.replace(/^\/+/, "") === "contact") {
+        return {
+          eyebrow: "Contact",
+          title: "Get in touch about plumbing or heating work",
+          subtitle: "A focused contact page with phone, email, opening hours and enquiry form placement.",
+          primaryCtaLabel: "Send an enquiry",
+          primaryCtaHref: "#contact",
+          secondaryCtaLabel: "Call now",
+          secondaryCtaHref: phone ? `tel:${phone.replace(/\s+/g, "")}` : "#contact",
+          background_color: "#1a3a6b",
+          heading_color: "#ffffff",
+          subheading_color: "rgba(255,255,255,0.8)",
+          primary_button_bg_color: "#00a8a8",
+          primary_button_text_color: "#ffffff",
+          secondary_button_bg_color: "transparent",
+          secondary_button_text_color: "#ffffff",
+          secondary_button_border_color: "rgba(255,255,255,0.35)",
+        };
+      }
       return {
         title: "Reliable Local Plumbing Services",
         subtitle: `Honest, fast and fully insured plumbers serving ${cityText}. Free quotes, 12-month guarantee.`,
