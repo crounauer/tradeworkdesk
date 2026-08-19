@@ -345,10 +345,6 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
   if ((normalizedType === "online_booking" || normalizedType === "booking") && site?.booking?.is_enabled === false) {
     return null;
   }
-  if (site?.website?.template_slug === "local-plumbing-pro" && normalizedType === "features_bar") {
-    return null;
-  }
-
   const normalizedTheme = resolveSiteTheme(theme, site?.website?.template_slug);
   const themeObj = (theme && typeof theme === "object") ? theme as Record<string, unknown> : {};
   const globalHeadingFont = typeof themeObj.heading_font_family === "string" ? themeObj.heading_font_family : undefined;

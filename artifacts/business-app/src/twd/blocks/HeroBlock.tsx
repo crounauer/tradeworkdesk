@@ -363,10 +363,10 @@ export function HeroBlock({
         )}
       </div>
       {trustBadges && trustBadges.length > 0 ? (
-        <div className="flex flex-wrap justify-center gap-x-8 gap-y-3 border-y border-slate-200 bg-[#eef3f8] px-6 py-3 text-sm font-semibold text-[#1a3a6b]">
+        <div className="flex flex-wrap justify-center gap-x-8 gap-y-3 border-y border-white/20 bg-transparent px-6 py-3 text-sm font-semibold text-white">
           {trustBadges.map((badge) => (
             <span key={badge} className="inline-flex items-center gap-2">
-              <span className="text-[#00a8a8]">✓</span>
+              <span className="text-[#f59e0b]">✓</span>
               <span>{badge.replace(/^\S+\s+/, "") || badge}</span>
             </span>
           ))}
