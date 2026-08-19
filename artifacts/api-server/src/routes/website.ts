@@ -183,7 +183,6 @@ async function persistGlobalSiteBlocksForWebsite(args: {
 }): Promise<void> {
   const { websiteId, tenantId, globalBlocks, globalBlockOrder = [] } = args;
   if (!websiteId || !tenantId) return;
-  if (!globalBlocks["site.header"] && !globalBlocks["site.footer"]) return;
 
   const { data: websiteRow } = await db
     .from("websites")
@@ -193,6 +192,9 @@ async function persistGlobalSiteBlocksForWebsite(args: {
     .maybeSingle() as { data: { theme?: Record<string, unknown> | null } | null };
 
   const mergedTheme = mergeGlobalSiteBlocksIntoTheme(websiteRow?.theme || {}, globalBlocks, globalBlockOrder);
+  if (!globalBlocks["site.header"]) delete mergedTheme[GLOBAL_SITE_HEADER_THEME_KEY];
+  if (!globalBlocks["site.footer"]) delete mergedTheme[GLOBAL_SITE_FOOTER_THEME_KEY];
+  if (globalBlockOrder.length === 0) delete mergedTheme[GLOBAL_SITE_BLOCK_ORDER_THEME_KEY];
 
   await db
     .from("websites")
