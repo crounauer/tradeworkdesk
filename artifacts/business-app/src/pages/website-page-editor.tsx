@@ -1152,10 +1152,10 @@ function BlockEditor({
       const heroPreviewSecondary = secondaryText || undefined;
       const trustBadges = readArray<string>(c, ["trustBadges", "trust_badges"]);
       const trustItems = readArray<{ text?: string; icon?: string }>(c, ["trust_items"])
-        .map((item) => ({ text: String(item.text || ""), icon: String(item.icon || "✓") }))
-        .filter((item) => item.text.trim().length > 0);
-      const previewTrustBadges = trustItems.length > 0
-        ? trustItems.map((item) => `${item.icon || "✓"} ${item.text}`.trim())
+        .map((item) => ({ text: String(item.text || ""), icon: String(item.icon || "✓") }));
+      const populatedTrustItems = trustItems.filter((item) => item.text.trim().length > 0);
+      const previewTrustBadges = populatedTrustItems.length > 0
+        ? populatedTrustItems.map((item) => `${item.icon || "✓"} ${item.text}`.trim())
         : trustBadges;
       const isPreviewVisible = previewEnabled !== false;
 
