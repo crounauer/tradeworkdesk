@@ -390,17 +390,6 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
     ...(normalizedType === "online_booking" || normalizedType === "booking"
       ? { booking_services: site?.service_catalogue || [] }
       : {}),
-    ...(normalizedType === "hero"
-      ? {
-          ...(Array.isArray(rawContent.trust_items) && rawContent.trust_items.length > 0
-            ? {}
-            : (Array.isArray(rawContent.trust_badges) && rawContent.trust_badges.length > 0
-              ? { trust_items: rawContent.trust_badges.map((entry) => ({ text: String(entry), icon: "✓" })) }
-              : (Array.isArray(rawContent.trustBadges) && rawContent.trustBadges.length > 0
-                ? { trust_items: rawContent.trustBadges.map((entry) => ({ text: String(entry), icon: "✓" })) }
-                : {}))),
-        }
-      : {}),
     ...(templateSlug === "local-plumbing-pro" && normalizedType === "features_bar"
       ? {
           heading: typeof rawContent.heading === "string" ? rawContent.heading : "",
