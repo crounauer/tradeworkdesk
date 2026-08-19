@@ -51,13 +51,14 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
   const navTree = buildPageHierarchy(pages);
 
   function pageHref(page: SitePage): string {
+    const isHomePage = page.page_type === "home" || String(page.slug || "").replace(/^\/+/, "") === "home";
     if (basePath) {
-      const slug = page.page_type === "home" ? "/" : (page.slug.startsWith("/") ? page.slug.slice(1) : page.slug);
+      const slug = isHomePage ? "/" : (page.slug.startsWith("/") ? page.slug.slice(1) : page.slug);
       const tokenParam = previewToken ? `&token=${previewToken}` : "";
       if (slug === "/") return previewToken ? `${basePath}?token=${previewToken}` : basePath;
       return `${basePath}?page=${encodeURIComponent(slug)}${tokenParam}`;
     }
-    return page.slug.startsWith("/") ? page.slug : `/${page.slug}`;
+    return isHomePage ? "/" : (page.slug.startsWith("/") ? page.slug : `/${page.slug}`);
   }
 
   function renderDesktopNavItems(items: HierarchyPage[], textColor: string) {

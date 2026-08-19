@@ -98,6 +98,18 @@ interface Block {
   is_visible: boolean;
 }
 
+interface WebsiteRateService {
+  name?: string;
+  default_price?: number | null;
+  booking_duration_minutes?: number | null;
+  website_service_description?: string | null;
+  website_service_badge?: string | null;
+  website_service_price_text?: string | null;
+  website_service_cta_text?: string | null;
+  website_service_cta_url?: string | null;
+  show_in_website_service_rates?: boolean | null;
+}
+
 function splitPagePath(path: string): { parentSlug: string; segment: string } {
   const normalized = path.replace(/^\//, "").replace(/\/$/, "");
   if (!normalized) return { parentSlug: "", segment: "" };
@@ -935,6 +947,7 @@ function BlockEditor({
   previewEnabled,
   onTogglePreview,
   backgroundInheritOptions,
+  websiteRateServices,
 }: {
   block: Block;
   onChange: (content: Record<string, unknown>) => void;
@@ -942,6 +955,7 @@ function BlockEditor({
   previewEnabled?: boolean;
   onTogglePreview?: (enabled: boolean) => void;
   backgroundInheritOptions: BackgroundInheritOption[];
+  websiteRateServices: WebsiteRateService[];
 }) {
   const c = block.content;
   const editorType = resolveEditorType(block.block_type);
@@ -2156,7 +2170,18 @@ function BlockEditor({
         ctaLabel?: string;
         ctaHref?: string;
       }>(c, ["rates", "items"]);
-      const effectiveRates = rates;
+      const catalogueRates = websiteRateServices
+        .filter((service) => service.show_in_website_service_rates)
+        .map((service) => ({
+          service: String(service.name || ""),
+          price: service.website_service_price_text || (typeof service.default_price === "number" ? `From £${service.default_price.toFixed(0)}` : "Price on request"),
+          description: service.website_service_description || "",
+          duration: typeof service.booking_duration_minutes === "number" ? `${service.booking_duration_minutes} min` : "",
+          badge: service.website_service_badge || "",
+          ctaLabel: service.website_service_cta_text || "",
+          ctaHref: service.website_service_cta_url || "",
+        }));
+      const effectiveRates = catalogueRates.length > 0 ? catalogueRates : rates;
       const updateRates = (next: typeof effectiveRates) => {
         onChange({ ...c, rates: next, items: next });
       };
@@ -2166,8 +2191,7 @@ function BlockEditor({
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
             <p className="font-medium text-foreground">How this block works</p>
             <p>
-              If one or more services are enabled in Company Settings -&gt; Catalogue with <strong>Show in website service rates</strong>,
-              the live website will use those catalogue services automatically.
+              {catalogueRates.length > 0 ? <><strong>Using Service Catalogue rates.</strong> These are the rates currently shown on the live website.</> : <>If one or more services are enabled in Company Settings -&gt; Catalogue with <strong>Show in website service rates</strong>, the live website will use those catalogue services automatically.</>}
             </p>
             <p>
               If no services are enabled there, this block uses the manual rate items below.
@@ -5379,6 +5403,7 @@ function BlockCard({
   previewEnabled,
   onTogglePreview,
   backgroundInheritOptions,
+  websiteRateServices,
   isGlobalBlock = false,
 }: {
   block: Block;
@@ -5393,6 +5418,7 @@ function BlockCard({
   previewEnabled?: boolean;
   onTogglePreview?: (enabled: boolean) => void;
   backgroundInheritOptions: BackgroundInheritOption[];
+  websiteRateServices: WebsiteRateService[];
   isGlobalBlock?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -5480,6 +5506,7 @@ function BlockCard({
                 previewEnabled={previewEnabled}
                 onTogglePreview={onTogglePreview}
                 backgroundInheritOptions={backgroundInheritOptions}
+                websiteRateServices={websiteRateServices}
               />
             </div>
           </CardContent>
@@ -5534,6 +5561,12 @@ export default function WebsitePageEditor() {
   const { data: allPages = [] } = useQuery<Page[]>({
     queryKey: ["/api/website/pages"],
     queryFn: () => apiFetch("/api/website/pages"),
+    enabled: !!pageId,
+  });
+
+  const { data: websiteRateServices = [] } = useQuery<WebsiteRateService[]>({
+    queryKey: ["/api/admin/service-catalogue"],
+    queryFn: () => apiFetch("/api/admin/service-catalogue"),
     enabled: !!pageId,
   });
 
@@ -5930,6 +5963,7 @@ export default function WebsitePageEditor() {
                   onDelete={(id) => setDeletingBlockId(id)}
                   onContentChange={updateBlockContent}
                   onCopyToMatchingBlocks={copyToMatchingBlocks}
+                  websiteRateServices={websiteRateServices}
                   previewEnabled={showHeroPreview}
                   onTogglePreview={setShowHeroPreview}
                   backgroundInheritOptions={backgroundInheritOptions}
