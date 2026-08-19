@@ -33,8 +33,9 @@ interface Props {
 function readHeaderString(content: Record<string, unknown> | null | undefined, keys: string[], fallback = ""): string {
   if (!content) return fallback;
   for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(content, key)) continue;
     const value = content[key];
-    if (typeof value === "string" && value.trim().length > 0) return value.trim();
+    if (typeof value === "string") return value.trim();
   }
   return fallback;
 }
@@ -104,6 +105,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
   const headerPhone = readHeaderString(headerContent, ["phone", "header_phone"], company?.phone || "");
   const headerCtaLabel = readHeaderString(headerContent, ["ctaLabel", "cta_label"], "Call Now");
   const headerCtaHref = readHeaderString(headerContent, ["ctaHref", "cta_url", "cta_href"], ctaHref);
+  const hasHeaderCta = Boolean(headerCtaLabel && headerCtaHref);
   const topBarScheduleText = readHeaderString(headerContent, ["scheduleText", "schedule_text"], "");
   const topBarLocationText = readHeaderString(headerContent, ["locationText", "location_text"], "");
 
@@ -170,11 +172,13 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
               </ul>
             </nav>
 
-            <div className="snav-phone" style={{ alignItems: "center", gap: 14, flexShrink: 0 }}>
-              <a href={headerCtaHref} style={{ padding: "8px 16px", backgroundColor: ctaBg, color: "#ffffff", borderRadius: 10, textDecoration: "none", fontWeight: 700, fontSize: "0.875rem", border: `1px solid ${ctaBorder}` }}>
-                {headerCtaLabel}
-              </a>
-            </div>
+            {hasHeaderCta ? (
+              <div className="snav-phone" style={{ alignItems: "center", gap: 14, flexShrink: 0 }}>
+                <a href={headerCtaHref} style={{ padding: "8px 16px", backgroundColor: ctaBg, color: "#ffffff", borderRadius: 10, textDecoration: "none", fontWeight: 700, fontSize: "0.875rem", border: `1px solid ${ctaBorder}` }}>
+                  {headerCtaLabel}
+                </a>
+              </div>
+            ) : null}
 
             <button
               className="snav-hamburger"
@@ -189,11 +193,13 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
           <nav role="navigation" aria-label="Mobile navigation" className={`snav-mobile${menuOpen ? " open" : ""}`} style={{ backgroundColor: "#ffffff", borderTop: "1px solid rgba(26, 58, 107, 0.12)" }}>
             <ul style={{ listStyle: "none", margin: 0, padding: "8px 0 16px" }}>
               {renderMobileNavItems(navTree, "#334155")}
-              <li style={{ padding: "12px 24px" }}>
-                <a href={headerCtaHref} onClick={() => setMenuOpen(false)} style={{ display: "inline-block", padding: "10px 20px", backgroundColor: ctaBg, color: "#fff", borderRadius: 10, textDecoration: "none", fontWeight: 700 }}>
-                  {headerCtaLabel}
-                </a>
-              </li>
+              {hasHeaderCta ? (
+                <li style={{ padding: "12px 24px" }}>
+                  <a href={headerCtaHref} onClick={() => setMenuOpen(false)} style={{ display: "inline-block", padding: "10px 20px", backgroundColor: ctaBg, color: "#fff", borderRadius: 10, textDecoration: "none", fontWeight: 700 }}>
+                    {headerCtaLabel}
+                  </a>
+                </li>
+              ) : null}
             </ul>
           </nav>
         </div>
@@ -271,9 +277,11 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
                 {headerPhone}
               </a>
             )}
-            <a href={headerCtaHref} style={{ padding: "9px 20px", backgroundColor: accent, color: isModernTrade ? "#0f172a" : "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 700, fontSize: "0.9375rem", whiteSpace: "nowrap" }}>
-              {headerCtaLabel}
-            </a>
+            {hasHeaderCta ? (
+              <a href={headerCtaHref} style={{ padding: "9px 20px", backgroundColor: accent, color: isModernTrade ? "#0f172a" : "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 700, fontSize: "0.9375rem", whiteSpace: "nowrap" }}>
+                {headerCtaLabel}
+              </a>
+            ) : null}
           </div>
 
           {/* Hamburger */}
@@ -298,11 +306,13 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
                 </a>
               </li>
             )}
-            <li style={{ padding: "12px 24px" }}>
-              <a href={headerCtaHref} onClick={() => setMenuOpen(false)} style={{ display: "inline-block", padding: "10px 20px", backgroundColor: accent, color: "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 600 }}>
-                {headerCtaLabel}
-              </a>
-            </li>
+            {hasHeaderCta ? (
+              <li style={{ padding: "12px 24px" }}>
+                <a href={headerCtaHref} onClick={() => setMenuOpen(false)} style={{ display: "inline-block", padding: "10px 20px", backgroundColor: accent, color: "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 600 }}>
+                  {headerCtaLabel}
+                </a>
+              </li>
+            ) : null}
           </ul>
         </nav>
       </div>

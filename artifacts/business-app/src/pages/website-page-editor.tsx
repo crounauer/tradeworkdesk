@@ -729,16 +729,8 @@ function syncBlockContent(
   return next;
 }
 
-function isBlankValue(value: unknown): boolean {
-  if (value === null || value === undefined) return true;
-  if (typeof value === "string") return value.trim() === "";
-  if (Array.isArray(value)) return value.length === 0;
-  if (typeof value === "object") return Object.keys(value as Record<string, unknown>).length === 0;
-  return false;
-}
-
 function mergeTemplateSeed(content: unknown, templateSeed: unknown): unknown {
-  if (isBlankValue(content)) {
+  if (content === undefined) {
     return templateSeed;
   }
 
@@ -1332,6 +1324,17 @@ function BlockEditor({
             <FieldRow label="Secondary Button Text (optional)"><Input value={secondaryText} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_text: e.target.value, secondaryCtaLabel: e.target.value, secondaryButtonText: e.target.value }, { secondary_cta_text: ["secondaryCtaLabel", "secondaryButtonText"], secondaryCtaLabel: ["secondary_cta_text", "secondaryButtonText"], secondaryButtonText: ["secondary_cta_text", "secondaryCtaLabel"] }))} /></FieldRow>
             <FieldRow label="Secondary Button URL"><Input value={secondaryUrl} onChange={(e) => onChange(syncBlockContent(c, { secondary_cta_url: e.target.value, secondaryCtaHref: e.target.value, secondaryButtonUrl: e.target.value }, { secondary_cta_url: ["secondaryCtaHref", "secondaryButtonUrl"], secondaryCtaHref: ["secondary_cta_url", "secondaryButtonUrl"], secondaryButtonUrl: ["secondary_cta_url", "secondaryCtaHref"] }))} placeholder="/services" /></FieldRow>
 
+            <FieldRow label="Trust Badges (legacy, one per line)">
+              <Textarea
+                value={trustBadges.join("\n")}
+                onChange={(e) => {
+                  const next = e.target.value.split("\n").map((item) => item.trim()).filter(Boolean);
+                  onChange(syncBlockContent(c, { trustBadges: next, trust_badges: next }, { trustBadges: ["trust_badges"], trust_badges: ["trustBadges"] }));
+                }}
+                rows={3}
+                placeholder={"Fully Insured\nLocal Engineers\nFast Response\nFree Quotes"}
+              />
+            </FieldRow>
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Trust Items (icon + text)</Label>
               {trustItems.map((item, i) => (
@@ -1373,18 +1376,6 @@ function BlockEditor({
                 <Plus className="w-3.5 h-3.5 mr-1" /> Add Trust Item
               </Button>
             </div>
-
-            <FieldRow label="Trust Badges (legacy, one per line)">
-              <Textarea
-                value={trustBadges.join("\n")}
-                onChange={(e) => {
-                  const next = e.target.value.split("\n").map((item) => item.trim()).filter(Boolean);
-                  onChange(syncBlockContent(c, { trustBadges: next, trust_badges: next }, { trustBadges: ["trust_badges"], trust_badges: ["trustBadges"] }));
-                }}
-                rows={3}
-                placeholder={"Fully Insured\nLocal Engineers\nFast Response\nFree Quotes"}
-              />
-            </FieldRow>
             <ImagePickerField
               label="Background Image URL (full/centered layouts)"
               value={backgroundImage}
