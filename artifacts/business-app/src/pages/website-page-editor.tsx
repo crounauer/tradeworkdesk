@@ -53,7 +53,7 @@ import {
   ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown,
   Eye, EyeOff, Globe, Save, Loader2, ChevronRight,
   ChevronLeft, Type, Image, Layout, MessageSquare, Star, Grid3X3,
-  Phone, Award, Minus, Undo2, CalendarCheck,
+  Phone, Award, Minus, Undo2, CalendarCheck, Copy,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -5407,6 +5407,7 @@ function BlockCard({
   onToggleVisible,
   onDelete,
   onContentChange,
+  onCopyToMatchingBlocks,
   previewEnabled,
   onTogglePreview,
   backgroundInheritOptions,
@@ -5420,6 +5421,7 @@ function BlockCard({
   onToggleVisible: (id: string) => void;
   onDelete: (id: string) => void;
   onContentChange: (id: string, content: Record<string, unknown>) => void;
+  onCopyToMatchingBlocks: (id: string) => void;
   previewEnabled?: boolean;
   onTogglePreview?: (enabled: boolean) => void;
   backgroundInheritOptions: BackgroundInheritOption[];
@@ -5487,6 +5489,13 @@ function BlockCard({
                   title="Delete block"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  variant="ghost" size="icon" className="h-7 w-7"
+                  onClick={() => onCopyToMatchingBlocks(block.id)}
+                  title={`Copy settings to all ${displayLabel} blocks`}
+                >
+                  <Copy className="w-3.5 h-3.5" />
                 </Button>
                 <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
               </div>
@@ -5714,6 +5723,27 @@ export default function WebsitePageEditor() {
     setIsDirty(true);
   }, []);
 
+  const copyToMatchingBlocks = useCallback((sourceId: string) => {
+    setBlocks((prev) => {
+      const source = prev.find((block) => block.id === sourceId);
+      if (!source) return prev;
+
+      const sourceType = resolveEditorType(source.block_type);
+      return prev.map((block) => (
+        block.id !== sourceId && resolveEditorType(block.block_type) === sourceType
+          ? { ...block, content: { ...source.content } }
+          : block
+      ));
+    });
+    setIsDirty(true);
+    const source = blocks.find((block) => block.id === sourceId);
+    if (source) {
+      const label = BLOCK_PALETTE.find((item) => item.type === resolveEditorType(source.block_type))?.label
+        || String(source.block_type).replace(/[._]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+      toast({ title: `${label} settings copied to matching blocks`, duration: 1800 });
+    }
+  }, [blocks, toast]);
+
   const handleSave = () => {
     if (isDirty) {
       saveBlocksMutation.mutate();
@@ -5928,6 +5958,7 @@ export default function WebsitePageEditor() {
                   onToggleVisible={toggleVisible}
                   onDelete={(id) => setDeletingBlockId(id)}
                   onContentChange={updateBlockContent}
+                  onCopyToMatchingBlocks={copyToMatchingBlocks}
                   previewEnabled={showHeroPreview}
                   onTogglePreview={setShowHeroPreview}
                   backgroundInheritOptions={backgroundInheritOptions}
