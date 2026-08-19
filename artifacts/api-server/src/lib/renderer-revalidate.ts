@@ -20,7 +20,12 @@ export async function triggerRendererRevalidate(opts: { domains?: string[]; webs
   const rendererBase = resolveRendererBaseUrl();
   if (!rendererBase) return;
 
-  const domains = Array.from(new Set((opts.domains || []).map((d) => normalizeDomain(String(d || ""))).filter(Boolean)));
+  const domains = Array.from(new Set((opts.domains || [])
+    .map((d) => normalizeDomain(String(d || "")))
+    .filter(Boolean)
+    .flatMap((domain) => domain.startsWith("www.")
+      ? [domain, domain.slice(4)]
+      : [domain, `www.${domain}`])));
   const websiteIds = Array.from(new Set((opts.websiteIds || []).map((id) => String(id || "").trim()).filter(Boolean)));
   if (domains.length === 0 && websiteIds.length === 0) return;
 
