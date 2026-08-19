@@ -174,11 +174,10 @@ export default function HeroBlock({ content }: Props) {
     overlay_opacity = 0.55,
   } = content;
 
-  const isPostcodeCta = (ctaText || "").toLowerCase().includes("postcode");
-  const primaryHref = cta_phone
-    ? `tel:${cta_phone.replace(/\s/g, "")}`
-    : (isPostcodeCta ? "#postcode-checker" : (ctaUrl || "#contact"));
-  const primaryLabel = ctaText || (cta_phone ? `Call Now: ${cta_phone}` : "Get a Quote");
+  const primaryHref = ctaUrl;
+  const primaryLabel = ctaText;
+  const hasPrimaryCta = Boolean(primaryLabel?.trim() && primaryHref?.trim());
+  const hasSecondaryCta = Boolean(secondaryCtaText?.trim() && secondaryCtaUrl?.trim());
 
   const backgroundImageUrl = typeof background_image_url === "string"
     ? background_image_url
@@ -307,11 +306,13 @@ export default function HeroBlock({ content }: Props) {
               </p>
             )}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-              <a href={primaryHref} style={{ display: "inline-block", backgroundColor: primaryButtonBg, color: primaryButtonText, border: ctaStyle === "outline" ? `2px solid ${primaryButtonBorderColor}` : primaryBorder, borderRadius: primaryRadius, padding: "12px 20px", textDecoration: "none", fontWeight: ctaWeight, fontSize: ctaFontSize, lineHeight: ctaLineHeight, fontFamily: ctaFontFamily }}>
-                {primaryLabel}
-              </a>
-              {secondaryCtaText && (
-                <a href={secondaryCtaUrl || ctaUrl || "#"} style={{ display: "inline-block", border: `1px solid ${secondaryButtonBorder}`, backgroundColor: secondaryButtonBg, color: secondaryButtonText, borderRadius: secondaryRadius, padding: "12px 20px", textDecoration: "none", fontWeight: ctaWeight, fontSize: ctaFontSize, lineHeight: ctaLineHeight, fontFamily: ctaFontFamily }}>
+              {hasPrimaryCta && (
+                <a href={primaryHref} style={{ display: "inline-block", backgroundColor: primaryButtonBg, color: primaryButtonText, border: ctaStyle === "outline" ? `2px solid ${primaryButtonBorderColor}` : primaryBorder, borderRadius: primaryRadius, padding: "12px 20px", textDecoration: "none", fontWeight: ctaWeight, fontSize: ctaFontSize, lineHeight: ctaLineHeight, fontFamily: ctaFontFamily }}>
+                  {primaryLabel}
+                </a>
+              )}
+              {hasSecondaryCta && (
+                <a href={secondaryCtaUrl} style={{ display: "inline-block", border: `1px solid ${secondaryButtonBorder}`, backgroundColor: secondaryButtonBg, color: secondaryButtonText, borderRadius: secondaryRadius, padding: "12px 20px", textDecoration: "none", fontWeight: ctaWeight, fontSize: ctaFontSize, lineHeight: ctaLineHeight, fontFamily: ctaFontFamily }}>
                   {secondaryCtaText}
                 </a>
               )}
@@ -396,22 +397,26 @@ export default function HeroBlock({ content }: Props) {
       {renderHeading()}
 
       {subheading && (
-        <p style={{ fontSize: subheadingFontSize, color: subheadingColor || (isDark ? "rgba(255,255,255,0.85)" : "#4b5563"), margin: "0 0 32px", maxWidth: 540, lineHeight: 1.7, fontWeight: subheadingWeight, fontFamily: bodyFontFamily }}>
+        <p style={{ fontSize: subheadingFontSize, color: subheadingColor || (isDark ? "rgba(255,255,255,0.85)" : "#4b5563"), margin: isCentered ? "0 auto 32px" : "0 0 32px", maxWidth: 540, lineHeight: 1.7, fontWeight: subheadingWeight, fontFamily: bodyFontFamily }}>
           {subheading}
         </p>
       )}
 
       {/* CTA buttons */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: textAlign === "center" ? "center" : "flex-start", marginBottom: (trust_items as TrustItem[]).length || (stats as Stat[]).length ? 36 : 0 }}>
-        <a href={primaryHref} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: primaryButtonPadding, backgroundColor: primaryButtonBg, color: primaryButtonText, borderRadius: primaryRadius, border: `1px solid ${primaryButtonBorderColor}`, textDecoration: "none", fontWeight: ctaWeight, fontSize: ctaFontSize, lineHeight: ctaLineHeight, fontFamily: ctaFontFamily }}>
-          {primaryLabel}
-        </a>
-        {secondaryCtaText && (secondaryCtaUrl || ctaUrl) && (
-          <a href={secondaryCtaUrl || ctaUrl || "#"} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: secondaryButtonPadding, backgroundColor: secondaryButtonBg, color: secondaryButtonText || txtColor, border: `2px solid ${secondaryBorderColor}`, borderRadius: secondaryRadius, textDecoration: "none", fontWeight: ctaWeight, fontSize: ctaFontSize, lineHeight: ctaLineHeight, fontFamily: ctaFontFamily }}>
-            {secondaryCtaText}
-          </a>
-        )}
-      </div>
+      {(hasPrimaryCta || hasSecondaryCta) ? (
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: textAlign === "center" ? "center" : "flex-start", marginBottom: (trust_items as TrustItem[]).length || (stats as Stat[]).length ? 36 : 0 }}>
+          {hasPrimaryCta && (
+            <a href={primaryHref} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: primaryButtonPadding, backgroundColor: primaryButtonBg, color: primaryButtonText, borderRadius: primaryRadius, border: `1px solid ${primaryButtonBorderColor}`, textDecoration: "none", fontWeight: ctaWeight, fontSize: ctaFontSize, lineHeight: ctaLineHeight, fontFamily: ctaFontFamily }}>
+              {primaryLabel}
+            </a>
+          )}
+          {hasSecondaryCta && (
+            <a href={secondaryCtaUrl} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: secondaryButtonPadding, backgroundColor: secondaryButtonBg, color: secondaryButtonText || txtColor, border: `2px solid ${secondaryBorderColor}`, borderRadius: secondaryRadius, textDecoration: "none", fontWeight: ctaWeight, fontSize: ctaFontSize, lineHeight: ctaLineHeight, fontFamily: ctaFontFamily }}>
+              {secondaryCtaText}
+            </a>
+          )}
+        </div>
+      ) : null}
 
       {/* Stats row */}
       {(stats as Stat[]).length > 0 && (

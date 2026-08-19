@@ -9,7 +9,7 @@ export type HeroBlockProps = {
   title: string;
   headingAccent?: string;
   subtitle: string;
-  primaryCtaLabel: string;
+  primaryCtaLabel?: string;
   primaryCtaHref?: string;
   secondaryCtaLabel?: string;
   secondaryCtaHref?: string;
@@ -150,6 +150,8 @@ export function HeroBlock({
 }: HeroBlockProps) {
   const isSplit = layout === 'split';
   const isCentered = layout === 'centered';
+  const hasPrimaryCta = Boolean(primaryCtaLabel?.trim() && primaryCtaHref?.trim());
+  const hasSecondaryCta = Boolean(secondaryCtaLabel?.trim() && secondaryCtaHref?.trim());
   const isModern = variant === 'modern' || heroStyle === 'modern';
   const isClassic = variant === 'classic' || heroStyle === 'classic';
   const isNavyTone = tone === 'navy' || (tone === 'default' && isClassic);
@@ -296,16 +298,20 @@ export function HeroBlock({
               <p className="mt-6 max-w-xl" style={subheadingStyle}>
                 {subtitle}
               </p>
-              <div className="mt-8 flex flex-wrap gap-4 justify-start">
-                <a href={primaryCtaHref || '#contact'} className={primaryCtaClassName} style={primaryButtonStyle}>
-                  {primaryCtaLabel}
-                </a>
-                {secondaryCtaLabel ? (
-                  <a href={secondaryCtaHref || '#services'} className={secondarySplitClassName} style={secondaryButtonStyle}>
-                    {secondaryCtaLabel}
-                  </a>
-                ) : null}
-              </div>
+              {(hasPrimaryCta || hasSecondaryCta) ? (
+                <div className="mt-8 flex flex-wrap gap-4 justify-start">
+                  {hasPrimaryCta ? (
+                    <a href={primaryCtaHref} className={primaryCtaClassName} style={primaryButtonStyle}>
+                      {primaryCtaLabel}
+                    </a>
+                  ) : null}
+                  {hasSecondaryCta ? (
+                    <a href={secondaryCtaHref} className={secondarySplitClassName} style={secondaryButtonStyle}>
+                      {secondaryCtaLabel}
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
               {phone ? (
                 <p className="mt-6 text-sm" style={{ color: isSplit ? '#6b7280' : '#cbd5e1' }}>
                   Prefer to call? <span className="font-semibold" style={{ color: fgColor }}>{phone}</span>
@@ -331,19 +337,23 @@ export function HeroBlock({
               </p>
             ) : null}
             {renderHeading()}
-            <p className="mt-6 max-w-2xl" style={subheadingStyle}>
+            <p className="mx-auto mt-6 max-w-2xl" style={subheadingStyle}>
               {subtitle}
             </p>
-            <div className={`mt-8 flex flex-wrap gap-4 ${isCentered ? 'justify-center' : 'justify-start'}`}>
-              <a href={primaryCtaHref || '#contact'} className={primaryCtaClassName} style={primaryButtonStyle}>
-                {primaryCtaLabel}
-              </a>
-              {secondaryCtaLabel ? (
-                <a href={secondaryCtaHref || '#services'} className={secondaryFullClassName} style={secondaryButtonStyle}>
-                  {secondaryCtaLabel}
-                </a>
-              ) : null}
-            </div>
+            {(hasPrimaryCta || hasSecondaryCta) ? (
+              <div className={`mt-8 flex flex-wrap gap-4 ${isCentered ? 'justify-center' : 'justify-start'}`}>
+                {hasPrimaryCta ? (
+                  <a href={primaryCtaHref} className={primaryCtaClassName} style={primaryButtonStyle}>
+                    {primaryCtaLabel}
+                  </a>
+                ) : null}
+                {hasSecondaryCta ? (
+                  <a href={secondaryCtaHref} className={secondaryFullClassName} style={secondaryButtonStyle}>
+                    {secondaryCtaLabel}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
             {trustBadges && trustBadges.length > 0 ? (
               <div className={`mt-8 flex flex-wrap gap-3 ${isCentered ? 'justify-center' : 'justify-start'}`}>
                 {trustBadges.map((badge) => (

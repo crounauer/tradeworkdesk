@@ -1157,7 +1157,7 @@ function BlockEditor({
       const textColor = readString(c, ["text_color", "textColor"]);
       const heroPreviewTitle = heading || "Your Heading Here";
       const heroPreviewSubtitle = subheading || "A short description of your services or offer.";
-      const heroPreviewPrimary = primaryText || "Get a Free Quote";
+      const heroPreviewPrimary = primaryText || undefined;
       const heroPreviewSecondary = secondaryText || undefined;
       const trustBadges = readArray<string>(c, ["trustBadges", "trust_badges"]);
       const trustItems = readArray<{ text?: string; icon?: string }>(c, ["trust_items"])
