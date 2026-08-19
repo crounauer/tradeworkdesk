@@ -675,15 +675,6 @@ function BackgroundColorField({
             </Button>
           ))}
         </div>
-        {inheritOptions.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {inheritOptions.map((option) => (
-              <Button key={`${label}-inherit-${option.label}`} type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => onChange(option.value)}>
-                Inherit {option.label}
-              </Button>
-            ))}
-          </div>
-        ) : null}
       </div>
     </FieldRow>
   );
@@ -5723,26 +5714,29 @@ export default function WebsitePageEditor() {
     setIsDirty(true);
   }, []);
 
-  const copyToMatchingBlocks = useCallback((sourceId: string) => {
-    setBlocks((prev) => {
-      const source = prev.find((block) => block.id === sourceId);
-      if (!source) return prev;
+  const copyToMatchingBlocks = useCallback(async (sourceId: string) => {
+    const source = blocks.find((block) => block.id === sourceId);
+    if (!source) return;
 
-      const sourceType = resolveEditorType(source.block_type);
-      return prev.map((block) => (
-        block.id !== sourceId && resolveEditorType(block.block_type) === sourceType
+    try {
+      const result = await apiFetch(`/api/website/pages/${pageId}/blocks/copy-to-matching`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ block_type: source.block_type, content: source.content }),
+      }) as { updated?: number };
+      setBlocks((prev) => prev.map((block) => (
+        resolveEditorType(block.block_type) === resolveEditorType(source.block_type)
           ? { ...block, content: { ...source.content } }
           : block
-      ));
-    });
-    setIsDirty(true);
-    const source = blocks.find((block) => block.id === sourceId);
-    if (source) {
+      )));
+      setIsDirty(false);
       const label = BLOCK_PALETTE.find((item) => item.type === resolveEditorType(source.block_type))?.label
         || String(source.block_type).replace(/[._]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-      toast({ title: `${label} settings copied to matching blocks`, duration: 1800 });
+      toast({ title: `${label} settings copied to ${result.updated || 0} matching blocks`, duration: 1800 });
+    } catch (error) {
+      toast({ title: "Copy failed", description: error instanceof Error ? error.message : "Failed to copy block settings", variant: "destructive" });
     }
-  }, [blocks, toast]);
+  }, [blocks, pageId, toast]);
 
   const handleSave = () => {
     if (isDirty) {

@@ -2313,6 +2313,72 @@ router.post(
 
 // ─── Blocks ───────────────────────────────────────────────────────────────────
 
+// Copy one block's content to every matching block on the same website.
+router.post(
+  "/website/pages/:id/blocks/copy-to-matching",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { id } = req.params;
+    const rawBlockType = String(req.body?.block_type || "").trim();
+    const content = req.body?.content;
+
+    if (!rawBlockType || !content || typeof content !== "object" || Array.isArray(content)) {
+      res.status(400).json({ error: "block_type and object content are required" });
+      return;
+    }
+
+    const { data: page } = await db
+      .from("website_pages")
+      .select("id, website_id")
+      .eq("id", id)
+      .eq("tenant_id", req.tenantId)
+      .single() as { data: { id: string; website_id: string | null } | null };
+
+    if (!page?.website_id) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    const blockType = normalizeTenantBlockType(rawBlockType);
+    const { data: pages } = await db
+      .from("website_pages")
+      .select("id")
+      .eq("website_id", page.website_id)
+      .eq("tenant_id", req.tenantId) as { data: Array<{ id: string }> | null };
+    const pageIds = (pages || []).map((entry) => entry.id).filter(Boolean);
+
+    if (pageIds.length === 0) {
+      res.json({ updated: 0 });
+      return;
+    }
+
+    const { data: updatedBlocks, error } = await db
+      .from("website_blocks")
+      .update({ content: content as Record<string, unknown> })
+      .eq("tenant_id", req.tenantId)
+      .in("page_id", pageIds)
+      .eq("block_type", blockType)
+      .select("id");
+
+    if (error) {
+      res.status(500).json({ error: "Failed to copy block settings" });
+      return;
+    }
+
+    const activeDomains = await getActiveDomainsForWebsite(String(page.website_id));
+    void triggerRendererRevalidate({
+      domains: activeDomains,
+      websiteIds: [String(page.website_id)],
+      reason: "copy_block_settings",
+    });
+
+    res.json({ updated: updatedBlocks?.length || 0, block_type: blockType });
+  }
+);
+
 // Replace all blocks for a page in one atomic operation (used by the editor on save)
 router.put(
   "/website/pages/:id/blocks",
