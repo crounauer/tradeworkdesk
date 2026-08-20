@@ -101,37 +101,37 @@ export default function CustomerDetail() {
       </Link>
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 min-w-0">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-display font-bold text-2xl">
             {customer.first_name[0]}{customer.last_name[0]}
           </div>
-          <div>
-            <h1 className="text-3xl font-display font-bold text-foreground">
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground leading-tight break-words">
               {customer.business_name || `${customer.title ? `${customer.title} ` : ""}${customer.first_name} ${customer.last_name}`.trim()}
             </h1>
             {customer.business_name ? <p className="text-muted-foreground mt-1">{customer.title ? `${customer.title} ` : ""}{customer.first_name} {customer.last_name}</p> : null}
             <p className="text-muted-foreground mt-1">Customer since {new Date(customer.created_at).getFullYear()}</p>
           </div>
         </div>
-        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
-          <Button size="sm" className="w-full sm:w-auto" onClick={() => setShowBookJob(true)}>
+        <div className="grid w-full grid-cols-1 gap-2 md:flex md:w-auto md:flex-wrap md:items-center md:justify-end">
+          <Button size="sm" className="w-full md:w-auto" onClick={() => setShowBookJob(true)}>
             <Briefcase className="w-4 h-4 mr-2" /> Book Job
           </Button>
-          <Button size="sm" className="w-full sm:w-auto" variant="secondary" onClick={() => setShowBookEnquiry(true)}>
+          <Button size="sm" className="w-full md:w-auto" variant="secondary" onClick={() => setShowBookEnquiry(true)}>
             <MessageSquare className="w-4 h-4 mr-2" /> New Enquiry
           </Button>
           {hasAddon("sms_messaging") && (customer.phone || customer.mobile) && (
-            <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => setShowSms(true)}>
+            <Button size="sm" className="w-full md:w-auto" variant="outline" onClick={() => setShowSms(true)}>
               <MessageSquare className="w-4 h-4 mr-2" /> Send SMS
             </Button>
           )}
-          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setEditing(!editing)}>
+          <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => setEditing(!editing)}>
             {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
           </Button>
           {canDelete && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm" className="w-full sm:w-auto">
+                <Button variant="destructive" size="sm" className="w-full md:w-auto">
                   <Trash2 className="w-4 h-4 mr-2" /> Delete
                 </Button>
               </AlertDialogTrigger>
@@ -264,9 +264,9 @@ export default function CustomerDetail() {
           </div>
 
           <div className="lg:col-span-2 space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
               <h2 className="text-xl font-display font-bold">Properties</h2>
-              <Button size="sm" variant="secondary" onClick={() => setShowPropertyForm(!showPropertyForm)}>
+              <Button size="sm" className="w-full md:w-auto" variant="secondary" onClick={() => setShowPropertyForm(!showPropertyForm)}>
                 {showPropertyForm ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Plus className="w-4 h-4 mr-2"/> Add Property</>}
               </Button>
             </div>
@@ -390,21 +390,22 @@ function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; on
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
         <h2 className="text-xl font-display font-bold flex items-center gap-2">
           <Briefcase className="w-5 h-5" /> Jobs
           <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{jobs.length}</span>
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="grid w-full grid-cols-1 gap-2 md:flex md:w-auto md:flex-wrap md:items-center">
           <Button
             size="sm"
+            className="w-full md:w-auto"
             variant="outline"
             onClick={() => setSortDirection((prev) => (prev === "desc" ? "asc" : "desc"))}
           >
             {sortDirection === "desc" ? "Newest First" : "Oldest First"}
           </Button>
           {onBookJob && (
-            <Button size="sm" variant="outline" onClick={onBookJob}>
+            <Button size="sm" className="w-full md:w-auto" variant="outline" onClick={onBookJob}>
               <Plus className="w-4 h-4 mr-1" /> Book Job
             </Button>
           )}
@@ -414,7 +415,7 @@ function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; on
         {sortedJobs.map(job => (
           <Link key={job.id} href={`/jobs/${job.id}`}>
             <Card className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[job.status] || "bg-slate-100 text-slate-600"}`}>
                     {statusLabels[job.status] || job.status}
@@ -430,7 +431,7 @@ function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; on
                   </div>
                 </div>
                 {job.scheduled_date && (
-                  <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1 self-start md:self-auto">
                     <Calendar className="w-3.5 h-3.5" />
                     {new Date(job.scheduled_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </span>
@@ -572,13 +573,13 @@ function CustomerEnquiriesSection({ customerId, onNewEnquiry }: { customerId: st
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
         <h2 className="text-xl font-display font-bold flex items-center gap-2">
           <MessageSquare className="w-5 h-5" /> Enquiries
           <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{enquiries.length}</span>
         </h2>
         {onNewEnquiry && (
-          <Button size="sm" variant="outline" onClick={onNewEnquiry}>
+          <Button size="sm" className="w-full md:w-auto" variant="outline" onClick={onNewEnquiry}>
             <Plus className="w-4 h-4 mr-1" /> New Enquiry
           </Button>
         )}
@@ -587,7 +588,7 @@ function CustomerEnquiriesSection({ customerId, onNewEnquiry }: { customerId: st
         {enquiries.map((enquiry) => (
           <Link key={enquiry.id} href={`/enquiries/${enquiry.id}`}>
             <Card className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[String(enquiry.status || "")] || "bg-slate-100 text-slate-600"}`}>
                     {String(enquiry.status || "new").replace(/_/g, " ")}
@@ -605,7 +606,7 @@ function CustomerEnquiriesSection({ customerId, onNewEnquiry }: { customerId: st
                   </div>
                 </div>
                 {enquiry.created_at && (
-                  <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1 self-start md:self-auto">
                     <Calendar className="w-3.5 h-3.5" />
                     {new Date(enquiry.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </span>
@@ -1253,7 +1254,7 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
       <Card className="p-5 border border-border/50 shadow-sm">
         {!status?.has_portal ? (
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
               <p className="text-sm text-muted-foreground">
                 This customer doesn't have portal access yet. Send an invitation to let them view their service history, properties, and certificates online.
@@ -1291,7 +1292,7 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-4">
+            <div className="flex flex-col md:flex-row items-start md:items-start justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full ${status.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
@@ -1307,22 +1308,22 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
                   </p>
                 )}
               </div>
-              <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
+              <div className="grid w-full grid-cols-1 gap-2 md:flex md:w-auto md:flex-wrap md:items-center md:justify-end">
                 {!status.is_registered && (
-                  <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={extendInviteExpiry} disabled={extendingInvite || toggling || sendingInvite}>
+                  <Button size="sm" className="w-full md:w-auto" variant="outline" onClick={extendInviteExpiry} disabled={extendingInvite || toggling || sendingInvite}>
                     {extendingInvite ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                     {extendingInvite ? "Extending..." : "Extend 7 Days"}
                   </Button>
                 )}
                 {!status.is_registered && (
-                  <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={sendInvite} disabled={sendingInvite || !customerEmail}>
+                  <Button size="sm" className="w-full md:w-auto" variant="outline" onClick={sendInvite} disabled={sendingInvite || !customerEmail}>
                     {sendingInvite ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                     Resend Invite
                   </Button>
                 )}
                 <Button
                   size="sm"
-                  className="w-full sm:w-auto"
+                  className="w-full md:w-auto"
                   variant={status.is_active ? "destructive" : "default"}
                   onClick={toggleAccess}
                   disabled={toggling}
@@ -1338,7 +1339,7 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
                 </Button>
                 <Button
                   size="sm"
-                  className="w-full sm:w-auto"
+                  className="w-full md:w-auto"
                   variant="outline"
                   onClick={openPortalView}
                   disabled={openingPortalView || !status.is_active}

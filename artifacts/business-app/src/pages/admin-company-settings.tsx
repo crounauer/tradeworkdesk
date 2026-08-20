@@ -195,6 +195,32 @@ function PushNotificationsSection() {
   const [permission, setPermission] = useState<PushPermissionState>("default");
   const [subscribed, setSubscribed] = useState(false);
 
+  const attemptAutoRecover = useCallback(async () => {
+    if (!("Notification" in window) || Notification.permission !== "granted") {
+      return false;
+    }
+
+    try {
+      const keyRes = await fetch("/api/push/vapid-public-key");
+      if (!keyRes.ok) return false;
+      const keyData = await keyRes.json() as { publicKey?: string };
+      if (!keyData.publicKey) return false;
+
+      const subscription = await subscribeToPush(keyData.publicKey);
+      const saveRes = await fetch("/api/push/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription: subscription.toJSON() }),
+      });
+
+      if (!saveRes.ok) return false;
+      setSubscribed(true);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
@@ -214,9 +240,10 @@ function PushNotificationsSection() {
 
       setPermission(Notification.permission as PushPermissionState);
       const existing = await getExistingPushSubscription();
+      const recovered = !existing ? await attemptAutoRecover() : false;
       if (!mounted) return;
-      setSubscribed(Boolean(existing));
-      setSetupRequired(!existing && !("serviceWorker" in navigator && navigator.serviceWorker.controller));
+      setSubscribed(Boolean(existing) || recovered);
+      setSetupRequired(!(Boolean(existing) || recovered) && !("serviceWorker" in navigator && navigator.serviceWorker.controller));
       setLoading(false);
     };
 
@@ -228,7 +255,7 @@ function PushNotificationsSection() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [attemptAutoRecover]);
 
   const enablePush = async () => {
     try {
