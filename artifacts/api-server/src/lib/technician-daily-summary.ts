@@ -9,7 +9,7 @@ const SUMMARY_TIMEZONE = "Europe/London";
 let schedulerTimer: NodeJS.Timeout | null = null;
 let schedulerRunning = false;
 
-function toTimeZoneDateParts(now: Date): { today: string; tomorrow: string; hhmm: string } {
+function toTimeZoneDateParts(now: Date): { today: string; tomorrow: string; yesterday: string; hhmm: string } {
   const dateFormatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: SUMMARY_TIMEZONE,
     year: "numeric",
@@ -32,11 +32,13 @@ function toTimeZoneDateParts(now: Date): { today: string; tomorrow: string; hhmm
 
   const tomorrowUtc = new Date(Date.UTC(year, month - 1, day + 1));
   const tomorrow = `${tomorrowUtc.getUTCFullYear()}-${String(tomorrowUtc.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrowUtc.getUTCDate()).padStart(2, "0")}`;
+  const yesterdayUtc = new Date(Date.UTC(year, month - 1, day - 1));
+  const yesterday = `${yesterdayUtc.getUTCFullYear()}-${String(yesterdayUtc.getUTCMonth() + 1).padStart(2, "0")}-${String(yesterdayUtc.getUTCDate()).padStart(2, "0")}`;
 
   const timeParts = timeFormatter.formatToParts(now);
   const hh = timeParts.find((p) => p.type === "hour")?.value || "00";
   const mm = timeParts.find((p) => p.type === "minute")?.value || "00";
-  return { today, tomorrow, hhmm: `${hh}:${mm}` };
+  return { today, tomorrow, yesterday, hhmm: `${hh}:${mm}` };
 }
 
 export function isSummaryTimeDue(configuredTime: string | null | undefined, now = new Date(), timeZone = SUMMARY_TIMEZONE): boolean {
@@ -92,6 +94,23 @@ export function shouldSkipTenantSummaryDispatch(args: {
   }
 
   return false;
+}
+
+export function isEarlyMorningCatchUp(lastSentDate: string, yesterday: string, configuredTime: string, now: Date): boolean {
+  if (lastSentDate && lastSentDate !== yesterday) return false;
+  const raw = String(configuredTime || "").trim();
+  if (!/^\d{2}:\d{2}$/.test(raw)) return false;
+  const timeFormatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: SUMMARY_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = timeFormatter.formatToParts(now);
+  const nowMinutes = Number(parts.find((part) => part.type === "hour")?.value || "0") * 60
+    + Number(parts.find((part) => part.type === "minute")?.value || "0");
+  const [hours, minutes] = raw.split(":").map(Number);
+  return nowMinutes < ((hours || 0) * 60 + (minutes || 0));
 }
 
 function formatHumanDate(yyyyMmDd: string): string {
@@ -210,7 +229,7 @@ export async function sendTestTechnicianDailySummaryEmail(args: {
 }
 
 export async function runTechnicianDailySummaryEmails(now = new Date()): Promise<{ processedTenants: number; sentEmails: number; skippedTechnicians: number; errors: number }> {
-  const { today, tomorrow, hhmm } = toTimeZoneDateParts(now);
+  const { today, tomorrow, yesterday, hhmm } = toTimeZoneDateParts(now);
   const result = { processedTenants: 0, sentEmails: 0, skippedTechnicians: 0, errors: 0 };
 
   const { data: dueTenants, error: dueTenantsError } = await supabaseAdmin
@@ -234,7 +253,8 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
     const sendIfNoJobs = Boolean(row.technician_daily_summary_send_if_no_jobs);
     const weekdaysOnly = Boolean(row.technician_daily_summary_weekdays_only);
 
-    if (shouldSkipTenantSummaryDispatch({
+    const earlyMorningCatchUp = isEarlyMorningCatchUp(lastSentDate, yesterday, configuredTime, now);
+    if (!earlyMorningCatchUp && shouldSkipTenantSummaryDispatch({
       lastSentDate,
       today,
       tomorrow,
@@ -247,6 +267,7 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
     }
 
     result.processedTenants += 1;
+    const targetDate = earlyMorningCatchUp ? today : tomorrow;
 
     const companyDetails: EmailCompanyDetails = {
       name: (row.name as string | null) || null,
@@ -291,7 +312,7 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
         .select("id, job_ref, assigned_technician_id, scheduled_date, scheduled_time, all_day, status, description, customers(first_name, last_name, business_name), properties(address_line1, postcode)")
         .eq("tenant_id", tenantId)
         .eq("is_active", true)
-        .eq("scheduled_date", tomorrow)
+        .eq("scheduled_date", targetDate)
         .in("assigned_technician_id", techIds)
         .in("status", ACTIVE_JOB_STATUSES)
         .order("scheduled_time", { ascending: true, nullsFirst: false });
@@ -326,11 +347,11 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
           }
 
           const technicianName = String(tech.full_name || "Technician");
-          const subject = `No jobs scheduled for tomorrow - ${formatHumanDate(tomorrow)}`;
+          const subject = `No jobs scheduled for tomorrow - ${formatHumanDate(targetDate)}`;
           const body = buildNoJobsBody({
             technicianName,
             companyName,
-            targetDate: tomorrow,
+            targetDate,
           });
 
           await sendSimpleNotification(to, subject, body, {
@@ -343,11 +364,11 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
         }
 
         const technicianName = String(tech.full_name || "Technician");
-        const subject = `Tomorrow's jobs summary - ${formatHumanDate(tomorrow)}`;
+        const subject = `Tomorrow's jobs summary - ${formatHumanDate(targetDate)}`;
         const body = buildSummaryBody({
           technicianName,
           companyName,
-          targetDate: tomorrow,
+          targetDate,
           jobs: techJobs,
         });
 
