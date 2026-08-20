@@ -58,6 +58,8 @@ export interface Invoice {
   works_order: string | null;
   notes: string | null;
   customer_notes: string | null;
+  estimated_duration_value: number | null;
+  estimated_duration_unit: "hours" | "days" | null;
   sent_at: string | null;
   accepted_at: string | null;
   declined_at: string | null;
@@ -140,6 +142,8 @@ export interface CreateInvoiceInput {
 
 export interface UpdateInvoiceInput {
   line_items?: InvoiceLineItem[];
+  estimated_duration_value?: number | null;
+  estimated_duration_unit?: "hours" | "days" | null;
   property_id?: string | null;
   works_order?: string;
   notes?: string;

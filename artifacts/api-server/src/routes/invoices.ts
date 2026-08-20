@@ -274,6 +274,8 @@ async function buildPdfData(
     balance_due: Math.max(0, Math.round((Number(invoice.total ?? 0) - Number(invoice.paid_amount ?? 0)) * 100) / 100),
     works_order: invoice.works_order as string | null,
     customer_notes: invoice.customer_notes as string | null,
+    estimated_duration_value: invoice.estimated_duration_value != null ? Number(invoice.estimated_duration_value) : null,
+    estimated_duration_unit: invoice.estimated_duration_unit as "hours" | "days" | null,
   };
 }
 
@@ -415,6 +417,8 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
     expiry_date,
     notes,
     customer_notes,
+    estimated_duration_value,
+    estimated_duration_unit,
     vat_rate,
   } = req.body as {
     job_id?: string;
@@ -427,11 +431,15 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
     expiry_date?: string;
     notes?: string;
     customer_notes?: string;
+    estimated_duration_value?: number | null;
+    estimated_duration_unit?: "hours" | "days" | null;
     vat_rate?: number;
   };
 
   if (!job_id && !direct_customer_id) { res.status(400).json({ error: "job_id or customer_id is required" }); return; }
   if (!["invoice", "quote"].includes(type)) { res.status(400).json({ error: "type must be invoice or quote" }); return; }
+  if (estimated_duration_value != null && (!Number.isFinite(Number(estimated_duration_value)) || Number(estimated_duration_value) <= 0)) { res.status(400).json({ error: "estimated_duration_value must be greater than zero" }); return; }
+  if (estimated_duration_unit != null && !["hours", "days"].includes(estimated_duration_unit)) { res.status(400).json({ error: "estimated_duration_unit must be hours or days" }); return; }
   if (job_id && property_id) { res.status(400).json({ error: "property_id cannot be used with a job_id" }); return; }
 
   // Resolve customer_id — either from a job or directly supplied
@@ -511,6 +519,8 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
       expiry_date: resolvedExpiryDate,
       notes: notes || null,
       customer_notes: customer_notes || null,
+      estimated_duration_value: estimated_duration_value != null ? Number(estimated_duration_value) : null,
+      estimated_duration_unit: estimated_duration_unit || null,
       subtotal,
       vat_rate: resolvedVatRate,
       vat_amount,
@@ -635,6 +645,8 @@ router.put("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     works_order,
     notes,
     customer_notes,
+    estimated_duration_value,
+    estimated_duration_unit,
     property_id,
     issue_date,
     due_date,
@@ -645,6 +657,8 @@ router.put("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     works_order?: string;
     notes?: string;
     customer_notes?: string;
+    estimated_duration_value?: number | null;
+    estimated_duration_unit?: "hours" | "days" | null;
     property_id?: string | null;
     issue_date?: string;
     due_date?: string;
@@ -664,6 +678,14 @@ router.put("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
   if (due_date !== undefined) updates.due_date = due_date || null;
   if (expiry_date !== undefined) updates.expiry_date = expiry_date || null;
   if (vat_rate !== undefined) updates.vat_rate = vat_rate;
+  if (estimated_duration_value !== undefined) {
+    if (estimated_duration_value != null && (!Number.isFinite(Number(estimated_duration_value)) || Number(estimated_duration_value) <= 0)) { res.status(400).json({ error: "estimated_duration_value must be greater than zero" }); return; }
+    updates.estimated_duration_value = estimated_duration_value != null ? Number(estimated_duration_value) : null;
+  }
+  if (estimated_duration_unit !== undefined) {
+    if (estimated_duration_unit != null && !["hours", "days"].includes(estimated_duration_unit)) { res.status(400).json({ error: "estimated_duration_unit must be hours or days" }); return; }
+    updates.estimated_duration_unit = estimated_duration_unit || null;
+  }
   if (property_id !== undefined) {
     if (property_id) {
       const { data: property, error: propertyErr } = await supabaseAdmin
@@ -1554,6 +1576,8 @@ router.post("/invoices/:id/convert", ...protect, async (req: AuthenticatedReques
       due_date: dueDate,
       notes: quote.notes,
       customer_notes: quote.customer_notes,
+      estimated_duration_value: quote.estimated_duration_value,
+      estimated_duration_unit: quote.estimated_duration_unit,
       works_order: quote.works_order,
       subtotal: quote.subtotal,
       vat_rate: quote.vat_rate,

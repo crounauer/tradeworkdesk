@@ -286,6 +286,8 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [expiryDate, setExpiryDate] = useState(invoice.expiry_date || "");
   const [notes, setNotes] = useState(invoice.notes || "");
   const [customerNotes, setCustomerNotes] = useState(invoice.customer_notes || "");
+  const [estimatedDurationValue, setEstimatedDurationValue] = useState(invoice.estimated_duration_value ? String(invoice.estimated_duration_value) : "");
+  const [estimatedDurationUnit, setEstimatedDurationUnit] = useState<"hours" | "days">(invoice.estimated_duration_unit || "hours");
   const [selectedPropertyId, setSelectedPropertyId] = useState(invoice.property_id || "");
   const { data: customerProperties = [] } = useQuery<Array<{
     id: string;
@@ -619,6 +621,8 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         works_order: worksOrder,
         notes,
         customer_notes: customerNotes,
+        estimated_duration_value: estimatedDurationValue ? Number(estimatedDurationValue) : null,
+        estimated_duration_unit: estimatedDurationValue ? estimatedDurationUnit : null,
         property_id: selectedPropertyId || null,
       });
       toast({ title: "Saved" });
@@ -914,6 +918,37 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                       : "0%"}
                 </p>
               </div>
+              <div className="col-span-2 md:col-span-3 border-t pt-4 mt-1">
+                <Label className="text-xs text-muted-foreground">Estimated Duration</Label>
+                {editing ? (
+                  <div className="mt-1 flex max-w-sm gap-2">
+                    <Input
+                      type="number"
+                      min="0.25"
+                      step="0.25"
+                      value={estimatedDurationValue}
+                      onChange={(e) => setEstimatedDurationValue(e.target.value)}
+                      placeholder="e.g. 2"
+                      className="h-8"
+                    />
+                    <select
+                      className="h-8 border border-border rounded-lg px-3 text-sm bg-background"
+                      value={estimatedDurationUnit}
+                      onChange={(e) => setEstimatedDurationUnit(e.target.value as "hours" | "days")}
+                    >
+                      <option value="hours">Hours</option>
+                      <option value="days">Days</option>
+                    </select>
+                  </div>
+                ) : (
+                  <p className="text-sm mt-1">
+                    {invoice.estimated_duration_value && invoice.estimated_duration_unit
+                      ? `${invoice.estimated_duration_value} ${invoice.estimated_duration_unit === "hours" ? "hour" : "day"}${invoice.estimated_duration_value === 1 ? "" : "s"}`
+                      : "Not specified"}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">This is an estimate for the customer and is separate from actual time attended.</p>
+              </div>
               <div className="col-span-2 md:col-span-3 border-t pt-4 mt-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Customer</Label>
@@ -941,7 +976,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 )}
                 {!invoice.job_id && customerProperties.length > 0 && (
                   <div>
-                    <Label className="text-xs text-muted-foreground">Service Property</Label>
+                    <Label className="text-xs text-muted-foreground">Service Address</Label>
                     {editing ? (
                       <select
                         className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
@@ -972,7 +1007,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                     </p>
                   </div>
                 )}
-                {(invoice.property?.address_line1 || invoice.job?.property_address?.address_line1) &&
+                {invoice.job_id && invoice.job?.property_address?.address_line1 &&
                   (invoice.property?.postcode || invoice.job?.property_address?.postcode)?.replace(/\s/g, "").toUpperCase() !==
                   invoice.customer?.postcode?.replace(/\s/g, "").toUpperCase() && (
                   <div>

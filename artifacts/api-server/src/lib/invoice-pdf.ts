@@ -67,6 +67,8 @@ export interface InvoicePdfData {
   // Notes
   works_order?: string | null;
   customer_notes?: string | null;
+  estimated_duration_value?: number | null;
+  estimated_duration_unit?: "hours" | "days" | null;
 }
 
 function fmt(currency: string, amount: number): string {
@@ -280,6 +282,22 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
   }
 
   y = Math.max(metaCurY, billY) + 6;
+
+  if (data.estimated_duration_value && data.estimated_duration_unit) {
+    if (y + 12 > pageHeight - 30) { doc.addPage(); y = 20; }
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...clrAccent);
+    doc.text("ESTIMATED DURATION", margin, y);
+    y += 4.5;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...clrDark);
+    const unitLabel = data.estimated_duration_unit === "hours" ? "hour" : "day";
+    const plural = Number(data.estimated_duration_value) === 1 ? "" : "s";
+    doc.text(`${data.estimated_duration_value} ${unitLabel}${plural}`, margin, y);
+    y += 6;
+  }
 
   // ── SECTION 2b: Works Order block ───────────────────────────────────────────
 
