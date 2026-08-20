@@ -65,18 +65,20 @@ export default async function SiteLayout({ site, children, basePath, previewToke
       {website.google_analytics_id && (
         <GoogleAnalytics trackingId={website.google_analytics_id} />
       )}
-      <SiteHeader
-        siteName={website.site_name}
-        logoUrl={website.logo_url}
-        pages={navPages}
-        company={company}
-        headerContent={headerContent}
-        templateSlug={website.template_slug || undefined}
-        theme={website.theme as Record<string, string>}
-        basePath={basePath}
-        previewToken={previewToken}
-        showTopBar={hasThemeHeaderContent || hasHeaderBlockContent}
-      />
+      {(hasThemeHeaderContent || hasHeaderBlockContent) ? (
+        <SiteHeader
+          siteName={website.site_name}
+          logoUrl={website.logo_url}
+          pages={navPages}
+          company={company}
+          headerContent={headerContent}
+          templateSlug={website.template_slug || undefined}
+          theme={website.theme as Record<string, string>}
+          basePath={basePath}
+          previewToken={previewToken}
+          showTopBar={hasThemeHeaderContent || hasHeaderBlockContent}
+        />
+      ) : null}
       <div id="main-content" style={{ minHeight: "60vh" }}>{children}</div>
       <SiteFooter
         siteName={website.site_name}
