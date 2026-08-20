@@ -2804,7 +2804,6 @@ type ServiceItem = {
   website_service_badge: string | null;
   website_service_price_text: string | null;
   website_service_cta_text: string | null;
-  website_service_cta_url: string | null;
   website_service_display_order: number;
   is_active: boolean;
 };
@@ -2820,7 +2819,6 @@ type ServiceFormState = {
   website_service_badge: string;
   website_service_price_text: string;
   website_service_cta_text: string;
-  website_service_cta_url: string;
   website_service_display_order: string;
 };
 
@@ -2836,7 +2834,6 @@ function createEmptyServiceForm(): ServiceFormState {
     website_service_badge: "",
     website_service_price_text: "",
     website_service_cta_text: "",
-    website_service_cta_url: "",
     website_service_display_order: "0",
   };
 }
@@ -2878,7 +2875,6 @@ function ServiceCatalogueSection() {
         website_service_badge: form.website_service_badge.trim() || null,
         website_service_price_text: form.website_service_price_text.trim() || null,
         website_service_cta_text: form.website_service_cta_text.trim() || null,
-        website_service_cta_url: form.website_service_cta_url.trim() || null,
         website_service_display_order: form.website_service_display_order ? Number(form.website_service_display_order) : 0,
       };
       if (editingId) {
@@ -2911,7 +2907,6 @@ function ServiceCatalogueSection() {
       website_service_badge: s.website_service_badge || "",
       website_service_price_text: s.website_service_price_text || "",
       website_service_cta_text: s.website_service_cta_text || "",
-      website_service_cta_url: s.website_service_cta_url || "",
       website_service_display_order: String(s.website_service_display_order || 0),
     });
     setEditingId(s.id);
@@ -3017,10 +3012,6 @@ function ServiceCatalogueSection() {
                     <Input value={form.website_service_cta_text} onChange={e => setForm(f => ({ ...f, website_service_cta_text: e.target.value }))} placeholder="Get quote" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Website CTA URL (optional)</Label>
-                    <Input value={form.website_service_cta_url} onChange={e => setForm(f => ({ ...f, website_service_cta_url: e.target.value }))} placeholder="/contact" />
-                  </div>
-                  <div className="space-y-1">
                     <Label className="text-xs">Website Display Order</Label>
                     <Input type="number" min={0} step={1} value={form.website_service_display_order} onChange={e => setForm(f => ({ ...f, website_service_display_order: e.target.value }))} onFocus={(e) => e.currentTarget.select()} placeholder="0" />
                   </div>
@@ -3090,10 +3081,6 @@ function ServiceCatalogueSection() {
                         <div className="space-y-1">
                           <Label className="text-xs">Website CTA Text (optional)</Label>
                           <Input value={form.website_service_cta_text} onChange={e => setForm(f => ({ ...f, website_service_cta_text: e.target.value }))} placeholder="Get quote" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Website CTA URL (optional)</Label>
-                          <Input value={form.website_service_cta_url} onChange={e => setForm(f => ({ ...f, website_service_cta_url: e.target.value }))} placeholder="/contact" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Website Display Order</Label>

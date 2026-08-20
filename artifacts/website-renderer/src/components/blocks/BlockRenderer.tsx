@@ -433,9 +433,7 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
               duration: durationMinutes,
               badge: service.website_service_badge || undefined,
               cta_text: service.online_booking_enabled ? (service.website_service_cta_text || "Book now") : (service.website_service_cta_text || undefined),
-              cta_url: service.online_booking_enabled && (!service.website_service_cta_url || service.website_service_cta_url === "/booking")
-                ? `/booking?serviceId=${encodeURIComponent(service.id)}`
-                : (service.website_service_cta_url || undefined),
+              cta_url: service.online_booking_enabled ? `/booking?serviceId=${encodeURIComponent(service.id)}` : undefined,
             };
           }),
         }
