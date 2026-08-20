@@ -140,7 +140,7 @@ export default function CustomerDetail() {
             <p className="text-muted-foreground mt-1">Customer since {new Date(customer.created_at).getFullYear()}</p>
           </div>
         </div>
-        <div className="grid w-full grid-cols-1 gap-2 md:flex md:w-auto md:flex-wrap md:items-center md:justify-end">
+        <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-wrap md:items-center md:justify-end">
           <Button size="sm" className="w-full md:w-auto" onClick={() => setShowBookJob(true)}>
             <Briefcase className="w-4 h-4 mr-2" /> Book Job
           </Button>
@@ -550,7 +550,7 @@ function CustomerInvoicesSection({ customerId, customerName, canCreate }: { cust
               className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
               onClick={() => navigate(`/invoices/${doc.id}`)}
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[doc.status] || "bg-slate-100 text-slate-600"}`}>
                     {statusLabels[doc.status] || doc.status}
@@ -560,7 +560,7 @@ function CustomerInvoicesSection({ customerId, customerName, canCreate }: { cust
                     <p className="text-xs text-muted-foreground capitalize">{doc.type}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex flex-wrap items-center gap-3 self-start md:self-auto md:justify-end">
                   <p className="font-semibold text-sm">
                     {new Intl.NumberFormat("en-GB", { style: "currency", currency: doc.currency || "GBP" }).format(Number(doc.total))}
                   </p>
@@ -744,7 +744,7 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
           const enquiryId = enquiryAttachment?.form_id || null;
           const card = (
             <Card className={`p-4 border border-border/50 transition-all ${log.job_id ? "hover:border-primary/50 hover:shadow-md" : ""}`}>
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold text-foreground truncate">{log.subject}</p>
@@ -764,7 +764,7 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex flex-wrap items-center gap-1 self-start md:self-auto md:justify-end">
                   {log.job_id && (
                     <Link href={`/jobs/${log.job_id}`}>
                       <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={(e) => e.stopPropagation()}>
