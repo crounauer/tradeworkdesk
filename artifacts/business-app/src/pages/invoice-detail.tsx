@@ -333,19 +333,30 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   // Labour charge dialog state
   const [labourOpen, setLabourOpen] = useState(false);
   const [labourRateId, setLabourRateId] = useState<string>("");
-  const [labourHours, setLabourHours] = useState("1");
-  const [labourMins, setLabourMins] = useState("0");
+  const [labourArrival, setLabourArrival] = useState("");
+  const [labourDeparture, setLabourDeparture] = useState("");
+  const [labourNotes, setLabourNotes] = useState("");
   const [labourIncludeCallout, setLabourIncludeCallout] = useState(true);
 
   function addLabourCharge() {
-    const rate = calloutRates.find(r => r.id === labourRateId);
-    if (!rate) return;
-    const totalHrs = (parseInt(labourHours) || 0) + (parseInt(labourMins) || 0) / 60;
+    const rate = calloutRates.find(r => r.id === labourRateId) || {
+      id: "default",
+      name: "Labour",
+      amount: 0,
+      hourly_rate: Number(settings?.default_hourly_rate) || 0,
+    };
+    const arrivalDate = new Date(labourArrival);
+    const departureDate = new Date(labourDeparture);
+    const totalHrs = (departureDate.getTime() - arrivalDate.getTime()) / 3600000;
     if (totalHrs <= 0) return;
     const newItems: InvoiceLineItem[] = [];
+    const durationLabel = totalHrs >= 1
+      ? `${Math.floor(totalHrs)}h${Math.round((totalHrs % 1) * 60) > 0 ? ` ${Math.round((totalHrs % 1) * 60)}m` : ""}`
+      : `${Math.round(totalHrs * 60)}m`;
+    const noteSuffix = labourNotes.trim() ? ` — ${labourNotes.trim()}` : "";
     if (labourIncludeCallout && rate.amount > 0) {
       newItems.push({
-        description: `${rate.name} – Call-out (first hour)`,
+        description: `${rate.name} – Call-out (first hour) (${durationLabel})${noteSuffix}`,
         quantity: 1,
         unit_price: rate.amount,
         item_type: "callout",
@@ -361,7 +372,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       }
     } else if (rate.hourly_rate != null && rate.hourly_rate > 0) {
       newItems.push({
-        description: `${rate.name} – Labour`,
+        description: `${rate.name} – Labour (${durationLabel})${noteSuffix}`,
         quantity: Math.round(totalHrs * 100) / 100,
         unit_price: rate.hourly_rate,
         item_type: "labour",
@@ -374,6 +385,9 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       });
     }
     setLabourOpen(false);
+    setLabourArrival("");
+    setLabourDeparture("");
+    setLabourNotes("");
   }
 
   const searchCatalogue = useCallback((query: string, idx: number, sectionType: "product" | "service") => {
@@ -391,9 +405,8 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 .then(d => (Array.isArray(d) ? d : []).map((s: { id: string; name: string; default_price: number | null }) => ({ ...s, type: "service" as const })))
             : Promise.resolve([] as CatalogueItem[]),
           sectionType === "product"
-            ? customFetch(`${import.meta.env.BASE_URL}api/admin/products`, { signal: ctrl.signal })
+            ? customFetch(`${import.meta.env.BASE_URL}api/products/search?q=${encodeURIComponent(query)}`, { signal: ctrl.signal })
                 .then(d => (Array.isArray(d) ? d : [])
-                  .filter((p: { name: string }) => p.name.toLowerCase().includes(query.toLowerCase()))
                   .slice(0, 10)
                   .map((p: { id: string; name: string; default_price: number | null }) => ({ ...p, type: "product" as const }))
                 ).catch(() => [] as CatalogueItem[])
@@ -976,11 +989,11 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
             </CardHeader>
             <CardContent className="space-y-5">
 
-              {/* ── Parts & Products ── */}
+              {/* ── Parts Used ── */}
               <div>
                 <div className="flex items-center gap-2 mb-2 pb-1.5 border-b">
-                  <Package className="w-4 h-4 text-purple-600" />
-                  <h3 className="text-sm font-semibold text-purple-700">Parts &amp; Products</h3>
+                  <Package className="w-4 h-4 text-blue-600" />
+                  <h3 className="text-sm font-semibold text-blue-700">Parts Used</h3>
                 </div>
                 <div className="hidden md:grid md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 text-xs text-muted-foreground px-1 mb-1">
                   <span>Description</span><span>Qty</span><span>Unit Price</span><span className="text-right">Total</span><span />
@@ -991,16 +1004,16 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 {productLineIndices.map(idx => renderLineRow(lines[idx], idx, "product"))}
                 {editing && (
                   <Button variant="ghost" size="sm" className="w-full border-dashed border mt-1" onClick={() => addLineOfType("product")}>
-                    <Plus className="w-4 h-4 mr-1" /> Add Part / Product
+                    <Plus className="w-4 h-4 mr-1" /> Add Part
                   </Button>
                 )}
               </div>
 
-              {/* ── Services ── */}
+              {/* ── Services Offered ── */}
               <div>
                 <div className="flex items-center gap-2 mb-2 pb-1.5 border-b">
-                  <Wrench className="w-4 h-4 text-blue-600" />
-                  <h3 className="text-sm font-semibold text-blue-700">Services</h3>
+                  <Wrench className="w-4 h-4 text-purple-600" />
+                  <h3 className="text-sm font-semibold text-purple-700">Services Offered</h3>
                 </div>
                 <div className="hidden md:grid md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 text-xs text-muted-foreground px-1 mb-1">
                   <span>Description</span><span>Qty</span><span>Unit Price</span><span className="text-right">Total</span><span />
@@ -1016,11 +1029,11 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 )}
               </div>
 
-              {/* ── Labour ── */}
+              {/* ── Time Attended ── */}
               <div>
                 <div className="flex items-center gap-2 mb-2 pb-1.5 border-b">
                   <Clock className="w-4 h-4 text-amber-600" />
-                  <h3 className="text-sm font-semibold text-amber-700">Labour</h3>
+                  <h3 className="text-sm font-semibold text-amber-700">Time Attended</h3>
                 </div>
                 <div className="hidden md:grid md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 text-xs text-muted-foreground px-1 mb-1">
                   <span>Description</span><span>Qty</span><span>Unit Price</span><span className="text-right">Total</span><span />
@@ -1031,14 +1044,9 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 {labourLineIndices.map(idx => renderLineRow(lines[idx], idx, "labour"))}
                 {editing && (
                   <div className="flex gap-2 mt-1">
-                    <Button variant="ghost" size="sm" className="flex-1 border-dashed border" onClick={() => addLineOfType("labour")}>
-                      <Plus className="w-4 h-4 mr-1" /> Add Labour Line
+                    <Button variant="ghost" size="sm" className="w-full border-dashed border text-amber-700 hover:text-amber-800 hover:bg-amber-50" onClick={() => setLabourOpen(true)}>
+                      <Plus className="w-4 h-4 mr-1" /> Add Entry
                     </Button>
-                    {calloutRates.length > 0 && (
-                      <Button variant="ghost" size="sm" className="flex-1 border-dashed border text-amber-700 hover:text-amber-800 hover:bg-amber-50" onClick={() => setLabourOpen(true)}>
-                        <Clock className="w-4 h-4 mr-1" /> Add from Rate Card
-                      </Button>
-                    )}
                   </div>
                 )}
               </div>
@@ -1410,37 +1418,48 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           </DialogHeader>
           <div className="space-y-4 py-1">
             {/* Rate selector */}
-            <div className="space-y-1">
-              <Label className="text-xs">Callout Rate</Label>
-              <Select value={labourRateId} onValueChange={setLabourRateId}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Select rate…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {calloutRates.map(r => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.name}
-                      {r.hourly_rate != null ? ` — ${formatCurrency(r.hourly_rate, currency)}/hr` : ""}
-                      {r.amount > 0 ? ` (callout: ${formatCurrency(r.amount, currency)})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {calloutRates.length > 0 ? (
+              <div className="space-y-1">
+                <Label className="text-xs">Callout Rate</Label>
+                <Select value={labourRateId} onValueChange={setLabourRateId}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select rate…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {calloutRates.map(r => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                        {r.hourly_rate != null ? ` — ${formatCurrency(r.hourly_rate, currency)}/hr` : ""}
+                        {r.amount > 0 ? ` (callout: ${formatCurrency(r.amount, currency)})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Using the company default hourly rate{settings?.default_hourly_rate ? ` of ${formatCurrency(settings.default_hourly_rate, currency)}` : ""}.
+              </p>
+            )}
 
-            {/* Duration */}
+            {/* Time on site */}
             <div className="space-y-1">
-              <Label className="text-xs">Time on site</Label>
-              <div className="flex items-end gap-3">
+              <Label className="text-xs">Arrival and departure</Label>
+              <div className="grid sm:grid-cols-2 gap-3">
                 <div className="flex-1 space-y-1">
-                  <p className="text-xs text-muted-foreground">Hours</p>
-                  <Input type="number" min="0" max="24" value={labourHours} onChange={e => setLabourHours(e.target.value)} onFocus={(e) => e.currentTarget.select()} className="h-9" />
+                  <p className="text-xs text-muted-foreground">Arrival</p>
+                  <Input type="datetime-local" value={labourArrival} onChange={e => setLabourArrival(e.target.value)} className="h-9" />
                 </div>
                 <div className="flex-1 space-y-1">
-                  <p className="text-xs text-muted-foreground">Minutes</p>
-                  <Input type="number" min="0" max="59" step="15" value={labourMins} onChange={e => setLabourMins(e.target.value)} onFocus={(e) => e.currentTarget.select()} className="h-9" />
+                  <p className="text-xs text-muted-foreground">Departure</p>
+                  <Input type="datetime-local" value={labourDeparture} onChange={e => setLabourDeparture(e.target.value)} className="h-9" />
                 </div>
               </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Notes (optional)</Label>
+              <Input value={labourNotes} onChange={e => setLabourNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
             </div>
 
             {/* Include callout checkbox */}
@@ -1464,9 +1483,13 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
 
             {/* Cost preview */}
             {(() => {
-              const rate = calloutRates.find(r => r.id === labourRateId);
-              if (!rate) return null;
-              const totalHrs = (parseInt(labourHours) || 0) + (parseInt(labourMins) || 0) / 60;
+              const rate = calloutRates.find(r => r.id === labourRateId) || {
+                amount: 0,
+                hourly_rate: Number(settings?.default_hourly_rate) || 0,
+              };
+              const totalHrs = labourArrival && labourDeparture
+                ? (new Date(labourDeparture).getTime() - new Date(labourArrival).getTime()) / 3600000
+                : 0;
               if (totalHrs <= 0) return null;
               const calloutCost = labourIncludeCallout && rate.amount > 0 ? rate.amount : 0;
               const labourHrsCalc = calloutCost > 0 ? Math.max(0, totalHrs - 1) : totalHrs;
@@ -1504,7 +1527,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setLabourOpen(false)}>Cancel</Button>
-            <Button onClick={addLabourCharge} disabled={!labourRateId || ((parseInt(labourHours) || 0) + (parseInt(labourMins) || 0) === 0)}>
+            <Button onClick={addLabourCharge} disabled={(calloutRates.length > 0 && !labourRateId) || !labourArrival || !labourDeparture}>
               Add to {isInvoice ? "Invoice" : "Quote"}
             </Button>
           </DialogFooter>
