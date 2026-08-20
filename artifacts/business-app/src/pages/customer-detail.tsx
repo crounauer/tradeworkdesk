@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt, ChevronRight, LogIn } from "lucide-react";
+import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt, ChevronRight, LogIn, FileText } from "lucide-react";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -71,6 +71,7 @@ export default function CustomerDetail() {
   const [showBookJob, setShowBookJob] = useState(false);
   const [showBookEnquiry, setShowBookEnquiry] = useState(false);
   const [showSms, setShowSms] = useState(false);
+  const [creatingType, setCreatingType] = useState<"invoice" | "quote" | null>(null);
   const qc = useQueryClient();
 
   useEffect(() => {
@@ -88,11 +89,37 @@ export default function CustomerDetail() {
   const deleteMutation = useDeleteCustomer();
   const { toast } = useToast();
 
-  const { hasAddon } = usePlanFeatures();
+  const { hasAddon, hasFeature } = usePlanFeatures();
   const canDelete = profile?.role === "admin" || profile?.role === "super_admin";
+  const canCreateInvoices = hasFeature("invoicing") && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
 
   if (isLoading) return <div className="p-8">Loading...</div>;
   if (!customer) return <div>Customer not found</div>;
+
+  const createDocument = async (type: "invoice" | "quote") => {
+    try {
+      setCreatingType(type);
+      const res = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customer_id: customer.id, type }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { error?: string }).error || `Failed to create ${type}`);
+      }
+
+      const created = await res.json() as { id: string };
+      qc.invalidateQueries({ queryKey: ["customer-invoices", customer.id] });
+      qc.invalidateQueries({ queryKey: ["/api/invoices"] });
+      navigate(`/invoices/${created.id}?edit=1`);
+    } catch (e) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed to create document", variant: "destructive" });
+    } finally {
+      setCreatingType(null);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in">
@@ -120,6 +147,18 @@ export default function CustomerDetail() {
           <Button size="sm" className="w-full md:w-auto" variant="secondary" onClick={() => setShowBookEnquiry(true)}>
             <MessageSquare className="w-4 h-4 mr-2" /> New Enquiry
           </Button>
+          {canCreateInvoices && (
+            <Button size="sm" className="w-full md:w-auto" variant="outline" disabled={creatingType !== null} onClick={() => createDocument("quote")}>
+              {creatingType === "quote" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+              New Quote
+            </Button>
+          )}
+          {canCreateInvoices && (
+            <Button size="sm" className="w-full md:w-auto" disabled={creatingType !== null} onClick={() => createDocument("invoice")}>
+              {creatingType === "invoice" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Receipt className="w-4 h-4 mr-2" />}
+              New Invoice
+            </Button>
+          )}
           {hasAddon("sms_messaging") && (customer.phone || customer.mobile) && (
             <Button size="sm" className="w-full md:w-auto" variant="outline" onClick={() => setShowSms(true)}>
               <MessageSquare className="w-4 h-4 mr-2" /> Send SMS
@@ -307,7 +346,11 @@ export default function CustomerDetail() {
 
             <CustomerEnquiriesSection customerId={customer.id} onNewEnquiry={() => setShowBookEnquiry(true)} />
 
-            <CustomerInvoicesSection customerId={customer.id} />
+            <CustomerInvoicesSection
+              customerId={customer.id}
+              customerName={customer.business_name || `${customer.first_name} ${customer.last_name}`.trim()}
+              canCreate={canCreateInvoices}
+            />
 
             <CustomerCommsSection customerId={customer.id} />
           </div>
@@ -445,7 +488,7 @@ function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; on
   );
 }
 
-function CustomerInvoicesSection({ customerId }: { customerId: string }) {
+function CustomerInvoicesSection({ customerId, customerName, canCreate }: { customerId: string; customerName: string; canCreate: boolean }) {
   const [, navigate] = useLocation();
   const { hasFeature } = usePlanFeatures();
 
@@ -466,7 +509,7 @@ function CustomerInvoicesSection({ customerId }: { customerId: string }) {
     sent_at: string | null;
   }>;
 
-  if (!hasFeature("invoicing") || isLoading || docs.length === 0) return null;
+  if (!hasFeature("invoicing") || isLoading) return null;
 
   const statusColors: Record<string, string> = {
     draft:     "bg-gray-100 text-gray-700",
@@ -485,48 +528,60 @@ function CustomerInvoicesSection({ customerId }: { customerId: string }) {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-xl font-display font-bold flex items-center gap-2">
-        <Receipt className="w-5 h-5" /> Invoices &amp; Quotes
-        <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{docs.length}</span>
-      </h2>
-      <div className="space-y-2">
-        {docs.map((doc) => (
-          <Card
-            key={doc.id}
-            className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
-            onClick={() => navigate(`/invoices/${doc.id}`)}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[doc.status] || "bg-slate-100 text-slate-600"}`}>
-                  {statusLabels[doc.status] || doc.status}
-                </span>
-                <div className="min-w-0">
-                  <p className="font-mono font-semibold text-sm text-foreground">{doc.invoice_number}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{doc.type}</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <h2 className="text-xl font-display font-bold flex items-center gap-2">
+          <Receipt className="w-5 h-5" /> Invoices &amp; Quotes
+          <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{docs.length}</span>
+        </h2>
+      </div>
+
+      {docs.length === 0 ? (
+        <Card className="p-6 border border-dashed border-border/70">
+          <p className="text-sm text-muted-foreground">
+            No invoices or quotes yet for {customerName}.
+            {canCreate ? " Use the top action buttons to create one." : ""}
+          </p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {docs.map((doc) => (
+            <Card
+              key={doc.id}
+              className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
+              onClick={() => navigate(`/invoices/${doc.id}`)}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[doc.status] || "bg-slate-100 text-slate-600"}`}>
+                    {statusLabels[doc.status] || doc.status}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-mono font-semibold text-sm text-foreground">{doc.invoice_number}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{doc.type}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <p className="font-semibold text-sm">
+                    {new Intl.NumberFormat("en-GB", { style: "currency", currency: doc.currency || "GBP" }).format(Number(doc.total))}
+                  </p>
+                  {doc.sent_at && (
+                    <span className="text-xs text-blue-600 whitespace-nowrap flex items-center gap-1" title={`Last sent ${new Date(doc.sent_at).toLocaleString("en-GB")}`}>
+                      <Mail className="w-3.5 h-3.5" />
+                      {new Date(doc.sent_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                    </span>
+                  )}
+                  {doc.issue_date && (
+                    <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {new Date(doc.issue_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <p className="font-semibold text-sm">
-                  {new Intl.NumberFormat("en-GB", { style: "currency", currency: doc.currency || "GBP" }).format(Number(doc.total))}
-                </p>
-                {doc.sent_at && (
-                  <span className="text-xs text-blue-600 whitespace-nowrap flex items-center gap-1" title={`Last sent ${new Date(doc.sent_at).toLocaleString("en-GB")}`}>
-                    <Mail className="w-3.5 h-3.5" />
-                    {new Date(doc.sent_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                  </span>
-                )}
-                {doc.issue_date && (
-                  <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" />
-                    {new Date(doc.issue_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                  </span>
-                )}
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
