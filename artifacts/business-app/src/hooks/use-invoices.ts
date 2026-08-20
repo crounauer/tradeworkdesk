@@ -140,6 +140,7 @@ export interface CreateInvoiceInput {
 
 export interface UpdateInvoiceInput {
   line_items?: InvoiceLineItem[];
+  property_id?: string | null;
   works_order?: string;
   notes?: string;
   customer_notes?: string;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { customFetch } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft, Send, CheckCircle2, XCircle, RefreshCcw, Download, Trash2,
@@ -286,6 +286,18 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [expiryDate, setExpiryDate] = useState(invoice.expiry_date || "");
   const [notes, setNotes] = useState(invoice.notes || "");
   const [customerNotes, setCustomerNotes] = useState(invoice.customer_notes || "");
+  const [selectedPropertyId, setSelectedPropertyId] = useState(invoice.property_id || "");
+  const { data: customerProperties = [] } = useQuery<Array<{
+    id: string;
+    address_line1?: string | null;
+    city?: string | null;
+    county?: string | null;
+    postcode?: string | null;
+  }>>({
+    queryKey: ["invoice-customer-properties", invoice.customer_id],
+    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/properties?customer_id=${invoice.customer_id}`),
+    enabled: !invoice.job_id,
+  });
 
   // Dialogs
   const [sendOpen, setSendOpen] = useState(false);
@@ -607,6 +619,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         works_order: worksOrder,
         notes,
         customer_notes: customerNotes,
+        property_id: selectedPropertyId || null,
       });
       toast({ title: "Saved" });
       setEditing(false);
@@ -924,6 +937,31 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                   <div>
                     <Label className="text-xs text-muted-foreground">Email</Label>
                     <p className="text-sm mt-1 break-all">{invoice.customer.email}</p>
+                  </div>
+                )}
+                {!invoice.job_id && customerProperties.length > 0 && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Service Property</Label>
+                    {editing ? (
+                      <select
+                        className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                        value={selectedPropertyId}
+                        onChange={(e) => setSelectedPropertyId(e.target.value)}
+                      >
+                        <option value="">Select property...</option>
+                        {customerProperties.map((property) => (
+                          <option key={property.id} value={property.id}>
+                            {[property.address_line1, property.city, property.postcode].filter(Boolean).join(", ") || "Unnamed property"}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="text-sm mt-1">
+                        {invoice.property?.address_line1
+                          ? [invoice.property.address_line1, invoice.property.city, invoice.property.postcode].filter(Boolean).join(", ")
+                          : "No property selected"}
+                      </p>
+                    )}
                   </div>
                 )}
                 {invoice.customer?.address_line1 && (

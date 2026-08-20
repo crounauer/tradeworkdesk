@@ -635,6 +635,7 @@ router.put("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     works_order,
     notes,
     customer_notes,
+    property_id,
     issue_date,
     due_date,
     expiry_date,
@@ -644,6 +645,7 @@ router.put("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     works_order?: string;
     notes?: string;
     customer_notes?: string;
+    property_id?: string | null;
     issue_date?: string;
     due_date?: string;
     expiry_date?: string;
@@ -662,6 +664,19 @@ router.put("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
   if (due_date !== undefined) updates.due_date = due_date || null;
   if (expiry_date !== undefined) updates.expiry_date = expiry_date || null;
   if (vat_rate !== undefined) updates.vat_rate = vat_rate;
+  if (property_id !== undefined) {
+    if (property_id) {
+      const { data: property, error: propertyErr } = await supabaseAdmin
+        .from("properties")
+        .select("id")
+        .eq("id", property_id)
+        .eq("customer_id", existing.customer_id as string)
+        .eq("tenant_id", req.tenantId!)
+        .maybeSingle();
+      if (propertyErr || !property) { res.status(400).json({ error: "Property does not belong to this customer" }); return; }
+    }
+    updates.property_id = property_id || null;
+  }
   if (line_items !== undefined) {
     updates.subtotal = subtotal;
     updates.vat_amount = vat_amount;
