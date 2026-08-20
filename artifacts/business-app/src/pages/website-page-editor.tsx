@@ -99,8 +99,10 @@ interface Block {
 }
 
 interface WebsiteRateService {
+  id?: string;
   name?: string;
   default_price?: number | null;
+  online_booking_enabled?: boolean | null;
   booking_duration_minutes?: number | null;
   website_service_description?: string | null;
   website_service_badge?: string | null;
@@ -2179,7 +2181,7 @@ function BlockEditor({
           duration: typeof service.booking_duration_minutes === "number" ? `${service.booking_duration_minutes} min` : "",
           badge: service.website_service_badge || "",
           ctaLabel: service.website_service_cta_text || "",
-          ctaHref: service.website_service_cta_url || "",
+          ctaHref: service.website_service_cta_url || (service.online_booking_enabled ? `/booking?serviceId=${encodeURIComponent(String(service.id || ""))}` : ""),
         }));
       const effectiveRates = catalogueRates.length > 0 ? catalogueRates : rates;
       const updateRates = (next: typeof effectiveRates) => {

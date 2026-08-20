@@ -1889,7 +1889,7 @@ router.get(
         .limit(20),
       db.from("booking_settings").select("is_enabled").eq("tenant_id", domainRecord.tenant_id).maybeSingle(),
       db.from("service_catalogue")
-        .select("id, name, default_price, booking_duration_minutes, website_service_description, website_service_badge, website_service_price_text, website_service_cta_text, website_service_cta_url, website_service_display_order")
+        .select("id, name, default_price, booking_duration_minutes, online_booking_enabled, website_service_description, website_service_badge, website_service_price_text, website_service_cta_text, website_service_cta_url, website_service_display_order")
         .eq("tenant_id", domainRecord.tenant_id)
         .eq("is_active", true)
         .eq("show_in_website_service_rates", true)
@@ -2091,7 +2091,7 @@ router.get(
         .limit(20),
       db.from("booking_settings").select("is_enabled").eq("tenant_id", String(website.tenant_id)).maybeSingle(),
       db.from("service_catalogue")
-        .select("id, name, default_price, booking_duration_minutes, website_service_description, website_service_badge, website_service_price_text, website_service_cta_text, website_service_cta_url, website_service_display_order")
+        .select("id, name, default_price, booking_duration_minutes, online_booking_enabled, website_service_description, website_service_badge, website_service_price_text, website_service_cta_text, website_service_cta_url, website_service_display_order")
         .eq("tenant_id", String(website.tenant_id))
         .eq("is_active", true)
         .eq("show_in_website_service_rates", true)

@@ -226,6 +226,17 @@ export default function OnlineBookingBlock({ content }: Props) {
       .catch(() => setLoadingServices(false));
   }, [tenant_id, bookingServices.length]);
 
+  useEffect(() => {
+    if (loadingServices || selectedService || services.length === 0 || typeof window === "undefined") return;
+    const serviceId = new URLSearchParams(window.location.search).get("serviceId");
+    if (!serviceId) return;
+    const matchedService = services.find((service) => service.id === serviceId);
+    if (!matchedService) return;
+    setSelectedService(matchedService);
+    setIsComplex(isComplexService(matchedService, complexKws));
+    setStep("details");
+  }, [complexKws, loadingServices, selectedService, services]);
+
   // Load slots for current week window
   const loadSlots = useCallback(() => {
     if (!tenant_id || !selectedService) return;

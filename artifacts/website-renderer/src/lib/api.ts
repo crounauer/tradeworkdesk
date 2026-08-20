@@ -128,6 +128,7 @@ export interface ServiceCatalogueWebsiteRate {
   name: string;
   default_price: number | null;
   booking_duration_minutes: number | null;
+  online_booking_enabled?: boolean | null;
   website_service_description: string | null;
   website_service_badge: string | null;
   website_service_price_text: string | null;
