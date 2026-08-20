@@ -1,0 +1,48 @@
+name: Technician Daily Summary Dispatch
+
+on:
+  schedule:
+    # Poll every 5 minutes; API logic only sends once/day per tenant when due in Europe/London.
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Trigger technician daily summaries
+        run: |
+          set -o pipefail
+          BASE_URL=$(echo "${{ secrets.PLATFORM_API_URL }}" | tr -d '[:space:]')
+          HTTP_BODY=$(curl --silent --show-error --location --max-time 180 \
+            -w "\nHTTP_STATUS=%{http_code}" \
+            -X POST \
+            -H "x-cron-secret: ${{ secrets.INTERNAL_CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${BASE_URL}/api/internal/send-technician-daily-summaries")
+
+          echo "Dispatch response: $HTTP_BODY"
+
+          STATUS_LINE=$(printf '%s\n' "$HTTP_BODY" | tail -n 1)
+          HTTP_STATUS=${STATUS_LINE#HTTP_STATUS=}
+          RESPONSE_BODY=$(printf '%s\n' "$HTTP_BODY" | sed '$d')
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Dispatch request failed with HTTP $HTTP_STATUS"
+            echo "$RESPONSE_BODY"
+            exit 1
+          fi
+
+          OK=$(echo "$RESPONSE_BODY" | jq -r '.ok // false')
+          if [ "$OK" != "true" ]; then
+            echo "Dispatch failed: $RESPONSE_BODY"
+            exit 1
+          fi
+
+          PROCESSED=$(echo "$RESPONSE_BODY" | jq -r '.processedTenants // 0')
+          SENT=$(echo "$RESPONSE_BODY" | jq -r '.sentEmails // 0')
+          SKIPPED=$(echo "$RESPONSE_BODY" | jq -r '.skippedTechnicians // 0')
+          ERRORS=$(echo "$RESPONSE_BODY" | jq -r '.errors // 0')
+          echo "Dispatch complete: tenants=$PROCESSED sent=$SENT skipped=$SKIPPED errors=$ERRORS"

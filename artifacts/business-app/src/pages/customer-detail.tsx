@@ -113,25 +113,25 @@ export default function CustomerDetail() {
             <p className="text-muted-foreground mt-1">Customer since {new Date(customer.created_at).getFullYear()}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button size="sm" onClick={() => setShowBookJob(true)}>
+        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
+          <Button size="sm" className="w-full sm:w-auto" onClick={() => setShowBookJob(true)}>
             <Briefcase className="w-4 h-4 mr-2" /> Book Job
           </Button>
-          <Button size="sm" variant="secondary" onClick={() => setShowBookEnquiry(true)}>
+          <Button size="sm" className="w-full sm:w-auto" variant="secondary" onClick={() => setShowBookEnquiry(true)}>
             <MessageSquare className="w-4 h-4 mr-2" /> New Enquiry
           </Button>
           {hasAddon("sms_messaging") && (customer.phone || customer.mobile) && (
-            <Button size="sm" variant="outline" onClick={() => setShowSms(true)}>
+            <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => setShowSms(true)}>
               <MessageSquare className="w-4 h-4 mr-2" /> Send SMS
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setEditing(!editing)}>
             {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
           </Button>
           {canDelete && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm">
+                <Button variant="destructive" size="sm" className="w-full sm:w-auto">
                   <Trash2 className="w-4 h-4 mr-2" /> Delete
                 </Button>
               </AlertDialogTrigger>
@@ -1307,22 +1307,22 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
                   </p>
                 )}
               </div>
-              <div className="flex w-full sm:w-auto flex-wrap items-center gap-2 sm:justify-end">
+              <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
                 {!status.is_registered && (
-                  <Button size="sm" className="whitespace-nowrap" variant="outline" onClick={extendInviteExpiry} disabled={extendingInvite || toggling || sendingInvite}>
+                  <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={extendInviteExpiry} disabled={extendingInvite || toggling || sendingInvite}>
                     {extendingInvite ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                     {extendingInvite ? "Extending..." : "Extend 7 Days"}
                   </Button>
                 )}
                 {!status.is_registered && (
-                  <Button size="sm" className="whitespace-nowrap" variant="outline" onClick={sendInvite} disabled={sendingInvite || !customerEmail}>
+                  <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={sendInvite} disabled={sendingInvite || !customerEmail}>
                     {sendingInvite ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                     Resend Invite
                   </Button>
                 )}
                 <Button
                   size="sm"
-                  className="whitespace-nowrap"
+                  className="w-full sm:w-auto"
                   variant={status.is_active ? "destructive" : "default"}
                   onClick={toggleAccess}
                   disabled={toggling}
@@ -1338,7 +1338,7 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
                 </Button>
                 <Button
                   size="sm"
-                  className="whitespace-nowrap"
+                  className="w-full sm:w-auto"
                   variant="outline"
                   onClick={openPortalView}
                   disabled={openingPortalView || !status.is_active}

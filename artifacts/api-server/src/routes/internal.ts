@@ -9,6 +9,7 @@ import {
   sendRenewalReminder,
   sendLowCreditsAlert,
 } from "../lib/email";
+import { runTechnicianDailySummaryEmails } from "../lib/technician-daily-summary";
 
 // ── SigV4 helpers for R2 ────────────────────────────────────────────────────
 function sha256hex(data: string | Buffer): string {
@@ -380,6 +381,26 @@ router.get("/internal/send-low-credits-alerts", async (req: Request, res: Respon
   }
 
   res.json({ sent: successCount, results });
+});
+
+router.post("/internal/send-technician-daily-summaries", async (req: Request, res: Response): Promise<void> => {
+  if (!requireCronSecret(req, res)) return;
+
+  try {
+    const now = new Date();
+    const dispatch = await runTechnicianDailySummaryEmails(now);
+    res.json({
+      ok: true,
+      triggered_at: now.toISOString(),
+      timezone: "Europe/London",
+      ...dispatch,
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to run technician daily summary dispatch.",
+    });
+  }
 });
 
 router.get("/internal/social/delivery-attempts", async (req: Request, res: Response): Promise<void> => {
