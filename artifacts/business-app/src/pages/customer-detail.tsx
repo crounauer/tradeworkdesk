@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt, ChevronRight, LogIn, FileText } from "lucide-react";
+import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt, ChevronRight, LogIn, FileText, Navigation } from "lucide-react";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -119,6 +119,34 @@ export default function CustomerDetail() {
     } finally {
       setCreatingType(null);
     }
+  };
+
+  const getPropertyMapsUrl = (prop: {
+    latitude?: number | null;
+    longitude?: number | null;
+    postcode?: string | null;
+    address_line1?: string | null;
+    city?: string | null;
+    county?: string | null;
+  }): string | null => {
+    const lat = typeof prop.latitude === "number" ? prop.latitude : null;
+    const lng = typeof prop.longitude === "number" ? prop.longitude : null;
+    if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)) {
+      return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    }
+
+    const postcode = String(prop.postcode || "").trim();
+    if (postcode) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(postcode)}`;
+    }
+
+    const fallback = [prop.address_line1, prop.city, prop.county]
+      .map((v) => String(v || "").trim())
+      .filter(Boolean)
+      .join(", ");
+    if (!fallback) return null;
+
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallback)}`;
   };
 
   return (
@@ -328,9 +356,32 @@ export default function CustomerDetail() {
                         <div className="p-2 bg-slate-100 rounded-lg text-slate-600">
                           <Home className="w-5 h-5" />
                         </div>
-                        <div>
-                          <p className="font-semibold text-foreground">{prop.address_line1}</p>
-                          <p className="text-sm text-muted-foreground">{prop.postcode}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-foreground truncate">{prop.address_line1}</p>
+                              <p className="text-sm text-muted-foreground">{prop.postcode}</p>
+                            </div>
+                            {getPropertyMapsUrl(prop) && (
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8 shrink-0"
+                                aria-label="Open in maps"
+                                title="Navigate"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  const mapUrl = getPropertyMapsUrl(prop);
+                                  if (!mapUrl) return;
+                                  window.open(mapUrl, "_blank", "noopener,noreferrer");
+                                }}
+                              >
+                                <Navigation className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
                           <span className="inline-block mt-2 text-xs font-medium bg-slate-100 px-2 py-1 rounded-md text-slate-600 capitalize">
                             {prop.property_type || 'Property'}
                           </span>
@@ -342,7 +393,7 @@ export default function CustomerDetail() {
               </div>
             )}
 
-            <CustomerJobsSection customerId={customer.id} onBookJob={() => setShowBookJob(true)} />
+            <CustomerJobsSection customerId={customer.id} />
 
             <CustomerEnquiriesSection customerId={customer.id} onNewEnquiry={() => setShowBookEnquiry(true)} />
 
@@ -386,7 +437,7 @@ export default function CustomerDetail() {
   );
 }
 
-function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; onBookJob?: () => void }) {
+function CustomerJobsSection({ customerId }: { customerId: string }) {
   const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
   const { data: jobsResponse } = useQuery({
     queryKey: ["customer-jobs", customerId],
@@ -447,11 +498,6 @@ function CustomerJobsSection({ customerId, onBookJob }: { customerId: string; on
           >
             {sortDirection === "desc" ? "Newest First" : "Oldest First"}
           </Button>
-          {onBookJob && (
-            <Button size="sm" className="w-full md:w-auto" variant="outline" onClick={onBookJob}>
-              <Plus className="w-4 h-4 mr-1" /> Book Job
-            </Button>
-          )}
         </div>
       </div>
       <div className="space-y-2">
@@ -1147,6 +1193,7 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
   const [extendingInvite, setExtendingInvite] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [openingPortalView, setOpeningPortalView] = useState(false);
+  const [portalExpanded, setPortalExpanded] = useState(false);
 
   const { data: portalStatus, isLoading } = useQuery({
     queryKey: ["portal-status", customerId],
@@ -1303,11 +1350,20 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
 
   return (
     <div className="space-y-3">
-      <h2 className="text-xl font-display font-bold flex items-center gap-2">
-        <Globe className="w-5 h-5" /> Customer Portal
-      </h2>
-      <Card className="p-5 border border-border/50 shadow-sm">
-        {!status?.has_portal ? (
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-3 text-left"
+        onClick={() => setPortalExpanded((expanded) => !expanded)}
+        aria-expanded={portalExpanded}
+      >
+        <span className="text-xl font-display font-bold flex items-center gap-2">
+          <Globe className="w-5 h-5" /> Customer Portal
+        </span>
+        <ChevronRight className={`w-5 h-5 shrink-0 text-muted-foreground transition-transform ${portalExpanded ? "rotate-90" : ""}`} />
+      </button>
+      {portalExpanded && (
+        <Card className="p-5 border border-border/50 shadow-sm">
+          {!status?.has_portal ? (
           <div className="space-y-4">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
@@ -1345,7 +1401,7 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
               </div>
             )}
           </div>
-        ) : (
+          ) : (
           <div className="space-y-4">
             <div className="flex flex-col md:flex-row items-start md:items-start justify-between gap-4">
               <div className="space-y-1">
@@ -1405,8 +1461,9 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
               </div>
             </div>
           </div>
-        )}
-      </Card>
+          )}
+        </Card>
+      )}
     </div>
   );
 }
