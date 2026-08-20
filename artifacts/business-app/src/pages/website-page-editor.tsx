@@ -2180,8 +2180,10 @@ function BlockEditor({
           description: service.website_service_description || "",
           duration: typeof service.booking_duration_minutes === "number" ? `${service.booking_duration_minutes} min` : "",
           badge: service.website_service_badge || "",
-          ctaLabel: service.website_service_cta_text || "",
-          ctaHref: service.website_service_cta_url || (service.online_booking_enabled ? `/booking?serviceId=${encodeURIComponent(String(service.id || ""))}` : ""),
+          ctaLabel: service.online_booking_enabled ? (service.website_service_cta_text || "Book now") : (service.website_service_cta_text || ""),
+          ctaHref: service.online_booking_enabled && (!service.website_service_cta_url || service.website_service_cta_url === "/booking")
+            ? `/booking?serviceId=${encodeURIComponent(String(service.id || ""))}`
+            : (service.website_service_cta_url || ""),
         }));
       const effectiveRates = catalogueRates.length > 0 ? catalogueRates : rates;
       const updateRates = (next: typeof effectiveRates) => {
