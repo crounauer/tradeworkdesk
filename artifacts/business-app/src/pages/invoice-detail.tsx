@@ -286,8 +286,6 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [expiryDate, setExpiryDate] = useState(invoice.expiry_date || "");
   const [notes, setNotes] = useState(invoice.notes || "");
   const [customerNotes, setCustomerNotes] = useState(invoice.customer_notes || "");
-  const [estimatedDurationValue, setEstimatedDurationValue] = useState(invoice.estimated_duration_value ? String(invoice.estimated_duration_value) : "");
-  const [estimatedDurationUnit, setEstimatedDurationUnit] = useState<"hours" | "days">(invoice.estimated_duration_unit || "hours");
   const [selectedPropertyId, setSelectedPropertyId] = useState(invoice.property_id || "");
   const { data: customerProperties = [] } = useQuery<Array<{
     id: string;
@@ -346,13 +344,40 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
 
   // Labour charge dialog state
   const [labourOpen, setLabourOpen] = useState(false);
+  const [labourMode, setLabourMode] = useState<"actual" | "estimate">("actual");
   const [labourRateId, setLabourRateId] = useState<string>("");
   const [labourArrival, setLabourArrival] = useState("");
   const [labourDeparture, setLabourDeparture] = useState("");
   const [labourNotes, setLabourNotes] = useState("");
   const [labourIncludeCallout, setLabourIncludeCallout] = useState(true);
+  const [estimatedTimeValue, setEstimatedTimeValue] = useState("");
+  const [estimatedTimeUnit, setEstimatedTimeUnit] = useState<"hours" | "days">("hours");
+  const [estimatedTimeRate, setEstimatedTimeRate] = useState("");
 
   function addLabourCharge() {
+    if (labourMode === "estimate") {
+      const quantity = Number(estimatedTimeValue);
+      const rate = Number(estimatedTimeRate);
+      if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(rate) || rate < 0) return;
+      const unitLabel = estimatedTimeUnit === "hours" ? "hour" : "day";
+      const plural = quantity === 1 ? "" : "s";
+      const noteSuffix = labourNotes.trim() ? ` — ${labourNotes.trim()}` : "";
+      setLines(prev => [
+        ...prev.filter(l => l.description.trim() || Number(l.unit_price) !== 0),
+        {
+          description: `Estimated labour (${quantity} ${unitLabel}${plural})${noteSuffix}`,
+          quantity,
+          unit_price: rate,
+          item_type: "labour",
+        },
+      ]);
+      setLabourOpen(false);
+      setEstimatedTimeValue("");
+      setEstimatedTimeRate("");
+      setLabourNotes("");
+      return;
+    }
+
     const rate = calloutRates.find(r => r.id === labourRateId) || {
       id: "default",
       name: "Labour",
@@ -621,8 +646,6 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         works_order: worksOrder,
         notes,
         customer_notes: customerNotes,
-        estimated_duration_value: estimatedDurationValue ? Number(estimatedDurationValue) : null,
-        estimated_duration_unit: estimatedDurationValue ? estimatedDurationUnit : null,
         property_id: selectedPropertyId || null,
       });
       toast({ title: "Saved" });
@@ -918,37 +941,6 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                       : "0%"}
                 </p>
               </div>
-              <div className="col-span-2 md:col-span-3 border-t pt-4 mt-1">
-                <Label className="text-xs text-muted-foreground">Estimated Duration</Label>
-                {editing ? (
-                  <div className="mt-1 flex max-w-sm gap-2">
-                    <Input
-                      type="number"
-                      min="0.25"
-                      step="0.25"
-                      value={estimatedDurationValue}
-                      onChange={(e) => setEstimatedDurationValue(e.target.value)}
-                      placeholder="e.g. 2"
-                      className="h-8"
-                    />
-                    <select
-                      className="h-8 border border-border rounded-lg px-3 text-sm bg-background"
-                      value={estimatedDurationUnit}
-                      onChange={(e) => setEstimatedDurationUnit(e.target.value as "hours" | "days")}
-                    >
-                      <option value="hours">Hours</option>
-                      <option value="days">Days</option>
-                    </select>
-                  </div>
-                ) : (
-                  <p className="text-sm mt-1">
-                    {invoice.estimated_duration_value && invoice.estimated_duration_unit
-                      ? `${invoice.estimated_duration_value} ${invoice.estimated_duration_unit === "hours" ? "hour" : "day"}${invoice.estimated_duration_value === 1 ? "" : "s"}`
-                      : "Not specified"}
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground mt-1">This is an estimate for the customer and is separate from actual time attended.</p>
-              </div>
               <div className="col-span-2 md:col-span-3 border-t pt-4 mt-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Customer</Label>
@@ -1110,7 +1102,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               <div>
                 <div className="flex items-center gap-2 mb-2 pb-1.5 border-b">
                   <Clock className="w-4 h-4 text-amber-600" />
-                  <h3 className="text-sm font-semibold text-amber-700">Time Attended</h3>
+                  <h3 className="text-sm font-semibold text-amber-700">Time &amp; Labour</h3>
                 </div>
                 <div className="hidden md:grid md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 text-xs text-muted-foreground px-1 mb-1">
                   <span>Description</span><span>Qty</span><span>Unit Price</span><span className="text-right">Total</span><span />
@@ -1121,8 +1113,11 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 {labourLineIndices.map(idx => renderLineRow(lines[idx], idx, "labour"))}
                 {editing && (
                   <div className="flex gap-2 mt-1">
-                    <Button variant="ghost" size="sm" className="w-full border-dashed border text-amber-700 hover:text-amber-800 hover:bg-amber-50" onClick={() => setLabourOpen(true)}>
-                      <Plus className="w-4 h-4 mr-1" /> Add Entry
+                    <Button variant="ghost" size="sm" className="flex-1 border-dashed border text-amber-700 hover:text-amber-800 hover:bg-amber-50" onClick={() => { setLabourMode("actual"); setLabourOpen(true); }}>
+                      <Plus className="w-4 h-4 mr-1" /> Actual Time
+                    </Button>
+                    <Button variant="ghost" size="sm" className="flex-1 border-dashed border text-amber-700 hover:text-amber-800 hover:bg-amber-50" onClick={() => { setLabourMode("estimate"); setLabourOpen(true); }}>
+                      <Plus className="w-4 h-4 mr-1" /> Estimated Time
                     </Button>
                   </div>
                 )}
@@ -1489,13 +1484,16 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-600" /> Add Labour Charge
+              <Clock className="w-4 h-4 text-amber-600" /> {labourMode === "estimate" ? "Add Estimated Time" : "Add Actual Time"}
             </DialogTitle>
-            <DialogDescription>Select a callout rate and enter the time on site to calculate the charge.</DialogDescription>
+            <DialogDescription>
+              {labourMode === "estimate"
+                ? "Enter the expected duration and rate to add a priced labour estimate."
+                : "Select a callout rate and enter the time on site to calculate the charge."}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-1">
-            {/* Rate selector */}
-            {calloutRates.length > 0 ? (
+            {labourMode === "actual" && calloutRates.length > 0 ? (
               <div className="space-y-1">
                 <Label className="text-xs">Callout Rate</Label>
                 <Select value={labourRateId} onValueChange={setLabourRateId}>
@@ -1513,26 +1511,48 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                   </SelectContent>
                 </Select>
               </div>
-            ) : (
+            ) : labourMode === "actual" ? (
               <p className="text-xs text-muted-foreground">
                 Using the company default hourly rate{settings?.default_hourly_rate ? ` of ${formatCurrency(settings.default_hourly_rate, currency)}` : ""}.
               </p>
-            )}
+            ) : null}
 
-            {/* Time on site */}
-            <div className="space-y-1">
-              <Label className="text-xs">Arrival and departure</Label>
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div className="flex-1 space-y-1">
-                  <p className="text-xs text-muted-foreground">Arrival</p>
-                  <Input type="datetime-local" value={labourArrival} onChange={e => setLabourArrival(e.target.value)} className="h-9" />
+            {labourMode === "estimate" ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Estimated duration</Label>
+                    <Input type="number" min="0.25" step="0.25" value={estimatedTimeValue} onChange={e => setEstimatedTimeValue(e.target.value)} placeholder="e.g. 2" className="h-9" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Unit</Label>
+                    <select className="h-9 w-full border border-border rounded-lg px-3 text-sm bg-background" value={estimatedTimeUnit} onChange={e => setEstimatedTimeUnit(e.target.value as "hours" | "days")}>
+                      <option value="hours">Hours</option>
+                      <option value="days">Days</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="flex-1 space-y-1">
-                  <p className="text-xs text-muted-foreground">Departure</p>
-                  <Input type="datetime-local" value={labourDeparture} onChange={e => setLabourDeparture(e.target.value)} className="h-9" />
+                <div className="space-y-1">
+                  <Label className="text-xs">Rate per {estimatedTimeUnit === "hours" ? "hour" : "day"}</Label>
+                  <Input type="number" min="0" step="0.01" value={estimatedTimeRate} onChange={e => setEstimatedTimeRate(e.target.value)} placeholder="0.00" className="h-9" />
+                </div>
+              </>
+            ) : (
+              /* Time on site */
+              <div className="space-y-1">
+                <Label className="text-xs">Arrival and departure</Label>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="flex-1 space-y-1">
+                    <p className="text-xs text-muted-foreground">Arrival</p>
+                    <Input type="datetime-local" value={labourArrival} onChange={e => setLabourArrival(e.target.value)} className="h-9" />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-xs text-muted-foreground">Departure</p>
+                    <Input type="datetime-local" value={labourDeparture} onChange={e => setLabourDeparture(e.target.value)} className="h-9" />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="space-y-1">
               <Label className="text-xs">Notes (optional)</Label>
@@ -1540,7 +1560,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
             </div>
 
             {/* Include callout checkbox */}
-            {(() => {
+            {labourMode === "actual" && (() => {
               const rate = calloutRates.find(r => r.id === labourRateId);
               return rate && rate.amount > 0 ? (
                 <div className="flex items-center gap-2">
@@ -1560,6 +1580,17 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
 
             {/* Cost preview */}
             {(() => {
+              if (labourMode === "estimate") {
+                const quantity = Number(estimatedTimeValue);
+                const rate = Number(estimatedTimeRate);
+                if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(rate) || rate < 0) return null;
+                return (
+                  <div className="rounded-lg bg-slate-50 border p-3 text-sm flex justify-between">
+                    <span>Estimated cost</span>
+                    <span className="font-semibold text-emerald-600">{formatCurrency(quantity * rate, currency)}</span>
+                  </div>
+                );
+              }
               const rate = calloutRates.find(r => r.id === labourRateId) || {
                 amount: 0,
                 hourly_rate: Number(settings?.default_hourly_rate) || 0,
@@ -1604,7 +1635,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setLabourOpen(false)}>Cancel</Button>
-            <Button onClick={addLabourCharge} disabled={(calloutRates.length > 0 && !labourRateId) || !labourArrival || !labourDeparture}>
+            <Button onClick={addLabourCharge} disabled={labourMode === "estimate" ? !estimatedTimeValue || !estimatedTimeRate : (calloutRates.length > 0 && !labourRateId) || !labourArrival || !labourDeparture}>
               Add to {isInvoice ? "Invoice" : "Quote"}
             </Button>
           </DialogFooter>
