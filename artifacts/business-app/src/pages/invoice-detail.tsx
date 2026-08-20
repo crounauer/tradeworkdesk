@@ -934,13 +934,17 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                     </p>
                   </div>
                 )}
-                {invoice.job?.property_address?.address_line1 &&
-                  invoice.job.property_address.postcode?.replace(/\s/g, "").toUpperCase() !==
+                {(invoice.property?.address_line1 || invoice.job?.property_address?.address_line1) &&
+                  (invoice.property?.postcode || invoice.job?.property_address?.postcode)?.replace(/\s/g, "").toUpperCase() !==
                   invoice.customer?.postcode?.replace(/\s/g, "").toUpperCase() && (
                   <div>
                     <Label className="text-xs text-muted-foreground">Service Address</Label>
                     <p className="text-sm mt-1">
-                      {[invoice.job.property_address.address_line1, invoice.job.property_address.city, invoice.job.property_address.postcode].filter(Boolean).join(", ")}
+                      {[
+                        invoice.property?.address_line1 || invoice.job?.property_address?.address_line1,
+                        invoice.property?.city || invoice.job?.property_address?.city,
+                        invoice.property?.postcode || invoice.job?.property_address?.postcode,
+                      ].filter(Boolean).join(", ")}
                     </p>
                   </div>
                 )}

@@ -72,6 +72,8 @@ export default function CustomerDetail() {
   const [showBookEnquiry, setShowBookEnquiry] = useState(false);
   const [showSms, setShowSms] = useState(false);
   const [creatingType, setCreatingType] = useState<"invoice" | "quote" | null>(null);
+  const [documentPropertyType, setDocumentPropertyType] = useState<"invoice" | "quote" | null>(null);
+  const [selectedDocumentPropertyId, setSelectedDocumentPropertyId] = useState("");
   const qc = useQueryClient();
 
   useEffect(() => {
@@ -96,13 +98,13 @@ export default function CustomerDetail() {
   if (isLoading) return <div className="p-8">Loading...</div>;
   if (!customer) return <div>Customer not found</div>;
 
-  const createDocument = async (type: "invoice" | "quote") => {
+  const createDocument = async (type: "invoice" | "quote", propertyId?: string) => {
     try {
       setCreatingType(type);
       const res = await fetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customer_id: customer.id, type }),
+        body: JSON.stringify({ customer_id: customer.id, type, property_id: propertyId || undefined }),
       });
 
       if (!res.ok) {
@@ -119,6 +121,15 @@ export default function CustomerDetail() {
     } finally {
       setCreatingType(null);
     }
+  };
+
+  const startDocumentCreation = (type: "invoice" | "quote") => {
+    if ((customer.properties?.length || 0) > 1) {
+      setSelectedDocumentPropertyId("");
+      setDocumentPropertyType(type);
+      return;
+    }
+    void createDocument(type, customer.properties?.[0]?.id);
   };
 
   const getPropertyMapsUrl = (prop: {
@@ -176,13 +187,13 @@ export default function CustomerDetail() {
             <MessageSquare className="w-4 h-4 mr-2" /> New Enquiry
           </Button>
           {canCreateInvoices && (
-            <Button size="sm" className="w-full md:w-auto" variant="outline" disabled={creatingType !== null} onClick={() => createDocument("quote")}>
+            <Button size="sm" className="w-full md:w-auto" variant="outline" disabled={creatingType !== null} onClick={() => startDocumentCreation("quote")}>
               {creatingType === "quote" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
               New Quote
             </Button>
           )}
           {canCreateInvoices && (
-            <Button size="sm" className="w-full md:w-auto" disabled={creatingType !== null} onClick={() => createDocument("invoice")}>
+            <Button size="sm" className="w-full md:w-auto" disabled={creatingType !== null} onClick={() => startDocumentCreation("invoice")}>
               {creatingType === "invoice" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Receipt className="w-4 h-4 mr-2" />}
               New Invoice
             </Button>
@@ -415,6 +426,47 @@ export default function CustomerDetail() {
         initialCustomerId={customer.id}
         initialCustomerAddress={{ address_line1: customer.address_line1 ?? undefined, city: customer.city ?? undefined, postcode: customer.postcode ?? undefined }}
       />
+
+      <Dialog open={documentPropertyType !== null} onOpenChange={(open) => { if (!open) setDocumentPropertyType(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Property</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Choose the property for this {documentPropertyType === "quote" ? "quote" : "invoice"}.
+          </p>
+          <div className="space-y-2">
+            {(customer.properties || []).map((property) => (
+              <button
+                key={property.id}
+                type="button"
+                className={`w-full rounded-lg border p-3 text-left transition-colors ${selectedDocumentPropertyId === property.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}
+                onClick={() => setSelectedDocumentPropertyId(property.id)}
+              >
+                <p className="font-medium">{property.address_line1 || "Unnamed property"}</p>
+                <p className="text-sm text-muted-foreground">
+                  {[property.city, property.county, property.postcode].filter(Boolean).join(", ") || "No address details"}
+                </p>
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDocumentPropertyType(null)}>Cancel</Button>
+            <Button
+              disabled={!selectedDocumentPropertyId || creatingType !== null}
+              onClick={() => {
+                if (!documentPropertyType || !selectedDocumentPropertyId) return;
+                const type = documentPropertyType;
+                setDocumentPropertyType(null);
+                void createDocument(type, selectedDocumentPropertyId);
+              }}
+            >
+              {creatingType ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Create {documentPropertyType === "quote" ? "Quote" : "Invoice"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <SmsSendDialog
         open={showSms}
@@ -1478,6 +1530,12 @@ type CustomerAddress = {
   longitude?: number | null;
 };
 
+const DEFAULT_PROPERTY_TYPES = [
+  { value: "residential", label: "Residential" },
+  { value: "commercial", label: "Commercial" },
+  { value: "industrial", label: "Industrial" },
+];
+
 function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId: string; customerAddress?: CustomerAddress; onClose: () => void }) {
   const qc = useQueryClient();
   const create = useCreateProperty();
@@ -1485,6 +1543,7 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
   const { register, handleSubmit, reset, watch, setValue } = useForm<PropertyFormData>();
   const { data: propertyTypes } = useLookupOptions("property_type");
   const { hasFeature } = usePlanFeatures();
+  const propertyTypeOptions = propertyTypes?.length ? propertyTypes : DEFAULT_PROPERTY_TYPES;
 
   const watchedLat = watch("latitude");
   const watchedLng = watch("longitude");
@@ -1578,7 +1637,7 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
         <Input placeholder="Postcode *" required {...register("postcode")} />
         <select className="border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("property_type")}>
           <option value="">Property Type...</option>
-          {(propertyTypes || []).map((opt) => (
+          {propertyTypeOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>

@@ -199,11 +199,11 @@ async function buildPdfData(
     : { data: null };
 
   // Load property address: used as billing fallback and as service address when it differs
-  const { data: property } = job?.property_id
+  const { data: property } = (job?.property_id || invoice.property_id)
     ? await supabaseAdmin
         .from("properties")
-        .select("address_line1, address_line2, city, county, postcode")
-        .eq("id", job.property_id as string)
+        .select("id, address_line1, address_line2, city, county, postcode")
+        .eq("id", (job?.property_id || invoice.property_id) as string)
         .maybeSingle()
     : { data: null };
 
@@ -407,6 +407,7 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
   const {
     job_id,
     customer_id: direct_customer_id,
+    property_id,
     type = "invoice",
     line_items = [],
     issue_date,
@@ -418,6 +419,7 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
   } = req.body as {
     job_id?: string;
     customer_id?: string;
+    property_id?: string;
     type?: string;
     line_items?: LineItemInput[];
     issue_date?: string;
@@ -430,6 +432,7 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
 
   if (!job_id && !direct_customer_id) { res.status(400).json({ error: "job_id or customer_id is required" }); return; }
   if (!["invoice", "quote"].includes(type)) { res.status(400).json({ error: "type must be invoice or quote" }); return; }
+  if (job_id && property_id) { res.status(400).json({ error: "property_id cannot be used with a job_id" }); return; }
 
   // Resolve customer_id — either from a job or directly supplied
   let resolvedCustomerId: string;
@@ -452,6 +455,17 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
       .maybeSingle();
     if (custErr || !customer) { res.status(404).json({ error: "Customer not found" }); return; }
     resolvedCustomerId = direct_customer_id!;
+  }
+
+  if (property_id) {
+    const { data: property, error: propertyErr } = await supabaseAdmin
+      .from("properties")
+      .select("id")
+      .eq("id", property_id)
+      .eq("customer_id", resolvedCustomerId)
+      .eq("tenant_id", req.tenantId!)
+      .maybeSingle();
+    if (propertyErr || !property) { res.status(400).json({ error: "Property does not belong to this customer" }); return; }
   }
 
   // Resolve VAT rate
@@ -488,6 +502,7 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
       tenant_id: req.tenantId,
       job_id: job_id || null,
       customer_id: resolvedCustomerId,
+      property_id: property_id || null,
       type,
       status: "draft",
       invoice_number: invoiceNumber,
@@ -553,17 +568,28 @@ router.get("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     .eq("id", invoice.customer_id as string)
     .maybeSingle();
 
-  const { data: job } = await supabaseAdmin
-    .from("jobs")
-    .select("description, scheduled_date, job_type, property_id")
-    .eq("id", invoice.job_id as string)
-    .maybeSingle();
+  const { data: job } = invoice.job_id
+    ? await supabaseAdmin
+        .from("jobs")
+        .select("description, scheduled_date, job_type, property_id")
+        .eq("id", invoice.job_id as string)
+        .maybeSingle()
+    : { data: null };
 
   const { data: jobProperty } = (job as any)?.property_id
     ? await supabaseAdmin
         .from("properties")
         .select("address_line1, city, postcode")
         .eq("id", (job as any).property_id)
+        .maybeSingle()
+    : { data: null };
+
+  const { data: standaloneProperty } = !job && invoice.property_id
+    ? await supabaseAdmin
+        .from("properties")
+        .select("id, address_line1, address_line2, city, county, postcode")
+        .eq("id", invoice.property_id as string)
+        .eq("customer_id", invoice.customer_id as string)
         .maybeSingle()
     : { data: null };
 
@@ -588,6 +614,7 @@ router.get("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     amount_paid: payments.totalPaid,
     balance_due: payments.balanceDue,
     customer,
+    property: standaloneProperty,
     job: job ? { ...job, property_address: jobProperty } : job,
   });
 });

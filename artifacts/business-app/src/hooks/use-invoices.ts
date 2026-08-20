@@ -39,7 +39,8 @@ export interface InvoicePayment {
 export interface Invoice {
   id: string;
   tenant_id: string;
-  job_id: string;
+  job_id: string | null;
+  property_id: string | null;
   customer_id: string;
   type: InvoiceType;
   status: InvoiceStatus;
@@ -89,6 +90,14 @@ export interface Invoice {
     job_type?: string | null;
     property_id?: string | null;
     property_address?: { address_line1: string | null; city: string | null; postcode: string | null } | null;
+  } | null;
+  property?: {
+    id: string;
+    address_line1: string | null;
+    address_line2?: string | null;
+    city: string | null;
+    county?: string | null;
+    postcode: string | null;
   } | null;
   // From list endpoint (nested relations)
   customers?: { first_name: string; last_name: string; business_name?: string | null } | null;
