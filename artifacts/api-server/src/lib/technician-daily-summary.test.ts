@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { isEarlyMorningCatchUp, isSummaryTimeDue, shouldSkipTenantSummaryDispatch } from "./technician-daily-summary";
+import { isSummaryTimeDue, shouldSkipTenantSummaryDispatch } from "./technician-daily-summary";
 
 test("isSummaryTimeDue treats 08:00 as due when the server is a few minutes late", () => {
   const due = isSummaryTimeDue("08:00", new Date("2026-08-18T08:05:00+01:00"));
@@ -15,21 +15,6 @@ test("isSummaryTimeDue does not trigger before the configured time", () => {
 
 test("isSummaryTimeDue catches up after a delayed scheduler tick", () => {
   const due = isSummaryTimeDue("21:55", new Date("2026-08-18T22:30:00+01:00"));
-  assert.equal(due, true);
-});
-
-test("isEarlyMorningCatchUp handles a restart after yesterday's send time", () => {
-  const due = isEarlyMorningCatchUp(
-    "2026-08-19",
-    "2026-08-19",
-    "21:55",
-    new Date("2026-08-20T01:00:00+01:00"),
-  );
-  assert.equal(due, true);
-});
-
-test("isEarlyMorningCatchUp handles a tenant that has never sent", () => {
-  const due = isEarlyMorningCatchUp("", "2026-08-19", "21:55", new Date("2026-08-20T01:00:00+01:00"));
   assert.equal(due, true);
 });
 

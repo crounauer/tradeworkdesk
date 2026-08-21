@@ -122,7 +122,9 @@ export async function sendPushToUser(tenantId: string, userId: string, payload: 
   }
 
   const subscriptions = (data ?? []) as DbSubscription[];
-  if (subscriptions.length === 0) return;
+  if (subscriptions.length === 0) {
+    throw new Error("No active push subscription found for this user/device");
+  }
 
   const message = JSON.stringify({
     title: payload.title,
@@ -133,6 +135,8 @@ export async function sendPushToUser(tenantId: string, userId: string, payload: 
     ts: Date.now(),
   });
 
+  let sentCount = 0;
+  let lastError = "";
   await Promise.all(
     subscriptions.map(async (sub) => {
       try {
@@ -151,14 +155,20 @@ export async function sendPushToUser(tenantId: string, userId: string, payload: 
             timeout: 10_000,
           }
         );
+        sentCount += 1;
       } catch (err) {
         const statusCode = (err as { statusCode?: number }).statusCode;
         if (statusCode === 404 || statusCode === 410) {
           await deactivateSubscriptionById(sub.id);
           return;
         }
+        lastError = (err as Error).message;
         console.error("[push] Failed to send user notification:", (err as Error).message);
       }
     })
   );
+
+  if (sentCount === 0) {
+    throw new Error(lastError || "Push provider rejected all active subscriptions");
+  }
 }

@@ -229,7 +229,7 @@ export async function sendTestTechnicianDailySummaryEmail(args: {
 }
 
 export async function runTechnicianDailySummaryEmails(now = new Date()): Promise<{ processedTenants: number; sentEmails: number; skippedTechnicians: number; errors: number }> {
-  const { today, tomorrow, yesterday, hhmm } = toTimeZoneDateParts(now);
+  const { today, tomorrow, hhmm } = toTimeZoneDateParts(now);
   const result = { processedTenants: 0, sentEmails: 0, skippedTechnicians: 0, errors: 0 };
 
   const { data: dueTenants, error: dueTenantsError } = await supabaseAdmin
@@ -253,8 +253,7 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
     const sendIfNoJobs = Boolean(row.technician_daily_summary_send_if_no_jobs);
     const weekdaysOnly = Boolean(row.technician_daily_summary_weekdays_only);
 
-    const earlyMorningCatchUp = isEarlyMorningCatchUp(lastSentDate, yesterday, configuredTime, now);
-    if (!earlyMorningCatchUp && shouldSkipTenantSummaryDispatch({
+    if (shouldSkipTenantSummaryDispatch({
       lastSentDate,
       today,
       tomorrow,
@@ -267,7 +266,7 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
     }
 
     result.processedTenants += 1;
-    const targetDate = earlyMorningCatchUp ? today : tomorrow;
+    const targetDate = tomorrow;
 
     const companyDetails: EmailCompanyDetails = {
       name: (row.name as string | null) || null,

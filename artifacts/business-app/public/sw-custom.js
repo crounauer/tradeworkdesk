@@ -26,7 +26,6 @@ self.addEventListener("push", (event) => {
     const url = payload.url || "/";
 
     const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    const hasVisibleClient = clients.some((client) => client.visibilityState === "visible");
 
     clients.forEach((client) => {
       client.postMessage({
@@ -39,8 +38,6 @@ self.addEventListener("push", (event) => {
         },
       });
     });
-
-    if (hasVisibleClient) return;
 
     await self.registration.showNotification(title, {
       body,

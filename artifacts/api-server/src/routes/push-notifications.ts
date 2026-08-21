@@ -246,18 +246,21 @@ router.post(
   requireAuth,
   requireTenant,
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    await sendPushToUser(req.tenantId!, req.userId!, {
-      title: "TradeWorkDesk",
-      body: "This is a test push notification from your company settings page.",
-      url: "/admin/company-settings?tab=notifications",
-      tag: `push-test-${req.tenantId}`,
-      data: {
-        type: "push_test",
-        tenantId: req.tenantId,
-      },
-    });
-
-    res.json({ ok: true });
+    try {
+      await sendPushToUser(req.tenantId!, req.userId!, {
+        title: "TradeWorkDesk",
+        body: "This is a test push notification from your company settings page.",
+        url: "/admin/company-settings?tab=notifications",
+        tag: `push-test-${req.tenantId}`,
+        data: {
+          type: "push_test",
+          tenantId: req.tenantId,
+        },
+      });
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(503).json({ ok: false, error: error instanceof Error ? error.message : "Push delivery failed" });
+    }
   }
 );
 
