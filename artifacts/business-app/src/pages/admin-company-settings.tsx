@@ -717,6 +717,20 @@ export default function AdminCompanySettings() {
   const [summaryLastSentAt, setSummaryLastSentAt] = useState<string | null>(null);
   const [summaryTestState, setSummaryTestState] = useState<{ kind: "idle" | "success" | "error"; message: string }>({ kind: "idle", message: "" });
   const [sendingSummaryTest, setSendingSummaryTest] = useState(false);
+  const [serviceReminderSettings, setServiceReminderSettings] = useState({
+    is_enabled: false,
+    advance_days: 30,
+    follow_up_days: 7,
+    email_enabled: true,
+    sms_enabled: false,
+    auto_create_job: false,
+    send_time_uk: "09:00",
+  });
+  const [savingServiceReminders, setSavingServiceReminders] = useState(false);
+  const { data: fetchedServiceReminderSettings } = useQuery({
+    queryKey: ["company-service-reminder-settings"],
+    queryFn: () => customFetch("/api/maintenance/reminder-settings") as Promise<Record<string, unknown>>,
+  });
   const bookingHoursLoadedRef = useRef(false);
   const [coverageCenter, setCoverageCenter] = useState<GeoResult | null>(null);
   const [coverageLookupLoading, setCoverageLookupLoading] = useState(false);
@@ -773,6 +787,36 @@ export default function AdminCompanySettings() {
       setSummaryTestRecipient(profile.email);
     }
   }, [profile?.email, summaryTestRecipient]);
+
+  useEffect(() => {
+    if (!fetchedServiceReminderSettings || Object.keys(fetchedServiceReminderSettings).length === 0) return;
+    setServiceReminderSettings((current) => ({
+      ...current,
+      is_enabled: Boolean(fetchedServiceReminderSettings.is_enabled),
+      advance_days: Number(fetchedServiceReminderSettings.advance_days ?? current.advance_days),
+      follow_up_days: Number(fetchedServiceReminderSettings.follow_up_days ?? current.follow_up_days),
+      email_enabled: fetchedServiceReminderSettings.email_enabled !== false,
+      sms_enabled: Boolean(fetchedServiceReminderSettings.sms_enabled),
+      auto_create_job: Boolean(fetchedServiceReminderSettings.auto_create_job),
+      send_time_uk: String(fetchedServiceReminderSettings.send_time_uk ?? current.send_time_uk),
+    }));
+  }, [fetchedServiceReminderSettings]);
+
+  const saveServiceReminderSettings = async () => {
+    setSavingServiceReminders(true);
+    try {
+      await customFetch("/api/maintenance/reminder-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(serviceReminderSettings),
+      });
+      toast({ title: "Service reminder settings saved" });
+    } catch (error) {
+      toast({ title: "Failed to save service reminders", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setSavingServiceReminders(false);
+    }
+  };
 
   useEffect(() => {
     if (!settings || settingsLoadedRef.current) return;
@@ -842,6 +886,10 @@ export default function AdminCompanySettings() {
       technician_daily_summary_time_utc: settings.technician_daily_summary_time_utc ?? "17:00",
       technician_daily_summary_send_if_no_jobs: settings.technician_daily_summary_send_if_no_jobs ?? false,
       technician_daily_summary_weekdays_only: settings.technician_daily_summary_weekdays_only ?? false,
+      job_reminders_enabled: settings.job_reminders_enabled ?? false,
+      job_reminder_lead_days: settings.job_reminder_lead_days ?? [7, 1],
+      job_reminder_time_uk: settings.job_reminder_time_uk ?? "09:00",
+      job_reminder_weekdays_only: settings.job_reminder_weekdays_only ?? false,
       custom_leave_types: settings.custom_leave_types ?? [],
     });
     setLogoPreview(settings.logo_url ?? null);
@@ -864,6 +912,8 @@ export default function AdminCompanySettings() {
     "technician_daily_summary_enabled",
     "technician_daily_summary_send_if_no_jobs",
     "technician_daily_summary_weekdays_only",
+    "job_reminders_enabled",
+    "job_reminder_weekdays_only",
     "show_rates_url_on_invoices",
     "show_rates_url_on_quotes",
     "show_rates_url_on_website_footer",
@@ -2288,6 +2338,90 @@ export default function AdminCompanySettings() {
           </TabsContent>
 
           <TabsContent value="notifications" className="space-y-6 pt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Bell className="w-4 h-4" /> Automated Customer Reminders
+                </CardTitle>
+                <CardDescription>
+                  Control which appointment and service reminder emails are sent and when. Changes are tenant-specific.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Scheduled job reminder emails</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Email customers before active jobs. Multiple lead times are supported.</p>
+                  </div>
+                  <Switch checked={watch("job_reminders_enabled") ?? false} onCheckedChange={(v) => setValue("job_reminders_enabled", v, { shouldDirty: true })} />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Send reminders (days before)</Label>
+                    <Input
+                      value={(watch("job_reminder_lead_days") || [7, 1]).join(", ")}
+                      onChange={(e) => setValue("job_reminder_lead_days", e.target.value.split(",").map((v) => Number(v.trim())).filter((v) => Number.isInteger(v) && v > 0), { shouldDirty: true })}
+                      placeholder="7, 1"
+                    />
+                    <p className="text-xs text-muted-foreground">Example: `7, 1` sends one email a week before and another the day before.</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Send time (UK local)</Label>
+                    <Input type="time" value={String(watch("job_reminder_time_uk") || "09:00")} onChange={(e) => setValue("job_reminder_time_uk", e.target.value, { shouldDirty: true })} />
+                    <p className="text-xs text-muted-foreground">Uses Europe/London time with automatic GMT/BST handling.</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Weekdays only</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Skip reminders where the appointment falls on Saturday or Sunday.</p>
+                  </div>
+                  <Switch checked={watch("job_reminder_weekdays_only") ?? false} onCheckedChange={(v) => setValue("job_reminder_weekdays_only", v, { shouldDirty: true })} />
+                </div>
+                <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 text-xs text-blue-800">
+                  Annual service reminders use appliance service-due dates and are separate from scheduled job reminders.
+                </div>
+                <div className="border-t pt-5 space-y-4">
+                  <div>
+                    <Label className="text-sm font-semibold">Annual service reminders</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Send customers reminders for appliance services due in the future.</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label>Enable annual service reminders</Label>
+                    <Switch checked={serviceReminderSettings.is_enabled} onCheckedChange={(value) => setServiceReminderSettings((current) => ({ ...current, is_enabled: value }))} />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>First reminder (days before)</Label>
+                      <Input type="number" min="1" value={serviceReminderSettings.advance_days} onChange={(e) => setServiceReminderSettings((current) => ({ ...current, advance_days: Number(e.target.value) || 1 }))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Follow-up reminder (days before)</Label>
+                      <Input type="number" min="1" value={serviceReminderSettings.follow_up_days} onChange={(e) => setServiceReminderSettings((current) => ({ ...current, follow_up_days: Number(e.target.value) || 1 }))} />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 max-w-xs">
+                    <Label>Send time (UK local)</Label>
+                    <Input type="time" value={serviceReminderSettings.send_time_uk} onChange={(e) => setServiceReminderSettings((current) => ({ ...current, send_time_uk: e.target.value }))} />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={serviceReminderSettings.email_enabled} onChange={(e) => setServiceReminderSettings((current) => ({ ...current, email_enabled: e.target.checked }))} className="h-4 w-4 accent-primary" /> Email</label>
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={serviceReminderSettings.sms_enabled} onChange={(e) => setServiceReminderSettings((current) => ({ ...current, sms_enabled: e.target.checked }))} className="h-4 w-4 accent-primary" /> SMS</label>
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={serviceReminderSettings.auto_create_job} onChange={(e) => setServiceReminderSettings((current) => ({ ...current, auto_create_job: e.target.checked }))} className="h-4 w-4 accent-primary" /> Auto-create job</label>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button type="button" variant="outline" size="sm" onClick={saveServiceReminderSettings} disabled={savingServiceReminders}>
+                      {savingServiceReminders ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                      Save service reminder settings
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex justify-end pt-2">
+                  {renderSectionSaveButton("Save automated reminder settings")}
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">

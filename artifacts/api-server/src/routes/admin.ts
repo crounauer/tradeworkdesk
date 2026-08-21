@@ -591,6 +591,8 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "website_enquiry_email_notify", "website_enquiry_sms_notify",
     // Technician daily job summary emails
     "technician_daily_summary_enabled", "technician_daily_summary_time_utc", "technician_daily_summary_send_if_no_jobs", "technician_daily_summary_weekdays_only",
+    // Automated customer job reminders
+    "job_reminders_enabled", "job_reminder_lead_days", "job_reminder_time_uk", "job_reminder_weekdays_only",
     // Website closure notice banner
     "website_closure_notice_enabled", "website_closure_notice_message",
     "website_closure_notice_start_date", "website_closure_notice_end_date",
@@ -674,6 +676,24 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
       return;
     }
     updates.technician_daily_summary_time_utc = raw || "17:00";
+  }
+
+  if ("job_reminder_lead_days" in updates) {
+    const values = Array.isArray(updates.job_reminder_lead_days) ? updates.job_reminder_lead_days : [];
+    const normalized = values.map(Number).filter((days) => Number.isInteger(days) && days > 0 && days <= 365);
+    updates.job_reminder_lead_days = Array.from(new Set(normalized)).sort((a, b) => b - a);
+  }
+  if ("job_reminders_enabled" in updates || "job_reminder_weekdays_only" in updates) {
+    if ("job_reminders_enabled" in updates) updates.job_reminders_enabled = Boolean(updates.job_reminders_enabled);
+    if ("job_reminder_weekdays_only" in updates) updates.job_reminder_weekdays_only = Boolean(updates.job_reminder_weekdays_only);
+  }
+  if ("job_reminder_time_uk" in updates) {
+    const raw = String(updates.job_reminder_time_uk || "").trim();
+    if (raw && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(raw)) {
+      res.status(400).json({ error: "job_reminder_time_uk must be HH:mm in 24-hour format" });
+      return;
+    }
+    updates.job_reminder_time_uk = raw || "09:00";
   }
 
   // Validate hex colour format

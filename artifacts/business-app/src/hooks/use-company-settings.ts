@@ -75,6 +75,10 @@ export interface CompanySettings {
   technician_daily_summary_time_utc?: string | null;
   technician_daily_summary_send_if_no_jobs?: boolean | null;
   technician_daily_summary_weekdays_only?: boolean | null;
+  job_reminders_enabled?: boolean | null;
+  job_reminder_lead_days?: number[] | null;
+  job_reminder_time_uk?: string | null;
+  job_reminder_weekdays_only?: boolean | null;
   website_closure_notice_enabled?: boolean | null;
   website_closure_notice_message?: string | null;
   website_closure_notice_start_date?: string | null;

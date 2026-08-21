@@ -1,15 +1,13 @@
 /**
  * Service Due Reminder Scheduler
  *
- * Runs daily at 09:00 UTC and sends reminder emails to customers whose
- * appliances have `next_service_due` in exactly 28 days or 14 days from today.
- * Requires EMAIL_SERVICE_REMINDERS=true env var to be enabled.
+ * Runs daily and uses each tenant's service_reminder_settings lead times.
  */
 
 import { supabaseAdmin } from "./supabase";
 import { sendServiceDueReminderEmail, type EmailCompanyDetails } from "./email";
 
-const REMINDER_DAYS = [28, 14];
+const DEFAULT_REMINDER_DAYS = [30, 7];
 
 interface ApplianceRow {
   id: string;
@@ -27,21 +25,29 @@ interface ApplianceRow {
 }
 
 export async function runServiceDueReminders(): Promise<{ sent: number; skipped: number; errors: number }> {
-  const enabled = process.env.EMAIL_SERVICE_REMINDERS === "true";
-  if (!enabled) {
-    return { sent: 0, skipped: 0, errors: 0 };
-  }
-
   const results = { sent: 0, skipped: 0, errors: 0 };
   const today = new Date().toISOString().slice(0, 10);
+  const currentUkTime = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+  const { data: reminderSettings } = await supabaseAdmin.from("service_reminder_settings")
+    .select("tenant_id, is_enabled, advance_days, follow_up_days, email_enabled, send_time_uk")
+    .eq("is_enabled", true).eq("email_enabled", true);
+  const settingsByTenant = new Map<string, number[]>((reminderSettings || [])
+    .filter((row: any) => currentUkTime >= String(row.send_time_uk || "09:00"))
+    .map((row: any) => [
+      String(row.tenant_id), Array.from(new Set([Number(row.advance_days), Number(row.follow_up_days)]))
+        .filter((days) => Number.isInteger(days) && days > 0),
+    ]));
+  const reminderDays = Array.from(new Set(Array.from(settingsByTenant.values()).flat())).filter(Boolean);
+  if (reminderDays.length === 0) return results;
 
-  for (const days of REMINDER_DAYS) {
+  for (const days of reminderDays) {
     const targetDate = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
 
     const { data: appliances, error } = await supabaseAdmin
       .from("appliances")
       .select("id, manufacturer, model, next_service_due, tenant_id, properties(customers(first_name, last_name, email))")
       .eq("is_active", true)
+      .in("tenant_id", Array.from(settingsByTenant.keys()))
       .eq("next_service_due", targetDate);
 
     if (error) {
@@ -51,6 +57,7 @@ export async function runServiceDueReminders(): Promise<{ sent: number; skipped:
     }
 
     for (const appliance of (appliances as ApplianceRow[] || [])) {
+      if (!(settingsByTenant.get(appliance.tenant_id) || []).includes(days)) continue;
       const customer = appliance.properties?.customers;
       if (!customer?.email) {
         results.skipped++;
@@ -128,7 +135,7 @@ export async function previewServiceDueReminders(): Promise<Array<{
     daysUntilDue: number;
   }> = [];
 
-  for (const days of REMINDER_DAYS) {
+  for (const days of DEFAULT_REMINDER_DAYS) {
     const targetDate = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
 
     const { data: appliances } = await supabaseAdmin
@@ -167,8 +174,10 @@ function msUntilNextRun(): number {
 }
 
 export function startServiceReminderScheduler(): void {
+  // Production dispatch is handled by the authenticated external cron endpoint.
+  // Keep the legacy in-process scheduler opt-in to avoid duplicate emails.
   if (process.env.EMAIL_SERVICE_REMINDERS !== "true") {
-    console.log("[service-reminders] Disabled (set EMAIL_SERVICE_REMINDERS=true to enable)");
+    console.log("[service-reminders] Legacy in-process scheduler disabled; use external cron dispatch");
     return;
   }
 

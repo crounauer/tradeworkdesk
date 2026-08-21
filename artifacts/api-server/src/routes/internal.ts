@@ -10,6 +10,8 @@ import {
   sendLowCreditsAlert,
 } from "../lib/email";
 import { runTechnicianDailySummaryEmails } from "../lib/technician-daily-summary";
+import { runAutomatedJobReminders } from "../lib/automated-job-reminders";
+import { runServiceDueReminders } from "../lib/service-reminders";
 
 // ── SigV4 helpers for R2 ────────────────────────────────────────────────────
 function sha256hex(data: string | Buffer): string {
@@ -389,11 +391,15 @@ router.post("/internal/send-technician-daily-summaries", async (req: Request, re
   try {
     const now = new Date();
     const dispatch = await runTechnicianDailySummaryEmails(now);
+    const jobReminders = await runAutomatedJobReminders(now);
+    const serviceReminders = await runServiceDueReminders();
     res.json({
       ok: true,
       triggered_at: now.toISOString(),
       timezone: "Europe/London",
       ...dispatch,
+      job_reminders: jobReminders,
+      service_reminders: serviceReminders,
     });
   } catch (error) {
     res.status(500).json({
