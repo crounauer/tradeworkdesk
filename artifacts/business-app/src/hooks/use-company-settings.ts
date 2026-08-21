@@ -75,6 +75,7 @@ export interface CompanySettings {
   technician_daily_summary_time_utc?: string | null;
   technician_daily_summary_send_if_no_jobs?: boolean | null;
   technician_daily_summary_weekdays_only?: boolean | null;
+  technician_daily_summary_admin_scope?: "none" | "company" | null;
   job_reminders_enabled?: boolean | null;
   job_reminder_lead_days?: number[] | null;
   job_reminder_time_uk?: string | null;

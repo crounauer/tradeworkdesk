@@ -886,6 +886,7 @@ export default function AdminCompanySettings() {
       technician_daily_summary_time_utc: settings.technician_daily_summary_time_utc ?? "17:00",
       technician_daily_summary_send_if_no_jobs: settings.technician_daily_summary_send_if_no_jobs ?? false,
       technician_daily_summary_weekdays_only: settings.technician_daily_summary_weekdays_only ?? false,
+      technician_daily_summary_admin_scope: settings.technician_daily_summary_admin_scope ?? "company",
       job_reminders_enabled: settings.job_reminders_enabled ?? false,
       job_reminder_lead_days: settings.job_reminder_lead_days ?? [7, 1],
       job_reminder_time_uk: settings.job_reminder_time_uk ?? "09:00",
@@ -2443,6 +2444,20 @@ export default function AdminCompanySettings() {
                     onCheckedChange={(v) => setValue("website_enquiry_email_notify", v, { shouldDirty: true })}
                   />
                 </div>
+
+                <div className="space-y-1.5 max-w-md">
+                  <Label htmlFor="technician_daily_summary_admin_scope">Admin summary scope</Label>
+                  <select
+                    id="technician_daily_summary_admin_scope"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                    value={watch("technician_daily_summary_admin_scope") || "company"}
+                    onChange={(e) => setValue("technician_daily_summary_admin_scope", e.target.value as "none" | "company", { shouldDirty: true })}
+                  >
+                    <option value="company">Company-wide jobs</option>
+                    <option value="none">Assigned jobs only</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground">Admins can receive all active jobs for tomorrow even when no jobs are assigned directly to them.</p>
+                </div>
                 {hasAddon("sms_messaging") && (
                   <div className="flex items-center justify-between">
                     <div>
@@ -2468,14 +2483,14 @@ export default function AdminCompanySettings() {
                   Technician Next-Day Job Summary Emails
                 </CardTitle>
                 <CardDescription>
-                  Send each technician a daily summary of their jobs scheduled for tomorrow.
+                  Send each technician or admin-user a daily summary of their jobs scheduled for tomorrow.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Enable technician daily summary</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">When enabled, technicians with assigned jobs tomorrow receive one summary email each day.</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">When enabled, active technicians and admins with assigned jobs tomorrow receive one summary email each day.</p>
                   </div>
                   <Switch
                     checked={watch("technician_daily_summary_enabled") ?? false}

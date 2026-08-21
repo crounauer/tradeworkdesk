@@ -234,7 +234,7 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
 
   const { data: dueTenants, error: dueTenantsError } = await supabaseAdmin
     .from("company_settings")
-    .select("tenant_id, name, trading_name, email, notification_emails, email_from_name, email_reply_to, technician_daily_summary_enabled, technician_daily_summary_time_utc, technician_daily_summary_send_if_no_jobs, technician_daily_summary_weekdays_only, technician_daily_summary_last_sent_date")
+    .select("tenant_id, name, trading_name, email, notification_emails, email_from_name, email_reply_to, technician_daily_summary_enabled, technician_daily_summary_time_utc, technician_daily_summary_send_if_no_jobs, technician_daily_summary_weekdays_only, technician_daily_summary_admin_scope, technician_daily_summary_last_sent_date")
     .eq("singleton_id", SINGLETON_ID)
     .eq("technician_daily_summary_enabled", true)
     .or(`technician_daily_summary_last_sent_date.is.null,technician_daily_summary_last_sent_date.neq.${today}`);
@@ -252,6 +252,7 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
     const lastSentDate = String((row.technician_daily_summary_last_sent_date as string | null) || "").trim();
     const sendIfNoJobs = Boolean(row.technician_daily_summary_send_if_no_jobs);
     const weekdaysOnly = Boolean(row.technician_daily_summary_weekdays_only);
+    const adminScope = String(row.technician_daily_summary_admin_scope || "company");
 
     if (shouldSkipTenantSummaryDispatch({
       lastSentDate,
@@ -284,7 +285,8 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
         .from("profiles")
         .select("id, full_name, email")
         .eq("tenant_id", tenantId)
-        .eq("role", "technician")
+        // Sole traders commonly use one admin account for both office and field work.
+        .in("role", ["technician", "admin"])
         .eq("is_active", true)
         .not("email", "is", null);
 
@@ -294,7 +296,7 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
         continue;
       }
 
-      const techRows = (technicians || []) as Array<{ id: string; full_name: string | null; email: string | null }>;
+      const techRows = (technicians || []) as Array<{ id: string; full_name: string | null; email: string | null; role: string | null }>;
       const techIds = techRows.map((t) => t.id).filter(Boolean);
 
       if (techIds.length === 0) {
@@ -306,15 +308,20 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
         continue;
       }
 
-      const { data: jobs, error: jobsError } = await supabaseAdmin
+      let jobsQuery = supabaseAdmin
         .from("jobs")
         .select("id, job_ref, assigned_technician_id, scheduled_date, scheduled_time, all_day, status, description, customers(first_name, last_name, business_name), properties(address_line1, postcode)")
         .eq("tenant_id", tenantId)
         .eq("is_active", true)
         .eq("scheduled_date", targetDate)
-        .in("assigned_technician_id", techIds)
         .in("status", ACTIVE_JOB_STATUSES)
         .order("scheduled_time", { ascending: true, nullsFirst: false });
+
+      if (adminScope !== "company") {
+        jobsQuery = jobsQuery.in("assigned_technician_id", techIds);
+      }
+
+      const { data: jobs, error: jobsError } = await jobsQuery;
 
       if (jobsError) {
         console.error(`[technician-summary] Failed to load jobs for tenant ${tenantId}:`, jobsError.message);
@@ -338,7 +345,9 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
           continue;
         }
 
-        const techJobs = jobsByTech.get(tech.id) || [];
+        const techJobs = tech.role === "admin" && adminScope === "company"
+          ? (jobs || [])
+          : jobsByTech.get(tech.id) || [];
         if (techJobs.length === 0) {
           if (!sendIfNoJobs) {
             result.skippedTechnicians += 1;

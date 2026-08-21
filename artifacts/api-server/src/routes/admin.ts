@@ -590,7 +590,7 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     // Website enquiry notifications
     "website_enquiry_email_notify", "website_enquiry_sms_notify",
     // Technician daily job summary emails
-    "technician_daily_summary_enabled", "technician_daily_summary_time_utc", "technician_daily_summary_send_if_no_jobs", "technician_daily_summary_weekdays_only",
+    "technician_daily_summary_enabled", "technician_daily_summary_time_utc", "technician_daily_summary_send_if_no_jobs", "technician_daily_summary_weekdays_only", "technician_daily_summary_admin_scope",
     // Automated customer job reminders
     "job_reminders_enabled", "job_reminder_lead_days", "job_reminder_time_uk", "job_reminder_weekdays_only",
     // Website closure notice banner
@@ -667,6 +667,15 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
 
   if ("technician_daily_summary_weekdays_only" in updates) {
     updates.technician_daily_summary_weekdays_only = Boolean(updates.technician_daily_summary_weekdays_only);
+  }
+
+  if ("technician_daily_summary_admin_scope" in updates) {
+    const scope = String(updates.technician_daily_summary_admin_scope || "company");
+    if (scope !== "none" && scope !== "company") {
+      res.status(400).json({ error: "technician_daily_summary_admin_scope must be none or company" });
+      return;
+    }
+    updates.technician_daily_summary_admin_scope = scope;
   }
 
   if ("technician_daily_summary_time_utc" in updates) {
@@ -759,6 +768,7 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
       error.message.includes("technician_daily_summary_time_utc") ||
       error.message.includes("technician_daily_summary_send_if_no_jobs") ||
       error.message.includes("technician_daily_summary_weekdays_only")
+      || error.message.includes("technician_daily_summary_admin_scope")
     )
   ) {
     const fallbackUpdates = { ...updates };
@@ -766,6 +776,7 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     delete fallbackUpdates.technician_daily_summary_time_utc;
     delete fallbackUpdates.technician_daily_summary_send_if_no_jobs;
     delete fallbackUpdates.technician_daily_summary_weekdays_only;
+    delete fallbackUpdates.technician_daily_summary_admin_scope;
 
     const retry = await supabaseAdmin
       .from("company_settings")
