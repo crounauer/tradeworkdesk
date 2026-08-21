@@ -552,9 +552,14 @@ export default function JobDetail() {
   return (
     <div className="space-y-6 animate-in fade-in pb-20 max-w-full min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link href="/jobs" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back to Jobs
-        </Link>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <Link href="/jobs" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-1" /> Back to Jobs
+          </Link>
+          <Link href="/schedule" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
+            <Calendar className="w-4 h-4 mr-1" /> Back to Schedule
+          </Link>
+        </div>
         <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
           <span>{jobRef ? `Ref ${jobRef}` : `Ref #${job.id.slice(0, 8)}`}</span>
           <button
