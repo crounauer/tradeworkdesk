@@ -1,0 +1,31 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { getTransactionalSenderEmail } from "./email";
+import { buildSummaryBody } from "./technician-daily-summary";
+
+test("uses a dedicated transactional sender email by default", () => {
+  process.env.TRANSACTIONAL_FROM_EMAIL = "notifications@mail.tradeworkdesk.co.uk";
+  assert.equal(getTransactionalSenderEmail(), "notifications@mail.tradeworkdesk.co.uk");
+});
+
+test("keeps technician summaries operational and adds spam guidance", () => {
+  const body = buildSummaryBody({
+    technicianName: "Alex",
+    companyName: "North East EcoHeat LTD",
+    targetDate: "2026-08-26",
+    jobs: [{
+      job_ref: "NEE-204",
+      scheduled_time: "09:00",
+      all_day: false,
+      status: "scheduled",
+      description: "Annual service check",
+      customers: { first_name: "Jamie", last_name: "Smith", business_name: null },
+      properties: { address_line1: "14 Market Street", postcode: "NE1 2AB" },
+    }],
+  });
+
+  assert.match(body, /Your job summary for/);
+  assert.match(body, /spam folder/i);
+  assert.doesNotMatch(body, /Powered by TradeWorkDesk/i);
+});

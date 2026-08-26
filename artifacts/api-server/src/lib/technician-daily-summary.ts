@@ -157,7 +157,9 @@ export function buildSummaryBody(args: {
   const dateLabel = formatHumanDate(args.targetDate);
   lines.push(`Hi ${args.technicianName},`);
   lines.push("");
-  lines.push(`Here is your job summary for tomorrow (${dateLabel}).`);
+  lines.push(`Your job summary for ${dateLabel}`);
+  lines.push("");
+  lines.push("If this email lands in your spam folder, please move it to your inbox and add notifications@tradeworkdesk.co.uk to your contacts.");
   lines.push("");
 
   for (const [index, job] of args.jobs.entries()) {
@@ -180,7 +182,7 @@ export function buildSummaryBody(args: {
 
   lines.push(`Total jobs: ${args.jobs.length}`);
   lines.push("");
-  lines.push(`Sent automatically by ${args.companyName} via TradeWorkDesk.`);
+  lines.push(`Operational update for ${args.companyName}.`);
   return lines.join("\n");
 }
 
@@ -189,9 +191,11 @@ export function buildNoJobsBody(args: { technicianName: string; companyName: str
   return [
     `Hi ${args.technicianName},`,
     "",
-    `You have no jobs scheduled for tomorrow (${dateLabel}).`,
+    `You have no jobs scheduled for ${dateLabel}.`,
     "",
-    `Sent automatically by ${args.companyName} via TradeWorkDesk.`,
+    "If this email lands in your spam folder, please move it to your inbox and add notifications@tradeworkdesk.co.uk to your contacts.",
+    "",
+    `Operational update for ${args.companyName}.`,
   ].join("\n");
 }
 

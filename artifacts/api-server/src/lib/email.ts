@@ -10,8 +10,9 @@ if (!resendApiKey) {
 
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
-const PLATFORM_FROM = "TradeWorkDesk <noreply@tradeworkdesk.co.uk>";
-const FROM_EMAIL = "noreply@tradeworkdesk.co.uk";
+const DEFAULT_TRANSACTIONAL_FROM_EMAIL = (process.env.TRANSACTIONAL_FROM_EMAIL || process.env.NOTIFICATION_FROM_EMAIL || "notifications@mail.tradeworkdesk.co.uk").trim().toLowerCase();
+const PLATFORM_FROM = `TradeWorkDesk <${DEFAULT_TRANSACTIONAL_FROM_EMAIL}>`;
+const FROM_EMAIL = DEFAULT_TRANSACTIONAL_FROM_EMAIL;
 const OPS_EMAIL_FAILURE_RECIPIENT = (process.env.EMAIL_FAILURE_ALERT_RECIPIENT || "info@tradeworkdesk.co.uk").trim().toLowerCase();
 const USER_SAFE_EMAIL_FAILURE_MESSAGE = "We couldn't send that email right now. Please try again.";
 const USER_ACTIONABLE_RECIPIENT_FAILURE_MESSAGE = "We couldn't deliver this email to the recipient. Please check the email address and ask the recipient to verify their mailbox can receive emails.";
@@ -347,6 +348,10 @@ export async function sendResendEmailWithRetry(
 /** Builds a per-tenant FROM address using the company name as the display name.
  * Prefers email_from_name if set (white-label), otherwise uses trading_name or name.
  */
+export function getTransactionalSenderEmail(): string {
+  return DEFAULT_TRANSACTIONAL_FROM_EMAIL;
+}
+
 function buildTenantFrom(company?: EmailCompanyDetails): string {
   const name = company?.email_from_name || company?.trading_name || company?.name;
   return name ? `${name} <${FROM_EMAIL}>` : PLATFORM_FROM;
@@ -455,6 +460,7 @@ function renderDocumentLinks(company?: EmailCompanyDetails): string {
 }
 
 function baseHtml(title: string, body: string, company?: EmailCompanyDetails): string {
+  const transactionalSender = getTransactionalSenderEmail();
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -488,10 +494,8 @@ function baseHtml(title: string, body: string, company?: EmailCompanyDetails): s
       ${body}
     </div>
     <div class="footer">
-      <a href="https://www.tradeworkdesk.co.uk" style="color:#1d4ed8;font-weight:600;font-size:13px;text-decoration:none;" target="_blank">Powered by TradeWorkDesk</a>
-      <span style="display:block;margin:4px 0 8px;font-size:11px;color:#94a3b8;">Simplify your trade service business &mdash; <a href="https://www.tradeworkdesk.co.uk" style="color:#1d4ed8;text-decoration:underline;" target="_blank">Learn more</a></span>
-      &copy; ${new Date().getFullYear()} TradeWorkDesk Ltd. All rights reserved.<br/>
-      <span style="margin-top:6px; display:block;">To stop receiving emails, contact us at <a href="mailto:support@tradeworkdesk.co.uk" style="color:#64748b;">support@tradeworkdesk.co.uk</a> to unsubscribe.</span>
+      <p style="margin:0 0 8px;">If this message lands in your spam folder, move it to your inbox and add <strong>${escHtml(transactionalSender)}</strong> to your contacts.</p>
+      <p style="margin:0; color:#475569;">Questions? Reply to this email and we'll help.</p>
     </div>
   </div>
 </body>
@@ -1733,7 +1737,7 @@ export async function sendSimpleNotification(
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const normalizedTo = String(to || "").trim().toLowerCase();
   const from = buildTenantFrom(opts?.companyDetails);
-  const replyTo = opts?.companyDetails?.email ?? undefined;
+  const replyTo = opts?.companyDetails?.email_reply_to || opts?.companyDetails?.email || undefined;
   const companyDisplay = opts?.companyDetails?.name || opts?.companyDetails?.trading_name || "TradeWorkDesk";
   const emailType = opts?.emailType || "simple_notification";
   if (!EMAIL_RE.test(normalizedTo)) {
@@ -1772,7 +1776,8 @@ export async function sendSimpleNotification(
   const html = `<div style="font-family:sans-serif;font-size:14px;color:#1e293b;max-width:600px;margin:0 auto;padding:24px">
     <p style="margin:0 0 16px;">${linked.replace(/\n/g, "<br>")}</p>
     <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
-    <p style="font-size:12px;color:#94a3b8;">Sent from ${escHtml(companyDisplay)} via TradeWorkDesk</p>
+    <p style="font-size:12px;color:#64748b;">If this message lands in your spam folder, move it to your inbox and add <strong>${escHtml(getTransactionalSenderEmail())}</strong> to your contacts.</p>
+    <p style="font-size:12px;color:#64748b;">Sent by ${escHtml(companyDisplay)}.</p>
   </div>`;
   try {
     const sendResult = await sendResendEmailWithRetry({

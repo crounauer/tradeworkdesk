@@ -223,11 +223,11 @@ export async function sendInvoiceDocumentEmail(opts: {
       ${bankDetailsHtml ? `<p style="margin:16px 0 8px;font-size:14px;color:#475569;"><strong>${isQuote ? "Pay your deposit" : (opts.hasPaymentProvider ? "Or pay" : "Pay")} by bank transfer</strong> using the details below:</p>${bankDetailsHtml}` : ""}
       <p>If you have any questions, please don't hesitate to get in touch.</p>
       <hr class="divider"/>
-      <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
+      <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong></p>
     </div>
     <div class="footer">
       ${footerLinksHtml}
-      <a href="https://www.tradeworkdesk.co.uk" style="color:#1d4ed8;font-weight:600;font-size:13px;text-decoration:none;" target="_blank">Powered by TradeWorkDesk</a>
+      <p style="margin:8px 0 0;">If this message lands in your spam folder, move it to your inbox and add <strong>${escHtml(PLATFORM_INVOICE_FROM_EMAIL)}</strong> to your contacts.</p>
     </div>
   </div>
 </body>
@@ -353,10 +353,10 @@ export async function sendPaymentReceiptEmail(opts: {
       </div>
       <p>If you have any questions about this payment, please don't hesitate to get in touch.</p>
       <hr class="divider"/>
-      <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
+      <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong></p>
     </div>
     <div class="footer">
-      <a href="https://www.tradeworkdesk.co.uk" style="color:#1d4ed8;font-weight:600;font-size:13px;text-decoration:none;" target="_blank">Powered by TradeWorkDesk</a>
+      <p style="margin:0;">If this message lands in your spam folder, move it to your inbox and add <strong>${escHtml(PLATFORM_INVOICE_FROM_EMAIL)}</strong> to your contacts.</p>
     </div>
   </div>
 </body>
