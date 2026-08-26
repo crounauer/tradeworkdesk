@@ -502,7 +502,7 @@ router.get("/jobs/confirmation/respond", async (req, res): Promise<void> => {
   }));
 });
 
-function buildJobFormsEmailBodyText(opts: {
+export function buildJobFormsEmailBodyText(opts: {
   customerName: string;
   companyName: string;
   jobRef: string;
@@ -513,7 +513,9 @@ function buildJobFormsEmailBodyText(opts: {
   const lines = [
     `Dear ${opts.customerName},`,
     "",
-    `Please find attached documentation for job ${opts.jobRef}.`,
+    opts.formsIncluded.length > 0 || opts.photosAttached > 0
+      ? `Please find attached documentation for job ${opts.jobRef}.`
+      : `Please see the message below for job ${opts.jobRef}.`,
   ];
 
   if (opts.formsIncluded.length > 0) {
@@ -530,6 +532,46 @@ function buildJobFormsEmailBodyText(opts: {
 
   lines.push("", `Kind regards,`, opts.companyName);
   return lines.join("\n");
+}
+
+export function validateJobEmailSendRequest(params: {
+  to?: string;
+  cc?: string;
+  forms?: Array<{ form_type: string; form_id: string }>;
+  photo_ids?: string[];
+  customer_message?: string;
+}): { ok: true } | { ok: false; error: string } {
+  const hasForms = params.forms && Array.isArray(params.forms) && params.forms.length > 0;
+  const hasPhotos = params.photo_ids && Array.isArray(params.photo_ids) && params.photo_ids.length > 0;
+  const trimmedCustomerMessage = params.customer_message?.trim() || "";
+
+  if (!params.to) {
+    return { ok: false, error: "to (email) is required" };
+  }
+  if (!hasForms && !hasPhotos && !trimmedCustomerMessage) {
+    return { ok: false, error: "to (email) and at least one form, photo, or message are required" };
+  }
+
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRe.test(params.to)) {
+    return { ok: false, error: "Invalid recipient email address" };
+  }
+  if (params.cc && !emailRe.test(params.cc)) {
+    return { ok: false, error: "Invalid CC email address" };
+  }
+  if (trimmedCustomerMessage.length > 2000) {
+    return { ok: false, error: "customer_message must be 2000 characters or fewer" };
+  }
+
+  if (hasForms) {
+    for (const f of params.forms!) {
+      if (!f.form_type || !f.form_id) {
+        return { ok: false, error: "Each form entry must have form_type and form_id" };
+      }
+    }
+  }
+
+  return { ok: true };
 }
 
 const jobsListCache = new Map<string, { data: unknown; ts: number }>();
@@ -3163,23 +3205,19 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   };
   const hasForms = forms && Array.isArray(forms) && forms.length > 0;
   const hasPhotos = photo_ids && Array.isArray(photo_ids) && photo_ids.length > 0;
-  if (!to || (!hasForms && !hasPhotos)) {
-    res.status(400).json({ error: "to (email) and at least one form or photo are required" }); return;
-  }
-  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRe.test(to)) { res.status(400).json({ error: "Invalid recipient email address" }); return; }
-  if (cc && !emailRe.test(cc)) { res.status(400).json({ error: "Invalid CC email address" }); return; }
+  const trimmedCustomerMessage = customer_message?.trim() || "";
+
   if (customer_message !== undefined && typeof customer_message !== "string") {
     res.status(400).json({ error: "customer_message must be a string" }); return;
   }
-  const trimmedCustomerMessage = customer_message?.trim() || "";
-  if (trimmedCustomerMessage.length > 2000) {
-    res.status(400).json({ error: "customer_message must be 2000 characters or fewer" }); return;
+
+  const validation = validateJobEmailSendRequest({ to, cc, forms, photo_ids, customer_message: trimmedCustomerMessage || customer_message });
+  if (!validation.ok) {
+    res.status(400).json({ error: validation.error }); return;
   }
 
   if (hasForms) {
     for (const f of forms!) {
-      if (!f.form_type || !f.form_id) { res.status(400).json({ error: "Each form entry must have form_type and form_id" }); return; }
       if (!FORM_TABLE_MAP[f.form_type]) { res.status(400).json({ error: `Unknown form type: ${f.form_type}` }); return; }
     }
   }
@@ -3332,14 +3370,16 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     formsIncluded.push({ form_type: formType, form_label: config.label, form_id: formId });
   }
 
-  if (formsIncluded.length === 0 && photosAttached === 0) {
-    res.status(400).json({ error: "No completed forms or photos found for the selected entries" }); return;
+  if (formsIncluded.length === 0 && photosAttached === 0 && !trimmedCustomerMessage) {
+    res.status(400).json({ error: "No completed forms, photos, or message content found for the selected entries" }); return;
   }
 
   const subjectParts: string[] = [];
   if (formsIncluded.length > 0) subjectParts.push("Service Forms");
   if (photosAttached > 0) subjectParts.push("Photos");
-  const subject = `Job ${jobRef} — ${subjectParts.join(" & ")} from ${companyName}`;
+  const subject = subjectParts.length > 0
+    ? `Job ${jobRef} — ${subjectParts.join(" & ")} from ${companyName}`
+    : `Message for ${customerName} — Job ${jobRef} from ${companyName}`;
   const formsEmailBodyText = buildJobFormsEmailBodyText({
     customerName,
     companyName,

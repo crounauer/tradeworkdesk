@@ -3,10 +3,20 @@ import assert from "node:assert/strict";
 
 import { getTransactionalSenderEmail } from "./email";
 import { buildSummaryBody } from "./technician-daily-summary";
+import { validateJobEmailSendRequest } from "../routes/jobs";
 
 test("uses a dedicated transactional sender email by default", () => {
   process.env.TRANSACTIONAL_FROM_EMAIL = "notifications@mail.tradeworkdesk.co.uk";
   assert.equal(getTransactionalSenderEmail(), "notifications@mail.tradeworkdesk.co.uk");
+});
+
+test("allows a message-only customer email with no attachments", () => {
+  const result = validateJobEmailSendRequest({
+    to: "customer@example.com",
+    customer_message: "Please call when you can.",
+  });
+
+  assert.deepEqual(result, { ok: true });
 });
 
 test("keeps technician summaries operational and adds spam guidance", () => {
