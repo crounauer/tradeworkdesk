@@ -6,10 +6,10 @@ const BOILER_TYPE_MAP: Record<string, string> = {
   cooker: "other",
   water_heater: "water_heater",
   cylinder: "water_heater",
-  combi: "boiler",
-  system: "boiler",
-  regular: "boiler",
-  back_boiler: "boiler",
+  combi: "combi",
+  system: "system",
+  regular: "regular",
+  back_boiler: "back_boiler",
   other: "other",
 };
 

@@ -13,7 +13,7 @@ import { Plus, Trash2, Pencil, Check, X, Settings2 } from "lucide-react";
 const CATEGORIES = [
   { key: "property_type", label: "Property Types" },
   { key: "occupancy_type", label: "Occupancy Types" },
-  { key: "boiler_type", label: "Boiler Types" },
+  { key: "boiler_type", label: "Appliance Types" },
   { key: "fuel_type", label: "Fuel Types" },
 ];
 
@@ -108,7 +108,7 @@ export default function AdminLookupOptions() {
           <Settings2 className="w-8 h-8 text-primary" /> Lookup Options
         </h1>
         <p className="text-muted-foreground mt-1">
-          Manage the dropdown options used throughout the app for property types, occupancy types, boiler types, and fuel types.
+          Manage the dropdown options used throughout the app for property types, occupancy types, appliance types, and fuel types.
         </p>
       </div>
 

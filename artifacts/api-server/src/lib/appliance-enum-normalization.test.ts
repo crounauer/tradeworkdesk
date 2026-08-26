@@ -11,7 +11,7 @@ test("normalizeAppliancePayload maps legacy UI values to DB enum values", () => 
     system_type: "open_vent",
   });
 
-  assert.equal(normalized.boiler_type, "boiler");
+  assert.equal(normalized.boiler_type, "regular");
   assert.equal(normalized.fuel_type, "other");
   assert.equal(normalized.system_type, "open_vented");
 });
@@ -24,7 +24,7 @@ test("normalizeAppliancePayload normalizes legacy system types to the supported 
     system_type: "pressurised",
   });
 
-  assert.equal(normalized.boiler_type, "boiler");
+  assert.equal(normalized.boiler_type, "combi");
   assert.equal(normalized.fuel_type, "gas");
   assert.equal(normalized.system_type, "sealed");
 });
