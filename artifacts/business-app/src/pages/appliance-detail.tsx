@@ -13,10 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useLookupOptions } from "@/hooks/use-lookup-options";
 
 const APPLIANCE_BOILER_TYPE_OPTIONS = [
-  { value: "regular", label: "Regular" },
-  { value: "combi", label: "Combi" },
-  { value: "system", label: "System" },
-  { value: "back_boiler", label: "Back Boiler" },
+  { value: "boiler", label: "Boiler" },
+  { value: "heat_pump", label: "Heat Pump" },
+  { value: "water_heater", label: "Water Heater" },
+  { value: "stove", label: "Stove" },
+  { value: "fire", label: "Fire" },
   { value: "other", label: "Other" },
 ];
 
@@ -300,7 +301,7 @@ function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; ma
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <Label>Boiler Type</Label>
+            <Label>Appliance Type</Label>
             <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("boiler_type")}>
               <option value="">Select...</option>
               {APPLIANCE_BOILER_TYPE_OPTIONS.map((opt) => (

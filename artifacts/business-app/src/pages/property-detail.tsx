@@ -349,10 +349,11 @@ export default function PropertyDetail() {
                         <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...registerAppliance("boiler_type")}>
                           <option value="">Select...</option>
                           {[
-                            { value: "regular", label: "Regular" },
-                            { value: "combi", label: "Combi" },
-                            { value: "system", label: "System" },
-                            { value: "back_boiler", label: "Back Boiler" },
+                            { value: "boiler", label: "Boiler" },
+                            { value: "heat_pump", label: "Heat Pump" },
+                            { value: "water_heater", label: "Water Heater" },
+                            { value: "stove", label: "Stove" },
+                            { value: "fire", label: "Fire" },
                             { value: "other", label: "Other" },
                           ].map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>

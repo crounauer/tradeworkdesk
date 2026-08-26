@@ -67,10 +67,11 @@ type JobLike = {
 };
 
 const APPLIANCE_BOILER_TYPE_OPTIONS = [
-  { value: "regular", label: "Regular" },
-  { value: "combi", label: "Combi" },
-  { value: "system", label: "System" },
-  { value: "back_boiler", label: "Back Boiler" },
+  { value: "boiler", label: "Boiler" },
+  { value: "heat_pump", label: "Heat Pump" },
+  { value: "water_heater", label: "Water Heater" },
+  { value: "stove", label: "Stove" },
+  { value: "fire", label: "Fire" },
   { value: "other", label: "Other" },
 ];
 
