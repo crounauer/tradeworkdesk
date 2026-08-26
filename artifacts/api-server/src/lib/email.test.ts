@@ -37,5 +37,7 @@ test("keeps technician summaries operational and adds spam guidance", () => {
 
   assert.match(body, /Your job summary for/);
   assert.match(body, /spam folder/i);
+  assert.match(body, /notifications@mail\.tradeworkdesk\.co\.uk/);
+  assert.doesNotMatch(body, /notifications@tradeworkdesk\.co\.uk/);
   assert.doesNotMatch(body, /Powered by TradeWorkDesk/i);
 });

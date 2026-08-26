@@ -159,7 +159,7 @@ export function buildSummaryBody(args: {
   lines.push("");
   lines.push(`Your job summary for ${dateLabel}`);
   lines.push("");
-  lines.push("If this email lands in your spam folder, please move it to your inbox and add notifications@tradeworkdesk.co.uk to your contacts.");
+  lines.push("If this email lands in your spam folder, please move it to your inbox and add notifications@mail.tradeworkdesk.co.uk to your contacts.");
   lines.push("");
 
   for (const [index, job] of args.jobs.entries()) {
@@ -193,7 +193,7 @@ export function buildNoJobsBody(args: { technicianName: string; companyName: str
     "",
     `You have no jobs scheduled for ${dateLabel}.`,
     "",
-    "If this email lands in your spam folder, please move it to your inbox and add notifications@tradeworkdesk.co.uk to your contacts.",
+    "If this email lands in your spam folder, please move it to your inbox and add notifications@mail.tradeworkdesk.co.uk to your contacts.",
     "",
     `Operational update for ${args.companyName}.`,
   ].join("\n");
