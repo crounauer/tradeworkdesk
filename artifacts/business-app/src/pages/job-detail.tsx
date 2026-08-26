@@ -1509,8 +1509,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const updateMutation = useUpdateJobTimeEntry();
   const [showAdd, setShowAdd] = useState(false);
   const [arrival, setArrival] = useState("");
-  const [departureDate, setDepartureDate] = useState("");
-  const [departureTime, setDepartureTime] = useState("");
+  const [departure, setDeparture] = useState("");
   const [notes, setNotes] = useState("");
   const [hourlyRate, setHourlyRate] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1659,7 +1658,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
 
   const [offlineSubmitting, setOfflineSubmitting] = useState(false);
 
-  const departureValue = departureDate && departureTime ? `${departureDate}T${departureTime}` : "";
+  const departureValue = departure;
 
   const handleAdd = async () => {
     if (!arrival) return;
@@ -1682,7 +1681,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
       setOfflineSubmitting(true);
       try {
         await queueTimeEntry(jobId, entryData);
-        setArrival(""); setDepartureDate(""); setDepartureTime(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setShowAdd(false);
+        setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setShowAdd(false);
         toast({ title: "Saved offline", description: "Time entry will sync when you're back online." });
       } catch {
         toast({ title: "Error", description: "Failed to save time entry offline", variant: "destructive" });
@@ -1693,7 +1692,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     }
     try {
       await createMutation.mutateAsync({ jobId, data: entryData as any });
-      setArrival(""); setDepartureDate(""); setDepartureTime(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setShowAdd(false);
+      setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setShowAdd(false);
       qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
       toast({ title: "Added", description: "Time entry added" });
       onChanged?.();
@@ -1832,12 +1831,10 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                 <Input type="datetime-local" value={arrival} onChange={(e) => {
                   const nextArrival = e.target.value;
                   setArrival(nextArrival);
-                  setDepartureDate(nextArrival ? nextArrival.split("T")[0] : "");
                 }} className="flex-1" />
                 <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => {
                   const now = toLocalDatetimeStr(new Date());
                   setArrival(now);
-                  setDepartureDate(now.split("T")[0] || "");
                 }}>Now</Button>
               </div>
             </div>
@@ -1845,15 +1842,9 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
               <Label className="text-xs">Departure</Label>
               <div className="flex gap-1.5">
                 <Input
-                  type="date"
-                  value={departureDate}
-                  onChange={(e) => setDepartureDate(e.target.value)}
-                  className="flex-1"
-                />
-                <Input
-                  type="time"
-                  value={departureTime}
-                  onChange={(e) => setDepartureTime(e.target.value)}
+                  type="datetime-local"
+                  value={departure}
+                  onChange={(e) => setDeparture(e.target.value)}
                   className="flex-1"
                 />
                 <Button
@@ -1861,12 +1852,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                   size="sm"
                   variant="outline"
                   className="px-2.5 text-xs font-medium shrink-0"
-                  onClick={() => {
-                    const now = toLocalDatetimeStr(new Date());
-                    const [datePart, timePart] = now.split("T");
-                    setDepartureDate(datePart || "");
-                    setDepartureTime(timePart || "");
-                  }}
+                  onClick={() => setDeparture(toLocalDatetimeStr(new Date()))}
                 >Now</Button>
               </div>
             </div>
@@ -1932,7 +1918,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
             <Button size="sm" onClick={handleAdd} disabled={createMutation.isPending || offlineSubmitting || !arrival}>
               <Check className="w-4 h-4 mr-1" /> {createMutation.isPending || offlineSubmitting ? "Saving..." : "Save Entry"}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setArrival(""); setDepartureDate(""); setDepartureTime(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); }}>
+            <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); }}>
               Cancel
             </Button>
           </div>
@@ -4239,7 +4225,10 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
 
   const handleSend = async () => {
     if (!to) { toast({ title: "Error", description: "Recipient email is required", variant: "destructive" }); return; }
-    if (totalSelected === 0) { toast({ title: "Error", description: "Select at least one form or photo to send", variant: "destructive" }); return; }
+    const hasMessage = customerMessage.trim().length > 0;
+    if (totalSelected === 0 && !hasMessage) {
+      toast({ title: "Error", description: "Add a message or select at least one form or photo to send", variant: "destructive" }); return;
+    }
     setSending(true);
     try {
       const formsPayload = completedForms.filter(f => selectedForms.has(f.form_id)).map(f => ({ form_type: f.form_type, form_id: f.form_id }));
@@ -4279,7 +4268,8 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
     const parts: string[] = [];
     if (selectedForms.size > 0) parts.push(`${selectedForms.size} Form${selectedForms.size !== 1 ? "s" : ""}`);
     if (selectedPhotos.size > 0) parts.push(`${selectedPhotos.size} Photo${selectedPhotos.size !== 1 ? "s" : ""}`);
-    return `Send ${parts.join(" & ") || "0 Items"}`;
+    if (parts.length === 0 && customerMessage.trim().length > 0) return "Send Message";
+    return `Send ${parts.join(" & ") || "Email"}`;
   };
 
   return (
@@ -4370,7 +4360,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
           )}
 
           <div className="flex gap-3 pt-2">
-            <Button onClick={handleSend} disabled={sending || totalSelected === 0 || !to || loadingForms} className="flex-1">
+            <Button onClick={handleSend} disabled={sending || (!to || (totalSelected === 0 && !customerMessage.trim()) || loadingForms)} className="flex-1">
               <Send className="w-4 h-4 mr-2" /> {sendLabel()}
             </Button>
             <Button variant="outline" onClick={onClose}>Cancel</Button>
