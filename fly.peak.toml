@@ -9,7 +9,8 @@ primary_region = "lhr"
 [env]
   NODE_ENV = "production"
   PORT = "8080"
-  INVOICE_FROM_EMAIL = "invoices@tradeworkdesk.co.uk"
+  TRANSACTIONAL_FROM_EMAIL = "notifications@mail.tradeworkdesk.co.uk"
+  INVOICE_FROM_EMAIL = "invoices@mail.tradeworkdesk.co.uk"
 
 [http_service]
   internal_port = 8080
