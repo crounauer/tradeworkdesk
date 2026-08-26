@@ -381,8 +381,6 @@ export default function PropertyDetail() {
                           <option value="">Select...</option>
                           <option value="open_vented">Open Vented</option>
                           <option value="sealed">Sealed</option>
-                          <option value="gravity_fed">Gravity Fed</option>
-                          <option value="pressurised">Pressurised</option>
                           <option value="other">Other</option>
                         </select>
                       </div>

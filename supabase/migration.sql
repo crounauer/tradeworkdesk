@@ -13,7 +13,7 @@ DO $$ BEGIN CREATE TYPE property_type AS ENUM ('residential', 'commercial', 'ind
 DO $$ BEGIN CREATE TYPE occupancy_type AS ENUM ('owner_occupied', 'tenant', 'landlord', 'vacant', 'holiday_let'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE fuel_type AS ENUM ('oil', 'gas', 'lpg', 'electric', 'solid_fuel', 'heat_pump', 'other'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE boiler_type AS ENUM ('combi', 'system', 'regular', 'back_boiler', 'ashp', 'gshp', 'wshp', 'other'); EXCEPTION WHEN duplicate_object THEN null; END $$;
-DO $$ BEGIN CREATE TYPE system_type AS ENUM ('open_vented', 'sealed', 'gravity_fed', 'pressurised', 'other'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE system_type AS ENUM ('open_vented', 'sealed', 'other'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- Profiles table (extends Supabase auth.users)
 CREATE TABLE IF NOT EXISTS profiles (

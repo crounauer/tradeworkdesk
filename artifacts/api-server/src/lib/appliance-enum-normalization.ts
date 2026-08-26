@@ -26,15 +26,15 @@ const FUEL_TYPE_MAP: Record<string, string> = {
 
 const SYSTEM_TYPE_MAP: Record<string, string> = {
   combi: "sealed",
-  system: "pressurised",
-  conventional: "gravity_fed",
+  system: "sealed",
+  conventional: "sealed",
   open_vent: "open_vented",
   sealed: "sealed",
-  direct: "pressurised",
-  indirect: "pressurised",
+  direct: "sealed",
+  indirect: "sealed",
   open_vented: "open_vented",
-  gravity_fed: "gravity_fed",
-  pressurised: "pressurised",
+  gravity_fed: "sealed",
+  pressurised: "sealed",
   other: "other",
 };
 

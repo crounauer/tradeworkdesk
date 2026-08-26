@@ -9,7 +9,7 @@ export const propertyTypeEnum = pgEnum("property_type", ["residential", "commerc
 export const occupancyTypeEnum = pgEnum("occupancy_type", ["owner_occupied", "tenant", "landlord", "vacant", "holiday_let"]);
 export const fuelTypeEnum = pgEnum("fuel_type", ["oil", "gas", "lpg", "electric", "solid_fuel", "other"]);
 export const boilerTypeEnum = pgEnum("boiler_type", ["combi", "system", "regular", "back_boiler", "other"]);
-export const systemTypeEnum = pgEnum("system_type", ["open_vented", "sealed", "gravity_fed", "pressurised", "other"]);
+export const systemTypeEnum = pgEnum("system_type", ["open_vented", "sealed", "other"]);
 
 export const companyTypeEnum = pgEnum("company_type", ["sole_trader", "company"]);
 
