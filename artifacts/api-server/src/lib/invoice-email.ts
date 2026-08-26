@@ -5,7 +5,7 @@
  */
 import { getTenantEmailFailureMessage, notifyEmailDeliveryFailure, sendResendEmailWithRetry, writeTenantEmailAudit, type EmailCompanyDetails } from "./email";
 const DEFAULT_FROM_NAME = "TradeWorkDesk";
-const PLATFORM_INVOICE_FROM_EMAIL = (process.env.INVOICE_FROM_EMAIL || "noreply@tradeworkdesk.co.uk").trim().toLowerCase();
+const PLATFORM_INVOICE_FROM_EMAIL = (process.env.INVOICE_FROM_EMAIL || "invoices@mail.tradeworkdesk.co.uk").trim().toLowerCase();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function buildPlatformInvoiceFrom(company?: EmailCompanyDetails): string {

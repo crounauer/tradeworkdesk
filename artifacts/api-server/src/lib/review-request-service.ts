@@ -222,7 +222,7 @@ async function sendEmailReviewRequest(rr: ReviewRequestRow, settings: ReviewSett
 
   try {
     const sendResult = await sendResendEmailWithRetry({
-      from: "TradeWorkDesk <noreply@tradeworkdesk.co.uk>",
+      from: "TradeWorkDesk <notifications@mail.tradeworkdesk.co.uk>",
       to: rr.customer_email,
       subject,
       html,
@@ -237,7 +237,7 @@ async function sendEmailReviewRequest(rr: ReviewRequestRow, settings: ReviewSett
       emailType: "review_request",
       to: rr.customer_email,
       subject,
-      from: "TradeWorkDesk <noreply@tradeworkdesk.co.uk>",
+      from: "TradeWorkDesk <notifications@mail.tradeworkdesk.co.uk>",
       providerMessageId: sendResult.messageId,
       retryCount: Math.max(0, sendResult.attempts - 1),
       metadata: { reviewRequestId: rr.id },
@@ -249,7 +249,7 @@ async function sendEmailReviewRequest(rr: ReviewRequestRow, settings: ReviewSett
       to: rr.customer_email,
       subject,
       reason,
-      from: "TradeWorkDesk <noreply@tradeworkdesk.co.uk>",
+      from: "TradeWorkDesk <notifications@mail.tradeworkdesk.co.uk>",
     });
     await writeTenantEmailAudit({
       tenantId: rr.tenant_id,
@@ -257,7 +257,7 @@ async function sendEmailReviewRequest(rr: ReviewRequestRow, settings: ReviewSett
       emailType: "review_request",
       to: rr.customer_email,
       subject,
-      from: "TradeWorkDesk <noreply@tradeworkdesk.co.uk>",
+      from: "TradeWorkDesk <notifications@mail.tradeworkdesk.co.uk>",
       errorMessage: reason,
       metadata: { reviewRequestId: rr.id },
     });
