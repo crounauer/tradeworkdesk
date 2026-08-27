@@ -3487,6 +3487,62 @@ router.get("/jobs/:jobId/email-log", requireAuth, requireTenant, requirePlanFeat
     created_at: entry.created_at,
   }));
 
+  // Include customer-facing emails that are tracked in the tenant audit log but
+  // do not have a job_id, such as unlinked invoices and service reminders.
+  const { data: jobCustomer } = await supabaseAdmin
+    .from("jobs")
+    .select("customer_id, customers(email)")
+    .eq("id", jobId)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+  const customerEmail = String((jobCustomer?.customers as { email?: string | null } | null)?.email || "").trim().toLowerCase();
+
+  if (customerEmail) {
+    const { data: auditRows, error: auditError } = await supabaseAdmin
+      .from("tenant_email_audit_log")
+      .select("id, status, email_type, to_email, subject, metadata, created_at")
+      .eq("tenant_id", req.tenantId!)
+      .eq("to_email", customerEmail)
+      .in("status", ["queued", "accepted", "delivered", "sent"])
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    if (auditError) { res.status(500).json({ error: auditError.message }); return; }
+
+    const auditEntries = (auditRows || []).filter((entry: Record<string, unknown>) => {
+      const sentAt = new Date(String(entry.created_at)).getTime();
+      const subject = String(entry.subject || "").trim().toLowerCase();
+      return !mapped.some((jobEntry) =>
+        String(jobEntry.sent_to || "").toLowerCase() === customerEmail
+        && String(jobEntry.subject || "").trim().toLowerCase() === subject
+        && Math.abs(new Date(String(jobEntry.created_at)).getTime() - sentAt) < 5 * 60 * 1000,
+      );
+    }).map((entry: Record<string, unknown>) => {
+      const emailType = String(entry.email_type || "general");
+      const metadata = (entry.metadata as Record<string, unknown> | null) || {};
+      return {
+        id: `audit-${String(entry.id)}`,
+        job_id: null,
+        sent_by: null,
+        sent_by_name: null,
+        sent_to: entry.to_email,
+        cc: null,
+        subject: entry.subject,
+        forms_included: [{
+          form_type: emailType,
+          form_label: emailType.replace(/_/g, " "),
+          form_id: String(metadata.invoiceId || metadata.invoice_id || entry.id),
+        }],
+        photos_included: null,
+        body_text: null,
+        created_at: entry.created_at,
+      };
+    });
+
+    mapped.push(...auditEntries);
+    mapped.sort((left, right) => new Date(String(right.created_at)).getTime() - new Date(String(left.created_at)).getTime());
+  }
+
   res.json(mapped);
 });
 
