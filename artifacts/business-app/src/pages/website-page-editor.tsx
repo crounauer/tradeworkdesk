@@ -1772,6 +1772,9 @@ function BlockEditor({
               </SelectContent>
             </Select>
           </FieldRow>
+          <BackgroundColorField label="Section Background" value={readString(c, ["section_bg", "background_color"], "default")} onChange={(value) => setLinkedBackgroundValue("background_color", value)} inheritOptions={backgroundInheritOptions} />
+          <BackgroundColorField label="Card Background" value={readString(c, ["card_bg"], "default")} onChange={(value) => set("card_bg", value)} inheritOptions={backgroundInheritOptions} />
+          <FieldRow label="Text Colour"><ColorSwatch value={readString(c, ["text_color", "body_color"], "default")} onChange={(e) => set("text_color", e.target.value)} /></FieldRow>
         </div>
       );
       }
@@ -1901,7 +1904,7 @@ function BlockEditor({
 
               <div className="flex gap-3">
                 <BackgroundColorField
-                  label="Background"
+                  label="Section Background"
                   value={backgroundColor}
                   onChange={(value) => onChange(syncBlockContent(
                     c,
@@ -1914,18 +1917,19 @@ function BlockEditor({
                   ))}
                   inheritOptions={backgroundInheritOptions}
                 />
-                <FieldRow label="Text">
+                <FieldRow label="Text Colour">
                   <div className="flex items-center gap-2">
                     <ColorSwatch value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} />
                   </div>
                 </FieldRow>
               </div>
 
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Primary Button BG"><Input value={primaryButtonBg} onChange={(e) => set("primary_button_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Primary Button Text"><Input value={primaryButtonText} onChange={(e) => set("primary_button_text", e.target.value)} /></FieldRow>
-              <FieldRow label="Secondary Button BG"><Input value={secondaryButtonBg} onChange={(e) => set("secondary_button_bg", e.target.value)} /></FieldRow>
-              <FieldRow label="Secondary Button Text"><Input value={secondaryButtonText} onChange={(e) => set("secondary_button_text", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Card Background" value={readString(c, ["card_bg"], "default")} onChange={(value) => set("card_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <FieldRow label="Primary Button BG"><ColorSwatch value={primaryButtonBg} onChange={(e) => set("primary_button_bg", e.target.value)} /></FieldRow>
+              <FieldRow label="Primary Button Text"><ColorSwatch value={primaryButtonText} onChange={(e) => set("primary_button_text", e.target.value)} /></FieldRow>
+              <FieldRow label="Secondary Button BG"><ColorSwatch value={secondaryButtonBg} onChange={(e) => set("secondary_button_bg", e.target.value)} /></FieldRow>
+              <FieldRow label="Secondary Button Text"><ColorSwatch value={secondaryButtonText} onChange={(e) => set("secondary_button_text", e.target.value)} /></FieldRow>
             </div>
           </div>
 
@@ -2049,10 +2053,10 @@ function BlockEditor({
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Card Border"><Input value={cardBorder} onChange={(e) => set("card_border", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Colour"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Colour"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Colour"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Link Colour"><Input value={linkColor} onChange={(e) => set("link_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Colour"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Colour"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Colour"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Link Colour"><ColorSwatch value={linkColor} onChange={(e) => set("link_color", e.target.value)} /></FieldRow>
 
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Service Items</Label>
@@ -2164,6 +2168,9 @@ function BlockEditor({
           <FieldRow label="Footer Note (optional)">
             <Input value={note} onChange={(e) => set("note", e.target.value)} placeholder="Final quote depends on scope and parts." />
           </FieldRow>
+          <BackgroundColorField label="Section Background" value={readString(c, ["section_bg", "background_color"], "default")} onChange={(value) => setLinkedBackgroundValue("background_color", value)} inheritOptions={backgroundInheritOptions} />
+          <BackgroundColorField label="Card Background" value={readString(c, ["card_bg"], "default")} onChange={(value) => set("card_bg", value)} inheritOptions={backgroundInheritOptions} />
+          <FieldRow label="Text Colour"><ColorSwatch value={readString(c, ["body_color", "text_color"], "default")} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -2296,10 +2303,10 @@ function BlockEditor({
 
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Colour"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Colour"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Colour"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Colour"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Colour"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Colour"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Colour"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Colour"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Button Font"><Input value={buttonFont} onChange={(e) => set("button_font_family", e.target.value)} /></FieldRow>
@@ -2431,11 +2438,11 @@ function BlockEditor({
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
               <FieldRow label="Card Border"><Input value={cardBorder} onChange={(e) => set("card_border", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Meta Color"><Input value={metaColor} onChange={(e) => set("meta_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Star Color"><Input value={starColor} onChange={(e) => set("star_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Meta Color"><ColorSwatch value={metaColor} onChange={(e) => set("meta_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Star Color"><ColorSwatch value={starColor} onChange={(e) => set("star_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>
@@ -2495,6 +2502,9 @@ function BlockEditor({
           <FieldRow label="Allow customer photo uploads">
             <Switch checked={Boolean(c.allow_photos ?? true)} onCheckedChange={(v) => set("allow_photos", v)} />
           </FieldRow>
+          <BackgroundColorField label="Section Background" value={readString(c, ["section_bg", "background_color"], "default")} onChange={(value) => setLinkedBackgroundValue("background_color", value)} inheritOptions={backgroundInheritOptions} />
+          <BackgroundColorField label="Card Background" value={readString(c, ["card_bg"], "default")} onChange={(value) => set("card_bg", value)} inheritOptions={backgroundInheritOptions} />
+          <FieldRow label="Text Colour"><ColorSwatch value={readString(c, ["text_color", "body_color"], "default")} onChange={(e) => set("text_color", e.target.value)} /></FieldRow>
         </div>
       );
     }
@@ -2590,10 +2600,10 @@ function BlockEditor({
 
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>
@@ -2747,10 +2757,10 @@ function BlockEditor({
 
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>
@@ -2892,10 +2902,10 @@ function BlockEditor({
 
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Button Font"><Input value={buttonFont} onChange={(e) => set("button_font_family", e.target.value)} /></FieldRow>
@@ -3003,10 +3013,10 @@ function BlockEditor({
               <FieldRow label="Section Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>
@@ -3137,10 +3147,10 @@ function BlockEditor({
               <FieldRow label="Heading"><Input value={heading} onChange={(e) => onChange(syncBlockContent(c, { heading: e.target.value, title: e.target.value }, { heading: ["title"], title: ["heading"] }))} /></FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Text Color"><Input value={textColor} onChange={(e) => set("text_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Text Color"><ColorSwatch value={textColor} onChange={(e) => set("text_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>
@@ -3266,10 +3276,10 @@ function BlockEditor({
               <FieldRow label="CTA Button URL"><Input value={ctaUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>
@@ -3439,10 +3449,10 @@ function BlockEditor({
               <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>
@@ -3564,10 +3574,10 @@ function BlockEditor({
                 </Select>
               </FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <BackgroundColorField label="Frame Background" value={frameBg} onChange={(value) => setLinkedBackgroundValue("frame_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Caption Color"><Input value={captionColor} onChange={(e) => set("caption_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <BackgroundColorField label="Card Background" value={frameBg} onChange={(value) => setLinkedBackgroundValue("frame_bg", value)} inheritOptions={backgroundInheritOptions} />
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Text Colour"><ColorSwatch value={captionColor} onChange={(e) => set("caption_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
               <FieldRow label="Caption Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Caption Size"><Input value={captionSize} onChange={(e) => set("caption_size", e.target.value)} /></FieldRow>
               <FieldRow label="Image Radius"><Input value={imageRadius} onChange={(e) => set("image_radius", e.target.value)} /></FieldRow>
@@ -3653,8 +3663,8 @@ function BlockEditor({
                 </Select>
               </FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Rule Color"><Input value={ruleColor} onChange={(e) => set("rule_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Rule Color"><ColorSwatch value={ruleColor} onChange={(e) => set("rule_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
             </div>
           </div>
 
@@ -3813,10 +3823,10 @@ function BlockEditor({
               <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>
@@ -3953,10 +3963,10 @@ function BlockEditor({
               <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>
@@ -4100,10 +4110,10 @@ function BlockEditor({
               <FieldRow label="CTA Button URL"><Input value={ctaUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>
@@ -4250,10 +4260,10 @@ function BlockEditor({
               <FieldRow label="CTA Button URL"><Input value={ctaUrl} onChange={(e) => onChange(syncBlockContent(c, { cta_url: e.target.value, primaryCtaHref: e.target.value, primaryButtonUrl: e.target.value }, { cta_url: ["primaryCtaHref", "primaryButtonUrl"], primaryCtaHref: ["cta_url", "primaryButtonUrl"], primaryButtonUrl: ["cta_url", "primaryCtaHref"] }))} placeholder="/contact" /></FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>
@@ -4371,10 +4381,10 @@ function BlockEditor({
               <FieldRow label="Subheading (optional)"><Textarea value={subheading} onChange={(e) => onChange(syncBlockContent(c, { subheading: e.target.value, subtitle: e.target.value }, { subheading: ["subtitle"], subtitle: ["subheading"] }))} rows={2} /></FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>
@@ -4573,10 +4583,10 @@ function BlockEditor({
               </FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
 
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Products (individual)</Label>
@@ -4773,10 +4783,10 @@ function BlockEditor({
               </FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Button Font"><Input value={buttonFont} onChange={(e) => set("button_font_family", e.target.value)} /></FieldRow>
@@ -4927,10 +4937,10 @@ function BlockEditor({
               </FieldRow>
               <BackgroundColorField label="Section Background" value={sectionBg} onChange={(value) => setLinkedBackgroundValue("section_bg", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Card Background" value={cardBg} onChange={(value) => setLinkedBackgroundValue("card_bg", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Accent Color"><ColorSwatch value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>
@@ -5066,13 +5076,13 @@ function BlockEditor({
                   placeholder="/book"
                 />
               </FieldRow>
-              <BackgroundColorField label="Bar Background" value={backgroundColor} onChange={(value) => setLinkedBackgroundValue("background_color", value)} inheritOptions={backgroundInheritOptions} />
+              <BackgroundColorField label="Section Background" value={backgroundColor} onChange={(value) => setLinkedBackgroundValue("background_color", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Primary Button Background" value={primaryColor} onChange={(value) => setLinkedBackgroundValue("primary_color", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Secondary Button Background" value={secondaryColor} onChange={(value) => setLinkedBackgroundValue("secondary_color", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Text Color"><Input value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} /></FieldRow>
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => onChange(syncBlockContent(c, { border_color: e.target.value, borderColor: e.target.value }, { border_color: ["borderColor"], borderColor: ["border_color"] }))} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Body Color"><Input value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Text Color"><ColorSwatch value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => onChange(syncBlockContent(c, { border_color: e.target.value, borderColor: e.target.value }, { border_color: ["borderColor"], borderColor: ["border_color"] }))} /></FieldRow>
+              <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
+              <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Button Font"><Input value={buttonFont} onChange={(e) => set("button_font_family", e.target.value)} /></FieldRow>

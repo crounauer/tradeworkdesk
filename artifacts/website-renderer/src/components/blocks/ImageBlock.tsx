@@ -24,7 +24,7 @@ export default function ImageBlock({ content }: Props) {
   const width = String(content.width || "contained").toLowerCase();
 
   const sectionBg = String(content.section_bg || "transparent");
-  const frameBg = String(content.frame_bg || "#ffffff");
+  const frameBg = String(content.frame_bg || content.card_bg || "#ffffff");
   const borderColor = String(content.border_color || "#e5e7eb");
   const captionColor = String(content.caption_color || "#666666");
   const accentColor = String(content.accent_color || "#0d9488");

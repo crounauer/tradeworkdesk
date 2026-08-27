@@ -36,11 +36,21 @@ export default function TextBlock({ content }: Props) {
   const sectionPaddingX = String(content.padding_x || "24px");
   const layoutVariant = String(content.layout_variant || content.layout || "default").toLowerCase();
   const alignMode = layoutVariant === "center" ? "center" : align;
+  // Only becomes a panel once a card background is chosen.
+  const cardBg = String(content.card_bg || "").trim();
+  const cardStyle = cardBg
+    ? {
+        backgroundColor: cardBg,
+        padding: "28px",
+        borderRadius: String(content.card_radius || "12px"),
+        border: content.border_color ? `1px solid ${String(content.border_color)}` : undefined,
+      }
+    : {};
 
   if (isModernTradePayload) {
     return (
       <section style={{ padding: `${sectionPaddingY} ${sectionPaddingX}`, backgroundColor: sectionBg }}>
-        <div style={{ maxWidth, margin: "0 auto", textAlign: alignMode }}>
+        <div style={{ maxWidth, margin: "0 auto", textAlign: alignMode, ...cardStyle }}>
           {eyebrow && <p style={{ color: accentColor, fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 10px", fontFamily: bodyFont }}>{eyebrow}</p>}
           {title && <h2 style={{ margin: "0 0 14px", color: headingColor, fontWeight: 800, fontSize: headingSize, fontFamily: headingFont }}>{title}</h2>}
           {subtitle && <p style={{ margin: "0 0 20px", color: mutedColor, lineHeight: 1.7, fontSize: bodySize, fontFamily: bodyFont }}>{subtitle}</p>}
@@ -55,7 +65,7 @@ export default function TextBlock({ content }: Props) {
     return (
       <section style={{ padding: `${sectionPaddingY} ${sectionPaddingX}`, backgroundColor: sectionBg }}>
         <div
-          style={{ maxWidth, margin: "0 auto", textAlign: alignMode, color: bodyColor, fontFamily: bodyFont, fontSize: bodySize }}
+          style={{ maxWidth, margin: "0 auto", textAlign: alignMode, color: bodyColor, fontFamily: bodyFont, fontSize: bodySize, ...cardStyle }}
           dangerouslySetInnerHTML={{ __html: safeHtml }}
         />
       </section>
@@ -65,7 +75,7 @@ export default function TextBlock({ content }: Props) {
   if (text) {
     return (
       <section style={{ padding: `${sectionPaddingY} ${sectionPaddingX}`, backgroundColor: sectionBg }}>
-        <div style={{ maxWidth, margin: "0 auto", textAlign: alignMode }}>
+        <div style={{ maxWidth, margin: "0 auto", textAlign: alignMode, ...cardStyle }}>
           <p style={{ whiteSpace: "pre-wrap", color: bodyColor, fontFamily: bodyFont, fontSize: bodySize }}>{text}</p>
         </div>
       </section>
@@ -75,7 +85,7 @@ export default function TextBlock({ content }: Props) {
   if (title || eyebrow || subtitle) {
     return (
       <section style={{ padding: `${sectionPaddingY} ${sectionPaddingX}`, backgroundColor: sectionBg }}>
-        <div style={{ maxWidth, margin: "0 auto", textAlign: alignMode }}>
+        <div style={{ maxWidth, margin: "0 auto", textAlign: alignMode, ...cardStyle }}>
           {eyebrow && <p style={{ color: accentColor, fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 10px", fontFamily: bodyFont }}>{eyebrow}</p>}
           {title && <h2 style={{ margin: "0 0 14px", color: headingColor, fontWeight: 800, fontSize: headingSize, fontFamily: headingFont }}>{title}</h2>}
           {subtitle && <p style={{ margin: "0 0 20px", color: mutedColor, lineHeight: 1.7, fontSize: bodySize, fontFamily: bodyFont }}>{subtitle}</p>}

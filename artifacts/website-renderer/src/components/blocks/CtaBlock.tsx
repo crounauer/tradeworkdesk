@@ -47,6 +47,7 @@ export default function CtaBlock({ content }: Props) {
   const subheadingSize = String(content.subheading_size || "1.0625rem");
   const buttonRadius = String(content.button_radius || "10px");
   const sectionRadius = String(content.section_radius || "14px");
+  const cardBg = String(content.card_bg || "").trim() || "rgba(255,255,255,0.06)";
 
   const sectionPaddingY = String(content.padding_y || "64px");
   const sectionPaddingX = String(content.padding_x || "24px");
@@ -86,7 +87,7 @@ export default function CtaBlock({ content }: Props) {
         )}
 
         {layout === "stacked-card" && (
-          <div style={{ margin: "0 auto", maxWidth: 860, border: `1px solid ${borderColor}`, borderRadius: sectionRadius, padding: "32px 24px", textAlign: "center", backgroundColor: "rgba(255,255,255,0.06)" }}>
+          <div style={{ margin: "0 auto", maxWidth: 860, border: `1px solid ${borderColor}`, borderRadius: sectionRadius, padding: "32px 24px", textAlign: "center", backgroundColor: cardBg }}>
             {heading && <h2 style={{ fontSize: headingSize, fontWeight: 800, margin: "0 0 10px", fontFamily: headingFontFamily }}>{heading}</h2>}
             {subheading && <p style={{ margin: "0 auto 24px", maxWidth: 700, fontSize: subheadingSize, opacity: 0.95, fontFamily: bodyFontFamily }}>{subheading}</p>}
             <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
