@@ -258,6 +258,8 @@ CREATE TABLE IF NOT EXISTS heat_pump_service_records (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
   technician_id UUID NOT NULL REFERENCES profiles(id),
+  service_date DATE,
+  next_service_due DATE,
   refrigerant_type TEXT,
   refrigerant_pressure_high TEXT,
   refrigerant_pressure_low TEXT,

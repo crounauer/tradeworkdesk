@@ -14,6 +14,8 @@ import { ArrowLeft, FileDown, Zap, Wind, ClipboardCheck, AlertCircle, Trash2 } f
 import { Link } from "wouter";
 
 interface HeatPumpServiceFormData {
+  service_date: string;
+  next_service_due: string;
   outdoor_unit_condition: string;
   indoor_unit_condition: string;
   controls_checked: boolean;
@@ -61,6 +63,8 @@ export default function HeatPumpServiceForm() {
     if (existingRecord && dataUpdatedAt > populatedAt.current) {
       populatedAt.current = dataUpdatedAt;
       reset({
+        service_date: existingRecord.service_date || "",
+        next_service_due: existingRecord.next_service_due || "",
         outdoor_unit_condition: existingRecord.outdoor_unit_condition || "",
         indoor_unit_condition: existingRecord.indoor_unit_condition || "",
         controls_checked: existingRecord.controls_checked ?? false,
@@ -92,6 +96,8 @@ export default function HeatPumpServiceForm() {
     const payload: CreateHeatPumpServiceRecordBody = {
       job_id: jobId,
       technician_id: user.id,
+      service_date: data.service_date || undefined,
+      next_service_due: data.next_service_due || undefined,
       outdoor_unit_condition: data.outdoor_unit_condition || undefined,
       indoor_unit_condition: data.indoor_unit_condition || undefined,
       controls_checked: data.controls_checked,
@@ -168,6 +174,20 @@ export default function HeatPumpServiceForm() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+
+        <Card className="p-6 shadow-sm border-border/50">
+          <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Zap className="w-5 h-5"/> Service Dates</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Service Date</Label>
+              <Input type="date" {...register("service_date")} />
+            </div>
+            <div className="space-y-2">
+              <Label>Next Service Due</Label>
+              <Input type="date" {...register("next_service_due")} />
+            </div>
+          </div>
+        </Card>
 
         <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Zap className="w-5 h-5"/> Unit Condition</h2>

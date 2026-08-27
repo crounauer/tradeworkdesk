@@ -1975,6 +1975,8 @@ export type HeatPumpServiceRecord = {
   id: string;
   job_id: string;
   technician_id: string;
+  service_date?: string | null;
+  next_service_due?: string | null;
   outdoor_unit_condition?: string | null;
   indoor_unit_condition?: string | null;
   controls_checked?: boolean;
@@ -2006,6 +2008,8 @@ export type HeatPumpServiceRecord = {
 export type CreateHeatPumpServiceRecordBody = {
   job_id: string;
   technician_id: string;
+  service_date?: string;
+  next_service_due?: string;
   outdoor_unit_condition?: string;
   indoor_unit_condition?: string;
   controls_checked?: boolean;

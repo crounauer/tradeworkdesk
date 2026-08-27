@@ -688,6 +688,7 @@ export declare const ListCustomersQueryParams: zod.ZodObject<{
 export declare const ListCustomersResponseItem: zod.ZodObject<{
     id: zod.ZodString;
     title: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    business_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     first_name: zod.ZodString;
     last_name: zod.ZodString;
     email: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -713,6 +714,7 @@ export declare const ListCustomersResponseItem: zod.ZodObject<{
     phone?: string | null | undefined;
     notes?: string | null | undefined;
     title?: string | null | undefined;
+    business_name?: string | null | undefined;
     mobile?: string | null | undefined;
     address_line1?: string | null | undefined;
     address_line2?: string | null | undefined;
@@ -730,6 +732,7 @@ export declare const ListCustomersResponseItem: zod.ZodObject<{
     phone?: string | null | undefined;
     notes?: string | null | undefined;
     title?: string | null | undefined;
+    business_name?: string | null | undefined;
     mobile?: string | null | undefined;
     address_line1?: string | null | undefined;
     address_line2?: string | null | undefined;
@@ -740,6 +743,7 @@ export declare const ListCustomersResponseItem: zod.ZodObject<{
 export declare const ListCustomersResponse: zod.ZodArray<zod.ZodObject<{
     id: zod.ZodString;
     title: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    business_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     first_name: zod.ZodString;
     last_name: zod.ZodString;
     email: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -765,6 +769,7 @@ export declare const ListCustomersResponse: zod.ZodArray<zod.ZodObject<{
     phone?: string | null | undefined;
     notes?: string | null | undefined;
     title?: string | null | undefined;
+    business_name?: string | null | undefined;
     mobile?: string | null | undefined;
     address_line1?: string | null | undefined;
     address_line2?: string | null | undefined;
@@ -782,6 +787,7 @@ export declare const ListCustomersResponse: zod.ZodArray<zod.ZodObject<{
     phone?: string | null | undefined;
     notes?: string | null | undefined;
     title?: string | null | undefined;
+    business_name?: string | null | undefined;
     mobile?: string | null | undefined;
     address_line1?: string | null | undefined;
     address_line2?: string | null | undefined;
@@ -794,6 +800,7 @@ export declare const ListCustomersResponse: zod.ZodArray<zod.ZodObject<{
  */
 export declare const CreateCustomerBody: zod.ZodObject<{
     title: zod.ZodOptional<zod.ZodString>;
+    business_name: zod.ZodOptional<zod.ZodString>;
     first_name: zod.ZodString;
     last_name: zod.ZodString;
     email: zod.ZodOptional<zod.ZodString>;
@@ -814,6 +821,7 @@ export declare const CreateCustomerBody: zod.ZodObject<{
     phone?: string | undefined;
     notes?: string | undefined;
     title?: string | undefined;
+    business_name?: string | undefined;
     mobile?: string | undefined;
     address_line1?: string | undefined;
     address_line2?: string | undefined;
@@ -829,6 +837,7 @@ export declare const CreateCustomerBody: zod.ZodObject<{
     phone?: string | undefined;
     notes?: string | undefined;
     title?: string | undefined;
+    business_name?: string | undefined;
     mobile?: string | undefined;
     address_line1?: string | undefined;
     address_line2?: string | undefined;
@@ -851,6 +860,7 @@ export declare const GetCustomerParams: zod.ZodObject<{
 export declare const GetCustomerResponse: zod.ZodIntersection<zod.ZodObject<{
     id: zod.ZodString;
     title: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    business_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     first_name: zod.ZodString;
     last_name: zod.ZodString;
     email: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -878,6 +888,7 @@ export declare const GetCustomerResponse: zod.ZodIntersection<zod.ZodObject<{
     phone?: string | null | undefined;
     notes?: string | null | undefined;
     title?: string | null | undefined;
+    business_name?: string | null | undefined;
     mobile?: string | null | undefined;
     address_line1?: string | null | undefined;
     address_line2?: string | null | undefined;
@@ -897,6 +908,7 @@ export declare const GetCustomerResponse: zod.ZodIntersection<zod.ZodObject<{
     phone?: string | null | undefined;
     notes?: string | null | undefined;
     title?: string | null | undefined;
+    business_name?: string | null | undefined;
     mobile?: string | null | undefined;
     address_line1?: string | null | undefined;
     address_line2?: string | null | undefined;
@@ -1024,6 +1036,7 @@ export declare const UpdateCustomerParams: zod.ZodObject<{
 }>;
 export declare const UpdateCustomerBody: zod.ZodObject<{
     title: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    business_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     first_name: zod.ZodOptional<zod.ZodString>;
     last_name: zod.ZodOptional<zod.ZodString>;
     email: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -1042,6 +1055,7 @@ export declare const UpdateCustomerBody: zod.ZodObject<{
     is_active?: boolean | undefined;
     notes?: string | null | undefined;
     title?: string | null | undefined;
+    business_name?: string | null | undefined;
     first_name?: string | undefined;
     last_name?: string | undefined;
     mobile?: string | null | undefined;
@@ -1056,6 +1070,7 @@ export declare const UpdateCustomerBody: zod.ZodObject<{
     is_active?: boolean | undefined;
     notes?: string | null | undefined;
     title?: string | null | undefined;
+    business_name?: string | null | undefined;
     first_name?: string | undefined;
     last_name?: string | undefined;
     mobile?: string | null | undefined;
@@ -1068,6 +1083,7 @@ export declare const UpdateCustomerBody: zod.ZodObject<{
 export declare const UpdateCustomerResponse: zod.ZodObject<{
     id: zod.ZodString;
     title: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    business_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     first_name: zod.ZodString;
     last_name: zod.ZodString;
     email: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -1095,6 +1111,7 @@ export declare const UpdateCustomerResponse: zod.ZodObject<{
     phone?: string | null | undefined;
     notes?: string | null | undefined;
     title?: string | null | undefined;
+    business_name?: string | null | undefined;
     mobile?: string | null | undefined;
     address_line1?: string | null | undefined;
     address_line2?: string | null | undefined;
@@ -1114,6 +1131,7 @@ export declare const UpdateCustomerResponse: zod.ZodObject<{
     phone?: string | null | undefined;
     notes?: string | null | undefined;
     title?: string | null | undefined;
+    business_name?: string | null | undefined;
     mobile?: string | null | undefined;
     address_line1?: string | null | undefined;
     address_line2?: string | null | undefined;
@@ -9842,6 +9860,8 @@ export declare const HeatPumpServiceRecordBase: zod.ZodObject<{
     id: zod.ZodString;
     job_id: zod.ZodString;
     technician_id: zod.ZodString;
+    service_date: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    next_service_due: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     outdoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     indoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     controls_checked: zod.ZodOptional<zod.ZodBoolean>;
@@ -9874,6 +9894,7 @@ export declare const HeatPumpServiceRecordBase: zod.ZodObject<{
     updated_at: Date;
     technician_id: string;
     job_id: string;
+    next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
     defects_found?: boolean | undefined;
@@ -9884,6 +9905,7 @@ export declare const HeatPumpServiceRecordBase: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
+    service_date?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
@@ -9904,6 +9926,7 @@ export declare const HeatPumpServiceRecordBase: zod.ZodObject<{
     updated_at: Date;
     technician_id: string;
     job_id: string;
+    next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
     defects_found?: boolean | undefined;
@@ -9914,6 +9937,7 @@ export declare const HeatPumpServiceRecordBase: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
+    service_date?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
@@ -9933,6 +9957,8 @@ export declare const GetHeatPumpServiceRecordResponse: zod.ZodObject<{
     id: zod.ZodString;
     job_id: zod.ZodString;
     technician_id: zod.ZodString;
+    service_date: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    next_service_due: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     outdoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     indoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     controls_checked: zod.ZodOptional<zod.ZodBoolean>;
@@ -9965,6 +9991,7 @@ export declare const GetHeatPumpServiceRecordResponse: zod.ZodObject<{
     updated_at: Date;
     technician_id: string;
     job_id: string;
+    next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
     defects_found?: boolean | undefined;
@@ -9975,6 +10002,7 @@ export declare const GetHeatPumpServiceRecordResponse: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
+    service_date?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
@@ -9995,6 +10023,7 @@ export declare const GetHeatPumpServiceRecordResponse: zod.ZodObject<{
     updated_at: Date;
     technician_id: string;
     job_id: string;
+    next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
     defects_found?: boolean | undefined;
@@ -10005,6 +10034,7 @@ export declare const GetHeatPumpServiceRecordResponse: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
+    service_date?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
@@ -10024,6 +10054,8 @@ export declare const GetHeatPumpServiceRecordByJobResponse: zod.ZodObject<{
     id: zod.ZodString;
     job_id: zod.ZodString;
     technician_id: zod.ZodString;
+    service_date: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    next_service_due: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     outdoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     indoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     controls_checked: zod.ZodOptional<zod.ZodBoolean>;
@@ -10056,6 +10088,7 @@ export declare const GetHeatPumpServiceRecordByJobResponse: zod.ZodObject<{
     updated_at: Date;
     technician_id: string;
     job_id: string;
+    next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
     defects_found?: boolean | undefined;
@@ -10066,6 +10099,7 @@ export declare const GetHeatPumpServiceRecordByJobResponse: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
+    service_date?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
@@ -10086,6 +10120,7 @@ export declare const GetHeatPumpServiceRecordByJobResponse: zod.ZodObject<{
     updated_at: Date;
     technician_id: string;
     job_id: string;
+    next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
     defects_found?: boolean | undefined;
@@ -10096,6 +10131,7 @@ export declare const GetHeatPumpServiceRecordByJobResponse: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
+    service_date?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
@@ -10115,6 +10151,8 @@ export declare const UpdateHeatPumpServiceRecordResponse: zod.ZodObject<{
     id: zod.ZodString;
     job_id: zod.ZodString;
     technician_id: zod.ZodString;
+    service_date: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    next_service_due: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     outdoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     indoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     controls_checked: zod.ZodOptional<zod.ZodBoolean>;
@@ -10147,6 +10185,7 @@ export declare const UpdateHeatPumpServiceRecordResponse: zod.ZodObject<{
     updated_at: Date;
     technician_id: string;
     job_id: string;
+    next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
     defects_found?: boolean | undefined;
@@ -10157,6 +10196,7 @@ export declare const UpdateHeatPumpServiceRecordResponse: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
+    service_date?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
@@ -10177,6 +10217,7 @@ export declare const UpdateHeatPumpServiceRecordResponse: zod.ZodObject<{
     updated_at: Date;
     technician_id: string;
     job_id: string;
+    next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
     defects_found?: boolean | undefined;
@@ -10187,6 +10228,7 @@ export declare const UpdateHeatPumpServiceRecordResponse: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
+    service_date?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
@@ -10219,6 +10261,8 @@ export declare const GetHeatPumpServiceRecordByJobParams: zod.ZodObject<{
 export declare const CreateHeatPumpServiceRecordBody: zod.ZodObject<{
     job_id: zod.ZodString;
     technician_id: zod.ZodString;
+    service_date: zod.ZodOptional<zod.ZodString>;
+    next_service_due: zod.ZodOptional<zod.ZodString>;
     outdoor_unit_condition: zod.ZodOptional<zod.ZodString>;
     indoor_unit_condition: zod.ZodOptional<zod.ZodString>;
     controls_checked: zod.ZodOptional<zod.ZodBoolean>;
@@ -10246,6 +10290,7 @@ export declare const CreateHeatPumpServiceRecordBody: zod.ZodObject<{
 }, "strip", zod.ZodTypeAny, {
     technician_id: string;
     job_id: string;
+    next_service_due?: string | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
     defects_found?: boolean | undefined;
@@ -10256,6 +10301,7 @@ export declare const CreateHeatPumpServiceRecordBody: zod.ZodObject<{
     additional_notes?: string | undefined;
     customer_name_signed?: string | undefined;
     filter_condition?: string | undefined;
+    service_date?: string | undefined;
     outdoor_unit_condition?: string | undefined;
     indoor_unit_condition?: string | undefined;
     dhw_cylinder_checked?: boolean | undefined;
@@ -10273,6 +10319,7 @@ export declare const CreateHeatPumpServiceRecordBody: zod.ZodObject<{
 }, {
     technician_id: string;
     job_id: string;
+    next_service_due?: string | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
     defects_found?: boolean | undefined;
@@ -10283,6 +10330,7 @@ export declare const CreateHeatPumpServiceRecordBody: zod.ZodObject<{
     additional_notes?: string | undefined;
     customer_name_signed?: string | undefined;
     filter_condition?: string | undefined;
+    service_date?: string | undefined;
     outdoor_unit_condition?: string | undefined;
     indoor_unit_condition?: string | undefined;
     dhw_cylinder_checked?: boolean | undefined;
@@ -10306,6 +10354,8 @@ export declare const UpdateHeatPumpServiceRecordParams: zod.ZodObject<{
     id: string;
 }>;
 export declare const UpdateHeatPumpServiceRecordBody: zod.ZodObject<{
+    service_date: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    next_service_due: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     outdoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     indoor_unit_condition: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     controls_checked: zod.ZodOptional<zod.ZodBoolean>;
@@ -10331,6 +10381,7 @@ export declare const UpdateHeatPumpServiceRecordBody: zod.ZodObject<{
     technician_name_signed: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     additional_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
 }, "strip", zod.ZodTypeAny, {
+    next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
     defects_found?: boolean | undefined;
@@ -10341,6 +10392,7 @@ export declare const UpdateHeatPumpServiceRecordBody: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
+    service_date?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;
@@ -10356,6 +10408,7 @@ export declare const UpdateHeatPumpServiceRecordBody: zod.ZodObject<{
     y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | null | undefined;
 }, {
+    next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
     defects_found?: boolean | undefined;
@@ -10366,6 +10419,7 @@ export declare const UpdateHeatPumpServiceRecordBody: zod.ZodObject<{
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
     filter_condition?: string | null | undefined;
+    service_date?: string | null | undefined;
     outdoor_unit_condition?: string | null | undefined;
     indoor_unit_condition?: string | null | undefined;
     dhw_cylinder_checked?: boolean | undefined;

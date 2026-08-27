@@ -46,6 +46,17 @@ router.post("/jobs/:jobId/heat-pump-service", requireAuth, requireTenant, requir
   const { data, error } = await supabaseAdmin
     .from("heat_pump_service_records").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  const applianceDate = parsed.data.service_date || new Date().toISOString().slice(0, 10);
+  const nextDue = parsed.data.next_service_due || null;
+  const { data: job } = await supabaseAdmin.from("jobs").select("appliance_id").eq("id", params.data.jobId).single();
+  if (job?.appliance_id) {
+    await supabaseAdmin.from("appliances").update({
+      last_service_date: applianceDate,
+      next_service_due: nextDue,
+    }).eq("id", job.appliance_id);
+  }
+
   res.status(201).json(GetHeatPumpServiceRecordResponse.parse(data));
 });
 
@@ -67,6 +78,17 @@ router.patch("/jobs/:jobId/heat-pump-service", requireAuth, requireTenant, requi
   const { data, error } = await supabaseAdmin
     .from("heat_pump_service_records").update(body.data).eq("id", existing.id).select().single();
   if (error || !data) { res.status(500).json({ error: error?.message || "Update failed" }); return; }
+
+  if (body.data.service_date || body.data.next_service_due) {
+    const { data: job } = await supabaseAdmin.from("jobs").select("appliance_id").eq("id", params.data.jobId).single();
+    if (job?.appliance_id) {
+      await supabaseAdmin.from("appliances").update({
+        last_service_date: body.data.service_date || data.service_date || new Date().toISOString().slice(0, 10),
+        next_service_due: body.data.next_service_due ?? data.next_service_due ?? null,
+      }).eq("id", job.appliance_id);
+    }
+  }
+
   res.json(UpdateHeatPumpServiceRecordResponse.parse(data));
 });
 

@@ -3482,6 +3482,8 @@ export const HeatPumpServiceRecordBase = zod.object({
   id: zod.string().uuid(),
   job_id: zod.string().uuid(),
   technician_id: zod.string().uuid(),
+  service_date: zod.string().nullish(),
+  next_service_due: zod.string().nullish(),
   outdoor_unit_condition: zod.string().nullish(),
   indoor_unit_condition: zod.string().nullish(),
   controls_checked: zod.boolean().optional(),
@@ -3525,6 +3527,8 @@ export const GetHeatPumpServiceRecordByJobParams = zod.object({
 export const CreateHeatPumpServiceRecordBody = zod.object({
   job_id: zod.string().uuid(),
   technician_id: zod.string().uuid(),
+  service_date: zod.string().optional(),
+  next_service_due: zod.string().optional(),
   outdoor_unit_condition: zod.string().optional(),
   indoor_unit_condition: zod.string().optional(),
   controls_checked: zod.boolean().optional(),
@@ -3556,6 +3560,8 @@ export const UpdateHeatPumpServiceRecordParams = zod.object({
 });
 
 export const UpdateHeatPumpServiceRecordBody = zod.object({
+  service_date: zod.string().nullish(),
+  next_service_due: zod.string().nullish(),
   outdoor_unit_condition: zod.string().nullish(),
   indoor_unit_condition: zod.string().nullish(),
   controls_checked: zod.boolean().optional(),
