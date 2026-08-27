@@ -3500,7 +3500,7 @@ router.get("/jobs/:jobId/email-log", requireAuth, requireTenant, requirePlanFeat
   if (customerEmail) {
     const { data: auditRows, error: auditError } = await supabaseAdmin
       .from("tenant_email_audit_log")
-      .select("id, status, email_type, to_email, subject, metadata, created_at")
+      .select("id, actor_id, status, email_type, to_email, subject, metadata, created_at, profiles!tenant_email_audit_log_actor_id_fkey(full_name)")
       .eq("tenant_id", req.tenantId!)
       .eq("to_email", customerEmail)
       .in("status", ["queued", "accepted", "delivered", "sent"])
@@ -3523,8 +3523,8 @@ router.get("/jobs/:jobId/email-log", requireAuth, requireTenant, requirePlanFeat
       return {
         id: `audit-${String(entry.id)}`,
         job_id: null,
-        sent_by: null,
-        sent_by_name: null,
+        sent_by: entry.actor_id,
+        sent_by_name: (entry.profiles as { full_name?: string | null } | null)?.full_name || "System",
         sent_to: entry.to_email,
         cc: null,
         subject: entry.subject,

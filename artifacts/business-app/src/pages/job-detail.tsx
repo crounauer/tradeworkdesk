@@ -19,7 +19,7 @@ import { cacheJob, getCachedJob } from "@/lib/offline-db";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback, Suspense, lazy } from "react";
 const PropertyMapPreview = lazy(() => import("@/components/property-map-preview"));
-import { useListInvoices, type InvoiceStatus } from "@/hooks/use-invoices";
+import { useCreateInvoice, useListInvoices, type InvoiceStatus } from "@/hooks/use-invoices";
 import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -4779,11 +4779,26 @@ function JobInvoicesSectionInner({
   navigate: (to: string) => void;
 }) {
   const { data, isLoading } = useListInvoices({ job_id: jobId, limit: 20 });
+  const createInvoice = useCreateInvoice();
+  const { toast } = useToast();
   const docs = data?.invoices ?? [];
   const currency = docs[0]?.currency || "GBP";
 
   function fmt(amount: number) {
     return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
+  }
+
+  async function createDocument(type: "invoice" | "quote") {
+    try {
+      const created = await createInvoice.mutateAsync({ job_id: jobId, type });
+      navigate(`/invoices/${created.id}?edit=1`);
+    } catch (error) {
+      toast({
+        title: "Could not create document",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
   }
 
   return (
@@ -4798,16 +4813,18 @@ function JobInvoicesSectionInner({
             size="sm"
             variant="outline"
             className="text-xs h-7"
-            onClick={() => navigate(`/invoices/new?type=quote&job_id=${jobId}`)}
+            onClick={() => createDocument("quote")}
+            disabled={createInvoice.isPending}
           >
-            <Plus className="w-3.5 h-3.5 mr-1" /> Quote
+            {createInvoice.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Plus className="w-3.5 h-3.5 mr-1" />} Quote
           </Button>
           <Button
             size="sm"
             className="text-xs h-7"
-            onClick={() => navigate(`/invoices/new?type=invoice&job_id=${jobId}`)}
+            onClick={() => createDocument("invoice")}
+            disabled={createInvoice.isPending}
           >
-            <Plus className="w-3.5 h-3.5 mr-1" /> Invoice
+            {createInvoice.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Plus className="w-3.5 h-3.5 mr-1" />} Invoice
           </Button>
         </div>
       </div>
