@@ -417,6 +417,7 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
     expiry_date,
     notes,
     customer_notes,
+    works_order,
     estimated_duration_value,
     estimated_duration_unit,
     vat_rate,
@@ -431,6 +432,7 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
     expiry_date?: string;
     notes?: string;
     customer_notes?: string;
+    works_order?: string;
     estimated_duration_value?: number | null;
     estimated_duration_unit?: "hours" | "days" | null;
     vat_rate?: number;
@@ -444,15 +446,17 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
 
   // Resolve customer_id — either from a job or directly supplied
   let resolvedCustomerId: string;
+  let jobDescription: string | null = null;
   if (job_id) {
     const { data: job, error: jobErr } = await supabaseAdmin
       .from("jobs")
-      .select("id, customer_id, tenant_id")
+      .select("id, customer_id, tenant_id, description")
       .eq("id", job_id)
       .eq("tenant_id", req.tenantId!)
       .maybeSingle();
     if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
     resolvedCustomerId = (job as { customer_id: string }).customer_id;
+    jobDescription = (job as { description?: string | null }).description || null;
   } else {
     // Verify customer belongs to tenant
     const { data: customer, error: custErr } = await supabaseAdmin
@@ -519,6 +523,7 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
       expiry_date: resolvedExpiryDate,
       notes: notes || null,
       customer_notes: customer_notes || null,
+      works_order: works_order || jobDescription || null,
       estimated_duration_value: estimated_duration_value != null ? Number(estimated_duration_value) : null,
       estimated_duration_unit: estimated_duration_unit || null,
       subtotal,
