@@ -649,6 +649,15 @@ function normalizePickerColor(value: string): string {
 
 const INHERIT_BACKGROUND_VALUE = "default";
 
+/** Block content key listing colours set on this block, so they beat a site-theme override. */
+const BLOCK_STYLE_OVERRIDE_KEY = "__block_style_overrides";
+
+const STYLE_KEY_PATTERN = /(_color|_bg|_background|_radius|_border)$|^background$|^backgroundColor$/;
+
+function isStyleKey(key: string): boolean {
+  return STYLE_KEY_PATTERN.test(key);
+}
+
 function isInheritedColor(value: string): boolean {
   const trimmed = String(value || "").trim().toLowerCase();
   return !trimmed || trimmed === INHERIT_BACKGROUND_VALUE || trimmed === "inherit";
@@ -977,10 +986,30 @@ function BlockEditor({
   const c = block.content;
   const editorType = resolveEditorType(block.block_type);
 
-  const set = (key: string, value: unknown) => onChange({ ...c, [key]: value });
+  // Records colours set on this block so they survive a site-theme override.
+  const commit = (next: Record<string, unknown>, touchedKeys: string[]) => {
+    const tracked = new Set(
+      Array.isArray(next[BLOCK_STYLE_OVERRIDE_KEY]) ? (next[BLOCK_STYLE_OVERRIDE_KEY] as unknown[]).map(String) : [],
+    );
+
+    for (const key of touchedKeys) {
+      if (!isStyleKey(key)) continue;
+      const value = next[key];
+      if (typeof value === "string" && !isInheritedColor(value)) tracked.add(key);
+      else tracked.delete(key);
+    }
+
+    onChange(tracked.size > 0
+      ? { ...next, [BLOCK_STYLE_OVERRIDE_KEY]: [...tracked] }
+      : { ...next, [BLOCK_STYLE_OVERRIDE_KEY]: undefined });
+  };
+
+  const set = (key: string, value: unknown) => commit({ ...c, [key]: value }, [key]);
+  const commitSynced = (updates: Record<string, unknown>, aliases: Record<string, string[]>) =>
+    commit(syncBlockContent(c, updates, aliases), Object.keys(updates));
   const setLinkedBackgroundValue = (key: string, value: string) => {
     if (key === "section_bg") {
-      onChange(syncBlockContent(
+      commit(syncBlockContent(
         c,
         { section_bg: value, background_color: value, backgroundColor: value },
         {
@@ -988,17 +1017,17 @@ function BlockEditor({
           background_color: ["section_bg", "backgroundColor"],
           backgroundColor: ["section_bg", "background_color"],
         }
-      ));
+      ), ["section_bg", "background_color", "backgroundColor"]);
       return;
     }
 
     if (key === "card_bg") {
-      onChange(syncBlockContent(c, { card_bg: value, card_background_color: value }, { card_bg: ["card_background_color"], card_background_color: ["card_bg"] }));
+      commit(syncBlockContent(c, { card_bg: value, card_background_color: value }, { card_bg: ["card_background_color"], card_background_color: ["card_bg"] }), ["card_bg", "card_background_color"]);
       return;
     }
 
     if (key === "frame_bg") {
-      onChange(syncBlockContent(
+      commit(syncBlockContent(
         c,
         { frame_bg: value, background_color: value, backgroundColor: value },
         {
@@ -1006,12 +1035,12 @@ function BlockEditor({
           background_color: ["frame_bg", "backgroundColor"],
           backgroundColor: ["frame_bg", "background_color"],
         }
-      ));
+      ), ["frame_bg", "background_color", "backgroundColor"]);
       return;
     }
 
     if (key === "background_color") {
-      onChange(syncBlockContent(
+      commit(syncBlockContent(
         c,
         { background_color: value, backgroundColor: value, section_bg: value, background: value },
         {
@@ -1020,7 +1049,7 @@ function BlockEditor({
           section_bg: ["background_color", "backgroundColor", "background"],
           background: ["background_color", "backgroundColor", "section_bg"],
         }
-      ));
+      ), ["background_color", "backgroundColor", "section_bg", "background"]);
       return;
     }
 
@@ -1370,7 +1399,7 @@ function BlockEditor({
               />
               <FieldRow label="Text Colour">
                 <div className="flex items-center gap-2">
-                  <ColorSwatch value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} />
+                  <ColorSwatch value={textColor} onChange={(e) => commitSynced({ text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] })} />
                 </div>
               </FieldRow>
             </div>
@@ -1644,7 +1673,7 @@ function BlockEditor({
                   />
                   <FieldRow label="Text Colour">
                     <div className="flex items-center gap-2">
-                      <ColorSwatch value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} />
+                      <ColorSwatch value={textColor} onChange={(e) => commitSynced({ text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] })} />
                     </div>
                   </FieldRow>
                 </div>
@@ -1906,20 +1935,12 @@ function BlockEditor({
                 <BackgroundColorField
                   label="Section Background"
                   value={backgroundColor}
-                  onChange={(value) => onChange(syncBlockContent(
-                    c,
-                    { background_color: value, backgroundColor: value, section_bg: value },
-                    {
-                      background_color: ["backgroundColor", "section_bg"],
-                      backgroundColor: ["background_color", "section_bg"],
-                      section_bg: ["background_color", "backgroundColor"],
-                    }
-                  ))}
+                  onChange={(value) => setLinkedBackgroundValue("background_color", value)}
                   inheritOptions={backgroundInheritOptions}
                 />
                 <FieldRow label="Text Colour">
                   <div className="flex items-center gap-2">
-                    <ColorSwatch value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} />
+                    <ColorSwatch value={textColor} onChange={(e) => commitSynced({ text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] })} />
                   </div>
                 </FieldRow>
               </div>
@@ -5079,8 +5100,8 @@ function BlockEditor({
               <BackgroundColorField label="Section Background" value={backgroundColor} onChange={(value) => setLinkedBackgroundValue("background_color", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Primary Button Background" value={primaryColor} onChange={(value) => setLinkedBackgroundValue("primary_color", value)} inheritOptions={backgroundInheritOptions} />
               <BackgroundColorField label="Secondary Button Background" value={secondaryColor} onChange={(value) => setLinkedBackgroundValue("secondary_color", value)} inheritOptions={backgroundInheritOptions} />
-              <FieldRow label="Text Color"><ColorSwatch value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} /></FieldRow>
-              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => onChange(syncBlockContent(c, { border_color: e.target.value, borderColor: e.target.value }, { border_color: ["borderColor"], borderColor: ["border_color"] }))} /></FieldRow>
+              <FieldRow label="Text Color"><ColorSwatch value={textColor} onChange={(e) => commitSynced({ text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] })} /></FieldRow>
+              <FieldRow label="Border Color"><ColorSwatch value={borderColor} onChange={(e) => commitSynced({ border_color: e.target.value, borderColor: e.target.value }, { border_color: ["borderColor"], borderColor: ["border_color"] })} /></FieldRow>
               <FieldRow label="Heading Color"><ColorSwatch value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
               <FieldRow label="Body Color"><ColorSwatch value={bodyColor} onChange={(e) => set("body_color", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>

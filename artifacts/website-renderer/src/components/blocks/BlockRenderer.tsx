@@ -386,6 +386,22 @@ function buildThemeOverrides(theme: Record<string, unknown>): Record<string, str
   return overrides;
 }
 
+// Colours set directly on a block beat the site-theme override.
+const BLOCK_STYLE_OVERRIDE_KEY = "__block_style_overrides";
+
+function buildBlockOverrides(content: Record<string, unknown>): Record<string, string> {
+  const listed = content[BLOCK_STYLE_OVERRIDE_KEY];
+  if (!Array.isArray(listed)) return {};
+
+  const overrides: Record<string, string> = {};
+  for (const entry of listed) {
+    const key = String(entry);
+    const value = content[key];
+    if (typeof value === "string" && value.trim()) overrides[key] = value.trim();
+  }
+  return overrides;
+}
+
 // "default" on a styling key means "inherit the site theme", so it must not be
 // passed through as a literal CSS value.
 const STYLE_KEY_PATTERN = /(_color|_bg|_background|_radius|_border)$|^padding_[xy]$|^background$|^backgroundColor$/;
@@ -507,6 +523,7 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
         }
       : {}),
     ...buildThemeOverrides(themeObj),
+    ...buildBlockOverrides(rawContent),
   };
   const renderer = blockRegistry[normalizedType];
 
