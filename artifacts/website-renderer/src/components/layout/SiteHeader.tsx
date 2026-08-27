@@ -114,14 +114,16 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
   // Slightly darker shade for top bar
   const topBarBg = navBg + "dd";
 
-  const hasTopBar = !isModernTrade && showTopBar && !!(company?.phone || company?.email || company?.gas_safe_number || company?.oftec_number);
+  const hasTopBar = !isModernTrade && showTopBar && !!(topBarScheduleText || topBarLocationText || company?.phone || company?.email || company?.gas_safe_number || company?.oftec_number);
 
   if (isLocalPlumbingPro) {
-    const topBarBg = "rgba(223,236,255,0.95)";
-    const topBarText = "#1a3a6b";
-    const mainNavText = "#334155";
-    const ctaBg = "#00a8a8";
-    const ctaBorder = "rgba(26, 58, 107, 0.12)";
+    const topBarText = navText;
+    const mainNavText = navText;
+    const ctaBg = accent;
+    const ctaText = ensureAccessibleTextColor(accent, "#ffffff");
+    const ctaBorder = normalizedTheme.borderColor;
+    // Keeps the top bar a shade off the nav whatever colour the tenant picks.
+    const topBarShade = "inset 0 0 0 100vmax rgba(15,31,61,0.05)";
 
     return (
       <header style={{ position: "sticky", top: 0, zIndex: 50 }}>
@@ -142,13 +144,13 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
         `}</style>
 
         {showTopBar && (topBarScheduleText || topBarLocationText || headerPhone) ? (
-          <div className="snav-topbar" style={{ backgroundColor: topBarBg, color: topBarText, borderBottom: "1px solid rgba(26,58,107,0.12)" }}>
+          <div className="snav-topbar" style={{ backgroundColor: navBg, color: topBarText, borderBottom: `1px solid ${normalizedTheme.borderColor}`, boxShadow: topBarShade }}>
             <div style={{ maxWidth: 1280, margin: "0 auto", padding: "6px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", fontSize: "14px", lineHeight: "20px", fontWeight: 400 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 24, color: "rgba(26,58,107,0.82)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 24, color: topBarText, opacity: 0.82 }}>
                 {topBarScheduleText ? <span>{topBarScheduleText}</span> : null}
                 {topBarLocationText ? <span>{topBarLocationText}</span> : null}
               </div>
-              <div style={{ color: "#00A8A8", fontWeight: 700 }}>
+              <div style={{ color: accent, fontWeight: 700 }}>
                 {headerPhone ? (
                   <a href={`tel:${headerPhone.replace(/\s/g, "")}`} style={{ color: "inherit", textDecoration: "none", fontWeight: "inherit" }}>
                     {headerPhone}
@@ -159,14 +161,14 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
           </div>
         ) : null}
 
-        <div style={{ backgroundColor: "#eef5ff", color: "#0f1f3d", borderBottom: "1px solid rgba(26, 58, 107, 0.16)", boxShadow: "0 1px 0 rgba(26,58,107,0.06)" }}>
+        <div style={{ backgroundColor: navBg, color: navText, borderBottom: `1px solid ${normalizedTheme.borderColor}`, boxShadow: "0 1px 0 rgba(15,31,61,0.06)" }}>
           <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 72 }}>
-            <Link href={homeHref} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "#0f1f3d", flexShrink: 0 }}>
+            <Link href={homeHref} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: navText, flexShrink: 0 }}>
               {logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoUrl} alt={headerLogoText} style={{ height: 42, objectFit: "contain" }} />
               ) : (
-                <div style={{ fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em", color: "#0f1f3d" }}>{headerLogoText ? `🔧 ${headerLogoText}` : "🔧"}</div>
+                <div style={{ fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em", color: navText }}>{headerLogoText ? `🔧 ${headerLogoText}` : "🔧"}</div>
               )}
             </Link>
 
@@ -178,7 +180,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
 
             {hasHeaderCta ? (
               <div className="snav-phone" style={{ alignItems: "center", gap: 14, flexShrink: 0 }}>
-                <a href={headerCtaHref} style={{ padding: "8px 16px", backgroundColor: ctaBg, color: "#ffffff", borderRadius: 10, textDecoration: "none", fontWeight: 700, fontSize: "0.875rem", border: `1px solid ${ctaBorder}` }}>
+                <a href={headerCtaHref} style={{ padding: "8px 16px", backgroundColor: ctaBg, color: ctaText, borderRadius: 10, textDecoration: "none", fontWeight: 700, fontSize: "0.875rem", border: `1px solid ${ctaBorder}` }}>
                   {headerCtaLabel}
                 </a>
               </div>
@@ -188,18 +190,18 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
               className="snav-hamburger"
               onClick={() => setMenuOpen((o) => !o)}
               aria-label={menuOpen ? "Close menu" : "Open menu"}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 8, color: "#0f1f3d", fontSize: "1.5rem" }}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 8, color: navText, fontSize: "1.5rem" }}
             >
               {menuOpen ? "✕" : "☰"}
             </button>
           </div>
 
-          <nav role="navigation" aria-label="Mobile navigation" className={`snav-mobile${menuOpen ? " open" : ""}`} style={{ backgroundColor: "#ffffff", borderTop: "1px solid rgba(26, 58, 107, 0.12)" }}>
+          <nav role="navigation" aria-label="Mobile navigation" className={`snav-mobile${menuOpen ? " open" : ""}`} style={{ backgroundColor: navBg, borderTop: `1px solid ${normalizedTheme.borderColor}` }}>
             <ul style={{ listStyle: "none", margin: 0, padding: "8px 0 16px" }}>
-              {renderMobileNavItems(navTree, "#334155")}
+              {renderMobileNavItems(navTree, mainNavText)}
               {hasHeaderCta ? (
                 <li style={{ padding: "12px 24px" }}>
-                  <a href={headerCtaHref} onClick={() => setMenuOpen(false)} style={{ display: "inline-block", padding: "10px 20px", backgroundColor: ctaBg, color: "#fff", borderRadius: 10, textDecoration: "none", fontWeight: 700 }}>
+                  <a href={headerCtaHref} onClick={() => setMenuOpen(false)} style={{ display: "inline-block", padding: "10px 20px", backgroundColor: ctaBg, color: ctaText, borderRadius: 10, textDecoration: "none", fontWeight: 700 }}>
                     {headerCtaLabel}
                   </a>
                 </li>
@@ -232,6 +234,8 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
         <div style={{ backgroundColor: topBarBg, color: navText, fontSize: "0.8rem", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
           <div style={{ maxWidth: 1200, margin: "0 auto", padding: "5px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 18, opacity: 0.8 }}>
+              {topBarScheduleText && <span>{topBarScheduleText}</span>}
+              {topBarLocationText && <span>{topBarLocationText}</span>}
               {company?.email && (
                 <a href={`mailto:${company.email}`} style={{ color: navText, textDecoration: "none", display: "flex", alignItems: "center", gap: 5 }}>
                   <span>✉</span> {company.email}

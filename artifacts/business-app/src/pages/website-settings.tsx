@@ -439,6 +439,42 @@ export default function WebsiteSettings() {
             <p className="font-medium">How these theme colours work</p>
             <p className="mt-1 text-blue-900">These are site-level fallback colours. They always control the header and footer, and are also used by blocks that do not set their own colours. If a block has explicit colour settings, those block colours take priority.</p>
           </div>
+          {(() => {
+            const accent = form.theme.accent_color || "#0d9488";
+            const accentText = getAccessibleTextColor(accent, "#ffffff");
+
+            return (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Accent</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={accent}
+                      onChange={(e) => setForm((f) => ({ ...f, theme: { ...f.theme, accent_color: e.target.value } }))}
+                      className="h-10 w-12 cursor-pointer rounded border"
+                    />
+                    <div>
+                      <Label>Accent Colour</Label>
+                      <div className="text-xs text-muted-foreground font-mono">{accent}</div>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Used for call-to-action buttons, phone numbers and highlights. Button text is picked automatically for readability.</p>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm font-semibold text-foreground">Preview</div>
+                    <span
+                      className="mt-2 inline-block rounded-md px-4 py-2 text-sm font-bold"
+                      style={{ backgroundColor: accent, color: accentText }}
+                    >
+                      Book a visit
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
           {themeColorPairs.map((pair) => {
             const background = form.theme[pair.backgroundKey] || "#000000";
             const text = form.theme[pair.textKey] || "#ffffff";

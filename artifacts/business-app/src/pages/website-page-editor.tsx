@@ -1079,52 +1079,6 @@ function BlockEditor({
                   <FieldRow label="Phone"><Input value={phone} onChange={(e) => set("phone", e.target.value)} placeholder="01234 567890" /></FieldRow>
                   <FieldRow label="CTA Label"><Input value={ctaLabel} onChange={(e) => set("ctaLabel", e.target.value)} placeholder="Call Now" /></FieldRow>
                   <FieldRow label="CTA URL"><Input value={ctaHref} onChange={(e) => set("ctaHref", e.target.value)} placeholder="#contact" /></FieldRow>
-                  <FieldRow label="Layout">
-                    <Select value={layout} onValueChange={(v) => set("layout", v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="default">Default</SelectItem>
-                        <SelectItem value="traditional">Traditional</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FieldRow>
-                  <FieldRow label="Header Style">
-                    <Select value={headerStyle} onValueChange={(v) => set("headerStyle", v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="light">Light</SelectItem>
-                        <SelectItem value="classic-dark">Classic Dark</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FieldRow>
-                  <FieldRow label="Tone">
-                    <Select value={tone} onValueChange={(v) => set("tone", v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="default">Default</SelectItem>
-                        <SelectItem value="navy">Navy</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FieldRow>
-                  <FieldRow label="CTA Style">
-                    <Select value={ctaStyle} onValueChange={(v) => set("ctaStyle", v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="default">Default</SelectItem>
-                        <SelectItem value="amber-solid">Amber Solid</SelectItem>
-                        <SelectItem value="outline-light">Outline Light</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FieldRow>
-                  <FieldRow label="Variant">
-                    <Select value={variant} onValueChange={(v) => set("variant", v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="default">Default</SelectItem>
-                        <SelectItem value="figma">Figma</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FieldRow>
 
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Navigation Source</Label>

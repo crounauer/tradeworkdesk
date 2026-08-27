@@ -33,6 +33,39 @@ function getTokenWithTimeout(timeoutMs: number): Promise<string | null> {
   });
 }
 
+let refreshInFlight: Promise<string | null> | null = null;
+
+// getSession() transparently refreshes an expired token; onAuthStateChange alone
+// can leave the cache stale if the tab was idle when auto-refresh was due.
+function refreshToken(): Promise<string | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        const session = data.session;
+        cachedToken = session?.access_token ?? null;
+        tokenExpiresAt = (session?.expires_at ?? 0) * 1000;
+        return cachedToken;
+      })
+      .catch(() => cachedToken)
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
+}
+
+// Components that build their own Authorization header read the token from
+// onAuthStateChange state, so refresh on focus to keep those in sync too.
+function refreshIfStale() {
+  if (cachedToken && Date.now() >= tokenExpiresAt - 60_000) void refreshToken();
+}
+
+window.addEventListener('focus', refreshIfStale);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') refreshIfStale();
+});
+
 function isCommunityApiRequest(url: string): boolean {
   try {
     const parsed = new URL(url, window.location.origin);
@@ -67,8 +100,11 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 
     if (cachedToken && Date.now() < tokenExpiresAt - 60_000) {
       token = cachedToken;
+    } else if (cachedToken) {
+      token = await refreshToken();
     } else {
       token = await getTokenWithTimeout(3000);
+      if (!token) token = await refreshToken();
     }
 
     if (token) {
