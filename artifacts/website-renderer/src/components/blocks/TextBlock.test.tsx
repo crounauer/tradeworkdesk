@@ -1,4 +1,6 @@
 import React from "react";
+import assert from "node:assert/strict";
+import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import TextBlock from "./TextBlock";
 
@@ -22,10 +24,10 @@ test("TextBlock applies theme and font props in legacy payloads", () => {
     />,
   );
 
-  expect(html).toContain("#123456");
-  expect(html).toContain("#abcdef");
-  expect(html).toContain("Inter");
-  expect(html).toContain("Poppins");
-  expect(html).toContain("900px");
-  expect(html).toContain("64px");
+  assert.ok(html.includes("#123456"));
+  assert.ok(html.includes("#abcdef"));
+  assert.ok(html.includes("Inter"));
+  assert.ok(html.includes("Poppins"));
+  assert.ok(html.includes("900px"));
+  assert.ok(html.includes("64px"));
 });
