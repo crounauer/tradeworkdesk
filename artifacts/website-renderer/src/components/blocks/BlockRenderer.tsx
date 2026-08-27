@@ -386,6 +386,24 @@ function buildThemeOverrides(theme: Record<string, unknown>): Record<string, str
   return overrides;
 }
 
+// "default" on a styling key means "inherit the site theme", so it must not be
+// passed through as a literal CSS value.
+const STYLE_KEY_PATTERN = /(_color|_bg|_background|_radius|_border)$|^padding_[xy]$|^background$|^backgroundColor$/;
+const INHERIT_VALUES = new Set(["", "default", "inherit"]);
+
+function stripInheritedStyles(content: Record<string, unknown>): Record<string, unknown> {
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(content)) {
+    if (
+      typeof value === "string"
+      && STYLE_KEY_PATTERN.test(key)
+      && INHERIT_VALUES.has(value.trim().toLowerCase())
+    ) continue;
+    cleaned[key] = value;
+  }
+  return cleaned;
+}
+
 export default function BlockRenderer({ block, websiteId, theme, tenantId, companyContact, site, page, showFallback }: Props) {
   if (isSkippableBlockType(block.block_type)) {
     return null;
@@ -418,7 +436,7 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
   const companyBase = {
     phone: companyContact?.phone ?? undefined,
     email: companyContact?.email ?? undefined,
-  };  const rawContent = (block.content as Record<string, unknown>) || {};
+  };  const rawContent = stripInheritedStyles((block.content as Record<string, unknown>) || {});
   const templateSlug = String(site?.website?.template_slug || "").toLowerCase();
 
   const fallbackContent =

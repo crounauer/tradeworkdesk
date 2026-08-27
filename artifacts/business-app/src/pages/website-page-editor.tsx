@@ -649,6 +649,48 @@ function normalizePickerColor(value: string): string {
 
 const INHERIT_BACKGROUND_VALUE = "default";
 
+function isInheritedColor(value: string): boolean {
+  const trimmed = String(value || "").trim().toLowerCase();
+  return !trimmed || trimmed === INHERIT_BACKGROUND_VALUE || trimmed === "inherit";
+}
+
+/** Drop-in replacement for <input type="color"> that shows when a colour is inherited. */
+function ColorSwatch({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: React.ChangeEventHandler<HTMLInputElement>;
+}) {
+  // The call sites are written against the native input event shape.
+  const emit = (next: string) => onChange({ target: { value: next } } as React.ChangeEvent<HTMLInputElement>);
+
+  if (isInheritedColor(value)) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="h-8 w-12 rounded border bg-[repeating-linear-gradient(45deg,#e2e8f0_0_6px,#f8fafc_6px_12px)]" />
+        <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => emit("#0f172a")}>
+          Using site theme
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="color"
+        value={normalizePickerColor(value)}
+        onChange={onChange}
+        className="h-8 w-12 cursor-pointer rounded border"
+      />
+      <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => emit(INHERIT_BACKGROUND_VALUE)}>
+        Use site theme
+      </Button>
+    </div>
+  );
+}
+
 function BackgroundColorField({
   label,
   value,
@@ -660,25 +702,9 @@ function BackgroundColorField({
   inheritOptions?: BackgroundInheritOption[];
   placeholder?: string;
 }) {
-  const inherits = !value || value.trim().toLowerCase() === INHERIT_BACKGROUND_VALUE;
-
   return (
     <FieldRow label={label}>
-      <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={normalizePickerColor(value)}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-8 w-12 cursor-pointer rounded border"
-        />
-        {inherits ? (
-          <span className="text-xs text-muted-foreground">Using site theme</span>
-        ) : (
-          <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => onChange(INHERIT_BACKGROUND_VALUE)}>
-            Use site theme
-          </Button>
-        )}
-      </div>
+      <ColorSwatch value={value} onChange={(e) => onChange(e.target.value)} />
     </FieldRow>
   );
 }
@@ -1344,7 +1370,7 @@ function BlockEditor({
               />
               <FieldRow label="Text Colour">
                 <div className="flex items-center gap-2">
-                  <input type="color" value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
+                  <ColorSwatch value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} />
                 </div>
               </FieldRow>
             </div>
@@ -1360,71 +1386,71 @@ function BlockEditor({
               <div className="grid gap-3 md:grid-cols-2">
                 <FieldRow label="Accent Colour">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["accent_color"], "#f97316")} onChange={(e) => set("accent_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={readString(c, ["accent_color"], "#f97316")} onChange={(e) => set("accent_color", e.target.value)} />
                   </div>
                 </FieldRow>
                 <FieldRow label="Eyebrow Colour">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["eyebrow_color"], "#f97316")} onChange={(e) => set("eyebrow_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={readString(c, ["eyebrow_color"], "#f97316")} onChange={(e) => set("eyebrow_color", e.target.value)} />
                   </div>
                 </FieldRow>
                 <FieldRow label="Heading Colour">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["heading_color"], "#ffffff")} onChange={(e) => set("heading_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={readString(c, ["heading_color"], "#ffffff")} onChange={(e) => set("heading_color", e.target.value)} />
                   </div>
                 </FieldRow>
                 <FieldRow label="Subheading Colour">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["subheading_color"], "#cbd5e1")} onChange={(e) => set("subheading_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={readString(c, ["subheading_color"], "#cbd5e1")} onChange={(e) => set("subheading_color", e.target.value)} />
                   </div>
                 </FieldRow>
                 <BackgroundColorField label="Primary Button Background" value={readString(c, ["primary_button_bg_color"], "#f97316")} onChange={(value) => set("primary_button_bg_color", value)} inheritOptions={backgroundInheritOptions} />
                 <FieldRow label="Primary Button Text">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["primary_button_text_color"], "#ffffff")} onChange={(e) => set("primary_button_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={readString(c, ["primary_button_text_color"], "#ffffff")} onChange={(e) => set("primary_button_text_color", e.target.value)} />
                   </div>
                 </FieldRow>
                 <FieldRow label="Primary Button Border">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["primary_button_border_color"], "#f97316")} onChange={(e) => set("primary_button_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={readString(c, ["primary_button_border_color"], "#f97316")} onChange={(e) => set("primary_button_border_color", e.target.value)} />
                   </div>
                 </FieldRow>
                 <BackgroundColorField label="Secondary Button Background" value={readString(c, ["secondary_button_bg_color"], "#ffffff")} onChange={(value) => set("secondary_button_bg_color", value)} inheritOptions={backgroundInheritOptions} />
                 <FieldRow label="Secondary Button Text">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["secondary_button_text_color"], "#ffffff")} onChange={(e) => set("secondary_button_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={readString(c, ["secondary_button_text_color"], "#ffffff")} onChange={(e) => set("secondary_button_text_color", e.target.value)} />
                   </div>
                 </FieldRow>
                 <FieldRow label="Secondary Button Border">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["secondary_button_border_color"], "#d1d5db")} onChange={(e) => set("secondary_button_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={readString(c, ["secondary_button_border_color"], "#d1d5db")} onChange={(e) => set("secondary_button_border_color", e.target.value)} />
                   </div>
                 </FieldRow>
                 <BackgroundColorField label="Badge Background" value={readString(c, ["badge_bg_color"], "#ffffff")} onChange={(value) => set("badge_bg_color", value)} inheritOptions={backgroundInheritOptions} />
                 <FieldRow label="Badge Text">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["badge_text_color"], "#111827")} onChange={(e) => set("badge_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={readString(c, ["badge_text_color"], "#111827")} onChange={(e) => set("badge_text_color", e.target.value)} />
                   </div>
                 </FieldRow>
                 <FieldRow label="Badge Border">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["badge_border_color"], "#d1d5db")} onChange={(e) => set("badge_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={readString(c, ["badge_border_color"], "#d1d5db")} onChange={(e) => set("badge_border_color", e.target.value)} />
                   </div>
                 </FieldRow>
                 <FieldRow label="Trust Icon Colour">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["trust_icon_color"], "#f97316")} onChange={(e) => set("trust_icon_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={readString(c, ["trust_icon_color"], "#f97316")} onChange={(e) => set("trust_icon_color", e.target.value)} />
                   </div>
                 </FieldRow>
                 <FieldRow label="Trust Text Colour">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["trust_text_color"], "#ffffff")} onChange={(e) => set("trust_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={readString(c, ["trust_text_color"], "#ffffff")} onChange={(e) => set("trust_text_color", e.target.value)} />
                   </div>
                 </FieldRow>
                 <BackgroundColorField label="Card Background" value={readString(c, ["card_background_color"], "#ffffff")} onChange={(value) => set("card_background_color", value)} inheritOptions={backgroundInheritOptions} />
                 <FieldRow label="Card Border">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={readString(c, ["card_border_color"], "#d1d5db")} onChange={(e) => set("card_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={readString(c, ["card_border_color"], "#d1d5db")} onChange={(e) => set("card_border_color", e.target.value)} />
                   </div>
                 </FieldRow>
               </div>
@@ -1618,7 +1644,7 @@ function BlockEditor({
                   />
                   <FieldRow label="Text Colour">
                     <div className="flex items-center gap-2">
-                      <input type="color" value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
+                      <ColorSwatch value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} />
                     </div>
                   </FieldRow>
                 </div>
@@ -1634,71 +1660,71 @@ function BlockEditor({
                   <div className="grid gap-3 md:grid-cols-2">
                     <FieldRow label="Accent Colour">
                       <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["accent_color"], "#f97316")} onChange={(e) => set("accent_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                        <ColorSwatch value={readString(c, ["accent_color"], "#f97316")} onChange={(e) => set("accent_color", e.target.value)} />
                       </div>
                     </FieldRow>
                     <FieldRow label="Eyebrow Colour">
                       <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["eyebrow_color"], "#f97316")} onChange={(e) => set("eyebrow_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                        <ColorSwatch value={readString(c, ["eyebrow_color"], "#f97316")} onChange={(e) => set("eyebrow_color", e.target.value)} />
                       </div>
                     </FieldRow>
                     <FieldRow label="Heading Colour">
                       <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["heading_color"], "#ffffff")} onChange={(e) => set("heading_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                        <ColorSwatch value={readString(c, ["heading_color"], "#ffffff")} onChange={(e) => set("heading_color", e.target.value)} />
                       </div>
                     </FieldRow>
                     <FieldRow label="Subheading Colour">
                       <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["subheading_color"], "#cbd5e1")} onChange={(e) => set("subheading_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                        <ColorSwatch value={readString(c, ["subheading_color"], "#cbd5e1")} onChange={(e) => set("subheading_color", e.target.value)} />
                       </div>
                     </FieldRow>
                     <BackgroundColorField label="Primary Button Background" value={readString(c, ["primary_button_bg_color"], "#f97316")} onChange={(value) => set("primary_button_bg_color", value)} inheritOptions={backgroundInheritOptions} />
                     <FieldRow label="Primary Button Text">
                       <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["primary_button_text_color"], "#ffffff")} onChange={(e) => set("primary_button_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                        <ColorSwatch value={readString(c, ["primary_button_text_color"], "#ffffff")} onChange={(e) => set("primary_button_text_color", e.target.value)} />
                       </div>
                     </FieldRow>
                     <FieldRow label="Primary Button Border">
                       <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["primary_button_border_color"], "#f97316")} onChange={(e) => set("primary_button_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                        <ColorSwatch value={readString(c, ["primary_button_border_color"], "#f97316")} onChange={(e) => set("primary_button_border_color", e.target.value)} />
                       </div>
                     </FieldRow>
                     <BackgroundColorField label="Secondary Button Background" value={readString(c, ["secondary_button_bg_color"], "#ffffff")} onChange={(value) => set("secondary_button_bg_color", value)} inheritOptions={backgroundInheritOptions} />
                     <FieldRow label="Secondary Button Text">
                       <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["secondary_button_text_color"], "#ffffff")} onChange={(e) => set("secondary_button_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                        <ColorSwatch value={readString(c, ["secondary_button_text_color"], "#ffffff")} onChange={(e) => set("secondary_button_text_color", e.target.value)} />
                       </div>
                     </FieldRow>
                     <FieldRow label="Secondary Button Border">
                       <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["secondary_button_border_color"], "#d1d5db")} onChange={(e) => set("secondary_button_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                        <ColorSwatch value={readString(c, ["secondary_button_border_color"], "#d1d5db")} onChange={(e) => set("secondary_button_border_color", e.target.value)} />
                       </div>
                     </FieldRow>
                     <BackgroundColorField label="Badge Background" value={readString(c, ["badge_bg_color"], "#ffffff")} onChange={(value) => set("badge_bg_color", value)} inheritOptions={backgroundInheritOptions} />
                     <FieldRow label="Badge Text">
                       <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["badge_text_color"], "#111827")} onChange={(e) => set("badge_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                        <ColorSwatch value={readString(c, ["badge_text_color"], "#111827")} onChange={(e) => set("badge_text_color", e.target.value)} />
                       </div>
                     </FieldRow>
                     <FieldRow label="Badge Border">
                       <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["badge_border_color"], "#d1d5db")} onChange={(e) => set("badge_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                        <ColorSwatch value={readString(c, ["badge_border_color"], "#d1d5db")} onChange={(e) => set("badge_border_color", e.target.value)} />
                       </div>
                     </FieldRow>
                     <FieldRow label="Trust Icon Colour">
                       <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["trust_icon_color"], "#f97316")} onChange={(e) => set("trust_icon_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                        <ColorSwatch value={readString(c, ["trust_icon_color"], "#f97316")} onChange={(e) => set("trust_icon_color", e.target.value)} />
                       </div>
                     </FieldRow>
                     <FieldRow label="Trust Text Colour">
                       <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["trust_text_color"], "#ffffff")} onChange={(e) => set("trust_text_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                        <ColorSwatch value={readString(c, ["trust_text_color"], "#ffffff")} onChange={(e) => set("trust_text_color", e.target.value)} />
                       </div>
                     </FieldRow>
                     <BackgroundColorField label="Card Background" value={readString(c, ["card_background_color"], "#ffffff")} onChange={(value) => set("card_background_color", value)} inheritOptions={backgroundInheritOptions} />
                     <FieldRow label="Card Border">
                       <div className="flex items-center gap-2">
-                        <input type="color" value={readString(c, ["card_border_color"], "#d1d5db")} onChange={(e) => set("card_border_color", e.target.value)} className="h-8 w-12 cursor-pointer rounded border" />
+                        <ColorSwatch value={readString(c, ["card_border_color"], "#d1d5db")} onChange={(e) => set("card_border_color", e.target.value)} />
                       </div>
                     </FieldRow>
                   </div>
@@ -1890,7 +1916,7 @@ function BlockEditor({
                 />
                 <FieldRow label="Text">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} className="h-8 w-12 cursor-pointer rounded border" />
+                    <ColorSwatch value={textColor} onChange={(e) => onChange(syncBlockContent(c, { text_color: e.target.value, textColor: e.target.value }, { text_color: ["textColor"], textColor: ["text_color"] }))} />
                   </div>
                 </FieldRow>
               </div>
