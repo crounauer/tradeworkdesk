@@ -49,17 +49,20 @@ export default function ServiceRatesBlock({ content }: Props) {
 
   const sectionBg = String(content.section_bg || content.background_color || "#ffffff");
   const cardBg = String(content.card_bg || "#ffffff");
-  const cardBorder = String(content.card_border || "#cbd5e1");
+  const cardBorder = String(content.card_border || content.border_color || "#cbd5e1");
   const headingColor = String(content.heading_color || "#0f172a");
   const bodyColor = String(content.body_color || content.muted_text_color || "#475569");
   const accentColor = String(content.accent_color || "#1a3a6b");
   const headingFont = String(content.heading_font_family || content.global_heading_font_family || "inherit");
   const bodyFont = String(content.body_font_family || content.global_body_font_family || "inherit");
+  const paddingY = String(content.padding_y || "72px");
+  const paddingX = String(content.padding_x || "24px");
+  const cardRadius = String(content.card_radius || "6px");
 
   const rates = (Array.isArray(content.rates) ? content.rates : Array.isArray(content.items) ? content.items : []) as RateItem[];
 
   return (
-    <section style={{ padding: "72px 24px", background: sectionBg }}>
+    <section style={{ padding: `${paddingY} ${paddingX}`, background: sectionBg }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ maxWidth: 720 }}>
           <p style={{ margin: 0, color: accentColor, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, fontSize: 13, fontFamily: bodyFont }}>
@@ -83,7 +86,7 @@ export default function ServiceRatesBlock({ content }: Props) {
               const ctaLabel = String(rate.ctaLabel || rate.cta_text || "");
               const ctaHref = String(rate.ctaHref || rate.cta_url || "");
               return (
-                <article key={`${name}-${index}`} style={{ border: `1px solid ${cardBorder}`, borderRadius: 6, background: cardBg, padding: 20 }}>
+                <article key={`${name}-${index}`} style={{ border: `1px solid ${cardBorder}`, borderRadius: cardRadius, background: cardBg, padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                     <h3 style={{ margin: 0, color: headingColor, fontSize: "1.06rem", fontWeight: 700, fontFamily: headingFont }}>{name}</h3>
                     <p style={{ margin: 0, color: accentColor, fontWeight: 800, fontSize: "1.02rem", fontFamily: headingFont }}>{price}</p>
@@ -107,7 +110,7 @@ export default function ServiceRatesBlock({ content }: Props) {
         ) : null}
 
         {variation === "table" ? (
-          <div style={{ marginTop: 34, border: `1px solid ${cardBorder}`, borderRadius: 6, background: cardBg, overflowX: "auto" }}>
+          <div style={{ marginTop: 34, border: `1px solid ${cardBorder}`, borderRadius: cardRadius, background: cardBg, overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
               <thead>
                 <tr style={{ background: "#f8fafc", textAlign: "left" }}>
@@ -137,7 +140,7 @@ export default function ServiceRatesBlock({ content }: Props) {
 
         {variation === "split" ? (
           <div style={{ marginTop: 34, display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
-            <article style={{ border: `2px solid ${accentColor}`, borderRadius: 6, background: cardBg, padding: 22 }}>
+            <article style={{ border: `2px solid ${accentColor}`, borderRadius: cardRadius, background: cardBg, padding: 22 }}>
               <p style={{ margin: 0, color: accentColor, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, fontSize: 12, fontFamily: bodyFont }}>
                 Featured Rate
               </p>
@@ -153,7 +156,7 @@ export default function ServiceRatesBlock({ content }: Props) {
               {rates.slice(1).map((rate, index) => {
                 const name = String(rate.service || rate.title || `Service ${index + 2}`);
                 return (
-                  <article key={`${name}-${index}`} style={{ border: `1px solid ${cardBorder}`, borderRadius: 6, background: cardBg, padding: "14px 16px", display: "flex", justifyContent: "space-between", gap: 10 }}>
+                  <article key={`${name}-${index}`} style={{ border: `1px solid ${cardBorder}`, borderRadius: cardRadius, background: cardBg, padding: "14px 16px", display: "flex", justifyContent: "space-between", gap: 10 }}>
                     <div>
                       <p style={{ margin: 0, color: headingColor, fontWeight: 700, fontFamily: headingFont }}>{name}</p>
                       {rate.description ? <p style={{ margin: "6px 0 0", color: bodyColor, fontSize: 14, fontFamily: bodyFont }}>{rate.description}</p> : null}
@@ -167,7 +170,7 @@ export default function ServiceRatesBlock({ content }: Props) {
         ) : null}
 
         {variation === "compact" ? (
-          <div style={{ marginTop: 34, border: `1px solid ${cardBorder}`, borderRadius: 6, background: cardBg, overflow: "hidden" }}>
+          <div style={{ marginTop: 34, border: `1px solid ${cardBorder}`, borderRadius: cardRadius, background: cardBg, overflow: "hidden" }}>
             {rates.map((rate, index) => {
               const name = String(rate.service || rate.title || `Service ${index + 1}`);
               const price = String(rate.price || "From £0");

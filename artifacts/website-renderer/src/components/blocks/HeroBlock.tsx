@@ -211,11 +211,11 @@ export default function HeroBlock({ content }: Props) {
     ? (typeof muted_text_color === "string" ? muted_text_color : "#475569")
     : (isNavyTone ? "rgba(255,255,255,0.82)" : "#cbd5e1");
   const primaryRadiusDefault = ctaStyle === "rounded" ? "999px" : ctaStyle === "soft" ? "10px" : "6px";
-  const primaryRadius = getSize(content.border_radius, primaryRadiusDefault);
+  const primaryRadius = getSize(content.border_radius ?? content.button_radius, primaryRadiusDefault);
   const primaryBg = ctaStyle === "outline" ? "transparent" : accentColor;
   const primaryBorder = ctaStyle === "outline" ? `2px solid ${accentColor}` : "none";
   const primaryColor = ctaStyle === "outline" ? accentColor : "#fff";
-  const secondaryRadius = getSize(content.border_radius, primaryRadiusDefault);
+  const secondaryRadius = getSize(content.border_radius ?? content.button_radius, primaryRadiusDefault);
   const sectionBorderWidth = getSize(content.section_border_width, "0px");
   const sectionBorderColor = getString(content.section_border_color) || "transparent";
   const sectionShadow = getString(content.section_shadow);
@@ -238,9 +238,9 @@ export default function HeroBlock({ content }: Props) {
   const subheadingWeight = getWeight(content.subheading_font_weight, 400);
   const ctaWeight = getWeight(content.cta_font_weight, 700);
   const baseFontFamily = getString(content.font_family);
-  const headingFontFamily = getString(content.heading_font_family) || baseFontFamily;
-  const bodyFontFamily = getString(content.body_font_family) || baseFontFamily;
-  const ctaFontFamily = getString(content.cta_font_family) || baseFontFamily;
+  const headingFontFamily = getString(content.heading_font_family) || getString(content.global_heading_font_family) || baseFontFamily;
+  const bodyFontFamily = getString(content.body_font_family) || getString(content.global_body_font_family) || baseFontFamily;
+  const ctaFontFamily = getString(content.cta_font_family) || getString(content.button_font_family) || getString(content.global_button_font_family) || baseFontFamily;
   const primaryButtonBg = getString(content.primary_button_bg_color) || primaryBg;
   const primaryButtonText = getString(content.primary_button_text_color) || primaryColor;
   const primaryButtonBorderColor = getString(content.primary_button_border_color) || accentColor;

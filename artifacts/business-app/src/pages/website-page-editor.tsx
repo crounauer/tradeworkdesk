@@ -5134,20 +5134,16 @@ function BlockEditor({
       const phone = readString(c, ["phone"], "");
       const email = readString(c, ["email"], "");
       const layoutVariant = normalizeFooterLayoutVariant(readString(c, ["layout_variant", "layout"], "four-column"));
-      const backgroundColor = readString(c, ["background_color", "background"], "#111827");
-      const textColor = readString(c, ["text_color"], "#9ca3af");
-      const headingColor = readString(c, ["heading_color"], "#ffffff");
-      const accentColor = readString(c, ["accent_color"], "#0ea5e9");
-      const borderColor = readString(c, ["border_color"], "rgba(255,255,255,0.12)");
       const headingFont = readString(c, ["heading_font_family"], "inherit");
       const bodyFont = readString(c, ["body_font_family"], "inherit");
       const headingSize = readString(c, ["heading_size"], "1rem");
       const bodySize = readString(c, ["body_size"], "0.9rem");
       const isPreviewVisible = previewEnabled !== false;
-      const previewBackgroundColor = !backgroundColor || backgroundColor === "default" ? "#0f172a" : backgroundColor;
-      const previewTextColor = !textColor || textColor === "default" ? "#9ca3af" : textColor;
-      const previewHeadingColor = !headingColor || headingColor === "default" ? "#ffffff" : headingColor;
-      const previewBorderColor = !borderColor || borderColor === "default" ? "rgba(255,255,255,0.12)" : borderColor;
+      // Colours are site-theme driven, so the preview shows neutral defaults.
+      const previewBackgroundColor = "#0f172a";
+      const previewTextColor = "#9ca3af";
+      const previewHeadingColor = "#ffffff";
+      const previewBorderColor = "rgba(255,255,255,0.12)";
       const navItems = readArray<Record<string, unknown>>(c, ["navItems", "nav_items", "footer_navigation_links", "navigation_links"], [])
         .map((item) => ({
           label: String(item.label ?? ""),
@@ -5271,11 +5267,7 @@ function BlockEditor({
                   <Input value={email} onChange={(e) => set("email", e.target.value)} placeholder="hello@yourbusiness.co.uk" />
                 </FieldRow>
               </div>
-              <BackgroundColorField label="Background Color" value={backgroundColor} onChange={(value) => setLinkedBackgroundValue("background_color", value)} inheritOptions={backgroundInheritOptions} placeholder="default or #0f172a" />
-              <FieldRow label="Text Color"><Input value={textColor} onChange={(e) => set("text_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Heading Color"><Input value={headingColor} onChange={(e) => set("heading_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Accent Color"><Input value={accentColor} onChange={(e) => set("accent_color", e.target.value)} /></FieldRow>
-              <FieldRow label="Border Color"><Input value={borderColor} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+              <p className="text-xs text-muted-foreground">Footer colours come from Website Settings → Theme so they stay consistent across your site.</p>
               <FieldRow label="Heading Font"><Input value={headingFont} onChange={(e) => set("heading_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Body Font"><Input value={bodyFont} onChange={(e) => set("body_font_family", e.target.value)} /></FieldRow>
               <FieldRow label="Heading Size"><Input value={headingSize} onChange={(e) => set("heading_size", e.target.value)} /></FieldRow>

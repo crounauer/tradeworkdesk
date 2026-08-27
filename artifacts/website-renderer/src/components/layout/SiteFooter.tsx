@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { CompanySettings, SitePage } from "@/lib/api";
+import { ensureAccessibleTextColor } from "@/lib/theme";
 
 interface Props {
   siteName: string;
@@ -45,12 +46,13 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
   const rawLayoutVariant = readFooterString(footerProps, ["layout_variant", "layout"], String(theme.footer_layout_variant || theme.footer_layout || "four-column")).toLowerCase();
   const footerVariant = readFooterString(footerProps, ["variant"], "default").toLowerCase();
   const footerTone = readFooterString(footerProps, ["tone"], "default").toLowerCase();
-  const footerBackground = readFooterString(footerProps, ["background_color", "background"], String(theme.footer_background || "#111827"));
-  const footerTextColor = readFooterString(footerProps, ["text_color"], String(theme.footer_text || "#9ca3af"));
-  const footerHeadingColor = readFooterString(footerProps, ["heading_color"], "#ffffff");
-  const footerBorderColor = readFooterString(footerProps, ["border_color"], "rgba(255,255,255,0.12)");
-  const footerHeadingFont = readFooterString(footerProps, ["heading_font_family"], "inherit");
-  const footerBodyFont = readFooterString(footerProps, ["body_font_family"], "inherit");
+  const themeFooterBackground = String(theme.footer_background || "");
+  const themeFooterText = String(theme.footer_text || "");
+  // Footer colours are site-theme only; per-block colour overrides are ignored.
+  const footerBackground = themeFooterBackground || "#111827";
+  const footerTextColor = themeFooterText || "#9ca3af";
+  const footerHeadingFont = readFooterString(footerProps, ["heading_font_family"], String(theme.heading_font_family || "inherit"));
+  const footerBodyFont = readFooterString(footerProps, ["body_font_family"], String(theme.body_font_family || "inherit"));
   const footerHeadingSize = readFooterString(footerProps, ["heading_size"], "1rem");
   const footerBodySize = readFooterString(footerProps, ["body_size"], "0.9rem");
   const poweredByHref = "https://www.tradeworkdesk.co.uk";
@@ -228,9 +230,9 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
     const accentColor = String(theme.accent_color || "#00a8a8");
     const primaryText = String(theme.primary_text_color || "#ffffff");
     const effectiveLayoutVariant = footerLayoutVariant === "split-brand" ? "compact-inline" : footerLayoutVariant;
-    const resolvedBackground = footerBackground === "default" ? primaryColor : footerBackground;
-    const resolvedTextColor = footerTextColor === "default" ? primaryText : footerTextColor;
-    const resolvedBorderColor = footerBorderColor === "default" ? "rgba(255,255,255,0.1)" : footerBorderColor;
+    const resolvedBackground = themeFooterBackground || primaryColor;
+    const resolvedTextColor = themeFooterText || primaryText;
+    const resolvedBorderColor = "rgba(255,255,255,0.1)";
     const mutedText = "rgba(255,255,255,0.7)";
     const mutedTextSoft = "rgba(255,255,255,0.6)";
     const servicesLinks = navItems.length > 0
@@ -432,10 +434,10 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
   }
 
   const effectiveLayoutVariant = footerLayoutVariant === "split-brand" ? "compact-inline" : footerLayoutVariant;
-  const resolvedBackground = footerBackground === "default" ? "#0f172a" : footerBackground;
-  const resolvedTextColor = footerTextColor === "default" ? "#cbd5e1" : footerTextColor;
-  const resolvedHeadingColor = footerHeadingColor === "default" ? "#ffffff" : footerHeadingColor;
-  const resolvedBorderColor = footerBorderColor === "default" ? "rgba(255,255,255,0.12)" : footerBorderColor;
+  const resolvedBackground = footerBackground;
+  const resolvedTextColor = footerTextColor;
+  const resolvedHeadingColor = ensureAccessibleTextColor(resolvedBackground, "#ffffff");
+  const resolvedBorderColor = "rgba(255,255,255,0.12)";
   const headingStyle = {
     color: resolvedHeadingColor,
     fontFamily: footerHeadingFont,

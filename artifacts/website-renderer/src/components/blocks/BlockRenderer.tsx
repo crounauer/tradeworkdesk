@@ -336,6 +336,56 @@ function UnsupportedBlock({ blockType, showFallback }: { blockType: string; show
   );
 }
 
+// Site-wide shape/spacing tokens, only injected when the tenant has set them.
+const SHAPE_TOKEN_KEYS = ["card_radius", "image_radius", "button_radius", "padding_y"] as const;
+
+function readShapeTokens(theme: Record<string, unknown>): Record<string, string> {
+  const tokens: Record<string, string> = {};
+  for (const key of SHAPE_TOKEN_KEYS) {
+    const value = theme[key];
+    if (typeof value === "string" && value.trim()) tokens[key] = value.trim();
+  }
+  return tokens;
+}
+
+// Theme keys the tenant has deliberately set, listed in theme.__theme_overrides,
+// win over template-seeded block content. Maps a theme key to the block keys it drives.
+const THEME_OVERRIDE_LIST_KEY = "__theme_overrides";
+
+const THEME_OVERRIDE_TARGETS: Record<string, string[]> = {
+  accent_color: ["accent_color"],
+  primary_color: ["primary_color"],
+  primary_text_color: ["primary_text_color"],
+  background_color: ["background_color", "section_bg"],
+  muted_background: ["muted_background_color", "card_bg"],
+  border_color: ["border_color"],
+  text_color: ["text_color", "body_color"],
+  muted_text_color: ["muted_text_color"],
+  heading_color: ["heading_color"],
+  heading_font_family: ["heading_font_family", "global_heading_font_family"],
+  body_font_family: ["body_font_family", "global_body_font_family"],
+  button_font_family: ["button_font_family", "global_button_font_family"],
+  card_radius: ["card_radius"],
+  image_radius: ["image_radius"],
+  button_radius: ["button_radius"],
+  padding_y: ["padding_y"],
+};
+
+function buildThemeOverrides(theme: Record<string, unknown>): Record<string, string> {
+  const listed = theme[THEME_OVERRIDE_LIST_KEY];
+  if (!Array.isArray(listed)) return {};
+
+  const overrides: Record<string, string> = {};
+  for (const entry of listed) {
+    const themeKey = String(entry);
+    const targets = THEME_OVERRIDE_TARGETS[themeKey];
+    const value = theme[themeKey];
+    if (!targets || typeof value !== "string" || !value.trim()) continue;
+    for (const target of targets) overrides[target] = value.trim();
+  }
+  return overrides;
+}
+
 export default function BlockRenderer({ block, websiteId, theme, tenantId, companyContact, site, page, showFallback }: Props) {
   if (isSkippableBlockType(block.block_type)) {
     return null;
@@ -363,12 +413,12 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
     global_body_font_family: globalBodyFont,
     global_button_font_family: globalButtonFont,
     template_slug: site?.website?.template_slug || undefined,
+    ...readShapeTokens(themeObj),
   };
   const companyBase = {
     phone: companyContact?.phone ?? undefined,
     email: companyContact?.email ?? undefined,
-  };
-  const rawContent = (block.content as Record<string, unknown>) || {};
+  };  const rawContent = (block.content as Record<string, unknown>) || {};
   const templateSlug = String(site?.website?.template_slug || "").toLowerCase();
 
   const fallbackContent =
@@ -438,6 +488,7 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
           }),
         }
       : {}),
+    ...buildThemeOverrides(themeObj),
   };
   const renderer = blockRegistry[normalizedType];
 

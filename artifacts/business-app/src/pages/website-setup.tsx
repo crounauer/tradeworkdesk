@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { WebsiteThemeCard } from "@/components/website-theme-card";
 import { useToast } from "@/hooks/use-toast";
 import {
   Globe, Layout, FileText, Image, MessageSquare, Settings,
@@ -744,8 +745,10 @@ export default function WebsiteSetup() {
         <QuickCard href="/website/analytics" icon={<MessageSquare className="w-5 h-5" />} title="Analytics" description="Track leads, forms and conversion trends" />
         <QuickCard href="/website/domain" icon={<Globe className="w-5 h-5" />} title="Domain" description="Connect your domain and email setup" />
         <QuickCard href="/website/templates" icon={<LayoutTemplate className="w-5 h-5" />} title="Website Template" description="Choose a published global template" />
-        <QuickCard href="/website/settings" icon={<Settings className="w-5 h-5" />} title="Settings" description="Branding, theme, SEO and analytics" />
+        <QuickCard href="/website/settings" icon={<Settings className="w-5 h-5" />} title="Settings" description="Branding, SEO and analytics" />
       </div>
+
+      <WebsiteThemeCard />
 
       <div>
         <h2 className="text-base font-semibold mb-3">Blocks</h2>

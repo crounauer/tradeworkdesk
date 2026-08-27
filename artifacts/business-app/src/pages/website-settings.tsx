@@ -15,7 +15,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Loader2, Save, Inbox, Eye, EyeOff, Trash2, Plus, CircleHelp } from "lucide-react";
-import { getAccessibleTextColor, getContrastRatio, hasAccessibleContrast, sanitizeThemeColors } from "@/lib/color-contrast";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -64,29 +63,12 @@ interface WebsiteTestimonial {
   created_at: string;
 }
 
-const themeColorPairs = [
-  {
-    label: "Navigation",
-    backgroundKey: "nav_background",
-    backgroundLabel: "Navigation Background",
-    textKey: "nav_text",
-    textLabel: "Navigation Text",
-  },
-  {
-    label: "Footer",
-    backgroundKey: "footer_background",
-    backgroundLabel: "Footer Background",
-    textKey: "footer_text",
-    textLabel: "Footer Text",
-  },
-] as const;
-
 export default function WebsiteSettings() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const search = useSearch();
   const rawTab = new URLSearchParams(search).get("tab") || "branding";
-  const defaultTab = rawTab === "contact-form-services" ? "forms" : rawTab;
+  const defaultTab = rawTab === "contact-form-services" ? "forms" : rawTab === "theme" ? "branding" : rawTab;
 
   const { data: website, isLoading } = useQuery<Website | null>({
     queryKey: ["/api/website"],
@@ -199,7 +181,6 @@ export default function WebsiteSettings() {
     google_analytics_id: "",
     google_search_console_verification: "",
     social_links: { facebook: "", instagram: "", x: "", google_business: "", linkedin: "", youtube: "" } as Record<string, string>,
-    theme: { nav_background: "#1f2937", nav_text: "#ffffff", footer_background: "#111827", footer_text: "#9ca3af" } as Record<string, string>,
   });
 
   useEffect(() => {
@@ -240,7 +221,6 @@ export default function WebsiteSettings() {
           ...websiteSocialLinks,
           x: String(websiteSocialLinks.x || fallbackX || ""),
         },
-        theme: { nav_background: "#1f2937", nav_text: "#ffffff", footer_background: "#111827", footer_text: "#9ca3af", ...(website.theme || {}) },
       });
     }
   }, [website]);
@@ -261,21 +241,8 @@ export default function WebsiteSettings() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const updateThemeColor = (key: string, value: string) => {
-    setForm((current) => {
-      const nextTheme = { ...current.theme, [key]: value };
-      const pair = themeColorPairs.find((item) => item.backgroundKey === key);
-      if (pair && !hasAccessibleContrast(nextTheme[pair.backgroundKey] || "#000000", nextTheme[pair.textKey] || "#ffffff")) {
-        nextTheme[pair.textKey] = getAccessibleTextColor(nextTheme[pair.backgroundKey] || "#000000", nextTheme[pair.textKey] || "#ffffff");
-      }
-      return { ...current, theme: nextTheme };
-    });
-  };
-
   const handleSave = () => {
-    const nextForm = { ...form, theme: sanitizeThemeColors(form.theme) };
-    setForm(nextForm);
-    saveMutation.mutate(nextForm);
+    saveMutation.mutate(form);
   };
 
   if (isLoading) {
@@ -323,7 +290,6 @@ export default function WebsiteSettings() {
           <TabsTrigger value="seo">SEO</TabsTrigger>
           <TabsTrigger value="social">Social</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="theme">Theme</TabsTrigger>
           <TabsTrigger value="forms">Forms</TabsTrigger>
           <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
         </TabsList>
@@ -431,117 +397,6 @@ export default function WebsiteSettings() {
               <div className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded">{form.google_search_console_verification}</div>
             )}
           </div>
-        </TabsContent>
-
-        <TabsContent value="theme" className="space-y-4 pt-4">
-          <p className="text-sm text-muted-foreground">Customise the colours of your site navigation and footer. We automatically protect text contrast so links and labels stay readable.</p>
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
-            <p className="font-medium">How these theme colours work</p>
-            <p className="mt-1 text-blue-900">These are site-level fallback colours. They always control the header and footer, and are also used by blocks that do not set their own colours. If a block has explicit colour settings, those block colours take priority.</p>
-          </div>
-          {(() => {
-            const accent = form.theme.accent_color || "#0d9488";
-            const accentText = getAccessibleTextColor(accent, "#ffffff");
-
-            return (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Accent</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
-                      value={accent}
-                      onChange={(e) => setForm((f) => ({ ...f, theme: { ...f.theme, accent_color: e.target.value } }))}
-                      className="h-10 w-12 cursor-pointer rounded border"
-                    />
-                    <div>
-                      <Label>Accent Colour</Label>
-                      <div className="text-xs text-muted-foreground font-mono">{accent}</div>
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Used for call-to-action buttons, phone numbers and highlights. Button text is picked automatically for readability.</p>
-                  <div className="rounded-lg border p-4">
-                    <div className="text-sm font-semibold text-foreground">Preview</div>
-                    <span
-                      className="mt-2 inline-block rounded-md px-4 py-2 text-sm font-bold"
-                      style={{ backgroundColor: accent, color: accentText }}
-                    >
-                      Book a visit
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })()}
-          {themeColorPairs.map((pair) => {
-            const background = form.theme[pair.backgroundKey] || "#000000";
-            const text = form.theme[pair.textKey] || "#ffffff";
-            const ratio = getContrastRatio(background, text);
-            const passes = hasAccessibleContrast(background, text);
-            const recommendedText = getAccessibleTextColor(background, text);
-
-            return (
-              <Card key={pair.label}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <CardTitle className="text-base">{pair.label}</CardTitle>
-                    <Badge variant={passes ? "default" : "destructive"} className={passes ? "bg-green-600" : ""}>
-                      {ratio ? `Contrast ${ratio.toFixed(2)}:1` : "Check colours"}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="color"
-                        value={background}
-                        onChange={(e) => updateThemeColor(pair.backgroundKey, e.target.value)}
-                        className="h-10 w-12 cursor-pointer rounded border"
-                      />
-                      <div>
-                        <Label>{pair.backgroundLabel}</Label>
-                        <div className="text-xs text-muted-foreground font-mono">{background}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="color"
-                        value={text}
-                        onChange={(e) => setForm((f) => ({ ...f, theme: { ...f.theme, [pair.textKey]: e.target.value } }))}
-                        className="h-10 w-12 cursor-pointer rounded border"
-                      />
-                      <div>
-                        <Label>{pair.textLabel}</Label>
-                        <div className="text-xs text-muted-foreground font-mono">{text}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg border p-4" style={{ backgroundColor: background, color: text }}>
-                    <div className="text-sm font-semibold">Preview</div>
-                    <div className="mt-1 text-sm opacity-90">Sample navigation and footer text with your current colours.</div>
-                  </div>
-
-                  {!passes && (
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                      <span>This colour pair is hard to read. Use the recommended text colour to pass contrast checks.</span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setForm((f) => ({ ...f, theme: { ...f.theme, [pair.textKey]: recommendedText } }))}
-                      >
-                        Use {recommendedText}
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
         </TabsContent>
 
         <TabsContent value="forms" className="space-y-4 pt-4">

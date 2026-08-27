@@ -52,6 +52,11 @@ interface AmazonBlockContent {
   muted_background_color?: string;
   primary_color?: string;
   primary_text_color?: string;
+  card_radius?: string;
+  heading_font_family?: string;
+  body_font_family?: string;
+  global_heading_font_family?: string;
+  global_body_font_family?: string;
 }
 
 export default function AmazonBlock({ content }: { content: AmazonBlockContent }) {
@@ -103,6 +108,9 @@ export default function AmazonBlock({ content }: { content: AmazonBlockContent }
   const containerMaxWidth = max_width || "1200px";
   const ctaBackground = button_bg || content.primary_color || accentColor;
   const ctaTextColor = button_text_color || content.primary_text_color || "#ffffff";
+  const headingFont = String(content.heading_font_family || content.global_heading_font_family || "inherit");
+  const bodyFont = String(content.body_font_family || content.global_body_font_family || "inherit");
+  const cardRadius = String(content.card_radius || "8px");
 
   const normalizedProducts = products.map((product) => {
     const ratingSource = product.rating ?? Number.parseFloat(String(product.rating_text || ""));
@@ -148,11 +156,11 @@ export default function AmazonBlock({ content }: { content: AmazonBlockContent }
           : "md:grid-cols-1";
 
   return (
-    <section style={{ padding: `${sectionPaddingY} ${sectionPaddingX}`, backgroundColor: sectionBg }}>
+    <section style={{ padding: `${sectionPaddingY} ${sectionPaddingX}`, backgroundColor: sectionBg, fontFamily: bodyFont }}>
       <div className="mx-auto" style={{ maxWidth: containerMaxWidth }}>
         {resolvedTitle && (
           <div className="mb-8">
-            <h2 className="text-3xl font-bold mb-2" style={{ color: headingColor }}>{resolvedTitle}</h2>
+            <h2 className="text-3xl font-bold mb-2" style={{ color: headingColor, fontFamily: headingFont }}>{resolvedTitle}</h2>
             {resolvedDescription && <p className="text-lg" style={{ color: mutedColor }}>{resolvedDescription}</p>}
           </div>
         )}
@@ -167,8 +175,8 @@ export default function AmazonBlock({ content }: { content: AmazonBlockContent }
           {normalizedProducts.map((product, index) => (
             <div
               key={product.asin || product.affiliateUrl || `${product.title}-${index}`}
-              className="rounded-lg border overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-              style={{ backgroundColor: cardBg, borderColor: border_color || content.border_color || "rgba(15, 23, 42, 0.08)" }}
+              className="border overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+              style={{ backgroundColor: cardBg, borderColor: border_color || content.border_color || "rgba(15, 23, 42, 0.08)", borderRadius: cardRadius }}
             >
               {/* Product Image */}
               {product.imageUrl && (
@@ -194,7 +202,7 @@ export default function AmazonBlock({ content }: { content: AmazonBlockContent }
                     {product.badgeText}
                   </div>
                 )}
-                <h3 className="font-semibold line-clamp-2 mb-2" style={{ color: headingColor }}>
+                <h3 className="font-semibold line-clamp-2 mb-2" style={{ color: headingColor, fontFamily: headingFont }}>
                   {product.title}
                 </h3>
 

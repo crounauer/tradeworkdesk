@@ -47,6 +47,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
   const navBg = normalizedTheme.navBackground;
   const navText = ensureAccessibleTextColor(navBg, normalizedTheme.navText);
   const accent = normalizedTheme.accentColor;
+  const headingFont = typeof theme?.heading_font_family === "string" ? theme.heading_font_family : undefined;
   const [menuOpen, setMenuOpen] = useState(false);
   const navTree = buildPageHierarchy(pages);
 
@@ -168,7 +169,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoUrl} alt={headerLogoText} style={{ height: 42, objectFit: "contain" }} />
               ) : (
-                <div style={{ fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em", color: navText }}>{headerLogoText ? `🔧 ${headerLogoText}` : "🔧"}</div>
+                <div style={{ fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em", color: navText, fontFamily: headingFont }}>{headerLogoText ? `🔧 ${headerLogoText}` : "🔧"}</div>
               )}
             </Link>
 
@@ -268,7 +269,7 @@ export default function SiteHeader({ siteName, logoUrl, pages, theme, headerCont
             ) : (
               <div style={{ width: 36, height: 36, backgroundColor: accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.125rem", color: isModernTrade ? "#0f172a" : "#fff" }}>🔧</div>
             )}
-            {headerLogoText ? <span style={{ fontWeight: 700, fontSize: "1.0625rem", lineHeight: 1.2, maxWidth: 200 }}>{headerLogoText}</span> : null}
+            {headerLogoText ? <span style={{ fontWeight: 700, fontSize: "1.0625rem", lineHeight: 1.2, maxWidth: 200, fontFamily: headingFont }}>{headerLogoText}</span> : null}
           </Link>
 
           {/* Desktop nav links */}

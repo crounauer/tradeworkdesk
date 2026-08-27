@@ -5,6 +5,7 @@ import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import GoogleAnalytics from "./GoogleAnalytics";
 import AdminEditPageButton from "@/components/AdminEditPageButton";
+import { resolveThemeFonts } from "@/lib/siteFonts";
 
 const GLOBAL_SITE_HEADER_THEME_KEY = "__site_header_content";
 const GLOBAL_SITE_FOOTER_THEME_KEY = "__site_footer_content";
@@ -32,6 +33,7 @@ export default async function SiteLayout({ site, children, basePath, previewToke
   ) ? (themeObject[GLOBAL_SITE_FOOTER_THEME_KEY] as Record<string, unknown>) : null;
   const hasThemeHeaderContent = Boolean(headerContent);
   let hasHeaderBlockContent = false;
+  const fonts = resolveThemeFonts(themeObject);
 
   try {
     if (!headerContent) {
@@ -65,6 +67,8 @@ export default async function SiteLayout({ site, children, basePath, previewToke
       {website.google_analytics_id && (
         <GoogleAnalytics trackingId={website.google_analytics_id} />
       )}
+      {fonts.googleHref ? <link rel="stylesheet" href={fonts.googleHref} /> : null}
+      <div style={fonts.body ? { fontFamily: fonts.body } : undefined}>
       {(hasThemeHeaderContent || hasHeaderBlockContent) ? (
         <SiteHeader
           siteName={website.site_name}
@@ -91,6 +95,7 @@ export default async function SiteLayout({ site, children, basePath, previewToke
         logoUrl={website.logo_url}
         footerContent={footerContent}
       />
+      </div>
       <AdminEditPageButton pages={site.pages} appBaseUrl={appBaseUrl} />
     </>
   );

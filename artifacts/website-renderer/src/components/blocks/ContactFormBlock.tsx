@@ -76,6 +76,9 @@ export default function ContactFormBlock({ content }: Props) {
   const layoutVariant = String(content.layout_variant || content.layout || "split-form").toLowerCase();
   const sectionBg = String(content.section_bg || content.background_color || "#f9fafb");
   const cardBg = String(content.card_bg || content.form_background || "#ffffff");
+  const paddingY = String(content.padding_y || "72px");
+  const paddingX = String(content.padding_x || "24px");
+  const cardRadius = String(content.card_radius || "12px");
   const borderColor = String(content.border_color || "#e5e7eb");
   const headingColor = String(content.heading_color || content.text_color || "#111827");
   const bodyColor = String(content.body_color || content.muted_text_color || "#6b7280");
@@ -98,10 +101,10 @@ export default function ContactFormBlock({ content }: Props) {
 
   if (!configuredFormId && !websiteId) {
     return (
-      <section id="contact" style={{ backgroundColor: sectionBg, color: headingColor, padding: "72px 24px" }}>
+      <section id="contact" style={{ backgroundColor: sectionBg, color: headingColor, padding: `${paddingY} ${paddingX}` }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           {layoutVariant === "card-overlay" && (
-            <div style={{ background: cardBg, border: `1px solid ${borderColor}`, borderRadius: 14, padding: 24, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
+            <div style={{ background: cardBg, border: `1px solid ${borderColor}`, borderRadius: cardRadius, padding: 24, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
               {label && <p style={{ margin: "0 0 8px", color: accent_color, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: bodyFont }}>{label}</p>}
               <h2 style={{ margin: "0 0 10px", fontSize: headingSize, color: headingColor, fontWeight: 800, fontFamily: headingFont }}>{heading}</h2>
               {subheading && <p style={{ margin: "0 0 16px", color: bodyColor, lineHeight: 1.7, fontFamily: bodyFont }}>{subheading}</p>}
@@ -159,7 +162,7 @@ export default function ContactFormBlock({ content }: Props) {
                 <h2 style={{ margin: "0 0 10px", fontSize: headingSize, color: headingColor, fontWeight: 800, fontFamily: headingFont }}>{heading}</h2>
                 {subheading && <p style={{ margin: "0 0 14px", color: bodyColor, lineHeight: 1.7, fontFamily: bodyFont }}>{subheading}</p>}
               </div>
-              <div style={{ background: cardBg, border: `1px solid ${borderColor}`, borderRadius: 12, padding: 16, display: "grid", gap: 10 }}>
+              <div style={{ background: cardBg, border: `1px solid ${borderColor}`, borderRadius: cardRadius, padding: 16, display: "grid", gap: 10 }}>
                 {contactRows.map((row, idx) => (
                   <div key={idx} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                     <span style={{ width: 34, height: 34, borderRadius: "50%", background: iconBg, color: iconColor, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{row.icon}</span>
@@ -248,7 +251,7 @@ export default function ContactFormBlock({ content }: Props) {
   const hasSplit = hasContactInfo;
 
   return (
-    <section id="contact" style={{ padding: "72px 24px", backgroundColor: sectionBg }}>
+    <section id="contact" style={{ padding: `${paddingY} ${paddingX}`, backgroundColor: sectionBg }}>
       <style>{`
         .cf-layout { display: grid; grid-template-columns: 1fr; gap: 48px; }
         @media (min-width: 800px) { .cf-layout.split { grid-template-columns: 1fr 1.6fr; } }
@@ -298,7 +301,7 @@ export default function ContactFormBlock({ content }: Props) {
           </div>
 
           {/* Right: form */}
-          <div style={{ backgroundColor: cardBg, borderRadius: 12, padding: "36px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)", border: `1px solid ${borderColor}` }}>
+          <div style={{ backgroundColor: cardBg, borderRadius: cardRadius, padding: "36px", boxShadow: "0 1px 8px rgba(0,0,0,0.07)", border: `1px solid ${borderColor}` }}>
             {!hasSplit && heading && <h2 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: 8, color: headingColor, fontFamily: headingFont }}>{heading}</h2>}
             {!hasSplit && subheading && <p style={{ color: bodyColor, marginBottom: 24, fontFamily: bodyFont }}>{subheading}</p>}
             <form onSubmit={handleSubmit}>
