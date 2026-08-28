@@ -676,7 +676,7 @@ router.put("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
   const { subtotal, vat_amount, total } = computeTotals(resolvedLines, resolvedVatRate);
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (works_order !== undefined) updates.works_order = works_order || null;
+  if (works_order !== undefined) updates.works_order = works_order || existing.works_order || null;
   if (notes !== undefined) updates.notes = notes || null;
   if (customer_notes !== undefined) updates.customer_notes = customer_notes || null;
   if (issue_date !== undefined) updates.issue_date = issue_date;
