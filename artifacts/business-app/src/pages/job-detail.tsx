@@ -788,7 +788,15 @@ export default function JobDetail() {
       )}
 
       {editing ? (
-        <EditJobForm job={job as unknown as JobLike} onClose={() => setEditing(false)} onEmailSent={() => setEmailLogRefresh(k => k + 1)} />
+        <EditJobForm
+          job={job as unknown as JobLike}
+          onClose={() => setEditing(false)}
+          onEmailSent={() => setEmailLogRefresh(k => k + 1)}
+          onFollowUpRequested={() => {
+            setEditing(false);
+            setShowFollowUpForm(true);
+          }}
+        />
       ) : (
         <>
         <Card className="p-4 border border-border/50 shadow-sm bg-slate-50/50 mb-6 lg:hidden">
@@ -1523,6 +1531,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const [selectedCalloutRate, setSelectedCalloutRate] = useState<string>(calloutRateId || "auto");
   const [savingRate, setSavingRate] = useState(false);
   const [waiveCallout, setWaiveCallout] = useState(false);
+  const [recordTimeOnly, setRecordTimeOnly] = useState(false);
   const [editWaiveCallout, setEditWaiveCallout] = useState(false);
 
   useEffect(() => {
@@ -1672,15 +1681,15 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
       arrival_time: arrivalDate.toISOString(),
       departure_time: departureDate ? departureDate.toISOString() : null,
       notes: notes || null,
-      hourly_rate: resolvedRate || null,
-      callout_fee: waiveCallout ? 0 : (callOutFee > 0 ? callOutFee : null),
+      hourly_rate: recordTimeOnly ? 0 : (resolvedRate || null),
+      callout_fee: recordTimeOnly || waiveCallout ? 0 : (callOutFee > 0 ? callOutFee : null),
     };
     if (!isOnline) {
       if (offlineSubmitting) return;
       setOfflineSubmitting(true);
       try {
         await queueTimeEntry(jobId, entryData);
-        setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setShowAdd(false);
+        setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setRecordTimeOnly(false); setShowAdd(false);
         toast({ title: "Saved offline", description: "Time entry will sync when you're back online." });
       } catch {
         toast({ title: "Error", description: "Failed to save time entry offline", variant: "destructive" });
@@ -1691,7 +1700,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     }
     try {
       await createMutation.mutateAsync({ jobId, data: entryData as any });
-      setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setShowAdd(false);
+      setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setRecordTimeOnly(false); setShowAdd(false);
       qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
       toast({ title: "Added", description: "Time entry added" });
       onChanged?.();
@@ -1869,7 +1878,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                     className="flex-1 border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
                     value={selectedCalloutRate}
                     onChange={(e) => handleCalloutRateChange(e.target.value)}
-                    disabled={savingRate}
+                    disabled={savingRate || recordTimeOnly}
                   >
                     <option value="auto">Auto (based on time of day)</option>
                     {calloutRates.map(r => (
@@ -1881,6 +1890,18 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
               </div>
             )}
           </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="recordTimeOnly"
+              checked={recordTimeOnly}
+              onChange={(e) => setRecordTimeOnly(e.target.checked)}
+              className="h-4 w-4 rounded border-border accent-primary"
+            />
+            <label htmlFor="recordTimeOnly" className="text-sm select-none cursor-pointer">
+              Record time only - do not add labour or callout cost
+            </label>
+          </div>
           {callOutFee > 0 && (
             <div className="flex items-center gap-2">
               <input
@@ -1888,6 +1909,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                 id="waiveCallout"
                 checked={waiveCallout}
                 onChange={(e) => setWaiveCallout(e.target.checked)}
+                disabled={recordTimeOnly}
                 className="h-4 w-4 rounded border-border accent-primary"
               />
               <label htmlFor="waiveCallout" className="text-sm select-none cursor-pointer">
@@ -1899,8 +1921,8 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
             const ms = new Date(departureValue).getTime() - new Date(arrival).getTime();
             const hours = ms / 3600000;
             const durationStr = calcDuration(arrival, departureValue);
-            const rate = effectiveHourlyRate;
-            const hasCallout = addEntryFee > 0;
+            const rate = recordTimeOnly ? 0 : effectiveHourlyRate;
+            const hasCallout = !recordTimeOnly && addEntryFee > 0;
             const billable = hasCallout ? Math.max(0, hours - 1) : Math.max(0, hours);
             const cost = (hasCallout ? addEntryFee : 0) + billable * rate;
             return (
@@ -1917,7 +1939,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
             <Button size="sm" onClick={handleAdd} disabled={createMutation.isPending || offlineSubmitting || !arrival}>
               <Check className="w-4 h-4 mr-1" /> {createMutation.isPending || offlineSubmitting ? "Saving..." : "Save Entry"}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); }}>
+            <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setRecordTimeOnly(false); }}>
               Cancel
             </Button>
           </div>
@@ -2224,6 +2246,7 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
   const canAddToCatalogue = ["admin", "office_staff", "super_admin"].includes(profile?.role ?? "");
   const [services, setServices] = useState<JobService[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [serviceName, setServiceName] = useState("");
   const [serviceQty, setServiceQty] = useState("1");
@@ -2245,11 +2268,14 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
   const searchSeqRef = useRef(0);
 
   const fetchServices = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/services`);
       setServices(Array.isArray(data) ? data as JobService[] : []);
+      setLoadError(false);
     } catch {
       setServices([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -2461,6 +2487,11 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading services...</p>
+      ) : loadError ? (
+        <div className="flex items-center gap-2 text-sm text-destructive">
+          <span>Services could not be loaded.</span>
+          <Button size="sm" variant="outline" onClick={fetchServices}>Retry</Button>
+        </div>
       ) : services.length === 0 ? (
         <p className="text-sm text-muted-foreground">No services recorded yet.</p>
       ) : (
@@ -2575,6 +2606,7 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
   const canAddToCatalogue = ["admin", "office_staff", "super_admin"].includes(profile?.role ?? "");
   const [parts, setParts] = useState<JobPart[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [partName, setPartName] = useState("");
   const [partQty, setPartQty] = useState("1");
@@ -2598,11 +2630,14 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
   const searchSeqRef = useRef(0);
 
   const fetchParts = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts`);
       setParts(Array.isArray(data) ? data as JobPart[] : []);
+      setLoadError(false);
     } catch {
       setParts([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -2869,6 +2904,11 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading parts...</p>
+      ) : loadError ? (
+        <div className="flex items-center gap-2 text-sm text-destructive">
+          <span>Parts could not be loaded.</span>
+          <Button size="sm" variant="outline" onClick={fetchParts}>Retry</Button>
+        </div>
       ) : parts.length === 0 ? (
         <p className="text-sm text-muted-foreground">No parts recorded yet.</p>
       ) : (
@@ -3863,7 +3903,7 @@ function ReturnVisitForm({ job, onClose, onScheduled }: { job: { id: string; sta
   );
 }
 
-function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () => void; onEmailSent?: () => void }) {
+function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: JobLike; onClose: () => void; onEmailSent?: () => void; onFollowUpRequested?: () => void }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { isOnline, queueJobUpdate } = useOffline();
@@ -3989,6 +4029,10 @@ function EditJobForm({ job, onClose, onEmailSent }: { job: JobLike; onClose: () 
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
       qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}/schedule-history`] });
       toast({ title: "Updated", description: "Job updated successfully" });
+      if (data.status === "requires_follow_up" || data.status === "awaiting_parts") {
+        onFollowUpRequested?.();
+        return;
+      }
       if (customerEmail) {
         setShowEmailPrompt(true);
       } else {

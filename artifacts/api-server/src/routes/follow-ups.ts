@@ -123,11 +123,14 @@ router.post("/follow-ups", requireAuth, requireTenant, requireRole("admin", "off
     res.status(400).json({ error: "parts_description is required when parts_required is true" }); return;
   }
 
-  let jobQ = supabaseAdmin.from("jobs").select("id, customer_id, property_id, tenant_id").eq("id", original_job_id);
+  let jobQ = supabaseAdmin.from("jobs").select("id, customer_id, property_id, tenant_id, status").eq("id", original_job_id);
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
   const { data: job, error: jobErr } = await jobQ.single();
 
   if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
+  if (!["completed", "invoiced", "requires_follow_up", "awaiting_parts"].includes(job.status)) {
+    res.status(400).json({ error: "Follow-ups can only be created for completed, invoiced, awaiting-parts, or follow-up-required jobs" }); return;
+  }
 
   let existingFollowUpQ = supabaseAdmin
     .from("follow_ups")
