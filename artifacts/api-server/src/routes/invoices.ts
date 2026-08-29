@@ -48,6 +48,9 @@ interface LineItemInput {
   callout_fee?: number | null;
   callout_rate_id?: string | null;
   notes?: string | null;
+  catalogue_item_id?: string | null;
+  /** Request-only: push this line's price back to its catalogue entry. Not stored. */
+  update_catalogue_price?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -112,6 +115,7 @@ function toLineItemRow(l: LineItemInput, i: number, invoiceId: string, tenantId:
     callout_fee: l.callout_fee ?? null,
     callout_rate_id: l.callout_rate_id ?? null,
     notes: l.notes ?? null,
+    catalogue_item_id: l.catalogue_item_id ?? null,
   };
 }
 
@@ -755,6 +759,20 @@ router.put("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
         toLineItemRow(l, i, toSingleParam(req.params.id), req.tenantId!),
       );
       await supabaseAdmin.from("invoice_line_items").insert(items);
+    }
+
+    // Mirrors the job routes: only the default price, and only for these roles.
+    if (["admin", "office_staff", "super_admin"].includes(req.userRole || "")) {
+      const catalogueUpdates = line_items.filter(
+        l => l.update_catalogue_price && l.catalogue_item_id && l.unit_price != null,
+      );
+      await Promise.all(catalogueUpdates.map(l =>
+        supabaseAdmin
+          .from(l.item_type === "service" ? "service_catalogue" : "product_catalogue")
+          .update({ default_price: Number(l.unit_price) })
+          .eq("id", l.catalogue_item_id!)
+          .eq("tenant_id", req.tenantId!),
+      ));
     }
   }
 
@@ -1635,6 +1653,7 @@ router.post("/invoices/:id/convert", ...protect, async (req: AuthenticatedReques
       callout_fee: l.callout_fee ?? null,
       callout_rate_id: l.callout_rate_id ?? null,
       notes: l.notes ?? null,
+      catalogue_item_id: l.catalogue_item_id ?? null,
     }));
     await supabaseAdmin.from("invoice_line_items").insert(newItems);
   }
@@ -1830,6 +1849,7 @@ router.post("/invoices/:id/create-job", ...protect, async (req: AuthenticatedReq
           unit_price: Number(l.unit_price) || null,
           serial_number: (l.serial_number as string | null) ?? null,
           status: (l.status as string | null) || "fitted",
+          catalogue_item_id: (l.catalogue_item_id as string | null) ?? null,
           tenant_id: req.tenantId,
         }))
       )
@@ -1861,6 +1881,7 @@ router.post("/invoices/:id/create-job", ...protect, async (req: AuthenticatedReq
           service_name: l.description as string,
           quantity: Number(l.quantity) || 1,
           unit_price: Number(l.unit_price) || null,
+          catalogue_item_id: (l.catalogue_item_id as string | null) ?? null,
           tenant_id: req.tenantId,
         }))
       )
@@ -1990,6 +2011,7 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
       hourly_rate: l.hourly_rate ?? null,
       callout_fee: l.callout_fee ?? null,
       notes: l.notes ?? null,
+      catalogue_item_id: l.catalogue_item_id ?? null,
     }))
     : sourceLineItems.map((l, i) => ({
       description: String(l.description || "").trim(),
@@ -2004,6 +2026,7 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
       hourly_rate: l.hourly_rate != null ? Number(l.hourly_rate) : null,
       callout_fee: l.callout_fee != null ? Number(l.callout_fee) : null,
       notes: (l.notes as string | null) ?? null,
+      catalogue_item_id: (l.catalogue_item_id as string | null) ?? null,
     }));
 
   const { subtotal, vat_amount, total } = computeTotals(mergedLineItems, sourceVatRate);

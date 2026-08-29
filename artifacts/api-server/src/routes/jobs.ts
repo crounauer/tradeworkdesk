@@ -2367,7 +2367,7 @@ export async function buildInvoiceData(
   }
 
   if (parts) {
-    for (const p of parts as { part_name: string; quantity: number; unit_price: number | null; serial_number: string | null; status: string | null }[]) {
+    for (const p of parts as { part_name: string; quantity: number; unit_price: number | null; serial_number: string | null; status: string | null; catalogue_item_id: string | null }[]) {
       const up = Number(p.unit_price) || 0;
       const toOrder = p.status === "to_order";
       lines.push({
@@ -2378,12 +2378,13 @@ export async function buildInvoiceData(
         item_name: "product",
         serial_number: p.serial_number ?? null,
         status: p.status || "fitted",
+        catalogue_item_id: p.catalogue_item_id ?? null,
       });
     }
   }
 
   if (jobServices) {
-    for (const s of jobServices as { service_name: string; quantity: number; unit_price: number | null }[]) {
+    for (const s of jobServices as { service_name: string; quantity: number; unit_price: number | null; catalogue_item_id: string | null }[]) {
       const up = Number(s.unit_price) || 0;
       lines.push({
         description: s.service_name,
@@ -2391,6 +2392,7 @@ export async function buildInvoiceData(
         unit_price: up,
         total: up * s.quantity,
         item_name: "service",
+        catalogue_item_id: s.catalogue_item_id ?? null,
       });
     }
   }

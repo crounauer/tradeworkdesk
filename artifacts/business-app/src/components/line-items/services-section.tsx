@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,13 +32,13 @@ export function ServicesSection({
   onRetry,
   formatMoney = defaultMoneyFormatter,
 }: ServicesSectionProps) {
-  const [showAdd, setShowAdd] = useState(false);
   const [serviceName, setServiceName] = useState("");
   const [serviceQty, setServiceQty] = useState("1");
   const [servicePrice, setServicePrice] = useState("");
   const [catalogueItemId, setCatalogueItemId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [savingToCatalogue, setSavingToCatalogue] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const [editingQtyKey, setEditingQtyKey] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
@@ -68,7 +68,7 @@ export function ServicesSection({
         catalogueItemId,
       });
       resetForm();
-      setShowAdd(false);
+      nameInputRef.current?.focus();
     } finally {
       setSubmitting(false);
     }
@@ -109,23 +109,23 @@ export function ServicesSection({
         <h3 className="font-bold text-lg flex items-center gap-2 text-purple-600">
           <Wrench className="w-5 h-5" /> Services Offered
         </h3>
-        {!readOnly && (
-          <Button size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); setShowAdd(!showAdd); }}>
-            {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Service</>}
-          </Button>
-        )}
       </div>
 
-      {showAdd && !readOnly && (
-        <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {!readOnly && (
+        <div className="border rounded-lg p-3 mb-4 bg-slate-50/50">
+          <div className="grid grid-cols-2 sm:grid-cols-[1fr_80px_100px_auto] gap-2 items-end">
             <div className="space-y-1 relative col-span-2 sm:col-span-1">
-              <Label className="text-xs">Service Name *</Label>
+              <Label className="text-xs">Service</Label>
               <Input
+                ref={nameInputRef}
                 value={serviceName}
                 onChange={(e) => { setServiceName(e.target.value); setCatalogueItemId(null); catalogue.search(e.target.value, "add", "service"); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); handleAdd(); }
+                  if (e.key === "Escape") resetForm();
+                }}
                 onBlur={() => setTimeout(() => catalogue.clear(), 200)}
-                placeholder="Type to search catalogue..."
+                placeholder="Add a service — type to search catalogue…"
                 autoComplete="off"
               />
               {suggestionsOpen && (
@@ -167,17 +167,25 @@ export function ServicesSection({
               )}
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Quantity</Label>
-              <Input type="text" inputMode="decimal" value={serviceQty} onChange={(e) => setServiceQty(e.target.value)} />
+              <Label className="text-xs">Qty</Label>
+              <Input
+                type="text" inputMode="decimal" value={serviceQty}
+                onChange={(e) => setServiceQty(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } if (e.key === "Escape") resetForm(); }}
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Unit Price</Label>
-              <Input type="text" inputMode="decimal" value={servicePrice} onChange={(e) => setServicePrice(e.target.value)} placeholder="0.00" />
+              <Input
+                type="text" inputMode="decimal" value={servicePrice} placeholder="0.00"
+                onChange={(e) => setServicePrice(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } if (e.key === "Escape") resetForm(); }}
+              />
             </div>
+            <Button size="sm" className="col-span-2 sm:col-span-1" onClick={handleAdd} disabled={submitting || !serviceName.trim()}>
+              <Plus className="w-4 h-4 mr-1" /> {submitting ? "Adding…" : "Add"}
+            </Button>
           </div>
-          <Button size="sm" onClick={handleAdd} disabled={submitting || !serviceName.trim()}>
-            <Check className="w-4 h-4 mr-1" /> {submitting ? "Adding..." : "Add Service"}
-          </Button>
         </div>
       )}
 

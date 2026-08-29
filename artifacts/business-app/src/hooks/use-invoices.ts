@@ -31,6 +31,9 @@ export interface InvoiceLineItem {
   callout_fee?: number | null;
   callout_rate_id?: string | null;
   notes?: string | null;
+  catalogue_item_id?: string | null;
+  /** Transient request-only flag; consumed by the API, never stored. */
+  update_catalogue_price?: boolean;
 }
 
 export interface InvoicePayment {

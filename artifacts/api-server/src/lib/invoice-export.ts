@@ -12,6 +12,7 @@ export interface InvoiceLineItem {
   hourly_rate?: number | null;
   callout_fee?: number | null;
   notes?: string | null;
+  catalogue_item_id?: string | null;
 }
 
 export interface InvoiceData {

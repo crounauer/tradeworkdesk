@@ -374,6 +374,11 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
     setLines((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  // The catalogue flag is request-only, so drop it once it has been sent or abandoned.
+  function clearCatalogueFlags() {
+    setLines((prev) => prev.map(({ update_catalogue_price: _drop, ...rest }) => rest));
+  }
+
   const indexed = lines.map((line, index) => ({ line, index }));
 
   const partLines: PartLine[] = indexed
@@ -385,6 +390,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       unitPrice: Number(line.unit_price),
       serialNumber: line.serial_number ?? null,
       status: line.status === "to_order" ? "to_order" : "fitted",
+      catalogueItemId: line.catalogue_item_id ?? null,
     }));
 
   const serviceLines: ServiceLine[] = indexed
@@ -394,6 +400,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       name: line.description,
       quantity: Number(line.quantity),
       unitPrice: Number(line.unit_price),
+      catalogueItemId: line.catalogue_item_id ?? null,
     }));
 
   const timeLines: TimeLine[] = indexed
@@ -457,6 +464,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         property_id: selectedPropertyId || null,
       });
       toast({ title: "Saved" });
+      clearCatalogueFlags();
       setEditing(false);
     } catch (e) {
       toast({ title: "Save failed", description: (e as Error).message, variant: "destructive" });
@@ -595,7 +603,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           )}
           {editing && (
             <>
-              <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
+              <Button variant="outline" size="sm" onClick={() => { clearCatalogueFlags(); setEditing(false); }}>
                 <X className="w-4 h-4 mr-1" /> Cancel
               </Button>
               <Button size="sm" onClick={saveChanges} disabled={updateMut.isPending}>
@@ -868,14 +876,23 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 item_type: "product",
                 serial_number: p.serialNumber ?? null,
                 status: p.status,
+                catalogue_item_id: p.catalogueItemId ?? null,
               }])}
-              onUpdate={(key, patch) => patchLine(key, {
-                ...(patch.name !== undefined ? { description: patch.name } : {}),
-                ...(patch.quantity !== undefined ? { quantity: patch.quantity } : {}),
-                ...(patch.unitPrice !== undefined ? { unit_price: patch.unitPrice ?? 0 } : {}),
-                ...(patch.serialNumber !== undefined ? { serial_number: patch.serialNumber } : {}),
-                ...(patch.status !== undefined ? { status: patch.status } : {}),
-              })}
+              onUpdate={(key, patch, options) => {
+                const wantsCatalogueUpdate = Boolean(
+                  options?.updateCataloguePrice
+                  && patch.unitPrice !== undefined
+                  && partLines.find(p => p.key === key)?.catalogueItemId,
+                );
+                patchLine(key, {
+                  ...(patch.name !== undefined ? { description: patch.name } : {}),
+                  ...(patch.quantity !== undefined ? { quantity: patch.quantity } : {}),
+                  ...(patch.unitPrice !== undefined ? { unit_price: patch.unitPrice ?? 0 } : {}),
+                  ...(patch.serialNumber !== undefined ? { serial_number: patch.serialNumber } : {}),
+                  ...(patch.status !== undefined ? { status: patch.status } : {}),
+                  ...(wantsCatalogueUpdate ? { update_catalogue_price: true } : {}),
+                });
+              }}
               onDelete={removeLine}
             />
 
@@ -889,12 +906,21 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 quantity: s.quantity,
                 unit_price: s.unitPrice ?? 0,
                 item_type: "service",
+                catalogue_item_id: s.catalogueItemId ?? null,
               }])}
-              onUpdate={(key, patch) => patchLine(key, {
-                ...(patch.name !== undefined ? { description: patch.name } : {}),
-                ...(patch.quantity !== undefined ? { quantity: patch.quantity } : {}),
-                ...(patch.unitPrice !== undefined ? { unit_price: patch.unitPrice ?? 0 } : {}),
-              })}
+              onUpdate={(key, patch, options) => {
+                const wantsCatalogueUpdate = Boolean(
+                  options?.updateCataloguePrice
+                  && patch.unitPrice !== undefined
+                  && serviceLines.find(s => s.key === key)?.catalogueItemId,
+                );
+                patchLine(key, {
+                  ...(patch.name !== undefined ? { description: patch.name } : {}),
+                  ...(patch.quantity !== undefined ? { quantity: patch.quantity } : {}),
+                  ...(patch.unitPrice !== undefined ? { unit_price: patch.unitPrice ?? 0 } : {}),
+                  ...(wantsCatalogueUpdate ? { update_catalogue_price: true } : {}),
+                });
+              }}
               onDelete={removeLine}
             />
 

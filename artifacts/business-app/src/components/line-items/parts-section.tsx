@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,6 @@ export function PartsSection({
   onRetry,
   formatMoney = defaultMoneyFormatter,
 }: PartsSectionProps) {
-  const [showAdd, setShowAdd] = useState(false);
   const [partName, setPartName] = useState("");
   const [partQty, setPartQty] = useState("1");
   const [partPrice, setPartPrice] = useState("");
@@ -41,6 +40,7 @@ export function PartsSection({
   const [catalogueItemId, setCatalogueItemId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [savingToCatalogue, setSavingToCatalogue] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const [editingQtyKey, setEditingQtyKey] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
@@ -50,6 +50,9 @@ export function PartsSection({
 
   const catalogue = useCatalogueSearch();
   const suggestionsOpen = catalogue.activeKey === "add";
+
+  // Serial and status only appear once there is actually a part being entered.
+  const expanded = partName.trim().length > 0;
 
   const resetForm = () => {
     setPartName("");
@@ -74,7 +77,7 @@ export function PartsSection({
         catalogueItemId,
       });
       resetForm();
-      setShowAdd(false);
+      nameInputRef.current?.focus();
     } finally {
       setSubmitting(false);
     }
@@ -117,23 +120,23 @@ export function PartsSection({
         <h3 className="font-bold text-lg flex items-center gap-2 text-blue-600">
           <Package className="w-5 h-5" /> Parts Used
         </h3>
-        {!readOnly && (
-          <Button size="sm" variant="outline" onClick={() => { if (showAdd) resetForm(); setShowAdd(!showAdd); }}>
-            {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Part</>}
-          </Button>
-        )}
       </div>
 
-      {showAdd && !readOnly && (
-        <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {!readOnly && (
+        <div className="border rounded-lg p-3 mb-4 bg-slate-50/50 space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-[1fr_80px_100px_auto] gap-2 items-end">
             <div className="space-y-1 relative col-span-2 sm:col-span-1">
-              <Label className="text-xs">Part Name *</Label>
+              <Label className="text-xs">Part</Label>
               <Input
+                ref={nameInputRef}
                 value={partName}
                 onChange={(e) => { setPartName(e.target.value); setCatalogueItemId(null); catalogue.search(e.target.value, "add", "product"); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); handleAdd(); }
+                  if (e.key === "Escape") resetForm();
+                }}
                 onBlur={() => setTimeout(() => catalogue.clear(), 200)}
-                placeholder="Type to search catalogue..."
+                placeholder="Add a part — type to search catalogue…"
                 autoComplete="off"
               />
               {suggestionsOpen && (
@@ -174,41 +177,62 @@ export function PartsSection({
                 </div>
               )}
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Quantity</Label>
-              <Input type="text" inputMode="decimal" value={partQty} onChange={(e) => setPartQty(e.target.value)} />
+            {/* Qty and price stay hidden on mobile until there is something to add. */}
+            <div className={`space-y-1 ${expanded ? "" : "hidden sm:block"}`}>
+              <Label className="text-xs">Qty</Label>
+              <Input
+                type="text" inputMode="decimal" value={partQty}
+                onChange={(e) => setPartQty(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } if (e.key === "Escape") resetForm(); }}
+              />
             </div>
-            <div className="space-y-1">
+            <div className={`space-y-1 ${expanded ? "" : "hidden sm:block"}`}>
               <Label className="text-xs">Unit Price</Label>
-              <Input type="text" inputMode="decimal" value={partPrice} onChange={(e) => setPartPrice(e.target.value)} placeholder="0.00" />
+              <Input
+                type="text" inputMode="decimal" value={partPrice} placeholder="0.00"
+                onChange={(e) => setPartPrice(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } if (e.key === "Escape") resetForm(); }}
+              />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Serial Number</Label>
-              <Input value={partSerial} onChange={(e) => setPartSerial(e.target.value)} placeholder="Optional" />
-            </div>
+            <Button size="sm" className="col-span-2 sm:col-span-1" onClick={handleAdd} disabled={submitting || !partName.trim()}>
+              <Plus className="w-4 h-4 mr-1" /> {submitting ? "Adding…" : "Add"}
+            </Button>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">Status:</span>
-            <div className="flex rounded-md overflow-hidden border border-border text-xs">
-              <button
-                type="button"
-                className={`px-3 py-1.5 font-medium transition-colors ${partStatus === "fitted" ? "bg-emerald-500 text-white" : "bg-white text-muted-foreground hover:bg-slate-50"}`}
-                onClick={() => setPartStatus("fitted")}
-              >
-                Fitted
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1.5 font-medium border-l border-border transition-colors ${partStatus === "to_order" ? "bg-amber-400 text-white" : "bg-white text-muted-foreground hover:bg-slate-50"}`}
-                onClick={() => setPartStatus("to_order")}
-              >
-                To Order
-              </button>
+
+          {expanded && (
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1 flex-1 min-w-[140px]">
+                <Label className="text-xs">Serial Number</Label>
+                <Input
+                  value={partSerial} placeholder="Optional"
+                  onChange={(e) => setPartSerial(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } if (e.key === "Escape") resetForm(); }}
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">Status:</span>
+                <div className="flex rounded-md overflow-hidden border border-border text-xs">
+                  <button
+                    type="button"
+                    className={`px-3 py-1.5 font-medium transition-colors ${partStatus === "fitted" ? "bg-emerald-500 text-white" : "bg-white text-muted-foreground hover:bg-slate-50"}`}
+                    onClick={() => setPartStatus("fitted")}
+                  >
+                    Fitted
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-3 py-1.5 font-medium border-l border-border transition-colors ${partStatus === "to_order" ? "bg-amber-400 text-white" : "bg-white text-muted-foreground hover:bg-slate-50"}`}
+                    onClick={() => setPartStatus("to_order")}
+                  >
+                    To Order
+                  </button>
+                </div>
+              </div>
+              <Button size="sm" variant="ghost" onClick={resetForm}>
+                <X className="w-4 h-4 mr-1" /> Clear
+              </Button>
             </div>
-          </div>
-          <Button size="sm" onClick={handleAdd} disabled={submitting || !partName.trim()}>
-            <Check className="w-4 h-4 mr-1" /> {submitting ? "Adding..." : "Add Part"}
-          </Button>
+          )}
         </div>
       )}
 

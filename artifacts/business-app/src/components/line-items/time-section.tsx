@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Clock, Plus, X, Check, Pencil, Trash2 } from "lucide-react";
+import { Clock, X, Check, Pencil, Trash2 } from "lucide-react";
 import { calcDuration, computeLabourBreakdown, toLocalDatetimeStr, type LabourBreakdown } from "@/lib/line-items";
 import {
   defaultMoneyFormatter,
@@ -82,7 +82,6 @@ export function TimeSection({
   formatMoney = defaultMoneyFormatter,
   footer,
 }: TimeSectionProps) {
-  const [showAdd, setShowAdd] = useState(false);
   const [mode, setMode] = useState<"actual" | "estimate">("actual");
   const [arrival, setArrival] = useState("");
   const [departure, setDeparture] = useState("");
@@ -109,6 +108,19 @@ export function TimeSection({
   const editSelectedRate = editRateId !== "auto" ? calloutRates.find(r => r.id === editRateId) : undefined;
   const editCalloutFee = editWaiveCallout ? 0 : (editSelectedRate ? Number(editSelectedRate.amount) : defaultCalloutFee);
   const editHourlyRate = editSelectedRate?.hourly_rate != null ? Number(editSelectedRate.hourly_rate) : defaultHourlyRate;
+
+  // Seed the add form once defaults arrive. Deliberately does not fire
+  // onCalloutRateChange — that is reserved for an explicit user choice.
+  useEffect(() => {
+    if (defaultCalloutRateId) return;
+    if (rateId !== "auto") return;
+    const def = calloutRates.find(r => r.is_default);
+    if (def) setRateId(def.id);
+  }, [calloutRates, defaultCalloutRateId, rateId]);
+
+  useEffect(() => {
+    if (!estimateHours && defaultHourlyRate > 0) setEstimateRate(String(defaultHourlyRate));
+  }, [defaultHourlyRate, estimateHours]);
 
   const sortedEntries = [...entries].sort((a, b) => {
     if (!a.arrival) return 1;
@@ -146,7 +158,6 @@ export function TimeSection({
           estimatedHours: hours,
         });
         resetAddForm();
-        setShowAdd(false);
       } finally {
         setSubmitting(false);
       }
@@ -171,7 +182,6 @@ export function TimeSection({
         calloutRateId: rateId !== "auto" ? rateId : null,
       });
       resetAddForm();
-      setShowAdd(false);
     } finally {
       setSubmitting(false);
     }
@@ -207,32 +217,19 @@ export function TimeSection({
     setEditingKey(null);
   };
 
+  // Everything past the arrival/hours row only matters once an entry is started.
+  const expanded = mode === "estimate" ? estimateHours.trim().length > 0 : arrival.length > 0;
+
   return (
     <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-lg flex items-center gap-2 text-amber-600">
           <Clock className="w-5 h-5" /> Time Attended
         </h3>
-        {!readOnly && (
-          <Button size="sm" variant="outline" onClick={() => {
-            if (!showAdd) {
-              setEstimateRate(defaultHourlyRate > 0 ? String(defaultHourlyRate) : "");
-              if (rateId === "auto") {
-                const def = calloutRates.find(r => r.is_default);
-                if (def) setRateId(def.id);
-              }
-            } else {
-              resetAddForm();
-            }
-            setShowAdd(!showAdd);
-          }}>
-            {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Entry</>}
-          </Button>
-        )}
       </div>
 
-      {showAdd && !readOnly && (
-        <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
+      {!readOnly && (
+        <div className="border rounded-lg p-3 mb-4 bg-slate-50/50 space-y-3">
           {allowEstimate && (
             <div className="flex rounded-md overflow-hidden border border-border text-xs w-fit">
               <button
@@ -257,24 +254,36 @@ export function TimeSection({
               <div className="grid sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Hours *</Label>
-                  <Input type="text" inputMode="decimal" value={estimateHours} onChange={(e) => setEstimateHours(e.target.value)} placeholder="e.g. 3" />
+                  <Input
+                    type="text" inputMode="decimal" value={estimateHours} placeholder="e.g. 3"
+                    onChange={(e) => setEstimateHours(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Escape") resetAddForm(); }}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Hourly Rate</Label>
-                  <Input type="text" inputMode="decimal" value={estimateRate} onChange={(e) => setEstimateRate(e.target.value)} placeholder="0.00" />
+                  <Input
+                    type="text" inputMode="decimal" value={estimateRate} placeholder="0.00"
+                    onChange={(e) => setEstimateRate(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Escape") resetAddForm(); }}
+                  />
                 </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Notes (optional)</Label>
-                <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Two engineers, half day" />
-              </div>
-              {Number(estimateHours) > 0 && (
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span>Estimated: {formatTotalTime(Number(estimateHours) * 60)}</span>
-                  <span className="font-medium text-emerald-600">
-                    Cost: {formatMoney(Number(estimateHours) * (Number(estimateRate) || 0))}
-                  </span>
-                </div>
+              {expanded && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Notes (optional)</Label>
+                    <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Two engineers, half day" />
+                  </div>
+                  {Number(estimateHours) > 0 && (
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span>Estimated: {formatTotalTime(Number(estimateHours) * 60)}</span>
+                      <span className="font-medium text-emerald-600">
+                        Cost: {formatMoney(Number(estimateHours) * (Number(estimateRate) || 0))}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
             </>
           ) : (
@@ -295,80 +304,88 @@ export function TimeSection({
                   </div>
                 </div>
               </div>
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Notes (optional)</Label>
-                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
-                </div>
-                {calloutRates.length > 0 && (
-                  <div className="space-y-1">
-                    <Label className="text-xs">Callout Rate</Label>
-                    <select
-                      className="w-full border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
-                      value={rateId}
-                      onChange={(e) => {
-                        setRateId(e.target.value);
-                        onCalloutRateChange?.(e.target.value === "auto" ? null : e.target.value);
-                      }}
-                      disabled={recordTimeOnly}
-                    >
-                      <option value="auto">Auto (based on time of day)</option>
-                      {calloutRates.map(r => (
-                        <option key={r.id} value={r.id}>
-                          {r.name} - {formatMoney(Number(r.amount))}{r.hourly_rate != null ? ` (${formatMoney(Number(r.hourly_rate))}/hr)` : ""}
-                        </option>
-                      ))}
-                    </select>
+              {expanded && (
+                <>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Notes (optional)</Label>
+                      <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
+                    </div>
+                    {calloutRates.length > 0 && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Callout Rate</Label>
+                        <select
+                          className="w-full border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
+                          value={rateId}
+                          onChange={(e) => {
+                            setRateId(e.target.value);
+                            onCalloutRateChange?.(e.target.value === "auto" ? null : e.target.value);
+                          }}
+                          disabled={recordTimeOnly}
+                        >
+                          <option value="auto">Auto (based on time of day)</option>
+                          {calloutRates.map(r => (
+                            <option key={r.id} value={r.id}>
+                              {r.name} - {formatMoney(Number(r.amount))}{r.hourly_rate != null ? ` (${formatMoney(Number(r.hourly_rate))}/hr)` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="recordTimeOnly"
-                  checked={recordTimeOnly}
-                  onChange={(e) => setRecordTimeOnly(e.target.checked)}
-                  className="h-4 w-4 rounded border-border accent-primary"
-                />
-                <label htmlFor="recordTimeOnly" className="text-sm select-none cursor-pointer">
-                  Record time only - do not add labour or callout cost
-                </label>
-              </div>
-              {calloutFee > 0 && (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="waiveCallout"
-                    checked={waiveCallout}
-                    onChange={(e) => setWaiveCallout(e.target.checked)}
-                    disabled={recordTimeOnly}
-                    className="h-4 w-4 rounded border-border accent-primary"
-                  />
-                  <label htmlFor="waiveCallout" className="text-sm select-none cursor-pointer">
-                    Waive callout fee — charge hourly rate only
-                  </label>
-                </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="recordTimeOnly"
+                      checked={recordTimeOnly}
+                      onChange={(e) => setRecordTimeOnly(e.target.checked)}
+                      className="h-4 w-4 rounded border-border accent-primary"
+                    />
+                    <label htmlFor="recordTimeOnly" className="text-sm select-none cursor-pointer">
+                      Record time only - do not add labour or callout cost
+                    </label>
+                  </div>
+                  {calloutFee > 0 && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="waiveCallout"
+                        checked={waiveCallout}
+                        onChange={(e) => setWaiveCallout(e.target.checked)}
+                        disabled={recordTimeOnly}
+                        className="h-4 w-4 rounded border-border accent-primary"
+                      />
+                      <label htmlFor="waiveCallout" className="text-sm select-none cursor-pointer">
+                        Waive callout fee — charge hourly rate only
+                      </label>
+                    </div>
+                  )}
+                  {arrival && departure && (() => {
+                    const rate = recordTimeOnly ? 0 : effectiveHourlyRate;
+                    const bd = computeLabourBreakdown({ arrival, departure, hourlyRate: rate, calloutFee: addEntryFee });
+                    return (
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Duration: {calcDuration(arrival, departure)}</span>
+                        {rate > 0 && <span>{formatMoney(rate)}/hr</span>}
+                        {bd.entryCost > 0 && <span className="font-medium text-emerald-600">Cost: {formatMoney(bd.entryCost)}</span>}
+                      </div>
+                    );
+                  })()}
+                </>
               )}
-              {arrival && departure && (() => {
-                const rate = recordTimeOnly ? 0 : effectiveHourlyRate;
-                const bd = computeLabourBreakdown({ arrival, departure, hourlyRate: rate, calloutFee: addEntryFee });
-                return (
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>Duration: {calcDuration(arrival, departure)}</span>
-                    {rate > 0 && <span>{formatMoney(rate)}/hr</span>}
-                    {bd.entryCost > 0 && <span className="font-medium text-emerald-600">Cost: {formatMoney(bd.entryCost)}</span>}
-                  </div>
-                );
-              })()}
             </>
           )}
 
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} disabled={submitting || (mode === "actual" ? !arrival : !estimateHours)}>
-              <Check className="w-4 h-4 mr-1" /> {submitting ? "Saving..." : "Save Entry"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => { resetAddForm(); setShowAdd(false); }}>Cancel</Button>
-          </div>
+          {expanded && (
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleAdd} disabled={submitting}>
+                <Check className="w-4 h-4 mr-1" /> {submitting ? "Saving…" : "Save Entry"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={resetAddForm}>
+                <X className="w-4 h-4 mr-1" /> Clear
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
