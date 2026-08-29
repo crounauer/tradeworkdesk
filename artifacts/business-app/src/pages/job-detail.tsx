@@ -282,14 +282,8 @@ export default function JobDetail() {
     staleTime: 5 * 60_000,
     enabled: !!job,
   });
-  const hasOperationalInProgressFlag = typeof jobRecord.is_in_progress === "boolean";
-  const hasOperationalAwaitingPartsFlag = typeof jobRecord.is_awaiting_parts === "boolean";
-  const isOperationalInProgress = hasOperationalInProgressFlag
-    ? Boolean(jobRecord.is_in_progress)
-    : job?.status === "in_progress";
-  const isOperationalAwaitingParts = hasOperationalAwaitingPartsFlag
-    ? Boolean(jobRecord.is_awaiting_parts)
-    : job?.status === "awaiting_parts";
+  const isOperationalInProgress = job?.status === "in_progress";
+  const isOperationalAwaitingParts = job?.status === "awaiting_parts";
   const { label: jobTypeLabel } = getJobTypeDisplay(jobRecord as JobLike);
   const serviceCatalogueId = typeof jobRecord.service_catalogue_id === "string" ? jobRecord.service_catalogue_id : null;
   const selectedJobTypeName = serviceCatalogueId

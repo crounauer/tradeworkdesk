@@ -47,8 +47,6 @@ interface SupabaseJobRow {
   visit_intent?: "standard" | "estimate" | null;
   fuel_category: string | null;
   status: string;
-  is_in_progress?: boolean | null;
-  is_awaiting_parts?: boolean | null;
   priority: string;
   description: string | null;
   notes?: string | null;
@@ -234,37 +232,6 @@ function sendTechnicianJobClash(res: Parameters<typeof sendTechnicianLeaveConfli
 }
 
 const router: IRouter = Router();
-
-const legacyJobFlagsTelemetry = new Map<string, number>();
-
-async function logLegacyJobFlagUsage(opts: {
-  tenantId?: string | null;
-  actorId?: string;
-  actorEmail?: string;
-  eventType: "legacy_job_flags_observed" | "legacy_job_flags_write";
-  detail: Record<string, unknown>;
-  dedupeWindowMs?: number;
-}): Promise<void> {
-  const tenantKey = opts.tenantId || "unknown";
-  const dedupeMs = opts.dedupeWindowMs ?? 60 * 60 * 1000;
-  const key = `${tenantKey}:${opts.eventType}:${JSON.stringify(opts.detail)}`;
-  const now = Date.now();
-  const last = legacyJobFlagsTelemetry.get(key) || 0;
-  if (now - last < dedupeMs) return;
-  legacyJobFlagsTelemetry.set(key, now);
-
-  await supabaseAdmin.from("platform_audit_log").insert({
-    actor_id: opts.actorId || null,
-    actor_email: opts.actorEmail || null,
-    event_type: opts.eventType,
-    entity_type: "job_flags",
-    entity_id: tenantKey,
-    detail: {
-      tenant_id: opts.tenantId || null,
-      ...opts.detail,
-    },
-  });
-}
 
 type CustomerConfirmationAction = "confirm" | "request_change";
 
@@ -602,7 +569,7 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
 
   let q = supabaseAdmin
     .from("jobs")
-    .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, visit_intent, fuel_category, status, is_in_progress, is_awaiting_parts, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, customer_confirmation_status, customer_confirmed_at, customer_change_requested_at, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name, is_active), properties(address_line1, address_line2, city, county, postcode, latitude, longitude), profiles(full_name)")
+    .select("id, job_ref, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, visit_intent, fuel_category, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, arrival_time, departure_time, customer_confirmation_status, customer_confirmed_at, customer_change_requested_at, is_active, created_at, updated_at, tenant_id, customers(first_name, last_name, is_active), properties(address_line1, address_line2, city, county, postcode, latitude, longitude), profiles(full_name)")
     .eq("is_active", true)
     .range(offset, offset + limit - 1);
 
@@ -688,21 +655,6 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
     profiles: undefined,
     properties: undefined,
   }));
-
-  const flaggedCount = rawMapped.filter((j) => Boolean((j as Record<string, unknown>).is_in_progress) || Boolean((j as Record<string, unknown>).is_awaiting_parts)).length;
-  if (flaggedCount > 0) {
-    void logLegacyJobFlagUsage({
-      tenantId: req.tenantId,
-      actorId: req.userId,
-      actorEmail: req.userEmail,
-      eventType: "legacy_job_flags_observed",
-      detail: {
-        endpoint: "/api/jobs",
-        flagged_jobs: flaggedCount,
-        total_jobs: rawMapped.length,
-      },
-    }).catch((err) => console.error("[jobs] legacy flag telemetry failed:", err));
-  }
 
   const responseBody = {
     jobs: rawMapped,
@@ -1298,20 +1250,6 @@ router.get("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedReq
   const { data: job, error } = await jobQ.single();
   if (error || !job) { res.status(404).json({ error: "Job not found" }); return; }
 
-  const hasLegacyFlagValue = Boolean((job as Record<string, unknown>).is_in_progress) || Boolean((job as Record<string, unknown>).is_awaiting_parts);
-  if (hasLegacyFlagValue) {
-    void logLegacyJobFlagUsage({
-      tenantId: req.tenantId,
-      actorId: req.userId,
-      actorEmail: req.userEmail,
-      eventType: "legacy_job_flags_observed",
-      detail: {
-        endpoint: "/api/jobs/:id",
-        job_id: params.data.id,
-      },
-    }).catch((err) => console.error("[jobs] legacy flag telemetry failed:", err));
-  }
-
   if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
     res.status(403).json({ error: "You can only view jobs assigned to you" });
     return;
@@ -1431,7 +1369,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   const body = UpdateJobBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  const TECH_ALLOWED_FIELDS = new Set(["arrival_time", "departure_time", "status", "is_in_progress", "is_awaiting_parts"]);
+  const TECH_ALLOWED_FIELDS = new Set(["arrival_time", "departure_time", "status"]);
   if (req.userRole === "technician") {
     const bodyKeys = Object.keys(req.body).filter((k) => req.body[k] !== undefined);
     const forbidden = bodyKeys.filter((k) => !TECH_ALLOWED_FIELDS.has(k));
@@ -1469,17 +1407,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   const rawAllDay = req.body.all_day as boolean | undefined;
 
   const rawCalloutRateId = req.body.callout_rate_id as string | null | undefined;
-  const rawIsInProgress = req.body.is_in_progress as boolean | undefined;
-  const rawIsAwaitingParts = req.body.is_awaiting_parts as boolean | undefined;
 
-  if (rawIsInProgress !== undefined && typeof rawIsInProgress !== "boolean") {
-    res.status(400).json({ error: "is_in_progress must be a boolean" });
-    return;
-  }
-  if (rawIsAwaitingParts !== undefined && typeof rawIsAwaitingParts !== "boolean") {
-    res.status(400).json({ error: "is_awaiting_parts must be a boolean" });
-    return;
-  }
   if (rawAllDay !== undefined && typeof rawAllDay !== "boolean") {
     res.status(400).json({ error: "all_day must be a boolean" });
     return;
@@ -1489,22 +1417,6 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     if (rawAllDay === true) {
       updateCoreData.estimated_duration = null;
     }
-  }
-
-  if (rawIsInProgress !== undefined || rawIsAwaitingParts !== undefined) {
-    void logLegacyJobFlagUsage({
-      tenantId: req.tenantId,
-      actorId: req.userId,
-      actorEmail: req.userEmail,
-      eventType: "legacy_job_flags_write",
-      detail: {
-        endpoint: "/api/jobs/:id",
-        job_id: params.data.id,
-        is_in_progress: rawIsInProgress,
-        is_awaiting_parts: rawIsAwaitingParts,
-      },
-      dedupeWindowMs: 5 * 60 * 1000,
-    }).catch((err) => console.error("[jobs] legacy flag write telemetry failed:", err));
   }
 
   let previousJobMeta: { status: string | null; customer_id: string | null; assigned_technician_id: string | null; job_ref: string | null } | null = null;
@@ -1595,24 +1507,6 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   }
 
   const updatePayload: Record<string, unknown> = { ...updateCoreData };
-
-  if (rawIsInProgress !== undefined) {
-    updatePayload.is_in_progress = rawIsInProgress;
-  }
-  if (rawIsAwaitingParts !== undefined) {
-    updatePayload.is_awaiting_parts = rawIsAwaitingParts;
-  }
-
-  if (body.data.status === "in_progress" && rawIsInProgress === undefined) {
-    updatePayload.is_in_progress = true;
-  }
-  if (body.data.status === "awaiting_parts" && rawIsAwaitingParts === undefined) {
-    updatePayload.is_awaiting_parts = true;
-  }
-  if (["completed", "cancelled", "invoiced"].includes(String(body.data.status || ""))) {
-    if (rawIsInProgress === undefined) updatePayload.is_in_progress = false;
-    if (rawIsAwaitingParts === undefined) updatePayload.is_awaiting_parts = false;
-  }
 
   if (rawCalloutRateId !== undefined) {
     if (rawCalloutRateId === null || rawCalloutRateId === "") {

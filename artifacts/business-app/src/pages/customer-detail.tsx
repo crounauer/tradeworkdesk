@@ -495,7 +495,7 @@ function CustomerJobsSection({ customerId }: { customerId: string }) {
     queryKey: ["customer-jobs", customerId],
     queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/jobs?customer_id=${customerId}&limit=100`),
   });
-  const jobs = (jobsResponse as any)?.jobs as Array<{ id: string; job_ref?: string; status: string; is_in_progress?: boolean | null; is_awaiting_parts?: boolean | null; job_type?: string; job_type_name?: string; scheduled_date?: string; scheduled_time?: string; created_at?: string; description?: string }> || [];
+  const jobs = (jobsResponse as any)?.jobs as Array<{ id: string; job_ref?: string; status: string; job_type?: string; job_type_name?: string; scheduled_date?: string; scheduled_time?: string; created_at?: string; description?: string }> || [];
   const sortedJobs = [...jobs].sort((a, b) => {
     const aDate = String(a.scheduled_date || "").slice(0, 10);
     const bDate = String(b.scheduled_date || "").slice(0, 10);
@@ -532,12 +532,6 @@ function CustomerJobsSection({ customerId }: { customerId: string }) {
     invoiced: "Invoiced",
   };
 
-  const getEffectiveStatus = (job: { status: string; is_in_progress?: boolean | null; is_awaiting_parts?: boolean | null }) => {
-    if (job.is_in_progress != null) return job.is_in_progress ? "in_progress" : job.status;
-    if (job.is_awaiting_parts != null) return job.is_awaiting_parts ? "awaiting_parts" : job.status;
-    return job.status;
-  };
-
   if (jobs.length === 0) return null;
 
   return (
@@ -564,8 +558,8 @@ function CustomerJobsSection({ customerId }: { customerId: string }) {
             <Card className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[getEffectiveStatus(job)] || "bg-slate-100 text-slate-600"}`}>
-                    {statusLabels[getEffectiveStatus(job)] || getEffectiveStatus(job)}
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[job.status] || "bg-slate-100 text-slate-600"}`}>
+                    {statusLabels[job.status] || job.status}
                   </span>
                   <div className="min-w-0">
                     <p className="font-medium text-sm text-foreground truncate">
