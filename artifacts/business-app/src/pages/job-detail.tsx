@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check,
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
-  ClipboardList, Wind, Clock, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
+  ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
   CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink, WifiOff, CloudOff,
   Phone, Smartphone, Receipt, Download, Copy
@@ -210,6 +210,7 @@ export default function JobDetail() {
   const [cachedJob, setCachedJob] = useState<Record<string, unknown> | null>(null);
   const [loadingCache, setLoadingCache] = useState(false);
   const [showFollowUpForm, setShowFollowUpForm] = useState(false);
+  const [followUpPartsDefault, setFollowUpPartsDefault] = useState(false);
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
   const [showRebook, setShowRebook] = useState(false);
   const [hasRebookBeenUsedLocal, setHasRebookBeenUsedLocal] = useState(false);
@@ -410,12 +411,12 @@ export default function JobDetail() {
     }
   };
 
-  const handleStatusChange = async (newStatus: string, label: string) => {
+  const handleStatusChange = async (newStatus: string, label: string): Promise<boolean> => {
     try {
       if (!isOnline) {
         await queueJobUpdate(job!.id, { status: newStatus });
         toast({ title: "Queued offline", description: `Status change to "${label}" will sync when online.` });
-        return;
+        return false;
       }
       await updateJob.mutateAsync({
         id: job!.id,
@@ -426,9 +427,21 @@ export default function JobDetail() {
       qc.invalidateQueries({ queryKey: [`/api/jobs/${job!.id}`] });
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({ title: "Status Updated", description: `Job marked as ${label}` });
+      return true;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to update status";
       toast({ title: "Error", description: msg, variant: "destructive" });
+      return false;
+    }
+  };
+
+  // Records why the visit didn't finish, then offers to raise the follow-up in one go.
+  const handleVisitOutcome = async (newStatus: "awaiting_parts" | "requires_follow_up", label: string, partsRequired: boolean) => {
+    const ok = await handleStatusChange(newStatus, label);
+    if (!ok) return;
+    if (isOfficeOrAdmin && !hasFollowUpLabel) {
+      setFollowUpPartsDefault(partsRequired);
+      setShowFollowUpForm(true);
     }
   };
 
@@ -676,7 +689,17 @@ export default function JobDetail() {
               <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
             </Button>
           )}
-          {(job.status === "completed" || (job.status === "cancelled" && isOfficeOrAdmin)) && (
+          {canComplete && job.status !== "awaiting_parts" && (
+            <Button size="sm" variant="outline" className="border-amber-300 text-amber-800 hover:bg-amber-50" onClick={() => handleVisitOutcome("awaiting_parts", "Awaiting Parts", true)} disabled={updateJob.isPending}>
+              <Package className="w-4 h-4 mr-2" /> Needs Parts
+            </Button>
+          )}
+          {canComplete && job.status !== "requires_follow_up" && (
+            <Button size="sm" variant="outline" className="border-indigo-300 text-indigo-800 hover:bg-indigo-50" onClick={() => handleVisitOutcome("requires_follow_up", "Requires Follow-up", false)} disabled={updateJob.isPending}>
+              <CalendarPlus className="w-4 h-4 mr-2" /> Needs Another Visit
+            </Button>
+          )}
+          {(job.status === "completed" || job.status === "awaiting_parts" || job.status === "requires_follow_up" || (job.status === "cancelled" && isOfficeOrAdmin)) && (
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowReturnVisit(!showReturnVisit)} disabled={updateJob.isPending}>
               <CalendarPlus className="w-4 h-4 mr-2" /> {job.status === "cancelled" ? "Reschedule Job" : "Schedule Return Visit"}
             </Button>
@@ -799,9 +822,11 @@ export default function JobDetail() {
       {showFollowUpForm && (
         <CreateFollowUpForm
           jobId={job.id}
-          onClose={() => setShowFollowUpForm(false)}
+          defaultPartsRequired={followUpPartsDefault}
+          onClose={() => { setShowFollowUpForm(false); setFollowUpPartsDefault(false); }}
           onCreated={() => {
             setShowFollowUpForm(false);
+            setFollowUpPartsDefault(false);
             setCreatingFollowUp(false);
             qc.invalidateQueries({ queryKey: ["job-follow-up-summary", job.id] });
             qc.invalidateQueries({ queryKey: ["follow-ups"] });
@@ -3690,9 +3715,9 @@ function calcDuration(start: string, end: string): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-function CreateFollowUpForm({ jobId, onClose, onCreated }: { jobId: string; onClose: () => void; onCreated: () => void }) {
+function CreateFollowUpForm({ jobId, defaultPartsRequired = false, onClose, onCreated }: { jobId: string; defaultPartsRequired?: boolean; onClose: () => void; onCreated: () => void }) {
   const [workDesc, setWorkDesc] = useState("");
-  const [partsRequired, setPartsRequired] = useState(false);
+  const [partsRequired, setPartsRequired] = useState(defaultPartsRequired);
   const [partsDesc, setPartsDesc] = useState("");
   const [expectedDate, setExpectedDate] = useState("");
   const [notes, setNotes] = useState("");
