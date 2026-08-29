@@ -44,6 +44,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type JobEditData = {
   status: string;
@@ -196,6 +204,9 @@ export default function JobDetail() {
   const [showReturnVisit, setShowReturnVisit] = useState(false);
   const [showSms, setShowSms] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState("");
+  const [confirmationMessage, setConfirmationMessage] = useState("");
   const [cachedJob, setCachedJob] = useState<Record<string, unknown> | null>(null);
   const [loadingCache, setLoadingCache] = useState(false);
   const [showFollowUpForm, setShowFollowUpForm] = useState(false);
@@ -374,12 +385,22 @@ export default function JobDetail() {
   const handleSendConfirmationDirect = async () => {
     setSendingConfirmation(true);
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${job!.id}/send-confirmation`, { method: "POST" });
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${job!.id}/send-confirmation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          override_email: confirmationEmail.trim() !== customerEmail ? confirmationEmail.trim() : undefined,
+          personal_message: confirmationMessage.trim() || undefined,
+        }),
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to send confirmation email");
       }
-      toast({ title: "Email sent", description: `Appointment confirmation sent to ${customerEmail}` });
+      const body = await res.json().catch(() => ({}));
+      toast({ title: "Email sent", description: `Appointment confirmation sent to ${body.sent_to || confirmationEmail}` });
+      setConfirmationOpen(false);
+      setConfirmationMessage("");
       setEmailLogRefresh(k => k + 1);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to send email";
@@ -886,9 +907,14 @@ export default function JobDetail() {
                   <Mail className="w-4 h-4 mr-2" /> Email Customer
                 </Button>
                 {(profile?.role === "admin" || profile?.role === "office_staff") && customerEmail && (
-                  <Button variant="outline" size="sm" onClick={handleSendConfirmationDirect} disabled={sendingConfirmation} className="gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => { setConfirmationEmail(customerEmail); setConfirmationMessage(""); setConfirmationOpen(true); }}
+                  >
                     <Mail className="w-4 h-4" />
-                    {sendingConfirmation ? "Sending..." : "Email Appointment Confirmation"}
+                    Email Appointment Confirmation
                   </Button>
                 )}
                 {hasAddon("sms_messaging") && (job.customer?.phone || job.customer?.mobile) && (
@@ -1485,6 +1511,76 @@ export default function JobDetail() {
         </div>
         </>
       )}
+
+      <Dialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-blue-600" /> Email Appointment Confirmation
+            </DialogTitle>
+            <DialogDescription>
+              Check the details below, then send. The customer also gets Confirm and Request date change buttons.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-1">
+            <div className="space-y-1">
+              <Label className="text-xs">Send to</Label>
+              <Input
+                type="email"
+                value={confirmationEmail}
+                onChange={(e) => setConfirmationEmail(e.target.value)}
+                placeholder="customer@example.com"
+              />
+            </div>
+
+            <div className="rounded-lg border bg-slate-50/70 p-3 space-y-1 text-sm">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Included in the email</p>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Reference</span>
+                <span className="font-medium text-right">{jobRef || `#${job.id.slice(0, 8)}`}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Type of work</span>
+                <span className="font-medium text-right">{jobTypeLabel}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Date</span>
+                <span className="font-medium text-right">{displayScheduledSummary}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Job duration</span>
+                <span className="font-medium text-right">{displayDuration}</span>
+              </div>
+              <p className="text-xs text-muted-foreground pt-1">
+                Property address, engineer and job description are taken from the job record.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Add a message (optional)</Label>
+              <Textarea
+                value={confirmationMessage}
+                onChange={(e) => setConfirmationMessage(e.target.value)}
+                placeholder="e.g. We'll call ahead 30 minutes before arriving."
+                rows={3}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">Appears near the top of the email, above the appointment details.</p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmationOpen(false)} disabled={sendingConfirmation}>
+              Cancel
+            </Button>
+            <Button onClick={handleSendConfirmationDirect} disabled={sendingConfirmation || !confirmationEmail.trim()}>
+              {sendingConfirmation ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+              {sendingConfirmation ? "Sending…" : "Send Confirmation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <SmsSendDialog
         open={showSms}

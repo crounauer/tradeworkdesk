@@ -1013,6 +1013,8 @@ export interface JobConfirmationDetails {
   propertyAddress: string;
   technicianName?: string | null;
   description?: string | null;
+  /** Free-text note the sender added in the confirmation dialog. */
+  personalMessage?: string | null;
 }
 
 export interface JobConfirmationResponseLinks {
@@ -1104,10 +1106,15 @@ export function renderJobConfirmationHtml(
     </div>
   ` : "";
 
+  const personalMessage = jobDetails.personalMessage?.trim()
+    ? `<div class="info-box" style="margin-top:16px;"><p style="margin:0;font-size:14px;white-space:pre-wrap;">${escHtml(jobDetails.personalMessage.trim())}</p></div>`
+    : "";
+
   return baseHtml(subject, `
     <h2>Appointment Confirmation</h2>
     <p>Dear ${escHtml(customerName)},</p>
     <p>We're writing to confirm your upcoming appointment with <strong>${escHtml(companyName)}</strong>.</p>
+    ${personalMessage}
     <div class="info-box">
       <p><strong>Job Reference:</strong> ${escHtml(jobDetails.jobRef)}</p>
       <p><strong>Type of Work:</strong> ${escHtml(jobDetails.jobType)}</p>
@@ -1149,6 +1156,7 @@ export async function sendJobConfirmationEmail(
     description: jobDetails.description || "",
     confirm_url: responseLinks?.confirmUrl || "",
     request_change_url: responseLinks?.requestChangeUrl || "",
+    personal_message: jobDetails.personalMessage?.trim() || "",
   };
 
   const overriddenSubject = normalizeTemplateText(templateOverride?.subject);
@@ -1160,6 +1168,7 @@ export async function sendJobConfirmationEmail(
   const html = overriddenBody
     ? baseHtml(subject, `
       <h2>Appointment Confirmation</h2>
+      ${jobDetails.personalMessage?.trim() ? `<div class="info-box" style="margin-bottom:16px;"><p style="margin:0;font-size:14px;white-space:pre-wrap;">${escHtml(jobDetails.personalMessage.trim())}</p></div>` : ""}
       ${renderTemplateBodyHtml(applyTemplateVariables(overriddenBody, templateVariables))}
       ${responseLinks ? `
         <div class="info-box" style="margin-top:16px;">

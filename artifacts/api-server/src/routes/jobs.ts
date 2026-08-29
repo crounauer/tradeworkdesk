@@ -337,6 +337,7 @@ function buildJobConfirmationEmailBodyText(opts: {
   jobDurationMinutes?: number | null;
   propertyAddress?: string | null;
   description?: string | null;
+  personalMessage?: string | null;
   confirmUrl?: string;
   requestChangeUrl?: string;
 }): string {
@@ -357,6 +358,7 @@ function buildJobConfirmationEmailBodyText(opts: {
     `Dear ${opts.customerName},`,
     "",
     `Your appointment with ${opts.companyName} has been confirmed.`,
+    ...(opts.personalMessage?.trim() ? ["", opts.personalMessage.trim()] : []),
     "",
     `Reference: ${opts.jobRef}`,
     `Job type: ${opts.jobTypeName}`,
@@ -925,6 +927,23 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
 
 router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { jobId } = req.params;
+  const { override_email, personal_message } = (req.body ?? {}) as {
+    override_email?: unknown;
+    personal_message?: unknown;
+  };
+
+  let recipientOverride: string | null = null;
+  if (typeof override_email === "string" && override_email.trim()) {
+    const candidate = override_email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate)) {
+      res.status(400).json({ error: "Enter a valid email address" }); return;
+    }
+    recipientOverride = candidate;
+  }
+
+  const personalMessage = typeof personal_message === "string" && personal_message.trim()
+    ? personal_message.trim()
+    : null;
 
   const { data: job, error: jobErr } = await supabaseAdmin
     .from("jobs")
@@ -943,6 +962,8 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
   if (!customer || !customer.email) {
     res.status(400).json({ error: "Customer does not have an email address" }); return;
   }
+
+  const recipientEmail = recipientOverride || customer.email;
 
   const { data: property } = await supabaseAdmin
     .from("properties")
@@ -1027,6 +1048,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     propertyAddress,
     technicianName,
     description: job.description || null,
+    personalMessage,
   };
 
   const rawToken = crypto.randomBytes(24).toString("hex");
@@ -1054,7 +1076,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
       tenant_id: req.tenantId,
       job_id: jobId,
       customer_id: job.customer_id,
-      sent_to_email: customer.email,
+      sent_to_email: recipientEmail,
       token_hash: tokenHash,
       token_expires_at: tokenExpiresAt,
       status: "pending",
@@ -1084,13 +1106,14 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     jobDurationMinutes: job.estimated_duration ?? null,
     propertyAddress,
     description: job.description || null,
+    personalMessage,
     confirmUrl,
     requestChangeUrl,
   });
 
   try {
     await sendJobConfirmationEmail(
-      customer.email,
+      recipientEmail,
       customerFullName,
       companyName,
       confirmationDetails,
@@ -1107,7 +1130,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     job_id: jobId,
     tenant_id: req.tenantId,
     sent_by: req.userId,
-    sent_to: customer.email,
+    sent_to: recipientEmail,
     cc: null,
     subject: `Job Confirmation — ${jobRef}`,
     forms_included: [{ form_type: "confirmation", form_label: "Appointment Confirmation", form_id: jobId }],
@@ -1115,7 +1138,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
   });
   if (logErr) console.error("[email] Failed to log confirmation email:", logErr);
 
-  res.json({ success: true, sent_to: customer.email });
+  res.json({ success: true, sent_to: recipientEmail });
 });
 
 router.post("/jobs/:id/duplicate", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
