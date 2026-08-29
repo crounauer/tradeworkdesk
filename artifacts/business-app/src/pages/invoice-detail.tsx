@@ -1,12 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { customFetch } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft, Send, CheckCircle2, XCircle, RefreshCcw, Download, Trash2,
-  Loader2, Plus, Minus, Receipt, AlertTriangle, FileText, CreditCard,
+  Loader2, Plus, Receipt, AlertTriangle, FileText, CreditCard,
   Edit3, Save, X, Clock, Mail, ChevronDown, ChevronUp, Briefcase,
-  Package, Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,8 +22,14 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useCompanySettings } from "@/hooks/use-company-settings";
+import { useAuth } from "@/hooks/use-auth";
 import { BookJobDialog } from "@/components/book-job-dialog";
 import { CreateJobFromQuoteDialog } from "@/components/create-job-from-quote-dialog";
+import { PartsSection } from "@/components/line-items/parts-section";
+import { ServicesSection } from "@/components/line-items/services-section";
+import { TimeSection } from "@/components/line-items/time-section";
+import type { CalloutRateOption, PartLine, ServiceLine, TimeLine } from "@/components/line-items/types";
+import { computeLabourBreakdown, calcDuration } from "@/lib/line-items";
 import {
   invoiceKeys,
   useGetInvoice,
@@ -251,6 +256,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const id = invoice.id;
   const isDraft = invoice.status === "draft";
   const qc = useQueryClient();
+  const { profile } = useAuth();
   const isInvoice = invoice.type === "invoice";
   const totalPaid = Number(invoice.amount_paid ?? invoice.paid_amount ?? 0);
   const balanceDue = Math.max(0, Number(invoice.balance_due ?? Number(invoice.total) - totalPaid));
@@ -309,203 +315,15 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [showBookJob, setShowBookJob] = useState(false);
   const [showCreateJob, setShowCreateJob] = useState(false);
 
-  // Catalogue search state
-  type CatalogueItem = { id: string; name: string; default_price: number | null; type: "service" | "product" };
-  const [catalogueSuggestions, setCatalogueSuggestions] = useState<CatalogueItem[]>([]);
-  const [activeLineIdx, setActiveLineIdx] = useState<number | null>(null);
-  const catSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const catAbortRef = useRef<AbortController | null>(null);
-  const catSeqRef = useRef(0);
-
-  // Add-to-catalogue dialog state
-  const [catAddOpen, setCatAddOpen] = useState(false);
-  const [catAddType, setCatAddType] = useState<"product" | "service">("service");
-  const [catAddLineIdx, setCatAddLineIdx] = useState<number | null>(null);
-  const [catAddName, setCatAddName] = useState("");
-  const [catAddPrice, setCatAddPrice] = useState("");
-  const [catAddSaving, setCatAddSaving] = useState(false);
-
-  // Callout rates (for labour charge dialog)
-  type CalloutRate = { id: string; name: string; amount: number; hourly_rate: number | null; is_default?: boolean };
-  const [calloutRates, setCalloutRates] = useState<CalloutRate[]>([]);
+  // Callout rates (for the shared time section)
+  const [calloutRates, setCalloutRates] = useState<CalloutRateOption[]>([]);
   useEffect(() => {
     customFetch(`${import.meta.env.BASE_URL}api/admin/callout-rates`)
-      .then(d => {
-        if (Array.isArray(d)) {
-          const rates = d as CalloutRate[];
-          setCalloutRates(rates);
-          const def = rates.find(r => r.is_default) || rates[0];
-          if (def) setLabourRateId(def.id);
-        }
-      })
+      .then(d => { if (Array.isArray(d)) setCalloutRates(d as CalloutRateOption[]); })
       .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Labour charge dialog state
-  const [labourOpen, setLabourOpen] = useState(false);
-  const [labourMode, setLabourMode] = useState<"actual" | "estimate">("actual");
-  const [labourRateId, setLabourRateId] = useState<string>("");
-  const [labourArrival, setLabourArrival] = useState("");
-  const [labourDeparture, setLabourDeparture] = useState("");
-  const [labourNotes, setLabourNotes] = useState("");
-  const [labourIncludeCallout, setLabourIncludeCallout] = useState(true);
-  const [estimatedTimeValue, setEstimatedTimeValue] = useState("");
-  const [estimatedTimeUnit, setEstimatedTimeUnit] = useState<"hours" | "days">("hours");
-  const [estimatedTimeRate, setEstimatedTimeRate] = useState("");
-
-  function addLabourCharge() {
-    if (labourMode === "estimate") {
-      const quantity = Number(estimatedTimeValue);
-      const rate = Number(estimatedTimeRate);
-      if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(rate) || rate < 0) return;
-      const unitLabel = estimatedTimeUnit === "hours" ? "hour" : "day";
-      const plural = quantity === 1 ? "" : "s";
-      const noteSuffix = labourNotes.trim() ? ` — ${labourNotes.trim()}` : "";
-      setLines(prev => [
-        ...prev.filter(l => l.description.trim() || Number(l.unit_price) !== 0),
-        {
-          description: `Estimated labour (${quantity} ${unitLabel}${plural})${noteSuffix}`,
-          quantity,
-          unit_price: rate,
-          item_type: "labour",
-        },
-      ]);
-      setLabourOpen(false);
-      setEstimatedTimeValue("");
-      setEstimatedTimeRate("");
-      setLabourNotes("");
-      return;
-    }
-
-    const rate = calloutRates.find(r => r.id === labourRateId) || {
-      id: "default",
-      name: "Labour",
-      amount: 0,
-      hourly_rate: Number(settings?.default_hourly_rate) || 0,
-    };
-    const arrivalDate = new Date(labourArrival);
-    const departureDate = new Date(labourDeparture);
-    const totalHrs = (departureDate.getTime() - arrivalDate.getTime()) / 3600000;
-    if (totalHrs <= 0) return;
-    const newItems: InvoiceLineItem[] = [];
-    const durationLabel = totalHrs >= 1
-      ? `${Math.floor(totalHrs)}h${Math.round((totalHrs % 1) * 60) > 0 ? ` ${Math.round((totalHrs % 1) * 60)}m` : ""}`
-      : `${Math.round(totalHrs * 60)}m`;
-    const noteSuffix = labourNotes.trim() ? ` — ${labourNotes.trim()}` : "";
-    if (labourIncludeCallout && rate.amount > 0) {
-      newItems.push({
-        description: `${rate.name} – Call-out (first hour) (${durationLabel})${noteSuffix}`,
-        quantity: 1,
-        unit_price: rate.amount,
-        item_type: "callout",
-      });
-      const afterHrs = Math.max(0, totalHrs - 1);
-      if (afterHrs > 0 && rate.hourly_rate != null && rate.hourly_rate > 0) {
-        newItems.push({
-          description: `${rate.name} – Labour (after first hour)`,
-          quantity: Math.round(afterHrs * 100) / 100,
-          unit_price: rate.hourly_rate,
-          item_type: "labour",
-        });
-      }
-    } else if (rate.hourly_rate != null && rate.hourly_rate > 0) {
-      newItems.push({
-        description: `${rate.name} – Labour (${durationLabel})${noteSuffix}`,
-        quantity: Math.round(totalHrs * 100) / 100,
-        unit_price: rate.hourly_rate,
-        item_type: "labour",
-      });
-    }
-    if (newItems.length > 0) {
-      setLines(prev => {
-        const trimmed = prev.filter(l => l.description.trim() || Number(l.unit_price) !== 0);
-        return [...trimmed, ...newItems];
-      });
-    }
-    setLabourOpen(false);
-    setLabourArrival("");
-    setLabourDeparture("");
-    setLabourNotes("");
-  }
-
-  const searchCatalogue = useCallback((query: string, idx: number, sectionType: "product" | "service") => {
-    if (catSearchTimeout.current) clearTimeout(catSearchTimeout.current);
-    if (catAbortRef.current) catAbortRef.current.abort();
-    if (!query.trim()) { setCatalogueSuggestions([]); setActiveLineIdx(null); return; }
-    catSearchTimeout.current = setTimeout(async () => {
-      const seq = ++catSeqRef.current;
-      const ctrl = new AbortController();
-      catAbortRef.current = ctrl;
-      try {
-        const [svcs, prods] = await Promise.all([
-          sectionType === "service"
-            ? customFetch(`${import.meta.env.BASE_URL}api/services/search?q=${encodeURIComponent(query)}`, { signal: ctrl.signal })
-                .then(d => (Array.isArray(d) ? d : []).map((s: { id: string; name: string; default_price: number | null }) => ({ ...s, type: "service" as const })))
-            : Promise.resolve([] as CatalogueItem[]),
-          sectionType === "product"
-            ? customFetch(`${import.meta.env.BASE_URL}api/products/search?q=${encodeURIComponent(query)}`, { signal: ctrl.signal })
-                .then(d => (Array.isArray(d) ? d : [])
-                  .slice(0, 10)
-                  .map((p: { id: string; name: string; default_price: number | null }) => ({ ...p, type: "product" as const }))
-                ).catch(() => [] as CatalogueItem[])
-            : Promise.resolve([] as CatalogueItem[]),
-        ]);
-        if (seq !== catSeqRef.current) return;
-        setCatalogueSuggestions([...svcs, ...prods].slice(0, 12));
-        setActiveLineIdx(idx);
-      } catch {
-        if (seq !== catSeqRef.current) return;
-        setCatalogueSuggestions([]);
-      }
-    }, 200);
-  }, []);
-
-  const selectCatalogueItem = (item: CatalogueItem, idx: number) => {
-    updateLine(idx, "description", item.name);
-    if (item.default_price != null) updateLine(idx, "unit_price", item.default_price);
-    updateLine(idx, "item_type", item.type === "product" ? "product" : "service");
-    setCatalogueSuggestions([]);
-    setActiveLineIdx(null);
-  };
-
-  function openAddToCatalogue(type: "product" | "service", idx: number) {
-    setCatAddType(type);
-    setCatAddLineIdx(idx);
-    setCatAddName(lines[idx].description.trim());
-    setCatAddPrice(lines[idx].unit_price ? String(lines[idx].unit_price) : "");
-    setCatAddOpen(true);
-    setCatalogueSuggestions([]);
-    setActiveLineIdx(null);
-  }
-
-  async function handleConfirmAddToCatalogue() {
-    if (!catAddName.trim()) return;
-    setCatAddSaving(true);
-    try {
-      const endpoint = catAddType === "service"
-        ? `${import.meta.env.BASE_URL}api/admin/service-catalogue`
-        : `${import.meta.env.BASE_URL}api/admin/products`;
-      const result = await customFetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: catAddName.trim(),
-          default_price: catAddPrice ? Number(catAddPrice) : undefined,
-        }),
-      }) as { id: string; name: string; default_price: number | null };
-      if (catAddLineIdx !== null) {
-        updateLine(catAddLineIdx, "description", result.name);
-        if (result.default_price != null) updateLine(catAddLineIdx, "unit_price", result.default_price);
-      }
-      toast({ title: `Saved to ${catAddType} catalogue`, description: `"${result.name}" added successfully` });
-      setCatAddOpen(false);
-    } catch (e) {
-      toast({ title: "Failed to save", description: (e as Error).message, variant: "destructive" });
-    } finally {
-      setCatAddSaving(false);
-    }
-  }
+  // Add-to-catalogue dialog state
 
 
   // Payment form
@@ -532,110 +350,100 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const declineMut = useDeclineQuote(id);
   const convertMut = useConvertToInvoice(id);
 
-  // Live totals
-  const subtotal = lines.reduce((s, l) => s + Number(l.quantity) * Number(l.unit_price), 0);
+  // Live totals — parts flagged "to order" are listed but not charged, matching the job page.
+  const subtotal = lines.reduce(
+    (s, l) => (l.status === "to_order" ? s : s + Number(l.quantity) * Number(l.unit_price)),
+    0,
+  );
   const vr = Number(invoice.vat_rate) || 0;
   const vatAmount = Math.round(subtotal * vr) / 100;
   const total = subtotal + vatAmount;
 
-  function updateLine(idx: number, field: keyof InvoiceLineItem, value: string | number) {
-    setLines((prev) => prev.map((l, i) => i === idx ? { ...l, [field]: value } : l));
+  const money = (amount: number) => formatCurrency(amount, currency);
+  const canEditCatalogue = ["admin", "office_staff", "super_admin"].includes(profile?.role ?? "");
+  const defaultHourlyRate = Number(settings?.default_hourly_rate) || 0;
+  const defaultCalloutFee = Number(settings?.call_out_fee) || 0;
+
+  function patchLine(key: string, patch: Partial<InvoiceLineItem>) {
+    const idx = Number(key);
+    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
   }
 
-  function addLineOfType(type: "product" | "service" | "labour") {
-    setLines((prev) => [...prev, { description: "", quantity: 1, unit_price: 0, item_type: type }]);
-  }
-
-  function removeLine(idx: number) {
+  function removeLine(key: string) {
+    const idx = Number(key);
     setLines((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  function renderLineRow(line: InvoiceLineItem, idx: number, sectionType: "product" | "service" | "labour") {
-    return (
-      <div key={idx} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 items-center">
-        {editing ? (
-          <>
-            <div className="relative">
-              <Input
-                value={line.description}
-                onChange={(e) => {
-                  updateLine(idx, "description", e.target.value);
-                  if (sectionType !== "labour") searchCatalogue(e.target.value, idx, sectionType);
-                }}
-                onFocus={() => { if (catalogueSuggestions.length > 0) setActiveLineIdx(idx); }}
-                onBlur={() => setTimeout(() => { setCatalogueSuggestions([]); setActiveLineIdx(null); }, 150)}
-                placeholder={sectionType === "labour" ? "Labour description…" : "Type to search catalogue…"}
-                className="h-8 text-sm"
-              />
-              {sectionType !== "labour" && activeLineIdx === idx && (
-                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {catalogueSuggestions.length === 0 ? (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">No matches found</p>
-                  ) : (
-                    catalogueSuggestions.map((item) => (
-                      <button
-                        key={`${item.type}-${item.id}`}
-                        type="button"
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between items-center gap-2"
-                        onMouseDown={(e) => { e.preventDefault(); selectCatalogueItem(item, idx); }}
-                      >
-                        <span className="truncate">{item.name}</span>
-                        {item.default_price != null && (
-                          <span className="text-muted-foreground shrink-0">{formatCurrency(item.default_price, currency)}</span>
-                        )}
-                      </button>
-                    ))
-                  )}
-                  {line.description.trim() && (
-                    <div className="border-t px-3 py-2">
-                      <button
-                        type="button"
-                        className={`text-xs px-2 py-1 rounded font-medium ${
-                          sectionType === "service" ? "bg-blue-50 text-blue-700 hover:bg-blue-100" : "bg-purple-50 text-purple-700 hover:bg-purple-100"
-                        }`}
-                        onMouseDown={(e) => { e.preventDefault(); openAddToCatalogue(sectionType as "product" | "service", idx); }}
-                      >
-                        + Save as {sectionType === "service" ? "Service" : "Product"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            <Input
-              type="number" min="0" step="1"
-              value={line.quantity}
-              onChange={(e) => updateLine(idx, "quantity", parseFloat(e.target.value) || 0)}
-              onFocus={(e) => e.currentTarget.select()}
-              className="h-8 text-sm" placeholder="Qty"
-            />
-            <Input
-              type="number" min="0" step="0.01"
-              value={line.unit_price}
-              onChange={(e) => updateLine(idx, "unit_price", parseFloat(e.target.value) || 0)}
-              onFocus={(e) => e.currentTarget.select()}
-              className="h-8 text-sm" placeholder="Unit price"
-            />
-            <p className="text-sm text-right font-medium">
-              {formatCurrency(Number(line.quantity) * Number(line.unit_price), currency)}
-            </p>
-            <button onClick={() => removeLine(idx)} className="text-muted-foreground hover:text-destructive">
-              <Minus className="w-4 h-4" />
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="text-sm">{line.description || "—"}</p>
-            <p className="text-sm text-muted-foreground text-right md:text-left">×{line.quantity}</p>
-            <p className="text-sm hidden md:block">{formatCurrency(Number(line.unit_price), currency)}</p>
-            <p className="text-sm font-medium text-right">
-              {formatCurrency(Number(line.quantity) * Number(line.unit_price), currency)}
-            </p>
-            <span />
-          </>
-        )}
-      </div>
-    );
+  const indexed = lines.map((line, index) => ({ line, index }));
+
+  const partLines: PartLine[] = indexed
+    .filter(({ line }) => line.item_type === "product")
+    .map(({ line, index }) => ({
+      key: String(index),
+      name: line.description,
+      quantity: Number(line.quantity),
+      unitPrice: Number(line.unit_price),
+      serialNumber: line.serial_number ?? null,
+      status: line.status === "to_order" ? "to_order" : "fitted",
+    }));
+
+  const serviceLines: ServiceLine[] = indexed
+    .filter(({ line }) => line.item_type === "service")
+    .map(({ line, index }) => ({
+      key: String(index),
+      name: line.description,
+      quantity: Number(line.quantity),
+      unitPrice: Number(line.unit_price),
+    }));
+
+  const timeLines: TimeLine[] = indexed
+    .filter(({ line }) => !["product", "service"].includes(line.item_type || ""))
+    .map(({ line, index }) => ({
+      key: String(index),
+      arrival: line.arrival_time ?? null,
+      departure: line.departure_time ?? null,
+      notes: line.notes ?? null,
+      // Rows without an arrival time (estimates and pre-parity rows) carry their cost in qty × price.
+      hourlyRate: line.arrival_time ? (line.hourly_rate != null ? Number(line.hourly_rate) : null) : Number(line.unit_price),
+      calloutFee: line.arrival_time ? (line.callout_fee != null ? Number(line.callout_fee) : null) : 0,
+      calloutRateId: line.callout_rate_id ?? null,
+      estimatedHours: line.arrival_time ? null : Number(line.quantity),
+      label: line.description,
+    }));
+
+  function timeLineFrom(entry: Omit<TimeLine, "key">): InvoiceLineItem {
+    if (entry.estimatedHours != null) {
+      const hours = entry.estimatedHours;
+      const noteSuffix = entry.notes ? ` — ${entry.notes}` : "";
+      return {
+        description: `Estimated labour (${hours} hour${hours === 1 ? "" : "s"})${noteSuffix}`,
+        quantity: hours,
+        unit_price: Number(entry.hourlyRate) || 0,
+        item_type: "labour",
+        notes: entry.notes ?? null,
+      };
+    }
+    const bd = computeLabourBreakdown({
+      arrival: entry.arrival,
+      departure: entry.departure,
+      hourlyRate: entry.hourlyRate,
+      calloutFee: entry.calloutFee,
+    });
+    const rateName = calloutRates.find(r => r.id === entry.calloutRateId)?.name || "Labour";
+    const day = entry.arrival ? new Date(entry.arrival).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "";
+    const duration = calcDuration(entry.arrival, entry.departure);
+    return {
+      description: `${rateName} – ${day}${duration !== "—" ? ` (${duration})` : ""}`,
+      quantity: 1,
+      unit_price: Math.round(bd.entryCost * 100) / 100,
+      item_type: Number(entry.calloutFee) > 0 ? "callout" : "labour",
+      arrival_time: entry.arrival,
+      departure_time: entry.departure,
+      hourly_rate: entry.hourlyRate,
+      callout_fee: entry.calloutFee,
+      callout_rate_id: entry.calloutRateId ?? null,
+      notes: entry.notes ?? null,
+    };
   }
 
   async function saveChanges() {
@@ -752,11 +560,6 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const customerName = invoice.customer
     ? (invoice.customer.business_name || `${invoice.customer.first_name} ${invoice.customer.last_name}`)
     : "—";
-
-  // Section views derived from flat lines array
-  const productLineIndices = lines.reduce<number[]>((acc, l, i) => { if (l.item_type === "product") acc.push(i); return acc; }, []);
-  const serviceLineIndices = lines.reduce<number[]>((acc, l, i) => { if (l.item_type === "service") acc.push(i); return acc; }, []);
-  const labourLineIndices = lines.reduce<number[]>((acc, l, i) => { if (!(["product", "service"] as string[]).includes(l.item_type || "")) acc.push(i); return acc; }, []);
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
@@ -1052,79 +855,68 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           </Card>
 
           {/* Line items */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Line Items</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
+          <div className="space-y-4">
+            <PartsSection
+              parts={partLines}
+              readOnly={!editing}
+              canEditCatalogue={canEditCatalogue}
+              formatMoney={money}
+              onAdd={(p) => setLines(prev => [...prev, {
+                description: p.name,
+                quantity: p.quantity,
+                unit_price: p.unitPrice ?? 0,
+                item_type: "product",
+                serial_number: p.serialNumber ?? null,
+                status: p.status,
+              }])}
+              onUpdate={(key, patch) => patchLine(key, {
+                ...(patch.name !== undefined ? { description: patch.name } : {}),
+                ...(patch.quantity !== undefined ? { quantity: patch.quantity } : {}),
+                ...(patch.unitPrice !== undefined ? { unit_price: patch.unitPrice ?? 0 } : {}),
+                ...(patch.serialNumber !== undefined ? { serial_number: patch.serialNumber } : {}),
+                ...(patch.status !== undefined ? { status: patch.status } : {}),
+              })}
+              onDelete={removeLine}
+            />
 
-              {/* ── Parts Used ── */}
-              <div>
-                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b">
-                  <Package className="w-4 h-4 text-blue-600" />
-                  <h3 className="text-sm font-semibold text-blue-700">Parts Used</h3>
-                </div>
-                <div className="hidden md:grid md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 text-xs text-muted-foreground px-1 mb-1">
-                  <span>Description</span><span>Qty</span><span>Unit Price</span><span className="text-right">Total</span><span />
-                </div>
-                {productLineIndices.length === 0 && !editing && (
-                  <p className="text-sm text-muted-foreground italic py-1">No parts or products</p>
-                )}
-                {productLineIndices.map(idx => renderLineRow(lines[idx], idx, "product"))}
-                {editing && (
-                  <Button variant="ghost" size="sm" className="w-full border-dashed border mt-1" onClick={() => addLineOfType("product")}>
-                    <Plus className="w-4 h-4 mr-1" /> Add Part
-                  </Button>
-                )}
-              </div>
+            <ServicesSection
+              services={serviceLines}
+              readOnly={!editing}
+              canEditCatalogue={canEditCatalogue}
+              formatMoney={money}
+              onAdd={(s) => setLines(prev => [...prev, {
+                description: s.name,
+                quantity: s.quantity,
+                unit_price: s.unitPrice ?? 0,
+                item_type: "service",
+              }])}
+              onUpdate={(key, patch) => patchLine(key, {
+                ...(patch.name !== undefined ? { description: patch.name } : {}),
+                ...(patch.quantity !== undefined ? { quantity: patch.quantity } : {}),
+                ...(patch.unitPrice !== undefined ? { unit_price: patch.unitPrice ?? 0 } : {}),
+              })}
+              onDelete={removeLine}
+            />
 
-              {/* ── Services Offered ── */}
-              <div>
-                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b">
-                  <Wrench className="w-4 h-4 text-purple-600" />
-                  <h3 className="text-sm font-semibold text-purple-700">Services Offered</h3>
-                </div>
-                <div className="hidden md:grid md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 text-xs text-muted-foreground px-1 mb-1">
-                  <span>Description</span><span>Qty</span><span>Unit Price</span><span className="text-right">Total</span><span />
-                </div>
-                {serviceLineIndices.length === 0 && !editing && (
-                  <p className="text-sm text-muted-foreground italic py-1">No services</p>
-                )}
-                {serviceLineIndices.map(idx => renderLineRow(lines[idx], idx, "service"))}
-                {editing && (
-                  <Button variant="ghost" size="sm" className="w-full border-dashed border mt-1" onClick={() => addLineOfType("service")}>
-                    <Plus className="w-4 h-4 mr-1" /> Add Service
-                  </Button>
-                )}
-              </div>
+            <TimeSection
+              entries={timeLines}
+              calloutRates={calloutRates}
+              defaultHourlyRate={defaultHourlyRate}
+              defaultCalloutFee={defaultCalloutFee}
+              allowEstimate
+              readOnly={!editing}
+              formatMoney={money}
+              onAdd={(entry) => setLines(prev => [...prev, timeLineFrom(entry)])}
+              onUpdate={(key, patch) => {
+                const current = timeLines.find(t => t.key === key);
+                if (!current) return;
+                patchLine(key, timeLineFrom({ ...current, ...patch }));
+              }}
+              onDelete={removeLine}
+            />
 
-              {/* ── Time Attended ── */}
-              <div>
-                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b">
-                  <Clock className="w-4 h-4 text-amber-600" />
-                  <h3 className="text-sm font-semibold text-amber-700">Time &amp; Labour</h3>
-                </div>
-                <div className="hidden md:grid md:grid-cols-[1fr_80px_100px_90px_30px] gap-2 text-xs text-muted-foreground px-1 mb-1">
-                  <span>Description</span><span>Qty</span><span>Unit Price</span><span className="text-right">Total</span><span />
-                </div>
-                {labourLineIndices.length === 0 && !editing && (
-                  <p className="text-sm text-muted-foreground italic py-1">No labour charges</p>
-                )}
-                {labourLineIndices.map(idx => renderLineRow(lines[idx], idx, "labour"))}
-                {editing && (
-                  <div className="flex gap-2 mt-1">
-                    <Button variant="ghost" size="sm" className="flex-1 border-dashed border text-amber-700 hover:text-amber-800 hover:bg-amber-50" onClick={() => { setLabourMode("actual"); setLabourOpen(true); }}>
-                      <Plus className="w-4 h-4 mr-1" /> Actual Time
-                    </Button>
-                    <Button variant="ghost" size="sm" className="flex-1 border-dashed border text-amber-700 hover:text-amber-800 hover:bg-amber-50" onClick={() => { setLabourMode("estimate"); setLabourOpen(true); }}>
-                      <Plus className="w-4 h-4 mr-1" /> Estimated Time
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Totals */}
-              <div className="border-t pt-3 space-y-1 text-sm">
+            <Card>
+              <CardContent className="pt-4 space-y-1 text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
                   <span>{formatCurrency(editing ? subtotal : Number(invoice.subtotal), currency)}</span>
@@ -1137,9 +929,9 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                   <span>Total</span>
                   <span>{formatCurrency(editing ? total : Number(invoice.total), currency)}</span>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Notes */}
           <Card>
@@ -1433,214 +1225,6 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         </DialogContent>
       </Dialog>
 
-      {/* Add to catalogue dialog */}
-      <Dialog open={catAddOpen} onOpenChange={setCatAddOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Save as new {catAddType === "service" ? "Service" : "Product"}</DialogTitle>
-            <DialogDescription>
-              Add this item to your {catAddType === "service" ? "service" : "product"} catalogue so it can be quickly selected in future.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label>Name *</Label>
-              <Input
-                value={catAddName}
-                onChange={(e) => setCatAddName(e.target.value)}
-                placeholder={catAddType === "service" ? "e.g. Annual Boiler Service" : "e.g. Thermostat"}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Default Price (optional)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={catAddPrice}
-                onChange={(e) => setCatAddPrice(e.target.value)}
-                placeholder="0.00"
-                className="mt-1"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Saved as the catalogue default — you can always override it on the line.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCatAddOpen(false)} disabled={catAddSaving}>Cancel</Button>
-            <Button onClick={handleConfirmAddToCatalogue} disabled={!catAddName.trim() || catAddSaving}>
-              {catAddSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              <Plus className="w-4 h-4 mr-2" />
-              Save to Catalogue
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Labour Charge Dialog */}
-      <Dialog open={labourOpen} onOpenChange={setLabourOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-600" /> {labourMode === "estimate" ? "Add Estimated Time" : "Add Actual Time"}
-            </DialogTitle>
-            <DialogDescription>
-              {labourMode === "estimate"
-                ? "Enter the expected duration and rate to add a priced labour estimate."
-                : "Select a callout rate and enter the time on site to calculate the charge."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-1">
-            {labourMode === "actual" && calloutRates.length > 0 ? (
-              <div className="space-y-1">
-                <Label className="text-xs">Callout Rate</Label>
-                <Select value={labourRateId} onValueChange={setLabourRateId}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Select rate…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {calloutRates.map(r => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.name}
-                        {r.hourly_rate != null ? ` — ${formatCurrency(r.hourly_rate, currency)}/hr` : ""}
-                        {r.amount > 0 ? ` (callout: ${formatCurrency(r.amount, currency)})` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : labourMode === "actual" ? (
-              <p className="text-xs text-muted-foreground">
-                Using the company default hourly rate{settings?.default_hourly_rate ? ` of ${formatCurrency(settings.default_hourly_rate, currency)}` : ""}.
-              </p>
-            ) : null}
-
-            {labourMode === "estimate" ? (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Estimated duration</Label>
-                    <Input type="number" min="0.25" step="0.25" value={estimatedTimeValue} onChange={e => setEstimatedTimeValue(e.target.value)} placeholder="e.g. 2" className="h-9" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Unit</Label>
-                    <select className="h-9 w-full border border-border rounded-lg px-3 text-sm bg-background" value={estimatedTimeUnit} onChange={e => setEstimatedTimeUnit(e.target.value as "hours" | "days")}>
-                      <option value="hours">Hours</option>
-                      <option value="days">Days</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Rate per {estimatedTimeUnit === "hours" ? "hour" : "day"}</Label>
-                  <Input type="number" min="0" step="0.01" value={estimatedTimeRate} onChange={e => setEstimatedTimeRate(e.target.value)} placeholder="0.00" className="h-9" />
-                </div>
-              </>
-            ) : (
-              /* Time on site */
-              <div className="space-y-1">
-                <Label className="text-xs">Arrival and departure</Label>
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <div className="flex-1 space-y-1">
-                    <p className="text-xs text-muted-foreground">Arrival</p>
-                    <Input type="datetime-local" value={labourArrival} onChange={e => setLabourArrival(e.target.value)} className="h-9" />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-xs text-muted-foreground">Departure</p>
-                    <Input type="datetime-local" value={labourDeparture} onChange={e => setLabourDeparture(e.target.value)} className="h-9" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <Label className="text-xs">Notes (optional)</Label>
-              <Input value={labourNotes} onChange={e => setLabourNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
-            </div>
-
-            {/* Include callout checkbox */}
-            {labourMode === "actual" && (() => {
-              const rate = calloutRates.find(r => r.id === labourRateId);
-              return rate && rate.amount > 0 ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="labourIncludeCallout"
-                    checked={labourIncludeCallout}
-                    onChange={e => setLabourIncludeCallout(e.target.checked)}
-                    className="h-4 w-4 rounded border-border accent-primary"
-                  />
-                  <label htmlFor="labourIncludeCallout" className="text-sm select-none cursor-pointer">
-                    Include callout fee ({formatCurrency(rate.amount, currency)} — covers first hour)
-                  </label>
-                </div>
-              ) : null;
-            })()}
-
-            {/* Cost preview */}
-            {(() => {
-              if (labourMode === "estimate") {
-                const quantity = Number(estimatedTimeValue);
-                const rate = Number(estimatedTimeRate);
-                if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(rate) || rate < 0) return null;
-                return (
-                  <div className="rounded-lg bg-slate-50 border p-3 text-sm flex justify-between">
-                    <span>Estimated cost</span>
-                    <span className="font-semibold text-emerald-600">{formatCurrency(quantity * rate, currency)}</span>
-                  </div>
-                );
-              }
-              const rate = calloutRates.find(r => r.id === labourRateId) || {
-                amount: 0,
-                hourly_rate: Number(settings?.default_hourly_rate) || 0,
-              };
-              const totalHrs = labourArrival && labourDeparture
-                ? (new Date(labourDeparture).getTime() - new Date(labourArrival).getTime()) / 3600000
-                : 0;
-              if (totalHrs <= 0) return null;
-              const calloutCost = labourIncludeCallout && rate.amount > 0 ? rate.amount : 0;
-              const labourHrsCalc = calloutCost > 0 ? Math.max(0, totalHrs - 1) : totalHrs;
-              const labourCost = labourHrsCalc > 0 && rate.hourly_rate != null ? labourHrsCalc * rate.hourly_rate : 0;
-              const totalCost = calloutCost + labourCost;
-              const hh = Math.floor(totalHrs);
-              const mm = Math.round((totalHrs % 1) * 60);
-              const durStr = hh > 0 ? `${hh}h${mm > 0 ? ` ${mm}m` : ""}` : `${mm}m`;
-              return (
-                <div className="rounded-lg bg-slate-50 border p-3 text-sm space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cost breakdown — {durStr}</p>
-                  {calloutCost > 0 && (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Call-out (first hour)</span>
-                      <span className="font-medium">{formatCurrency(calloutCost, currency)}</span>
-                    </div>
-                  )}
-                  {labourCost > 0 && (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">
-                        {labourHrsCalc >= 1
-                          ? `${Math.round(labourHrsCalc * 100) / 100}h`
-                          : `${Math.round(labourHrsCalc * 60)}m`} @ {formatCurrency(rate.hourly_rate!, currency)}/hr
-                      </span>
-                      <span className="font-medium">{formatCurrency(labourCost, currency)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-semibold border-t pt-1.5">
-                    <span>Total</span>
-                    <span className="text-emerald-600">{formatCurrency(totalCost, currency)}</span>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setLabourOpen(false)}>Cancel</Button>
-            <Button onClick={addLabourCharge} disabled={labourMode === "estimate" ? !estimatedTimeValue || !estimatedTimeRate : (calloutRates.length > 0 && !labourRateId) || !labourArrival || !labourDeparture}>
-              Add to {isInvoice ? "Invoice" : "Quote"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

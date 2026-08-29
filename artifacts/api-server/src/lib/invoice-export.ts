@@ -4,6 +4,14 @@ export interface InvoiceLineItem {
   unit_price: number;
   total: number;
   item_name?: string;
+  // Parity fields carried from job_parts / job_time_entries
+  serial_number?: string | null;
+  status?: string | null;
+  arrival_time?: string | null;
+  departure_time?: string | null;
+  hourly_rate?: number | null;
+  callout_fee?: number | null;
+  notes?: string | null;
 }
 
 export interface InvoiceData {

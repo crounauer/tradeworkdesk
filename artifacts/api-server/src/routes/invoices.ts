@@ -39,6 +39,15 @@ interface LineItemInput {
   unit_price: number;
   item_type?: string;
   sort_order?: number;
+  // Parity fields with job_parts / job_time_entries
+  serial_number?: string | null;
+  status?: string | null;
+  arrival_time?: string | null;
+  departure_time?: string | null;
+  hourly_rate?: number | null;
+  callout_fee?: number | null;
+  callout_rate_id?: string | null;
+  notes?: string | null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -71,13 +80,38 @@ async function getNextInvoiceNumber(tenantId: string, type: "invoice" | "quote")
 }
 
 function computeTotals(lines: LineItemInput[], vatRate: number) {
-  const subtotal = lines.reduce((sum, l) => sum + l.quantity * l.unit_price, 0);
+  // Parts flagged "to_order" are listed but not charged, matching the job page.
+  const subtotal = lines.reduce(
+    (sum, l) => (l.status === "to_order" ? sum : sum + l.quantity * l.unit_price),
+    0,
+  );
   const vat_amount = Math.round(subtotal * vatRate) / 100;
   const total = subtotal + vat_amount;
   return {
     subtotal: Math.round(subtotal * 100) / 100,
     vat_amount: Math.round(vat_amount * 100) / 100,
     total: Math.round(total * 100) / 100,
+  };
+}
+
+function toLineItemRow(l: LineItemInput, i: number, invoiceId: string, tenantId: string) {
+  return {
+    invoice_id: invoiceId,
+    tenant_id: tenantId,
+    description: l.description,
+    quantity: l.quantity,
+    unit_price: l.unit_price,
+    total: l.status === "to_order" ? 0 : Math.round(l.quantity * l.unit_price * 100) / 100,
+    item_type: l.item_type || "other",
+    sort_order: l.sort_order ?? i,
+    serial_number: l.serial_number ?? null,
+    status: l.status || "fitted",
+    arrival_time: l.arrival_time ?? null,
+    departure_time: l.departure_time ?? null,
+    hourly_rate: l.hourly_rate ?? null,
+    callout_fee: l.callout_fee ?? null,
+    callout_rate_id: l.callout_rate_id ?? null,
+    notes: l.notes ?? null,
   };
 }
 
@@ -540,16 +574,9 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
 
   // Insert line items
   if (line_items.length > 0) {
-    const items = line_items.map((l, i) => ({
-      invoice_id: (invoice as { id: string }).id,
-      tenant_id: req.tenantId,
-      description: l.description,
-      quantity: l.quantity,
-      unit_price: l.unit_price,
-      total: Math.round(l.quantity * l.unit_price * 100) / 100,
-      item_type: l.item_type || "other",
-      sort_order: l.sort_order ?? i,
-    }));
+    const items = line_items.map((l, i) =>
+      toLineItemRow(l, i, (invoice as { id: string }).id, req.tenantId!),
+    );
     await supabaseAdmin.from("invoice_line_items").insert(items);
   }
 
@@ -724,16 +751,9 @@ router.put("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
   if (line_items !== undefined) {
     await supabaseAdmin.from("invoice_line_items").delete().eq("invoice_id", req.params.id);
     if (line_items.length > 0) {
-      const items = line_items.map((l, i) => ({
-        invoice_id: req.params.id,
-        tenant_id: req.tenantId,
-        description: l.description,
-        quantity: l.quantity,
-        unit_price: l.unit_price,
-        total: Math.round(l.quantity * l.unit_price * 100) / 100,
-        item_type: l.item_type || "other",
-        sort_order: l.sort_order ?? i,
-      }));
+      const items = line_items.map((l, i) =>
+        toLineItemRow(l, i, toSingleParam(req.params.id), req.tenantId!),
+      );
       await supabaseAdmin.from("invoice_line_items").insert(items);
     }
   }
@@ -1607,6 +1627,14 @@ router.post("/invoices/:id/convert", ...protect, async (req: AuthenticatedReques
       total: l.total,
       item_type: l.item_type,
       sort_order: l.sort_order,
+      serial_number: l.serial_number ?? null,
+      status: l.status ?? "fitted",
+      arrival_time: l.arrival_time ?? null,
+      departure_time: l.departure_time ?? null,
+      hourly_rate: l.hourly_rate ?? null,
+      callout_fee: l.callout_fee ?? null,
+      callout_rate_id: l.callout_rate_id ?? null,
+      notes: l.notes ?? null,
     }));
     await supabaseAdmin.from("invoice_line_items").insert(newItems);
   }
@@ -1784,10 +1812,11 @@ router.post("/invoices/:id/create-job", ...protect, async (req: AuthenticatedReq
   if (jobErr || !newJob) { res.status(500).json({ error: jobErr?.message || "Failed to create job" }); return; }
   const newJobId = (newJob as { id: string }).id;
 
-  // Import line items: products → job_parts, everything else → job_services
+  // Import line items: products → job_parts, timed labour → job_time_entries, rest → job_services
   const items = (lineItems || []) as Array<Record<string, unknown>>;
   const products = items.filter(l => l.item_type === "product");
-  const nonProducts = items.filter(l => l.item_type !== "product");
+  const timeEntries = items.filter(l => l.item_type !== "product" && l.arrival_time != null);
+  const nonProducts = items.filter(l => l.item_type !== "product" && l.arrival_time == null);
 
   const insertPromises: PromiseLike<unknown>[] = [];
 
@@ -1799,6 +1828,25 @@ router.post("/invoices/:id/create-job", ...protect, async (req: AuthenticatedReq
           part_name: l.description as string,
           quantity: Number(l.quantity) || 1,
           unit_price: Number(l.unit_price) || null,
+          serial_number: (l.serial_number as string | null) ?? null,
+          status: (l.status as string | null) || "fitted",
+          tenant_id: req.tenantId,
+        }))
+      )
+    );
+  }
+
+  if (timeEntries.length > 0) {
+    insertPromises.push(
+      supabaseAdmin.from("job_time_entries").insert(
+        timeEntries.map(l => ({
+          job_id: newJobId,
+          arrival_time: l.arrival_time as string,
+          departure_time: (l.departure_time as string | null) ?? null,
+          notes: (l.notes as string | null) ?? null,
+          hourly_rate: l.hourly_rate != null ? Number(l.hourly_rate) : null,
+          callout_fee: l.callout_fee != null ? Number(l.callout_fee) : null,
+          created_by: req.userId,
           tenant_id: req.tenantId,
         }))
       )
@@ -1902,7 +1950,7 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
 
           const { data: baselineLineItems } = await supabaseAdmin
             .from("invoice_line_items")
-            .select("description, quantity, unit_price, total, item_type, sort_order")
+            .select("*")
             .eq("invoice_id", baselineInvoiceId)
             .eq("tenant_id", req.tenantId!)
             .order("sort_order");
@@ -1911,7 +1959,7 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
       } else {
         const { data: quoteLineItems } = await supabaseAdmin
           .from("invoice_line_items")
-          .select("description, quantity, unit_price, total, item_type, sort_order")
+          .select("*")
           .eq("invoice_id", jobRow.from_quote_id)
           .eq("tenant_id", req.tenantId!)
           .order("sort_order");
@@ -1935,6 +1983,13 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
       unit_price: Number(l.unit_price) || 0,
       item_type: normalizeInvoiceItemType(l.item_name),
       sort_order: i,
+      serial_number: l.serial_number ?? null,
+      status: l.status ?? "fitted",
+      arrival_time: l.arrival_time ?? null,
+      departure_time: l.departure_time ?? null,
+      hourly_rate: l.hourly_rate ?? null,
+      callout_fee: l.callout_fee ?? null,
+      notes: l.notes ?? null,
     }))
     : sourceLineItems.map((l, i) => ({
       description: String(l.description || "").trim(),
@@ -1942,6 +1997,13 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
       unit_price: Number(l.unit_price) || 0,
       item_type: normalizeInvoiceItemType(l.item_type),
       sort_order: typeof l.sort_order === "number" ? l.sort_order : i,
+      serial_number: (l.serial_number as string | null) ?? null,
+      status: (l.status as string | null) ?? "fitted",
+      arrival_time: (l.arrival_time as string | null) ?? null,
+      departure_time: (l.departure_time as string | null) ?? null,
+      hourly_rate: l.hourly_rate != null ? Number(l.hourly_rate) : null,
+      callout_fee: l.callout_fee != null ? Number(l.callout_fee) : null,
+      notes: (l.notes as string | null) ?? null,
     }));
 
   const { subtotal, vat_amount, total } = computeTotals(mergedLineItems, sourceVatRate);
@@ -1981,16 +2043,9 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
     await supabaseAdmin.from("invoice_line_items").delete().eq("invoice_id", existingInvoiceId).eq("tenant_id", req.tenantId!);
 
     if (mergedLineItems.length > 0) {
-      const refreshedItems = mergedLineItems.map((l, i) => ({
-        invoice_id: existingInvoiceId,
-        tenant_id: req.tenantId,
-        description: l.description,
-        quantity: l.quantity,
-        unit_price: l.unit_price,
-        total: Math.round(l.quantity * l.unit_price * 100) / 100,
-        item_type: l.item_type || "other",
-        sort_order: l.sort_order ?? i,
-      }));
+      const refreshedItems = mergedLineItems.map((l, i) =>
+        toLineItemRow(l, i, existingInvoiceId, req.tenantId!),
+      );
 
       const { error: insertErr } = await supabaseAdmin.from("invoice_line_items").insert(refreshedItems);
       if (insertErr) { res.status(500).json({ error: `Failed to save refreshed invoice line items: ${insertErr.message}` }); return; }
@@ -2037,16 +2092,9 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
   if (invErr || !invoice) { res.status(500).json({ error: invErr?.message || "Failed to create invoice" }); return; }
 
   if (mergedLineItems.length > 0) {
-    const items = mergedLineItems.map((l, i) => ({
-      invoice_id: (invoice as { id: string }).id,
-      tenant_id: req.tenantId,
-      description: l.description,
-      quantity: l.quantity,
-      unit_price: l.unit_price,
-      total: Math.round(l.quantity * l.unit_price * 100) / 100,
-      item_type: l.item_type || "other",
-      sort_order: l.sort_order ?? i,
-    }));
+    const items = mergedLineItems.map((l, i) =>
+      toLineItemRow(l, i, (invoice as { id: string }).id, req.tenantId!),
+    );
     const { error: insertErr } = await supabaseAdmin.from("invoice_line_items").insert(items);
     if (insertErr) {
       await supabaseAdmin.from("invoice_line_items").delete().eq("invoice_id", (invoice as { id: string }).id).eq("tenant_id", req.tenantId!);

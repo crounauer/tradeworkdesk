@@ -2337,6 +2337,12 @@ export async function buildInvoiceData(
           quantity: 1,
           unit_price: entryCalloutFee,
           total: entryCalloutFee,
+          item_name: "callout",
+          arrival_time: e.arrival_time,
+          departure_time: e.departure_time,
+          hourly_rate: rate,
+          callout_fee: entryCalloutFee,
+          notes: entryNotes || null,
         });
         totalCallOutCost += entryCalloutFee;
       }
@@ -2348,6 +2354,12 @@ export async function buildInvoiceData(
           quantity: roundedHrs,
           unit_price: rate,
           total: billableCost,
+          item_name: "labour",
+          arrival_time: hasCallout ? null : e.arrival_time,
+          departure_time: hasCallout ? null : e.departure_time,
+          hourly_rate: rate,
+          callout_fee: hasCallout ? null : 0,
+          notes: hasCallout ? null : (entryNotes || null),
         });
         totalLabourCost += billableCost;
       }
@@ -2355,14 +2367,17 @@ export async function buildInvoiceData(
   }
 
   if (parts) {
-    for (const p of parts as { part_name: string; quantity: number; unit_price: number | null }[]) {
+    for (const p of parts as { part_name: string; quantity: number; unit_price: number | null; serial_number: string | null; status: string | null }[]) {
       const up = Number(p.unit_price) || 0;
+      const toOrder = p.status === "to_order";
       lines.push({
         description: p.part_name,
         quantity: p.quantity,
         unit_price: up,
-        total: up * p.quantity,
+        total: toOrder ? 0 : up * p.quantity,
         item_name: "product",
+        serial_number: p.serial_number ?? null,
+        status: p.status || "fitted",
       });
     }
   }

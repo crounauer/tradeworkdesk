@@ -22,6 +22,15 @@ export interface InvoiceLineItem {
   total?: number;
   item_type?: string;
   sort_order?: number;
+  // Parity fields with job parts / time entries
+  serial_number?: string | null;
+  status?: string | null;
+  arrival_time?: string | null;
+  departure_time?: string | null;
+  hourly_rate?: number | null;
+  callout_fee?: number | null;
+  callout_rate_id?: string | null;
+  notes?: string | null;
 }
 
 export interface InvoicePayment {
