@@ -69,7 +69,7 @@ After changing code:
 
 ## Project assumptions
 
-This project may use modern web tooling such as TypeScript, React, Next.js, Vite, Express, Supabase, PostgreSQL, Tailwind, Railway, Vercel, or similar tools.
+This project may use modern web tooling such as TypeScript, React, Next.js, Vite, Express, Supabase, PostgreSQL, Tailwind, Fly.io, Vercel, or similar tools.
 
 Respect the project’s actual files over these assumptions. Do not force patterns that are not already present in the codebase.
 
@@ -106,6 +106,10 @@ Operate like a careful senior developer, not an enthusiastic junior developer.
 The goal is not to produce the most code.
 The goal is to solve the task with the least safe change.
 
-I dont use Railway anymore, I use fly.io
+## Path-specific rules
 
-When working on the tenant website aspect of the site always remember that this is a templated structure and that changes made should be made at a mastertemplate level and not at a tenant level. The tenant website is a template that is used to generate the tenant websites and any changes made to the tenant website should be made at the master template level and not at a tenant level.
+Detailed rules live in `.github/instructions/` and load only when relevant:
+
+* `deploy.instructions.md` — Fly and Vercel deploy targets and gotchas
+* `supabase-migrations.instructions.md` — where schema changes go and how to apply them
+* `tenant-website.instructions.md` — master-template rule for the tenant site renderer

@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check,
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
-  ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
+  ClipboardList, Wind, Clock, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
   CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink, WifiOff, CloudOff,
   Phone, Smartphone, Receipt, Download, Copy
@@ -29,6 +29,10 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useAutoAssign } from "@/hooks/use-auto-assign";
 import { SmsSendDialog } from "@/components/sms-send-dialog";
 import { RebookDialog } from "@/components/rebook-dialog";
+import { PartsSection } from "@/components/line-items/parts-section";
+import { ServicesSection } from "@/components/line-items/services-section";
+import { TimeSection } from "@/components/line-items/time-section";
+import type { CalloutRateOption, PartLine, ServiceLine, TimeLine } from "@/components/line-items/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1514,25 +1518,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
   const createMutation = useCreateJobTimeEntry();
   const deleteMutation = useDeleteJobTimeEntry();
   const updateMutation = useUpdateJobTimeEntry();
-  const [showAdd, setShowAdd] = useState(false);
-  const [arrival, setArrival] = useState("");
-  const [departure, setDeparture] = useState("");
-  const [notes, setNotes] = useState("");
-  const [hourlyRate, setHourlyRate] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editArrival, setEditArrival] = useState("");
-  const [editDeparture, setEditDeparture] = useState("");
-  const [editNotes, setEditNotes] = useState("");
-  const [editHourlyRate, setEditHourlyRate] = useState("");
-  const [editCalloutFee, setEditCalloutFee] = useState<number | null>(null);
-  const [editCalloutRateId, setEditCalloutRateId] = useState<string>("auto");
-  const editDepartureInputRef = useRef<HTMLInputElement>(null);
-  const [calloutRates, setCalloutRates] = useState<{ id: string; name: string; amount: number; hourly_rate: number | null }[]>([]);
-  const [selectedCalloutRate, setSelectedCalloutRate] = useState<string>(calloutRateId || "auto");
-  const [savingRate, setSavingRate] = useState(false);
-  const [waiveCallout, setWaiveCallout] = useState(false);
-  const [recordTimeOnly, setRecordTimeOnly] = useState(false);
-  const [editWaiveCallout, setEditWaiveCallout] = useState(false);
+  const [calloutRates, setCalloutRates] = useState<CalloutRateOption[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -1547,6 +1533,7 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
                 name: String(record.name || "Rate"),
                 amount: Number(record.amount || 0),
                 hourly_rate: record.hourly_rate != null ? Number(record.hourly_rate) : null,
+                is_default: Boolean(record.is_default),
               };
             }),
           );
@@ -1555,157 +1542,74 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     })();
   }, []);
 
-  const handleCalloutRateChange = async (value: string) => {
-    setSelectedCalloutRate(value);
-    const selectedRate = value !== "auto" ? calloutRates.find(r => r.id === value) : null;
-    const newHourlyRate = selectedRate?.hourly_rate != null
-      ? String(Number(selectedRate.hourly_rate))
-      : companySettings?.default_hourly_rate != null
-        ? String(Number(companySettings.default_hourly_rate))
-        : "";
-    setHourlyRate(newHourlyRate);
-    if (selectedRate?.hourly_rate != null) {
-      setHourlyRate(String(Number(selectedRate.hourly_rate)));
-    }
-    setSavingRate(true);
+  // The job stores its chosen callout rate, so persist changes made in the add form.
+  const handleCalloutRateChange = async (value: string | null) => {
     try {
       await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callout_rate_id: value === "auto" ? null : value }),
+        body: JSON.stringify({ callout_rate_id: value }),
       });
       onChanged?.();
     } catch (e: unknown) {
       toast({ title: "Error", description: e instanceof Error ? e.message : "Failed to update", variant: "destructive" });
-    } finally { setSavingRate(false); }
+    }
   };
 
-  useEffect(() => {
-    if (!hourlyRate && companySettings?.default_hourly_rate) {
-      const selectedRate = selectedCalloutRate !== "auto" ? calloutRates.find(r => r.id === selectedCalloutRate) : null;
-      const rateHourly = selectedRate?.hourly_rate;
-      const defaultRate = rateHourly != null ? rateHourly : companySettings.default_hourly_rate;
-      if (Number(defaultRate) > 0) setHourlyRate(String(Number(defaultRate)));
-    }
-  }, [companySettings?.default_hourly_rate, calloutRates, selectedCalloutRate]);
+  const canModify = (createdBy: string | null | undefined) =>
+    createdBy === profile?.id || profile?.role === "admin" || profile?.role === "super_admin";
 
-  // Re-sync the edit dropdown when calloutRates loads after the edit form was already opened
-  useEffect(() => {
-    if (!editingId || calloutRates.length === 0) return;
-    // Only update if still on "auto" and we have a stored callout fee to match against
-    if (editCalloutRateId === "auto" && editCalloutFee != null) {
-      const matched = calloutRates.find(r => Number(r.amount) === editCalloutFee);
-      if (matched) setEditCalloutRateId(matched.id);
-    }
-  }, [calloutRates, editingId]);
-
-  const selectedRateAmount = (() => {
-    if (selectedCalloutRate === "auto") return Number(companySettings?.call_out_fee) || 0;
-    const found = calloutRates.find(r => r.id === selectedCalloutRate);
-    return found ? Number(found.amount) : Number(companySettings?.call_out_fee) || 0;
-  })();
-
-  const callOutFee = selectedRateAmount;
-  const addEntryFee = waiveCallout ? 0 : callOutFee;
-
-  // Derive the effective hourly rate from currently selected callout rate (or company default)
-  const effectiveHourlyRate = (() => {
-    if (selectedCalloutRate !== "auto") {
-      const found = calloutRates.find(r => r.id === selectedCalloutRate);
-      if (found?.hourly_rate != null) return Number(found.hourly_rate);
-    }
-    return Number(companySettings?.default_hourly_rate) || 0;
-  })();
-
-  const sortedEntries = [...(entries || [])].sort((a, b) => new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime());
-
-  const totalMinutes = sortedEntries.reduce((sum, e) => {
-    if (!e.departure_time) return sum;
-    const ms = new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime();
-    return sum + Math.max(0, ms / 60000);
-  }, 0);
-
-  // Each entry is billed independently: it has its own callout fee (stored on the entry) and
-  // the first hour is covered by that fee. The job-level callOutFee is only used as a fallback
-  // for legacy entries that predate per-entry callout storage.
-  const entryBreakdowns = (() => {
-    const map = new Map<string, { totalHours: number; calloutHours: number; calloutRate: number; calloutCost: number; billableHours: number; hourlyRate: number; billableCost: number; entryCost: number }>();
-    for (const e of sortedEntries) {
-      // Prefer callout_fee stored on the entry; fall back to job-level fee for legacy entries
-      const eRecord = e as unknown as Record<string, unknown>;
-      const entryCalloutFee = eRecord.callout_fee != null
-        ? Number(eRecord.callout_fee)
-        : callOutFee;
-      if (!e.departure_time) {
-        // Ongoing: callout fee still applies once the technician has arrived
-        map.set(e.id, { totalHours: 0, calloutHours: 0, calloutRate: entryCalloutFee, calloutCost: entryCalloutFee, billableHours: 0, hourlyRate: 0, billableCost: 0, entryCost: entryCalloutFee });
-        continue;
-      }
-      const hours = Math.max(0, (new Date(e.departure_time).getTime() - new Date(e.arrival_time).getTime()) / 3600000);
-      // Use stored hourly_rate if available, else fall back to the job-level effective rate
-      const rate = eRecord.hourly_rate != null ? Number(eRecord.hourly_rate) : effectiveHourlyRate;
-      const calloutHoursForEntry = entryCalloutFee > 0 ? 1 : 0;
-      const calloutHours = Math.min(hours, calloutHoursForEntry);
-      const calloutCost = entryCalloutFee;
-      const billableHours = Math.max(0, hours - calloutHoursForEntry);
-      const billableCost = billableHours > 0 && rate > 0 ? billableHours * rate : 0;
-      const entryCost = calloutCost + billableCost;
-      map.set(e.id, { totalHours: hours, calloutHours, calloutRate: entryCalloutFee, calloutCost, billableHours, hourlyRate: rate, billableCost, entryCost });
-    }
-    return map;
-  })();
-
-  const totalLabourCost = (() => {
-    let cost = 0;
-    for (const b of entryBreakdowns.values()) cost += b.entryCost;
-    return cost;
-  })();
-
-  const hasEntries = sortedEntries.length > 0;
-  const showLegacy = !hasEntries && (legacyArrival || legacyDeparture);
-
-  const [offlineSubmitting, setOfflineSubmitting] = useState(false);
-
-  const departureValue = departure;
-
-  const handleAdd = async () => {
-    if (!arrival) return;
-    const resolvedRate = effectiveHourlyRate > 0 ? effectiveHourlyRate : null;
-    const arrivalDate = new Date(arrival);
-    let departureDate = departureValue ? new Date(departureValue) : null;
-    // Auto-advance departure by 1 day if it crosses midnight (departure before or equal to arrival)
-    if (departureDate && departureDate <= arrivalDate) {
-      departureDate = new Date(departureDate.getTime() + 24 * 60 * 60 * 1000);
-    }
+  const handleAdd = async (entry: Omit<TimeLine, "key">) => {
+    if (!entry.arrival) return;
     const entryData = {
-      arrival_time: arrivalDate.toISOString(),
-      departure_time: departureDate ? departureDate.toISOString() : null,
-      notes: notes || null,
-      hourly_rate: recordTimeOnly ? 0 : (resolvedRate || null),
-      callout_fee: recordTimeOnly || waiveCallout ? 0 : (callOutFee > 0 ? callOutFee : null),
+      arrival_time: entry.arrival,
+      departure_time: entry.departure,
+      notes: entry.notes ?? null,
+      hourly_rate: entry.hourlyRate,
+      callout_fee: entry.calloutFee,
     };
     if (!isOnline) {
-      if (offlineSubmitting) return;
-      setOfflineSubmitting(true);
       try {
         await queueTimeEntry(jobId, entryData);
-        setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setRecordTimeOnly(false); setShowAdd(false);
         toast({ title: "Saved offline", description: "Time entry will sync when you're back online." });
       } catch {
         toast({ title: "Error", description: "Failed to save time entry offline", variant: "destructive" });
-      } finally {
-        setOfflineSubmitting(false);
       }
       return;
     }
     try {
-      await createMutation.mutateAsync({ jobId, data: entryData as any });
-      setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setRecordTimeOnly(false); setShowAdd(false);
+      await createMutation.mutateAsync({ jobId, data: entryData as Record<string, unknown> as never });
       qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
       toast({ title: "Added", description: "Time entry added" });
       onChanged?.();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to add";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
+
+  const handleUpdate = async (entryId: string, patch: Partial<TimeLine>) => {
+    if (patch.arrival && patch.departure && new Date(patch.departure) <= new Date(patch.arrival)) {
+      toast({ title: "Error", description: "Departure must be after arrival", variant: "destructive" });
+      return;
+    }
+    try {
+      await updateMutation.mutateAsync({
+        jobId,
+        entryId,
+        data: {
+          arrival_time: patch.arrival,
+          departure_time: patch.departure ?? null,
+          notes: patch.notes ?? null,
+          hourly_rate: patch.hourlyRate ?? null,
+          callout_fee: patch.calloutFee ?? null,
+        } as Record<string, unknown>,
+      });
+      qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
+      toast({ title: "Updated", description: "Time entry updated" });
+      onChanged?.();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to update";
       toast({ title: "Error", description: msg, variant: "destructive" });
     }
   };
@@ -1722,415 +1626,37 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
     }
   };
 
-  const startEdit = (entry: { id: string; arrival_time: string; departure_time?: string | null; notes?: string | null; hourly_rate?: number | string | null }) => {
-    setEditingId(entry.id);
-    setEditArrival(toLocalDatetimeStr(new Date(entry.arrival_time)));
-    setEditDeparture(entry.departure_time ? toLocalDatetimeStr(new Date(entry.departure_time)) : "");
-    setEditNotes(entry.notes || "");
-    setEditHourlyRate(entry.hourly_rate != null ? String(entry.hourly_rate) : "");
-    const entryCalloutFee = (entry as Record<string, unknown>).callout_fee;
-    const parsedCalloutFee = entryCalloutFee != null ? Number(entryCalloutFee) : null;
-    setEditCalloutFee(parsedCalloutFee);
-    setEditWaiveCallout(parsedCalloutFee === 0);
-  };
+  const timeLines: TimeLine[] = (entries || []).map((e) => {
+    const record = e as unknown as Record<string, unknown>;
+    return {
+      key: e.id,
+      arrival: e.arrival_time,
+      departure: e.departure_time ?? null,
+      notes: e.notes ?? null,
+      hourlyRate: record.hourly_rate != null ? Number(record.hourly_rate) : null,
+      calloutFee: record.callout_fee != null ? Number(record.callout_fee) : null,
+      createdByName: e.created_by_name ?? null,
+      canModify: canModify(e.created_by),
+    };
+  });
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditArrival(""); setEditDeparture(""); setEditNotes(""); setEditHourlyRate(""); setEditCalloutFee(null); setEditCalloutRateId("auto"); setEditWaiveCallout(false);
-  };
-
-  const handleEditCalloutRateChange = (value: string) => {
-    const selectedRate = value !== "auto" ? calloutRates.find(r => r.id === value) : null;
-    if (selectedRate) {
-      setEditCalloutFee(Number(selectedRate.amount));
-      if (selectedRate.hourly_rate != null) {
-        setEditHourlyRate(String(Number(selectedRate.hourly_rate)));
-      } else if (companySettings?.default_hourly_rate) {
-        setEditHourlyRate(String(Number(companySettings.default_hourly_rate)));
-      }
-    } else {
-      setEditCalloutFee(null);
-    }
-  };
-
-  const handleUpdate = async () => {
-    if (!editingId || !editArrival) return;
-    // Read departure directly from the DOM to catch any value not yet reflected in state
-    const editDepartureValue = editDepartureInputRef.current?.value || editDeparture;
-    const resolvedEditRate = editHourlyRate ? parseFloat(editHourlyRate) : (effectiveHourlyRate > 0 ? effectiveHourlyRate : null);
-    const editArrivalDate = new Date(editArrival);
-    const editDepartureDate = editDepartureValue ? new Date(editDepartureValue) : null;
-
-    if (Number.isNaN(editArrivalDate.getTime())) {
-      toast({ title: "Error", description: "Arrival date/time is invalid", variant: "destructive" });
-      return;
-    }
-
-    if (editDepartureDate && Number.isNaN(editDepartureDate.getTime())) {
-      toast({ title: "Error", description: "Departure date/time is invalid", variant: "destructive" });
-      return;
-    }
-
-    // In edit mode, preserve the date/time exactly as entered by the user.
-    if (editDepartureDate && editDepartureDate <= editArrivalDate) {
-      toast({ title: "Error", description: "Departure must be after arrival", variant: "destructive" });
-      return;
-    }
-    try {
-      await updateMutation.mutateAsync({
-        jobId,
-        entryId: editingId,
-        data: {
-          arrival_time: editArrivalDate.toISOString(),
-          departure_time: editDepartureDate ? editDepartureDate.toISOString() : null,
-          notes: editNotes || null,
-          hourly_rate: resolvedEditRate,
-          callout_fee: editWaiveCallout ? 0 : editCalloutFee,
-        } as Record<string, unknown>,
-      });
-      cancelEdit();
-      qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
-      toast({ title: "Updated", description: "Time entry updated" });
-      onChanged?.();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to update";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    }
-  };
-
-  const canModify = (createdBy: string | null | undefined) =>
-    createdBy === profile?.id || profile?.role === "admin" || profile?.role === "super_admin";
-
-  const formatEntryDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-  };
-
-  const formatEntryTime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-  };
+  const hasEntries = timeLines.length > 0;
+  const showLegacy = !hasEntries && (legacyArrival || legacyDeparture);
 
   return (
-    <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-lg flex items-center gap-2 text-amber-600">
-          <Clock className="w-5 h-5" /> Time Attended
-        </h3>
-        <Button size="sm" variant="outline" onClick={() => {
-          if (!showAdd) {
-            const selectedRate = selectedCalloutRate !== "auto" ? calloutRates.find(r => r.id === selectedCalloutRate) : null;
-            const rateHourly = selectedRate?.hourly_rate;
-            const defaultRate = rateHourly != null ? rateHourly : companySettings?.default_hourly_rate;
-            setHourlyRate(defaultRate != null && Number(defaultRate) > 0 ? String(Number(defaultRate)) : "");
-          }
-          setShowAdd(!showAdd);
-        }}>
-          <Plus className="w-4 h-4 mr-1" /> Add Entry
-        </Button>
-      </div>
-
-      {showAdd && (
-        <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Arrival *</Label>
-              <div className="flex gap-1.5">
-                <Input type="datetime-local" value={arrival} onChange={(e) => {
-                  const nextArrival = e.target.value;
-                  setArrival(nextArrival);
-                }} className="flex-1" />
-                <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => {
-                  const now = toLocalDatetimeStr(new Date());
-                  setArrival(now);
-                }}>Now</Button>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Departure</Label>
-              <div className="flex gap-1.5">
-                <Input
-                  type="datetime-local"
-                  value={departure}
-                  onChange={(e) => setDeparture(e.target.value)}
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="px-2.5 text-xs font-medium shrink-0"
-                  onClick={() => setDeparture(toLocalDatetimeStr(new Date()))}
-                >Now</Button>
-              </div>
-            </div>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Notes (optional)</Label>
-              <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
-            </div>
-            {calloutRates.length > 0 && (
-              <div className="space-y-1">
-                <Label className="text-xs">Callout Rate</Label>
-                <div className="flex items-center gap-2">
-                  <select
-                    className="flex-1 border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
-                    value={selectedCalloutRate}
-                    onChange={(e) => handleCalloutRateChange(e.target.value)}
-                    disabled={savingRate || recordTimeOnly}
-                  >
-                    <option value="auto">Auto (based on time of day)</option>
-                    {calloutRates.map(r => (
-                      <option key={r.id} value={r.id}>{r.name} - £{Number(r.amount).toFixed(2)}{r.hourly_rate != null ? ` (£${Number(r.hourly_rate).toFixed(2)}/hr)` : ""}</option>
-                    ))}
-                  </select>
-                  {savingRate && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="recordTimeOnly"
-              checked={recordTimeOnly}
-              onChange={(e) => setRecordTimeOnly(e.target.checked)}
-              className="h-4 w-4 rounded border-border accent-primary"
-            />
-            <label htmlFor="recordTimeOnly" className="text-sm select-none cursor-pointer">
-              Record time only - do not add labour or callout cost
-            </label>
-          </div>
-          {callOutFee > 0 && (
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="waiveCallout"
-                checked={waiveCallout}
-                onChange={(e) => setWaiveCallout(e.target.checked)}
-                disabled={recordTimeOnly}
-                className="h-4 w-4 rounded border-border accent-primary"
-              />
-              <label htmlFor="waiveCallout" className="text-sm select-none cursor-pointer">
-                Waive callout fee — charge hourly rate only
-              </label>
-            </div>
-          )}
-          {arrival && departureValue && (() => {
-            const ms = new Date(departureValue).getTime() - new Date(arrival).getTime();
-            const hours = ms / 3600000;
-            const durationStr = calcDuration(arrival, departureValue);
-            const rate = recordTimeOnly ? 0 : effectiveHourlyRate;
-            const hasCallout = !recordTimeOnly && addEntryFee > 0;
-            const billable = hasCallout ? Math.max(0, hours - 1) : Math.max(0, hours);
-            const cost = (hasCallout ? addEntryFee : 0) + billable * rate;
-            return (
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span>Duration: {durationStr}</span>
-                {rate > 0 && <span>£{rate.toFixed(2)}/hr</span>}
-                {ms > 0 && (addEntryFee > 0 || rate > 0) && (
-                  <span className="font-medium text-emerald-600">Cost: £{cost.toFixed(2)}</span>
-                )}
-              </div>
-            );
-          })()}
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} disabled={createMutation.isPending || offlineSubmitting || !arrival}>
-              <Check className="w-4 h-4 mr-1" /> {createMutation.isPending || offlineSubmitting ? "Saving..." : "Save Entry"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setArrival(""); setDeparture(""); setNotes(""); setHourlyRate(""); setWaiveCallout(false); setRecordTimeOnly(false); }}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading time entries...</p>
-      ) : hasEntries ? (
-        <>
-          <div className="space-y-2">
-            {sortedEntries.map((entry) => (
-              editingId === entry.id ? (
-                <div key={entry.id} className="border rounded-lg p-3 bg-blue-50/50 space-y-3">
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Arrival *</Label>
-                      <div className="flex gap-1.5">
-                        <Input type="datetime-local" value={editArrival} onChange={(e) => {
-                          setEditArrival(e.target.value);
-                        }} className="flex-1" />
-                        <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => {
-                          const now = toLocalDatetimeStr(new Date());
-                          setEditArrival(now);
-                        }}>Now</Button>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Departure</Label>
-                      <div className="flex gap-1.5">
-                        <Input ref={editDepartureInputRef} type="datetime-local" value={editDeparture} onChange={(e) => setEditDeparture(e.target.value)} onBlur={(e) => setEditDeparture(e.target.value)} className="flex-1" />
-                        <Button type="button" size="sm" variant="outline" className="px-2.5 text-xs font-medium shrink-0" onClick={() => setEditDeparture(toLocalDatetimeStr(new Date()))}>Now</Button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Notes</Label>
-                      <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="e.g. Replaced valve, awaiting part" />
-                    </div>
-                    {calloutRates.length > 0 && (
-                      <div className="space-y-1">
-                        <Label className="text-xs">Callout Rate</Label>
-                        <select
-                          className="w-full border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
-                          value={editCalloutRateId}
-                          onChange={(e) => handleEditCalloutRateChange(e.target.value)}
-                          disabled={editWaiveCallout}
-                        >
-                          {calloutRates.map(r => (
-                            <option key={r.id} value={r.id}>{r.name} - £{Number(r.amount).toFixed(2)}{r.hourly_rate != null ? ` (£${Number(r.hourly_rate).toFixed(2)}/hr)` : ""}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id={`editWaiveCallout-${entry.id}`}
-                      checked={editWaiveCallout}
-                      onChange={(e) => {
-                        setEditWaiveCallout(e.target.checked);
-                        if (!e.target.checked && editCalloutFee === 0) {
-                          // Restore to the job's current callout fee so the save isn't treated as waived
-                          setEditCalloutFee(callOutFee > 0 ? callOutFee : null);
-                        }
-                      }}
-                      className="h-4 w-4 rounded border-border accent-primary"
-                    />
-                    <label htmlFor={`editWaiveCallout-${entry.id}`} className="text-sm select-none cursor-pointer">
-                      Waive callout fee — charge hourly rate only
-                    </label>
-                  </div>
-                  {editHourlyRate && (
-                    <div className="text-xs text-muted-foreground">
-                      Hourly rate: <span className="font-medium">£{parseFloat(editHourlyRate).toFixed(2)}/hr</span>
-                    </div>
-                  )}
-                  {editArrival && editDeparture && (() => {
-                    const ms = new Date(editDeparture).getTime() - new Date(editArrival).getTime();
-                    const hours = ms / 3600000;
-                    const durationStr = calcDuration(editArrival, editDeparture);
-                    const rate = parseFloat(editHourlyRate) || 0;
-                    const entryFee = editWaiveCallout ? 0 : (editCalloutFee ?? 0);
-                    const billable = entryFee > 0 ? Math.max(0, hours - 1) : Math.max(0, hours);
-                    const cost = entryFee + billable * rate;
-                    return (
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>Duration: {durationStr}</span>
-                        {ms > 0 && (entryFee > 0 || rate > 0) && (
-                          <span className="font-medium text-emerald-600">Cost: £{cost.toFixed(2)}</span>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={handleUpdate} disabled={updateMutation.isPending || !editArrival}>
-                      <Check className="w-4 h-4 mr-1" /> {updateMutation.isPending ? "Saving..." : "Save"}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={cancelEdit}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div key={entry.id} className="border rounded-lg bg-white overflow-hidden">
-                  <div className="flex items-center justify-between px-3 py-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm">{formatEntryDate(entry.arrival_time)}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {formatEntryTime(entry.arrival_time)}
-                          {entry.departure_time ? ` - ${formatEntryTime(entry.departure_time)}` : " - ongoing"}
-                        </span>
-                        {entry.departure_time && (
-                          <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
-                            {calcDuration(entry.arrival_time, entry.departure_time)}
-                          </span>
-                        )}
-                      </div>
-                      {entry.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{entry.notes}</p>}
-                      {entry.created_by_name && <p className="text-xs text-muted-foreground">{entry.created_by_name}</p>}
-                    </div>
-                    {canModify(entry.created_by) && (
-                      <div className="flex items-center gap-1 ml-2 flex-shrink-0">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground" onClick={() => startEdit(entry)}>
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => handleDelete(entry.id)}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  {(() => {
-                    const bd = entryBreakdowns.get(entry.id);
-                    if (!bd || (bd.totalHours === 0 && bd.calloutCost === 0)) return null;
-                    if (bd.hourlyRate <= 0 && bd.calloutCost <= 0) return null;
-                    const entryStoredFee = (entry as unknown as Record<string, unknown>).callout_fee;
-                    const entryCalloutRate = entryStoredFee != null
-                      ? calloutRates.find(r => Number(r.amount) === Number(entryStoredFee))
-                      : (selectedCalloutRate !== "auto" ? calloutRates.find(r => r.id === selectedCalloutRate) : null);
-                    const calloutWaived = entryStoredFee != null && Number(entryStoredFee) === 0;
-                    return (
-                      <div className="border-t border-border/30 bg-slate-50/80 px-3 py-1.5 space-y-0.5">
-                        {calloutWaived ? (
-                          <div className="text-xs font-medium text-slate-400 italic">Callout fee waived</div>
-                        ) : entryCalloutRate ? (
-                          <div className="text-xs font-medium text-slate-500">{entryCalloutRate.name}</div>
-                        ) : null}
-                        {bd.calloutRate > 0 && (
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-muted-foreground">Call-out (min. 1hr)</span>
-                            <span className="font-medium text-emerald-600">£{bd.calloutCost.toFixed(2)}</span>
-                          </div>
-                        )}
-                        {bd.billableHours > 0 && bd.hourlyRate > 0 && (
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-muted-foreground">{formatTotalTime(bd.billableHours * 60)} @ £{bd.hourlyRate.toFixed(2)}/hr</span>
-                            <span className="font-medium text-emerald-600">£{bd.billableCost.toFixed(2)}</span>
-                          </div>
-                        )}
-                        {bd.entryCost > 0 && (
-                          <div className="flex justify-between items-center text-xs pt-0.5 border-t border-border/20">
-                            <span className="text-muted-foreground font-medium">Entry total</span>
-                            <span className="font-semibold text-emerald-700">£{bd.entryCost.toFixed(2)}</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              )
-            ))}
-          </div>
-          <div className="mt-3 pt-3 border-t space-y-1">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-muted-foreground">Total Time</span>
-              <span className="font-bold text-amber-600">{formatTotalTime(totalMinutes)}</span>
-            </div>
-            {totalLabourCost > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Labour Total</span>
-                <span className="font-bold text-emerald-600">£{totalLabourCost.toFixed(2)}</span>
-              </div>
-            )}
-          </div>
-        </>
-      ) : showLegacy ? (
-        <div className="border rounded-lg p-3 bg-slate-50/50">
+    <TimeSection
+      entries={timeLines}
+      calloutRates={calloutRates}
+      defaultCalloutRateId={calloutRateId}
+      onCalloutRateChange={handleCalloutRateChange}
+      defaultHourlyRate={Number(companySettings?.default_hourly_rate) || 0}
+      defaultCalloutFee={Number(companySettings?.call_out_fee) || 0}
+      loading={isLoading}
+      onAdd={handleAdd}
+      onUpdate={handleUpdate}
+      onDelete={handleDelete}
+      footer={showLegacy ? (
+        <div className="border rounded-lg p-3 bg-slate-50/50 mt-3">
           <p className="text-xs text-muted-foreground mb-1 italic">Legacy single entry</p>
           <div className="flex items-center gap-2 flex-wrap text-sm">
             {legacyArrival && <span>Arrival: {formatDateTime(legacyArrival)}</span>}
@@ -2142,24 +1668,9 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
             )}
           </div>
         </div>
-      ) : (
-        <div className="text-center py-6 border border-dashed rounded-lg">
-          <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">No time entries yet</p>
-          <Button variant="outline" size="sm" className="mt-2" onClick={() => setShowAdd(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Add First Entry
-          </Button>
-        </div>
-      )}
-    </Card>
+      ) : null}
+    />
   );
-}
-
-function formatTotalTime(totalMinutes: number): string {
-  const h = Math.floor(totalMinutes / 60);
-  const m = Math.round(totalMinutes % 60);
-  if (h === 0) return `${m}m`;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
 function ScheduleHistorySection({ jobId }: { jobId: string }) {
@@ -2241,31 +1752,11 @@ function ScheduleHistorySection({ jobId }: { jobId: string }) {
 
 function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () => void }) {
   const { toast } = useToast();
-  const { hasAddon } = usePlanFeatures();
   const { profile } = useAuth();
   const canAddToCatalogue = ["admin", "office_staff", "super_admin"].includes(profile?.role ?? "");
   const [services, setServices] = useState<JobService[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
-  const [serviceName, setServiceName] = useState("");
-  const [serviceQty, setServiceQty] = useState("1");
-  const [servicePrice, setServicePrice] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [savingToCatalogue, setSavingToCatalogue] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editPrice, setEditPrice] = useState("");
-  const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
-  const [editQty, setEditQty] = useState("");
-  const [serviceSuggestions, setServiceSuggestions] = useState<{ id: string; name: string; default_price: number | null }[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [searchedQuery, setSearchedQuery] = useState("");
-  const [searchError, setSearchError] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  const [updateCataloguePrice, setUpdateCataloguePrice] = useState(false);
-  const serviceSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchAbortRef = useRef<AbortController | null>(null);
-  const searchSeqRef = useRef(0);
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
@@ -2283,83 +1774,50 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
 
-  const searchServiceCatalogue = (query: string) => {
-    if (serviceSearchTimeout.current) clearTimeout(serviceSearchTimeout.current);
-    if (searchAbortRef.current) searchAbortRef.current.abort();
-    if (!query.trim()) { setServiceSuggestions([]); setShowSuggestions(false); setSearchedQuery(""); setSearchError(false); return; }
-    serviceSearchTimeout.current = setTimeout(async () => {
-      const seq = ++searchSeqRef.current;
-      const abortCtrl = new AbortController();
-      searchAbortRef.current = abortCtrl;
-      try {
-        setSearchError(false);
-        const data = await customFetch(`${import.meta.env.BASE_URL}api/services/search?q=${encodeURIComponent(query)}`, { signal: abortCtrl.signal });
-        if (seq !== searchSeqRef.current) return;
-        const results = Array.isArray(data) ? data as { id: string; name: string; default_price: number | null }[] : [];
-        setServiceSuggestions(results);
-        setSearchedQuery(query.trim());
-        setShowSuggestions(true);
-      } catch (e: unknown) {
-        if (seq !== searchSeqRef.current) return;
-        if (e instanceof DOMException && e.name === "AbortError") return;
-        setServiceSuggestions([]);
-        setSearchedQuery(query.trim());
-        setSearchError(true);
-        setShowSuggestions(true);
-      }
-    }, 250);
-  };
-
-  const handleAddServiceToCatalogue = async () => {
-    if (!serviceName.trim()) return;
-    setSavingToCatalogue(true);
-    try {
-      const result = await customFetch(`${import.meta.env.BASE_URL}api/admin/service-catalogue`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: serviceName.trim(), default_price: servicePrice ? Number(servicePrice) : undefined }),
-      }) as { id: string; name: string; default_price: number | null };
-      selectService({ id: result.id, name: result.name, default_price: result.default_price });
-      toast({ title: "Added to catalogue", description: `"${result.name}" saved to service catalogue` });
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to add to catalogue";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    } finally {
-      setSavingToCatalogue(false);
-    }
-  };
-
-  const selectService = (svc: { id?: string; name: string; default_price: number | null }) => {
-    setServiceName(svc.name);
-    if (svc.default_price != null) setServicePrice(String(svc.default_price));
-    setSelectedServiceId(svc.id ?? null);
-    setShowSuggestions(false);
-  };
-
-  const handleAdd = async () => {
-    if (!serviceName.trim()) return;
-    setSubmitting(true);
-    const serviceData = {
-      service_name: serviceName.trim(),
-      quantity: Number(serviceQty) || 1,
-      unit_price: servicePrice ? Number(servicePrice) : null,
-      catalogue_item_id: selectedServiceId,
-    };
+  const handleAdd = async (svc: Omit<ServiceLine, "key">) => {
     try {
       await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/services`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(serviceData),
+        body: JSON.stringify({
+          service_name: svc.name,
+          quantity: svc.quantity,
+          unit_price: svc.unitPrice,
+          catalogue_item_id: svc.catalogueItemId ?? null,
+        }),
       });
-      setServiceName(""); setServiceQty("1"); setServicePrice(""); setSelectedServiceId(null); setShowAdd(false);
       toast({ title: "Added", description: "Service added" });
       fetchServices();
       onChanged?.();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to add service";
       toast({ title: "Error", description: msg, variant: "destructive" });
-    } finally {
-      setSubmitting(false);
+    }
+  };
+
+  const handleUpdate = async (
+    serviceId: string,
+    patch: Partial<ServiceLine>,
+    options?: { updateCataloguePrice?: boolean },
+  ) => {
+    const body: Record<string, unknown> = {};
+    if (patch.quantity !== undefined) body.quantity = patch.quantity;
+    if (patch.unitPrice !== undefined) {
+      body.unit_price = patch.unitPrice;
+      body.update_catalogue_price = options?.updateCataloguePrice ?? false;
+    }
+    if (Object.keys(body).length === 0) return;
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/services/${serviceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      fetchServices();
+      onChanged?.();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to update service";
+      toast({ title: "Error", description: msg, variant: "destructive" });
     }
   };
 
@@ -2375,227 +1833,23 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
     }
   };
 
-  const handleSavePrice = async (serviceId: string) => {
-    try {
-      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/services/${serviceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unit_price: editPrice ? Number(editPrice) : null, update_catalogue_price: updateCataloguePrice }),
-      });
-      setEditingId(null);
-      setUpdateCataloguePrice(false);
-      fetchServices();
-      onChanged?.();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to update price";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    }
-  };
-
-  const handleSaveQty = async (serviceId: string) => {
-    const qty = Number(editQty);
-    if (!qty || qty <= 0) return;
-    try {
-      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/services/${serviceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity: qty }),
-      });
-      setEditingQtyId(null);
-      fetchServices();
-      onChanged?.();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to update quantity";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    }
-  };
-
-  const servicesSubtotal = services.reduce((sum, s) => sum + (Number(s.unit_price) || 0) * s.quantity, 0);
-
   return (
-    <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-lg flex items-center gap-2 text-purple-600">
-          <Wrench className="w-5 h-5" /> Services Offered
-        </h3>
-        <Button size="sm" variant="outline" onClick={() => setShowAdd(!showAdd)}>
-          {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Service</>}
-        </Button>
-      </div>
-
-      {showAdd && (
-        <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div className="space-y-1 relative col-span-2 sm:col-span-1">
-              <Label className="text-xs">Service Name *</Label>
-              <Input
-                value={serviceName}
-                onChange={(e) => { setServiceName(e.target.value); searchServiceCatalogue(e.target.value); }}
-                onFocus={() => { if (serviceSuggestions.length > 0) setShowSuggestions(true); }}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                placeholder="Type to search catalogue..."
-                autoComplete="off"
-              />
-              {showSuggestions && searchedQuery && (
-                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {searchError ? (
-                    <div className="px-3 py-2 text-sm text-red-500">Failed to search catalogue</div>
-                  ) : serviceSuggestions.length > 0 ? (
-                    serviceSuggestions.map(s => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex justify-between items-center"
-                        onMouseDown={(e) => { e.preventDefault(); selectService(s); }}
-                      >
-                        <span>{s.name}</span>
-                        {s.default_price != null && <span className="text-muted-foreground">&pound;{Number(s.default_price).toFixed(2)}</span>}
-                      </button>
-                    ))
-                  ) : (
-                    <>
-                      <div className="px-3 py-2 text-sm text-muted-foreground">No matching services — type a custom name</div>
-                      {canAddToCatalogue && (
-                        <button
-                          type="button"
-                          className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-slate-100 flex items-center gap-1 border-t"
-                          onMouseDown={(e) => { e.preventDefault(); handleAddServiceToCatalogue(); }}
-                          disabled={savingToCatalogue}
-                        >
-                          + {savingToCatalogue ? "Saving..." : `Add "${serviceName}" to catalogue`}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Quantity</Label>
-              <Input type="text" inputMode="decimal" value={serviceQty} onChange={(e) => setServiceQty(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Unit Price</Label>
-              <Input type="text" inputMode="decimal" value={servicePrice} onChange={(e) => setServicePrice(e.target.value)} placeholder="0.00" />
-            </div>
-          </div>
-          <Button size="sm" onClick={handleAdd} disabled={submitting || !serviceName.trim()}>
-            <Check className="w-4 h-4 mr-1" /> {submitting ? "Adding..." : "Add Service"}
-          </Button>
-        </div>
-      )}
-
-      {loading ? (
-        <p className="text-sm text-muted-foreground">Loading services...</p>
-      ) : loadError ? (
-        <div className="flex items-center gap-2 text-sm text-destructive">
-          <span>Services could not be loaded.</span>
-          <Button size="sm" variant="outline" onClick={fetchServices}>Retry</Button>
-        </div>
-      ) : services.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No services recorded yet.</p>
-      ) : (
-        <div className="border rounded-lg overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b">
-              <tr>
-                <th className="text-left px-2 sm:px-4 py-2 font-medium">Service</th>
-                <th className="text-left px-2 sm:px-4 py-2 font-medium">Qty</th>
-                <th className="text-right px-2 sm:px-4 py-2 font-medium">Price</th>
-                <th className="text-right px-2 sm:px-4 py-2 font-medium">Total</th>
-                <th className="w-8 sm:w-10"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {services.map((s) => (
-                <tr key={s.id} className="border-b last:border-0">
-                  <td className="px-2 sm:px-4 py-2 break-words max-w-[150px] sm:max-w-none">{s.service_name}</td>
-                  <td className="px-2 sm:px-4 py-2">
-                    {editingQtyId === s.id ? (
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="text" inputMode="decimal"
-                          value={editQty}
-                          onChange={(e) => setEditQty(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") handleSaveQty(s.id); if (e.key === "Escape") setEditingQtyId(null); }}
-                          className="w-14 h-7 text-xs"
-                          autoFocus
-                        />
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSaveQty(s.id)}>
-                          <Check className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditingQtyId(null)}>
-                          <X className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <span
-                        className="cursor-pointer hover:text-primary inline-flex items-center gap-1"
-                        onClick={() => { setEditingQtyId(s.id); setEditQty(String(s.quantity)); }}
-                      >
-                        {s.quantity}
-                        <Pencil className="w-3 h-3 opacity-40" />
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-2 sm:px-4 py-2 text-right">
-                    {editingId === s.id ? (
-                      <div className="flex flex-col items-end gap-1">
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="text" inputMode="decimal"
-                            value={editPrice}
-                            onChange={(e) => setEditPrice(e.target.value)}
-                            className="w-16 h-7 text-xs"
-                          />
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSavePrice(s.id)}>
-                            <Check className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEditingId(null); setUpdateCataloguePrice(false); }}>
-                            <X className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                        {s.catalogue_item_id && canAddToCatalogue && (
-                          <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
-                            <input type="checkbox" checked={updateCataloguePrice} onChange={e => setUpdateCataloguePrice(e.target.checked)} className="w-3 h-3" />
-                            Update catalogue
-                          </label>
-                        )}
-                      </div>
-                    ) : (
-                      <span
-                        className="cursor-pointer hover:text-primary inline-flex items-center gap-1"
-                        onClick={() => { setEditingId(s.id); setEditPrice(s.unit_price != null ? String(s.unit_price) : ""); setUpdateCataloguePrice(false); }}
-                      >
-                        {s.unit_price != null ? `${Number(s.unit_price).toFixed(2)}` : "—"}
-                        <Pencil className="w-3 h-3 opacity-40" />
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-2 sm:px-4 py-2 text-right font-medium">
-                    {s.unit_price != null ? (Number(s.unit_price) * s.quantity).toFixed(2) : "—"}
-                  </td>
-                  <td className="px-1 sm:px-2 py-2">
-                    <Button variant="ghost" size="sm" className="text-destructive h-7 w-7 p-0" onClick={() => handleDelete(s.id)}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            {servicesSubtotal > 0 && (
-              <tfoot className="bg-slate-50 border-t">
-                <tr>
-                  <td colSpan={2} className="px-2 sm:px-4 py-2 font-semibold text-right">Services Subtotal</td>
-                  <td className="px-2 sm:px-4 py-2 font-bold text-right" colSpan={2}>{servicesSubtotal.toFixed(2)}</td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      )}
-    </Card>
+    <ServicesSection
+      services={services.map(s => ({
+        key: s.id,
+        name: s.service_name,
+        quantity: s.quantity,
+        unitPrice: s.unit_price,
+        catalogueItemId: s.catalogue_item_id,
+      }))}
+      loading={loading}
+      loadError={loadError}
+      onRetry={fetchServices}
+      canEditCatalogue={canAddToCatalogue}
+      onAdd={handleAdd}
+      onUpdate={handleUpdate}
+      onDelete={handleDelete}
+    />
   );
 }
 
@@ -2607,27 +1861,6 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
   const [parts, setParts] = useState<JobPart[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
-  const [partName, setPartName] = useState("");
-  const [partQty, setPartQty] = useState("1");
-  const [partSerial, setPartSerial] = useState("");
-  const [partPrice, setPartPrice] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [savingToCatalogue, setSavingToCatalogue] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editPrice, setEditPrice] = useState("");
-  const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
-  const [editQty, setEditQty] = useState("");
-  const [productSuggestions, setProductSuggestions] = useState<{ id: string; name: string; default_price: number | null }[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [searchedQuery, setSearchedQuery] = useState("");
-  const [searchError, setSearchError] = useState(false);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [updateCataloguePrice, setUpdateCataloguePrice] = useState(false);
-  const [partStatus, setPartStatus] = useState<"fitted" | "to_order">("fitted");
-  const productSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchAbortRef = useRef<AbortController | null>(null);
-  const searchSeqRef = useRef(0);
 
   const fetchParts = useCallback(async () => {
     setLoading(true);
@@ -2645,79 +1878,21 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
 
   useEffect(() => { fetchParts(); }, [fetchParts]);
 
-  const searchProducts = (query: string) => {
-    if (productSearchTimeout.current) clearTimeout(productSearchTimeout.current);
-    if (searchAbortRef.current) searchAbortRef.current.abort();
-    if (!query.trim()) { setProductSuggestions([]); setShowSuggestions(false); setSearchedQuery(""); setSearchError(false); return; }
-    productSearchTimeout.current = setTimeout(async () => {
-      const seq = ++searchSeqRef.current;
-      const abortCtrl = new AbortController();
-      searchAbortRef.current = abortCtrl;
-      try {
-        setSearchError(false);
-        const data = await customFetch(`${import.meta.env.BASE_URL}api/products/search?q=${encodeURIComponent(query)}`, { signal: abortCtrl.signal });
-        if (seq !== searchSeqRef.current) return;
-        const results = Array.isArray(data) ? data as { id: string; name: string; default_price: number | null }[] : [];
-        setProductSuggestions(results);
-        setSearchedQuery(query.trim());
-        setShowSuggestions(true);
-      } catch (e: unknown) {
-        if (seq !== searchSeqRef.current) return;
-        if (e instanceof DOMException && e.name === "AbortError") return;
-        setProductSuggestions([]);
-        setSearchedQuery(query.trim());
-        setSearchError(true);
-        setShowSuggestions(true);
-      }
-    }, 250);
-  };
-
-  const handleAddProductToCatalogue = async () => {
-    if (!partName.trim()) return;
-    setSavingToCatalogue(true);
-    try {
-      const result = await customFetch(`${import.meta.env.BASE_URL}api/admin/products`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: partName.trim(), default_price: partPrice ? Number(partPrice) : undefined }),
-      }) as { id: string; name: string; default_price: number | null };
-      selectProduct({ id: result.id, name: result.name, default_price: result.default_price });
-      toast({ title: "Added to catalogue", description: `"${result.name}" saved to product catalogue` });
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to add to catalogue";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    } finally {
-      setSavingToCatalogue(false);
-    }
-  };
-
-  const selectProduct = (product: { id?: string; name: string; default_price: number | null }) => {
-    setPartName(product.name);
-    if (product.default_price != null) setPartPrice(String(product.default_price));
-    setSelectedProductId(product.id ?? null);
-    setShowSuggestions(false);
-  };
-
-  const handleAdd = async () => {
-    if (!partName.trim()) return;
-    setSubmitting(true);
+  const handleAdd = async (part: Omit<PartLine, "key">) => {
     const partData = {
-      part_name: partName.trim(),
-      quantity: Number(partQty) || 1,
-      serial_number: partSerial || null,
-      unit_price: partPrice ? Number(partPrice) : null,
-      catalogue_item_id: selectedProductId,
-      status: partStatus,
+      part_name: part.name,
+      quantity: part.quantity,
+      serial_number: part.serialNumber ?? null,
+      unit_price: part.unitPrice,
+      catalogue_item_id: part.catalogueItemId ?? null,
+      status: part.status,
     };
     if (!isOnline) {
       try {
         await queueJobPart(jobId, partData);
-        setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setSelectedProductId(null); setPartStatus("fitted"); setShowAdd(false);
         toast({ title: "Saved offline", description: "Part will sync when you're back online." });
       } catch {
         toast({ title: "Error", description: "Failed to save part offline", variant: "destructive" });
-      } finally {
-        setSubmitting(false);
       }
       return;
     }
@@ -2727,15 +1902,39 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(partData),
       });
-      setPartName(""); setPartQty("1"); setPartSerial(""); setPartPrice(""); setSelectedProductId(null); setPartStatus("fitted"); setShowAdd(false);
       toast({ title: "Added", description: "Part added" });
       fetchParts();
       onChanged?.();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to add part";
       toast({ title: "Error", description: msg, variant: "destructive" });
-    } finally {
-      setSubmitting(false);
+    }
+  };
+
+  const handleUpdate = async (
+    partId: string,
+    patch: Partial<PartLine>,
+    options?: { updateCataloguePrice?: boolean },
+  ) => {
+    const body: Record<string, unknown> = {};
+    if (patch.quantity !== undefined) body.quantity = patch.quantity;
+    if (patch.status !== undefined) body.status = patch.status;
+    if (patch.unitPrice !== undefined) {
+      body.unit_price = patch.unitPrice;
+      body.update_catalogue_price = options?.updateCataloguePrice ?? false;
+    }
+    if (Object.keys(body).length === 0) return;
+    try {
+      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts/${partId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      fetchParts();
+      onChanged?.();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to update part";
+      toast({ title: "Error", description: msg, variant: "destructive" });
     }
   };
 
@@ -2751,296 +1950,25 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
     }
   };
 
-  const handleSavePrice = async (partId: string) => {
-    try {
-      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts/${partId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unit_price: editPrice ? Number(editPrice) : null, update_catalogue_price: updateCataloguePrice }),
-      });
-      setEditingId(null);
-      setUpdateCataloguePrice(false);
-      fetchParts();
-      onChanged?.();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to update price";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    }
-  };
-
-  const handleSaveQty = async (partId: string) => {
-    const qty = Number(editQty);
-    if (!qty || qty <= 0) return;
-    try {
-      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts/${partId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity: qty }),
-      });
-      setEditingQtyId(null);
-      fetchParts();
-      onChanged?.();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to update quantity";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    }
-  };
-
-  const handleToggleStatus = async (partId: string, currentStatus: "fitted" | "to_order") => {
-    const newStatus = currentStatus === "fitted" ? "to_order" : "fitted";
-    try {
-      await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/parts/${partId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      fetchParts();
-      onChanged?.();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to update status";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    }
-  };
-
-  const fittedParts = parts.filter(p => (p.status || "fitted") === "fitted");
-  const toOrderParts = parts.filter(p => (p.status || "fitted") === "to_order");
-  const partsSubtotal = fittedParts.reduce((sum, p) => sum + (Number(p.unit_price) || 0) * p.quantity, 0);
-
   return (
-    <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-lg flex items-center gap-2 text-blue-600">
-          <Package className="w-5 h-5" /> Parts Used
-        </h3>
-        <Button size="sm" variant="outline" onClick={() => setShowAdd(!showAdd)}>
-          {showAdd ? <><X className="w-4 h-4 mr-1" /> Cancel</> : <><Plus className="w-4 h-4 mr-1" /> Add Part</>}
-        </Button>
-      </div>
-
-      {showAdd && (
-        <div className="border rounded-lg p-4 mb-4 bg-slate-50/50 space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="space-y-1 relative col-span-2 sm:col-span-1">
-              <Label className="text-xs">Part Name *</Label>
-              <Input
-                value={partName}
-                onChange={(e) => { setPartName(e.target.value); searchProducts(e.target.value); }}
-                onFocus={() => { if (productSuggestions.length > 0) setShowSuggestions(true); }}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                placeholder="Type to search catalogue..."
-                autoComplete="off"
-              />
-              {showSuggestions && searchedQuery && (
-                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {searchError ? (
-                    <div className="px-3 py-2 text-sm text-red-500">Failed to search catalogue</div>
-                  ) : productSuggestions.length > 0 ? (
-                    productSuggestions.map(p => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex justify-between items-center"
-                        onMouseDown={(e) => { e.preventDefault(); selectProduct(p); }}
-                      >
-                        <span>{p.name}</span>
-                        {p.default_price != null && <span className="text-muted-foreground">&pound;{Number(p.default_price).toFixed(2)}</span>}
-                      </button>
-                    ))
-                  ) : (
-                    <>
-                      <div className="px-3 py-2 text-sm text-muted-foreground">No matching products found — type a custom name</div>
-                      {canAddToCatalogue && (
-                        <button
-                          type="button"
-                          className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-slate-100 flex items-center gap-1 border-t"
-                          onMouseDown={(e) => { e.preventDefault(); handleAddProductToCatalogue(); }}
-                          disabled={savingToCatalogue}
-                        >
-                          + {savingToCatalogue ? "Saving..." : `Add "${partName}" to catalogue`}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Quantity</Label>
-              <Input type="text" inputMode="decimal" value={partQty} onChange={(e) => setPartQty(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Unit Price</Label>
-              <Input type="text" inputMode="decimal" value={partPrice} onChange={(e) => setPartPrice(e.target.value)} placeholder="0.00" />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Serial Number</Label>
-              <Input value={partSerial} onChange={(e) => setPartSerial(e.target.value)} placeholder="Optional" />
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">Status:</span>
-            <div className="flex rounded-md overflow-hidden border border-border text-xs">
-              <button
-                type="button"
-                className={`px-3 py-1.5 font-medium transition-colors ${partStatus === "fitted" ? "bg-emerald-500 text-white" : "bg-white text-muted-foreground hover:bg-slate-50"}`}
-                onClick={() => setPartStatus("fitted")}
-              >
-                Fitted
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1.5 font-medium border-l border-border transition-colors ${partStatus === "to_order" ? "bg-amber-400 text-white" : "bg-white text-muted-foreground hover:bg-slate-50"}`}
-                onClick={() => setPartStatus("to_order")}
-              >
-                To Order
-              </button>
-            </div>
-          </div>
-          <Button size="sm" onClick={handleAdd} disabled={submitting || !partName.trim()}>
-            <Check className="w-4 h-4 mr-1" /> {submitting ? "Adding..." : "Add Part"}
-          </Button>
-        </div>
-      )}
-
-      {loading ? (
-        <p className="text-sm text-muted-foreground">Loading parts...</p>
-      ) : loadError ? (
-        <div className="flex items-center gap-2 text-sm text-destructive">
-          <span>Parts could not be loaded.</span>
-          <Button size="sm" variant="outline" onClick={fetchParts}>Retry</Button>
-        </div>
-      ) : parts.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No parts recorded yet.</p>
-      ) : (
-        <div className="border rounded-lg overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b">
-              <tr>
-                <th className="text-left px-2 sm:px-4 py-2 font-medium">Part</th>
-                <th className="text-left px-2 sm:px-4 py-2 font-medium">Qty</th>
-                <th className="text-right px-2 sm:px-4 py-2 font-medium">Price</th>
-                <th className="text-right px-2 sm:px-4 py-2 font-medium">Total</th>
-                <th className="text-left px-2 sm:px-4 py-2 font-medium hidden sm:table-cell">Serial #</th>
-                <th className="w-8 sm:w-10"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {parts.map((p) => (
-                <tr key={p.id} className={`border-b last:border-0 ${(p.status || "fitted") === "to_order" ? "opacity-75" : ""}`}>
-                  <td className="px-2 sm:px-4 py-2 break-words max-w-[120px] sm:max-w-none">
-                    <div className="space-y-0.5">
-                      <span>{p.part_name}</span>
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleStatus(p.id, (p.status || "fitted") as "fitted" | "to_order")}
-                          className={`text-xs px-1.5 py-0.5 rounded font-medium transition-colors ${
-                            (p.status || "fitted") === "fitted"
-                              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                              : "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                          }`}
-                        >
-                          {(p.status || "fitted") === "fitted" ? "✓ Fitted" : "⏳ To Order"}
-                        </button>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-2 sm:px-4 py-2">
-                    {editingQtyId === p.id ? (
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="text" inputMode="decimal"
-                          value={editQty}
-                          onChange={(e) => setEditQty(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") handleSaveQty(p.id); if (e.key === "Escape") setEditingQtyId(null); }}
-                          className="w-14 h-7 text-xs"
-                          autoFocus
-                        />
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSaveQty(p.id)}>
-                          <Check className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditingQtyId(null)}>
-                          <X className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <span
-                        className="cursor-pointer hover:text-primary inline-flex items-center gap-1"
-                        onClick={() => { setEditingQtyId(p.id); setEditQty(String(p.quantity)); }}
-                      >
-                        {p.quantity}
-                        <Pencil className="w-3 h-3 opacity-40" />
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-2 sm:px-4 py-2 text-right">
-                    {editingId === p.id ? (
-                      <div className="flex flex-col items-end gap-1">
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="text" inputMode="decimal"
-                            value={editPrice}
-                            onChange={(e) => setEditPrice(e.target.value)}
-                            className="w-16 h-7 text-xs"
-                          />
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSavePrice(p.id)}>
-                            <Check className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEditingId(null); setUpdateCataloguePrice(false); }}>
-                            <X className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                        {p.catalogue_item_id && canAddToCatalogue && (
-                          <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
-                            <input type="checkbox" checked={updateCataloguePrice} onChange={e => setUpdateCataloguePrice(e.target.checked)} className="w-3 h-3" />
-                            Update catalogue
-                          </label>
-                        )}
-                      </div>
-                    ) : (
-                      <span
-                        className="cursor-pointer hover:text-primary inline-flex items-center gap-1"
-                        onClick={() => { setEditingId(p.id); setEditPrice(p.unit_price != null ? String(p.unit_price) : ""); setUpdateCataloguePrice(false); }}
-                      >
-                        {p.unit_price != null ? `${Number(p.unit_price).toFixed(2)}` : "—"}
-                        <Pencil className="w-3 h-3 opacity-40" />
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-2 sm:px-4 py-2 text-right font-medium">
-                    {p.unit_price != null ? (Number(p.unit_price) * p.quantity).toFixed(2) : "—"}
-                  </td>
-                  <td className="px-2 sm:px-4 py-2 text-muted-foreground hidden sm:table-cell">{p.serial_number || "—"}</td>
-                  <td className="px-1 sm:px-2 py-2">
-                    <Button variant="ghost" size="sm" className="text-destructive h-7 w-7 p-0" onClick={() => handleDelete(p.id)}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            {(partsSubtotal > 0 || toOrderParts.length > 0) && (
-              <tfoot className="bg-slate-50 border-t">
-                {partsSubtotal > 0 && (
-                  <tr>
-                    <td colSpan={3} className="px-2 sm:px-4 py-2 font-semibold text-right">Parts Subtotal</td>
-                    <td className="px-2 sm:px-4 py-2 font-bold text-right">{partsSubtotal.toFixed(2)}</td>
-                    <td colSpan={2}></td>
-                  </tr>
-                )}
-                {toOrderParts.length > 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-2 sm:px-4 py-1.5 text-xs text-amber-600">
-                      {toOrderParts.length} part{toOrderParts.length > 1 ? "s" : ""} to order — not included in subtotal
-                    </td>
-                  </tr>
-                )}
-              </tfoot>
-            )}
-          </table>
-        </div>
-      )}
-    </Card>
+    <PartsSection
+      parts={parts.map(p => ({
+        key: p.id,
+        name: p.part_name,
+        quantity: p.quantity,
+        unitPrice: p.unit_price,
+        serialNumber: p.serial_number,
+        status: (p.status || "fitted") === "to_order" ? "to_order" : "fitted",
+        catalogueItemId: p.catalogue_item_id,
+      }))}
+      loading={loading}
+      loadError={loadError}
+      onRetry={fetchParts}
+      canEditCatalogue={canAddToCatalogue}
+      onAdd={handleAdd}
+      onUpdate={handleUpdate}
+      onDelete={handleDelete}
+    />
   );
 }
 
@@ -4654,11 +3582,6 @@ function timeAgo(dateStr: string): string {
   const days = Math.floor(hrs / 24);
   if (days < 30) return `${days}d ago`;
   return formatDate(dateStr);
-}
-
-function toLocalDatetimeStr(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function calcDuration(start: string, end: string): string {

@@ -21,6 +21,10 @@ export interface TimeSectionProps {
   onAdd: (entry: Omit<TimeLine, "key">) => void | Promise<void>;
   onUpdate: (key: string, patch: Partial<TimeLine>) => void | Promise<void>;
   onDelete: (key: string) => void | Promise<void>;
+  /** Preselects the add-form rate dropdown. */
+  defaultCalloutRateId?: string | null;
+  /** Fired when the add-form rate changes, for callers that persist the choice. */
+  onCalloutRateChange?: (rateId: string | null) => void;
   /** Enables the "Estimated" add mode used by quotes. */
   allowEstimate?: boolean;
   readOnly?: boolean;
@@ -70,6 +74,8 @@ export function TimeSection({
   onAdd,
   onUpdate,
   onDelete,
+  defaultCalloutRateId,
+  onCalloutRateChange,
   allowEstimate = false,
   readOnly = false,
   loading = false,
@@ -81,7 +87,7 @@ export function TimeSection({
   const [arrival, setArrival] = useState("");
   const [departure, setDeparture] = useState("");
   const [notes, setNotes] = useState("");
-  const [rateId, setRateId] = useState<string>("auto");
+  const [rateId, setRateId] = useState<string>(defaultCalloutRateId || "auto");
   const [recordTimeOnly, setRecordTimeOnly] = useState(false);
   const [waiveCallout, setWaiveCallout] = useState(false);
   const [estimateHours, setEstimateHours] = useState("");
@@ -211,8 +217,10 @@ export function TimeSection({
           <Button size="sm" variant="outline" onClick={() => {
             if (!showAdd) {
               setEstimateRate(defaultHourlyRate > 0 ? String(defaultHourlyRate) : "");
-              const def = calloutRates.find(r => r.is_default);
-              if (def) setRateId(def.id);
+              if (rateId === "auto") {
+                const def = calloutRates.find(r => r.is_default);
+                if (def) setRateId(def.id);
+              }
             } else {
               resetAddForm();
             }
@@ -298,7 +306,10 @@ export function TimeSection({
                     <select
                       className="w-full border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
                       value={rateId}
-                      onChange={(e) => setRateId(e.target.value)}
+                      onChange={(e) => {
+                        setRateId(e.target.value);
+                        onCalloutRateChange?.(e.target.value === "auto" ? null : e.target.value);
+                      }}
                       disabled={recordTimeOnly}
                     >
                       <option value="auto">Auto (based on time of day)</option>

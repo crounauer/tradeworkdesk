@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft, Send, CheckCircle2, XCircle, RefreshCcw, Download, Trash2,
-  Loader2, Plus, Receipt, AlertTriangle, FileText, CreditCard,
-  Edit3, Save, X, Clock, Mail, ChevronDown, ChevronUp, Briefcase,
+  Loader2, Receipt, AlertTriangle, FileText, CreditCard,
+  Edit3, Save, X, Mail, ChevronDown, ChevronUp, Briefcase,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
