@@ -1,4 +1,4 @@
--- Patch 077: invoice line item parity with job parts / services / time entries
+-- Invoice line item parity with job parts / services / time entries.
 -- Adds the fields the job page records so quotes and invoices can present and
 -- round-trip the same parts / services / time format.
 
