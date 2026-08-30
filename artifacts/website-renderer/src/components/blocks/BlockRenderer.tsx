@@ -353,14 +353,14 @@ function readShapeTokens(theme: Record<string, unknown>): Record<string, string>
 const THEME_OVERRIDE_LIST_KEY = "__theme_overrides";
 
 const THEME_OVERRIDE_TARGETS: Record<string, string[]> = {
-  accent_color: ["accent_color"],
-  primary_color: ["primary_color"],
-  primary_text_color: ["primary_text_color"],
+  accent_color: ["accent_color", "primary_button_bg_color", "primary_button_bg", "button_bg", "eyebrow_color", "trust_icon_color", "icon_color"],
+  primary_color: ["primary_color", "secondary_button_text_color", "secondary_button_text", "chip_text_color"],
+  primary_text_color: ["primary_text_color", "primary_button_text_color", "primary_button_text", "button_text_color"],
   background_color: ["background_color", "section_bg"],
-  muted_background: ["muted_background_color", "card_bg"],
-  border_color: ["border_color"],
-  text_color: ["text_color", "body_color"],
-  muted_text_color: ["muted_text_color"],
+  muted_background: ["muted_background_color", "card_bg", "card_background_color", "form_background", "frame_bg"],
+  border_color: ["border_color", "card_border", "card_border_color", "section_border_color"],
+  text_color: ["text_color", "textColor", "body_color"],
+  muted_text_color: ["muted_text_color", "subheading_color"],
   heading_color: ["heading_color"],
   heading_font_family: ["heading_font_family", "global_heading_font_family"],
   body_font_family: ["body_font_family", "global_body_font_family"],

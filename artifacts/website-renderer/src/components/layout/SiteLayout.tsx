@@ -6,6 +6,7 @@ import SiteFooter from "./SiteFooter";
 import GoogleAnalytics from "./GoogleAnalytics";
 import AdminEditPageButton from "@/components/AdminEditPageButton";
 import { resolveThemeFonts } from "@/lib/siteFonts";
+import { resolveSiteTheme } from "@/lib/siteTheme";
 
 const GLOBAL_SITE_HEADER_THEME_KEY = "__site_header_content";
 const GLOBAL_SITE_FOOTER_THEME_KEY = "__site_footer_content";
@@ -34,6 +35,7 @@ export default async function SiteLayout({ site, children, basePath, previewToke
   const hasThemeHeaderContent = Boolean(headerContent);
   let hasHeaderBlockContent = false;
   const fonts = resolveThemeFonts(themeObject);
+  const siteTheme = resolveSiteTheme(themeObject, website.template_slug || undefined);
 
   try {
     if (!headerContent) {
@@ -68,7 +70,7 @@ export default async function SiteLayout({ site, children, basePath, previewToke
         <GoogleAnalytics trackingId={website.google_analytics_id} />
       )}
       {fonts.googleHref ? <link rel="stylesheet" href={fonts.googleHref} /> : null}
-      <div style={fonts.body ? { fontFamily: fonts.body } : undefined}>
+      <div style={{ backgroundColor: siteTheme.backgroundColor, ...(fonts.body ? { fontFamily: fonts.body } : {}) }}>
       {(hasThemeHeaderContent || hasHeaderBlockContent) ? (
         <SiteHeader
           siteName={website.site_name}
@@ -83,7 +85,7 @@ export default async function SiteLayout({ site, children, basePath, previewToke
           showTopBar={hasThemeHeaderContent || hasHeaderBlockContent}
         />
       ) : null}
-      <div id="main-content" style={{ minHeight: "60vh" }}>{children}</div>
+      <div id="main-content" style={{ minHeight: "60vh", backgroundColor: siteTheme.backgroundColor }}>{children}</div>
       <SiteFooter
         siteName={website.site_name}
         company={company}

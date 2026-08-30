@@ -81,9 +81,9 @@ const HERO_IMAGE_OPTIONS: Array<{ name: string; description: string; url: string
     url: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1600&h=900&fit=crop&auto=format&q=80",
   },
   {
-    name: "Service Van",
-    description: "Practical call-out feel for local emergency work.",
-    url: "https://images.unsplash.com/photo-1613977257363-707ba9348227?w=1600&h=900&fit=crop&auto=format&q=80",
+    name: "Kitchen Pipe Repair",
+    description: "Plumber repairing pipework inside a customer's kitchen.",
+    url: "https://plus.unsplash.com/premium_photo-1664299069577-11579b487e6c?w=1600&h=900&fit=crop&auto=format&q=80",
   },
   {
     name: "Kitchen Sink",
@@ -91,9 +91,9 @@ const HERO_IMAGE_OPTIONS: Array<{ name: string; description: string; url: string
     url: "https://images.unsplash.com/photo-1556911220-bff31c812dba?w=1600&h=900&fit=crop&auto=format&q=80",
   },
   {
-    name: "Plant Room",
-    description: "Commercial pipework look for larger heating jobs.",
-    url: "https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?w=1600&h=900&fit=crop&auto=format&q=80",
+    name: "Heating Safety Check",
+    description: "Heating engineer checking a boiler or gas system.",
+    url: "https://plus.unsplash.com/premium_photo-1661921394349-9e3f394d80da?w=1600&h=900&fit=crop&auto=format&q=80",
   },
 ];
 
@@ -714,7 +714,7 @@ export function WebsiteThemeCard() {
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
             <div className="overflow-hidden rounded-lg border" style={{ fontFamily: theme.body_font_family || undefined }}>
               <div className="px-4 py-3 text-sm font-semibold" style={{ backgroundColor: value("nav_background"), color: value("nav_text"), fontFamily: theme.heading_font_family || undefined }}>
                 Your Business
