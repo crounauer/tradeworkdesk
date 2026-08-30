@@ -373,6 +373,7 @@ const THEME_OVERRIDE_TARGETS: Record<string, string[]> = {
 
 const HERO_THEME_OVERRIDE_TARGETS: Record<string, string[]> = {
   hero_background_color: ["background_color", "backgroundColor", "section_bg"],
+  hero_background_image_url: ["background_image_url", "backgroundImageUrl"],
   hero_heading_color: ["heading_color"],
   hero_subheading_color: ["subheading_color", "text_color", "textColor"],
 };

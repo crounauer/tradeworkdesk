@@ -652,7 +652,7 @@ const INHERIT_BACKGROUND_VALUE = "default";
 /** Block content key listing colours set on this block, so they beat a site-theme override. */
 const BLOCK_STYLE_OVERRIDE_KEY = "__block_style_overrides";
 
-const STYLE_KEY_PATTERN = /(_color|_bg|_background|_radius|_border)$|^background$|^backgroundColor$/;
+const STYLE_KEY_PATTERN = /(_color|_bg|_background|_radius|_border)$|^background$|^backgroundColor$|^(background_image_url|backgroundImageUrl|hero_image_url|heroImageUrl)$/;
 
 function isStyleKey(key: string): boolean {
   return STYLE_KEY_PATTERN.test(key);
@@ -1379,14 +1379,14 @@ function BlockEditor({
             <ImagePickerField
               label="Background Image URL (full/centered layouts)"
               value={backgroundImage}
-              onChange={(url) => onChange(syncBlockContent(c, { background_image_url: url, backgroundImageUrl: url }, { background_image_url: ["backgroundImageUrl"], backgroundImageUrl: ["background_image_url"] }))}
+              onChange={(url) => commit(syncBlockContent(c, { background_image_url: url, backgroundImageUrl: url }, { background_image_url: ["backgroundImageUrl"], backgroundImageUrl: ["background_image_url"] }), ["background_image_url", "backgroundImageUrl"])}
               hint="Recommended: 1920 × 1080 px (landscape). Used as the hero background."
               fieldName="hero_background"
             />
             <ImagePickerField
               label="Hero Image URL (split layout only)"
               value={heroImage}
-              onChange={(url) => onChange(syncBlockContent(c, { hero_image_url: url, heroImageUrl: url }, { hero_image_url: ["heroImageUrl"], heroImageUrl: ["hero_image_url"] }))}
+              onChange={(url) => commit(syncBlockContent(c, { hero_image_url: url, heroImageUrl: url }, { hero_image_url: ["heroImageUrl"], heroImageUrl: ["hero_image_url"] }), ["hero_image_url", "heroImageUrl"])}
               hint="Recommended: 900 × 700 px (portrait or square works best)."
               fieldName="hero_image"
             />
@@ -1653,14 +1653,14 @@ function BlockEditor({
                 <ImagePickerField
                   label="Background Image URL (full/centered layouts)"
                   value={backgroundImage}
-                  onChange={(url) => onChange(syncBlockContent(c, { background_image_url: url, backgroundImageUrl: url }, { background_image_url: ["backgroundImageUrl"], backgroundImageUrl: ["background_image_url"] }))}
+                  onChange={(url) => commit(syncBlockContent(c, { background_image_url: url, backgroundImageUrl: url }, { background_image_url: ["backgroundImageUrl"], backgroundImageUrl: ["background_image_url"] }), ["background_image_url", "backgroundImageUrl"])}
                   hint="Recommended: 1920 × 1080 px (landscape). Used as the hero background."
                   fieldName="hero_background"
                 />
                 <ImagePickerField
                   label="Hero Image URL (split layout only)"
                   value={heroImage}
-                  onChange={(url) => onChange(syncBlockContent(c, { hero_image_url: url, heroImageUrl: url }, { hero_image_url: ["heroImageUrl"], heroImageUrl: ["hero_image_url"] }))}
+                  onChange={(url) => commit(syncBlockContent(c, { hero_image_url: url, heroImageUrl: url }, { hero_image_url: ["heroImageUrl"], heroImageUrl: ["hero_image_url"] }), ["hero_image_url", "heroImageUrl"])}
                   hint="Recommended: 900 × 700 px (portrait or square works best)."
                   fieldName="hero_image"
                 />

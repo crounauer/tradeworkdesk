@@ -40,6 +40,7 @@ const DEFAULT_THEME: Theme = {
   hero_background_color: "#1c2942",
   hero_heading_color: "#ffffff",
   hero_subheading_color: "#dbeafe",
+  hero_background_image_url: "",
   nav_background: "#1f2937",
   nav_text: "#ffffff",
   footer_background: "#111827",
@@ -47,6 +48,39 @@ const DEFAULT_THEME: Theme = {
 };
 
 const PALETTE_KEYS = Object.keys(DEFAULT_THEME);
+
+const HERO_IMAGE_OPTIONS: Array<{ name: string; description: string; url: string }> = [
+  {
+    name: "Engineer at Work",
+    description: "A practical tradesperson shot for service-led homepages.",
+    url: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=1600&h=900&fit=crop&auto=format&q=80",
+  },
+  {
+    name: "Tools & Workshop",
+    description: "Strong detail image for repairs, installs and maintenance.",
+    url: "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=1600&h=900&fit=crop&auto=format&q=80",
+  },
+  {
+    name: "Modern Home",
+    description: "Clean residential image for premium domestic services.",
+    url: "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=1600&h=900&fit=crop&auto=format&q=80",
+  },
+  {
+    name: "Bathroom Finish",
+    description: "Bright interior image for plumbing and bathroom work.",
+    url: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=1600&h=900&fit=crop&auto=format&q=80",
+  },
+  {
+    name: "Construction Site",
+    description: "High-energy site image for building and larger projects.",
+    url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1600&h=900&fit=crop&auto=format&q=80",
+  },
+  {
+    name: "Solar Roof",
+    description: "Clean renewables image for heating and energy services.",
+    url: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop&auto=format&q=80",
+  },
+];
 
 const PALETTE_PRESETS: Array<{ name: string; description: string; theme: Theme }> = [
   {
@@ -453,6 +487,10 @@ export function WebsiteThemeCard() {
     markOverridden(keys, value !== null);
   };
 
+  const chooseHeroImage = (url: string) => {
+    setKeys(["hero_background_image_url"], url);
+  };
+
   const resetToTemplate = () => {
     setOverrides([]);
     toast({ title: "Reverted to template styling", description: "Save to apply. Header and footer colours are unaffected." });
@@ -519,6 +557,40 @@ export function WebsiteThemeCard() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border p-4">
+              <div>
+                <div className="text-sm font-semibold">Hero Pictures</div>
+                <p className="text-xs text-muted-foreground">Pick a homepage image quickly. Individual hero blocks can still use their own image.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {HERO_IMAGE_OPTIONS.map((option) => {
+                  const selected = theme.hero_background_image_url === option.url;
+                  return (
+                    <button
+                      key={option.url}
+                      type="button"
+                      className={`overflow-hidden rounded-lg border text-left transition hover:border-primary ${selected ? "border-primary bg-primary/5" : ""}`}
+                      onClick={() => chooseHeroImage(option.url)}
+                    >
+                      <img src={option.url} alt="" className="h-24 w-full object-cover" loading="lazy" />
+                      <div className="space-y-1 p-3">
+                        <div className="flex items-center justify-between gap-2 text-sm font-medium">
+                          <span>{option.name}</span>
+                          {selected ? <Badge variant="default">Selected</Badge> : null}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{option.description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {theme.hero_background_image_url && (
+                <Button type="button" size="sm" variant="outline" onClick={() => setKeys(["hero_background_image_url"], null)}>
+                  Use template hero image
+                </Button>
+              )}
             </div>
 
             {COLOR_GROUPS.map((group) => (
@@ -628,7 +700,16 @@ export function WebsiteThemeCard() {
               <div className="px-4 py-3 text-sm font-semibold" style={{ backgroundColor: value("nav_background"), color: value("nav_text"), fontFamily: theme.heading_font_family || undefined }}>
                 Your Business
               </div>
-              <div className="space-y-2 p-4 text-center" style={{ backgroundColor: value("hero_background_color"), color: value("hero_heading_color") }}>
+              <div
+                className="relative overflow-hidden p-4 text-center"
+                style={{
+                  backgroundColor: value("hero_background_color"),
+                  backgroundImage: theme.hero_background_image_url ? `linear-gradient(rgba(2,6,23,0.58), rgba(2,6,23,0.58)), url(${theme.hero_background_image_url})` : undefined,
+                  backgroundPosition: "center",
+                  backgroundSize: "cover",
+                  color: value("hero_heading_color"),
+                }}
+              >
                 <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: value("accent_color") }}>Local trade specialists</div>
                 <div className="text-lg font-bold" style={{ fontFamily: theme.heading_font_family || undefined }}>Reliable local service</div>
                 <p className="text-sm" style={{ color: value("hero_subheading_color") }}>Fast call-outs, clear pricing and tidy workmanship.</p>
