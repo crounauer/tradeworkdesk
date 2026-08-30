@@ -11,6 +11,15 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Palette, Save } from "lucide-react";
 import { getAccessibleTextColor, getContrastRatio, hasAccessibleContrast, sanitizeThemeColors } from "@/lib/color-contrast";
@@ -281,6 +290,7 @@ export function WebsiteThemeCard() {
   const qc = useQueryClient();
   const [theme, setTheme] = useState<Theme>({});
   const [overrides, setOverrides] = useState<string[]>([]);
+  const [pendingPalette, setPendingPalette] = useState<typeof PALETTE_PRESETS[number] | null>(null);
 
   const { data: website } = useQuery<{ theme?: (Theme & { __theme_overrides?: string[] }) | null } | null>({
     queryKey: ["/api/website"],
@@ -303,7 +313,15 @@ export function WebsiteThemeCard() {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/website"] });
-      toast({ title: "Theme saved" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const resetBlockColoursMutation = useMutation({
+    mutationFn: () => apiFetch("/api/website/theme/reset-block-colours", { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/website"] });
+      qc.invalidateQueries({ queryKey: ["/api/website/pages"] });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -335,12 +353,37 @@ export function WebsiteThemeCard() {
   const handleSave = () => {
     const next = sanitizeThemeColors(theme);
     setTheme(next);
-    saveMutation.mutate({ theme: next, overrides });
+    saveMutation.mutate({ theme: next, overrides }, {
+      onSuccess: () => toast({ title: "Theme saved" }),
+    });
   };
 
-  const applyPalette = (presetTheme: Theme) => {
-    setTheme((current) => ({ ...current, ...presetTheme }));
-    markOverridden(PALETTE_KEYS, true);
+  const applyPalette = (presetTheme: Theme): { theme: Theme; overrides: string[] } => {
+    const nextOverrides = [...new Set([...overrides, ...PALETTE_KEYS])];
+    const nextTheme = sanitizeThemeColors({ ...theme, ...presetTheme });
+    setOverrides(nextOverrides);
+    setTheme(nextTheme);
+    return { theme: nextTheme, overrides: nextOverrides };
+  };
+
+  const applyPaletteChoice = async (resetBlockColours: boolean) => {
+    if (!pendingPalette) return;
+    const next = applyPalette(pendingPalette.theme);
+    try {
+      await saveMutation.mutateAsync(next);
+      if (resetBlockColours) {
+        await resetBlockColoursMutation.mutateAsync();
+      }
+      toast({
+        title: "Palette applied",
+        description: resetBlockColours
+          ? "Block colour customisations were reset to use this palette."
+          : "Existing block colour customisations were kept.",
+      });
+      setPendingPalette(null);
+    } catch {
+      // Individual mutations already surface the error toast.
+    }
   };
 
   const setKeys = (keys: string[], value: string | null) => {
@@ -376,7 +419,7 @@ export function WebsiteThemeCard() {
             {overrides.length > 0 && (
               <Button size="sm" variant="outline" onClick={resetToTemplate}>Use template styling</Button>
             )}
-            <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
+            <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending || resetBlockColoursMutation.isPending}>
               {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Save Theme
             </Button>
@@ -397,7 +440,7 @@ export function WebsiteThemeCard() {
                     key={preset.name}
                     type="button"
                     className="rounded-lg border p-3 text-left transition hover:border-primary hover:bg-muted/40"
-                    onClick={() => applyPalette(preset.theme)}
+                    onClick={() => setPendingPalette(preset)}
                   >
                     <div className="mb-3 flex items-center gap-1.5">
                       {[
@@ -569,6 +612,52 @@ export function WebsiteThemeCard() {
           </div>
         </div>
       </CardContent>
+      <AlertDialog open={!!pendingPalette} onOpenChange={(open) => !open && setPendingPalette(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apply {pendingPalette?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose whether colours already customised on individual blocks should stay as they are, or be reset so every block inherits this palette.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {pendingPalette && (
+            <div className="flex items-center gap-2 rounded-lg border p-3">
+              {[
+                pendingPalette.theme.primary_color,
+                pendingPalette.theme.accent_color,
+                pendingPalette.theme.muted_background,
+                pendingPalette.theme.footer_background,
+              ].map((color) => (
+                <span
+                  key={`dialog-${pendingPalette.name}-${color}`}
+                  className="h-8 w-8 rounded-full border"
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saveMutation.isPending || resetBlockColoursMutation.isPending}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => applyPaletteChoice(false)}
+              disabled={saveMutation.isPending || resetBlockColoursMutation.isPending}
+            >
+              {saveMutation.isPending && !resetBlockColoursMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Keep Block Customisations
+            </Button>
+            <Button
+              type="button"
+              onClick={() => applyPaletteChoice(true)}
+              disabled={saveMutation.isPending || resetBlockColoursMutation.isPending}
+            >
+              {resetBlockColoursMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Reset Block Colours
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

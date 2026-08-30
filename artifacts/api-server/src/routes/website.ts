@@ -41,6 +41,8 @@ const db = supabaseAdmin as any; // new tables not yet in generated types
 const websiteAnalyticsCache = new Map<string, { data: unknown; ts: number }>();
 const WEBSITE_ANALYTICS_CACHE_TTL_MS = 60_000;
 const GLOBAL_SITE_BLOCK_ORDER_THEME_KEY = "__global_site_block_order";
+const BLOCK_STYLE_OVERRIDE_KEY = "__block_style_overrides";
+const BLOCK_COLOUR_STYLE_KEY_PATTERN = /(_color|_bg|_background|_border)$|^background$|^backgroundColor$/;
 
 async function getActiveDomainsForWebsite(websiteId: string): Promise<string[]> {
   const { data } = await db
@@ -130,6 +132,35 @@ function mergeGlobalSiteBlocksIntoTheme(
   }
 
   return next;
+}
+
+function clearBlockColourOverrides(content: Record<string, unknown> | null | undefined): { content: Record<string, unknown>; changed: boolean } {
+  const next = { ...((content && typeof content === "object") ? content : {}) };
+  const listed = Array.isArray(next[BLOCK_STYLE_OVERRIDE_KEY])
+    ? (next[BLOCK_STYLE_OVERRIDE_KEY] as unknown[]).map(String)
+    : [];
+  let changed = false;
+  const retainedOverrides: string[] = [];
+
+  for (const key of listed) {
+    if (BLOCK_COLOUR_STYLE_KEY_PATTERN.test(key)) {
+      if (key in next) {
+        delete next[key];
+        changed = true;
+      }
+    } else {
+      retainedOverrides.push(key);
+    }
+  }
+
+  if (listed.length !== retainedOverrides.length) changed = true;
+  if (retainedOverrides.length > 0) next[BLOCK_STYLE_OVERRIDE_KEY] = retainedOverrides;
+  else if (BLOCK_STYLE_OVERRIDE_KEY in next) {
+    delete next[BLOCK_STYLE_OVERRIDE_KEY];
+    changed = true;
+  }
+
+  return { content: next, changed };
 }
 
 function readGlobalSiteBlocksFromTheme(
@@ -1202,6 +1233,72 @@ router.patch(
     if (error) { res.status(500).json({ error: "Failed to update website" }); return; }
 
     res.json(data);
+  }
+);
+
+router.post(
+  "/website/theme/reset-block-colours",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff"),
+  requireWebsiteBuilder(),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const website = await getWebsiteForTenant(req.tenantId!);
+    if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+    const { data: pages } = await db
+      .from("website_pages")
+      .select("id")
+      .eq("website_id", website.id)
+      .eq("tenant_id", req.tenantId) as { data: Array<{ id: string }> | null };
+    const pageIds = (pages || []).map((page) => String(page.id)).filter(Boolean);
+
+    let updatedBlocks = 0;
+    if (pageIds.length > 0) {
+      const { data: blocks } = await db
+        .from("website_blocks")
+        .select("id, content")
+        .eq("tenant_id", req.tenantId)
+        .in("page_id", pageIds) as { data: Array<{ id: string; content?: Record<string, unknown> | null }> | null };
+
+      for (const block of blocks || []) {
+        const cleaned = clearBlockColourOverrides(block.content || {});
+        if (!cleaned.changed) continue;
+        const { error } = await db
+          .from("website_blocks")
+          .update({ content: cleaned.content })
+          .eq("id", block.id)
+          .eq("tenant_id", req.tenantId) as { error: unknown };
+        if (error) { res.status(500).json({ error: "Failed to reset block colours" }); return; }
+        updatedBlocks += 1;
+      }
+    }
+
+    const theme = ((website.theme as Record<string, unknown> | null | undefined) || {});
+    const nextTheme = { ...theme };
+    let updatedGlobalBlocks = 0;
+    for (const key of [GLOBAL_SITE_HEADER_THEME_KEY, GLOBAL_SITE_FOOTER_THEME_KEY]) {
+      const value = nextTheme[key];
+      if (!value || typeof value !== "object") continue;
+      const cleaned = clearBlockColourOverrides(value as Record<string, unknown>);
+      if (!cleaned.changed) continue;
+      nextTheme[key] = cleaned.content;
+      updatedGlobalBlocks += 1;
+    }
+
+    if (updatedGlobalBlocks > 0) {
+      const { error } = await db
+        .from("websites")
+        .update({ theme: nextTheme })
+        .eq("id", website.id)
+        .eq("tenant_id", req.tenantId) as { error: unknown };
+      if (error) { res.status(500).json({ error: "Failed to reset global block colours" }); return; }
+    }
+
+    const activeDomains = await getActiveDomainsForWebsite(String(website.id));
+    void triggerRendererRevalidate({ domains: activeDomains, websiteIds: [String(website.id)], reason: "theme_block_colour_reset" });
+
+    res.json({ updated_blocks: updatedBlocks, updated_global_blocks: updatedGlobalBlocks });
   }
 );
 
