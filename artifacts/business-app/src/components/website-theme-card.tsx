@@ -258,6 +258,8 @@ const SPACING_OPTIONS: Array<{ label: string; value: string }> = [
   { label: "Spacious", value: "88px" },
 ];
 
+const FONT_PREVIEW_TEXT = "Reliable repairs, fitted neatly";
+
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
   if (!res.ok) {
@@ -282,6 +284,17 @@ function ColorInput({ label, value, onChange }: { label: string; value: string; 
         <div className="text-xs text-muted-foreground font-mono">{value}</div>
       </div>
     </div>
+  );
+}
+
+function FontOptionPreview({ label, stack }: { label: string; stack: string }) {
+  return (
+    <span className="flex min-w-0 flex-col gap-0.5 py-1">
+      <span className="text-sm font-medium">{label}</span>
+      <span className="truncate text-xs text-muted-foreground" style={{ fontFamily: stack }}>
+        {FONT_PREVIEW_TEXT}
+      </span>
+    </span>
   );
 }
 
@@ -494,18 +507,35 @@ export function WebsiteThemeCard() {
                 {FONT_FIELDS.map((field) => (
                   <div key={field.key} className="space-y-1">
                     <Label>{field.label}</Label>
+                    {(() => {
+                      const selectedFont = FONT_OPTIONS.find((option) => option.stack === theme[field.key]);
+                      const previewStack = selectedFont?.stack || DEFAULT_THEME[field.key] || "system-ui, sans-serif";
+
+                      return (
                     <Select
                       value={theme[field.key] || TEMPLATE_DEFAULT}
                       onValueChange={(v) => setKeys([field.key], v === TEMPLATE_DEFAULT ? null : v)}
                     >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={TEMPLATE_DEFAULT}>Template default</SelectItem>
+                        <SelectItem value={TEMPLATE_DEFAULT}>
+                          <span className="flex min-w-0 flex-col gap-0.5 py-1">
+                            <span className="text-sm font-medium">Template default</span>
+                            <span className="truncate text-xs text-muted-foreground">Uses the master website style</span>
+                          </span>
+                        </SelectItem>
                         {FONT_OPTIONS.map((option) => (
-                          <SelectItem key={option.stack} value={option.stack}>{option.label}</SelectItem>
+                          <SelectItem key={option.stack} value={option.stack}>
+                            <FontOptionPreview label={option.label} stack={option.stack} />
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                      );
+                    })()}
+                    <div className="rounded border bg-muted/20 px-3 py-2 text-sm" style={{ fontFamily: theme[field.key] || undefined }}>
+                      {theme[field.key] ? FONT_PREVIEW_TEXT : "Using the master website font"}
+                    </div>
                   </div>
                 ))}
               </div>
