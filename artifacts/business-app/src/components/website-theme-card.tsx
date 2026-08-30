@@ -51,34 +51,49 @@ const PALETTE_KEYS = Object.keys(DEFAULT_THEME);
 
 const HERO_IMAGE_OPTIONS: Array<{ name: string; description: string; url: string }> = [
   {
-    name: "Engineer at Work",
-    description: "A practical tradesperson shot for service-led homepages.",
+    name: "No Image",
+    description: "Use the selected hero background colour only.",
+    url: "",
+  },
+  {
+    name: "Pipework Detail",
+    description: "Close-up pipework for plumbing and heating specialists.",
     url: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=1600&h=900&fit=crop&auto=format&q=80",
   },
   {
-    name: "Tools & Workshop",
-    description: "Strong detail image for repairs, installs and maintenance.",
-    url: "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=1600&h=900&fit=crop&auto=format&q=80",
+    name: "Plumber Tools",
+    description: "Tools and fittings for repair-focused homepages.",
+    url: "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=1600&h=900&fit=crop&auto=format&q=80&sat=-15",
   },
   {
-    name: "Modern Home",
-    description: "Clean residential image for premium domestic services.",
-    url: "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=1600&h=900&fit=crop&auto=format&q=80",
-  },
-  {
-    name: "Bathroom Finish",
-    description: "Bright interior image for plumbing and bathroom work.",
+    name: "Bathroom Plumbing",
+    description: "Clean bathroom setting for domestic plumbing work.",
     url: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=1600&h=900&fit=crop&auto=format&q=80",
   },
   {
-    name: "Construction Site",
-    description: "High-energy site image for building and larger projects.",
-    url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1600&h=900&fit=crop&auto=format&q=80",
+    name: "Modern Bathroom",
+    description: "Finished bathroom image for installation services.",
+    url: "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=1600&h=900&fit=crop&auto=format&q=80",
   },
   {
-    name: "Solar Roof",
-    description: "Clean renewables image for heating and energy services.",
-    url: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop&auto=format&q=80",
+    name: "Heating Controls",
+    description: "Technical image for boiler and heating engineers.",
+    url: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1600&h=900&fit=crop&auto=format&q=80",
+  },
+  {
+    name: "Service Van",
+    description: "Practical call-out feel for local emergency work.",
+    url: "https://images.unsplash.com/photo-1613977257363-707ba9348227?w=1600&h=900&fit=crop&auto=format&q=80",
+  },
+  {
+    name: "Kitchen Sink",
+    description: "Domestic repair image for taps, leaks and installs.",
+    url: "https://images.unsplash.com/photo-1556911220-bff31c812dba?w=1600&h=900&fit=crop&auto=format&q=80",
+  },
+  {
+    name: "Plant Room",
+    description: "Commercial pipework look for larger heating jobs.",
+    url: "https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?w=1600&h=900&fit=crop&auto=format&q=80",
   },
 ];
 
@@ -574,7 +589,11 @@ export function WebsiteThemeCard() {
                       className={`overflow-hidden rounded-lg border text-left transition hover:border-primary ${selected ? "border-primary bg-primary/5" : ""}`}
                       onClick={() => chooseHeroImage(option.url)}
                     >
-                      <img src={option.url} alt="" className="h-24 w-full object-cover" loading="lazy" />
+                      {option.url ? (
+                        <img src={option.url} alt="" className="h-24 w-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="h-24 w-full bg-[linear-gradient(135deg,#0f172a,#334155)]" />
+                      )}
                       <div className="space-y-1 p-3">
                         <div className="flex items-center justify-between gap-2 text-sm font-medium">
                           <span>{option.name}</span>
