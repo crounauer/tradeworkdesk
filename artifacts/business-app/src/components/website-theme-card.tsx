@@ -536,7 +536,7 @@ export function WebsiteThemeCard() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-start">
           <div className="space-y-4">
             <div className="space-y-3 rounded-lg border p-4">
               <div>
@@ -722,7 +722,8 @@ export function WebsiteThemeCard() {
             </div>
           </div>
 
-          <div className="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
+          <div className="lg:sticky lg:top-4 lg:self-start">
+            <div className="space-y-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1">
             <div className="overflow-hidden rounded-lg border" style={{ fontFamily: theme.body_font_family || undefined }}>
               <div className="px-4 py-3 text-sm font-semibold" style={{ backgroundColor: value("nav_background"), color: value("nav_text"), fontFamily: theme.heading_font_family || undefined }}>
                 Your Business
@@ -793,6 +794,7 @@ export function WebsiteThemeCard() {
                   </div>
                 );
               })}
+            </div>
             </div>
           </div>
         </div>
