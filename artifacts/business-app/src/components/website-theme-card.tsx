@@ -25,6 +25,7 @@ import { Loader2, Palette, Save } from "lucide-react";
 import { getAccessibleTextColor, getContrastRatio, hasAccessibleContrast, sanitizeThemeColors } from "@/lib/color-contrast";
 
 type Theme = Record<string, string>;
+type FontOption = { label: string; stack: string; google?: string };
 
 const DEFAULT_THEME: Theme = {
   accent_color: "#0d9488",
@@ -223,19 +224,19 @@ const TEMPLATE_DEFAULT = "__template__";
 const OVERRIDES_KEY = "__theme_overrides";
 
 // Full CSS stacks so the renderer can use the value directly; must match siteFonts.ts.
-const FONT_OPTIONS: Array<{ label: string; stack: string }> = [
+const FONT_OPTIONS: FontOption[] = [
   { label: "System", stack: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" },
-  { label: "Inter", stack: "'Inter', system-ui, sans-serif" },
-  { label: "Poppins", stack: "'Poppins', system-ui, sans-serif" },
-  { label: "Montserrat", stack: "'Montserrat', system-ui, sans-serif" },
-  { label: "Lato", stack: "'Lato', system-ui, sans-serif" },
-  { label: "Open Sans", stack: "'Open Sans', system-ui, sans-serif" },
-  { label: "Roboto", stack: "'Roboto', system-ui, sans-serif" },
-  { label: "Work Sans", stack: "'Work Sans', system-ui, sans-serif" },
-  { label: "Source Sans 3", stack: "'Source Sans 3', system-ui, sans-serif" },
-  { label: "Oswald", stack: "'Oswald', system-ui, sans-serif" },
-  { label: "Merriweather", stack: "'Merriweather', Georgia, serif" },
-  { label: "Playfair Display", stack: "'Playfair Display', Georgia, serif" },
+  { label: "Inter", stack: "'Inter', system-ui, sans-serif", google: "Inter:wght@400;500;600;700" },
+  { label: "Poppins", stack: "'Poppins', system-ui, sans-serif", google: "Poppins:wght@400;500;600;700" },
+  { label: "Montserrat", stack: "'Montserrat', system-ui, sans-serif", google: "Montserrat:wght@400;500;600;700" },
+  { label: "Lato", stack: "'Lato', system-ui, sans-serif", google: "Lato:wght@400;700" },
+  { label: "Open Sans", stack: "'Open Sans', system-ui, sans-serif", google: "Open+Sans:wght@400;600;700" },
+  { label: "Roboto", stack: "'Roboto', system-ui, sans-serif", google: "Roboto:wght@400;500;700" },
+  { label: "Work Sans", stack: "'Work Sans', system-ui, sans-serif", google: "Work+Sans:wght@400;500;600;700" },
+  { label: "Source Sans 3", stack: "'Source Sans 3', system-ui, sans-serif", google: "Source+Sans+3:wght@400;600;700" },
+  { label: "Oswald", stack: "'Oswald', system-ui, sans-serif", google: "Oswald:wght@400;500;600" },
+  { label: "Merriweather", stack: "'Merriweather', Georgia, serif", google: "Merriweather:wght@400;700" },
+  { label: "Playfair Display", stack: "'Playfair Display', Georgia, serif", google: "Playfair+Display:wght@400;600;700" },
 ];
 
 const FONT_FIELDS: Array<{ key: string; label: string }> = [
@@ -258,7 +259,13 @@ const SPACING_OPTIONS: Array<{ label: string; value: string }> = [
   { label: "Spacious", value: "88px" },
 ];
 
-const FONT_PREVIEW_TEXT = "Reliable repairs, fitted neatly";
+const FONT_PREVIEW_TEXT = "Boiler servicing & emergency repairs";
+const FONT_PREVIEW_STYLESHEET_ID = "website-theme-font-preview-stylesheet";
+const FONT_PREVIEW_STYLESHEET_HREF = `https://fonts.googleapis.com/css2?${FONT_OPTIONS
+  .map((option) => option.google)
+  .filter(Boolean)
+  .map((family) => `family=${family}`)
+  .join("&")}&display=swap`;
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const res = await fetch(url, opts);
@@ -291,7 +298,7 @@ function FontOptionPreview({ label, stack }: { label: string; stack: string }) {
   return (
     <span className="flex min-w-0 flex-col gap-0.5 py-1">
       <span className="text-sm font-medium">{label}</span>
-      <span className="truncate text-xs text-muted-foreground" style={{ fontFamily: stack }}>
+      <span className="truncate text-sm text-muted-foreground" style={{ fontFamily: stack }}>
         {FONT_PREVIEW_TEXT}
       </span>
     </span>
@@ -304,6 +311,15 @@ export function WebsiteThemeCard() {
   const [theme, setTheme] = useState<Theme>({});
   const [overrides, setOverrides] = useState<string[]>([]);
   const [pendingPalette, setPendingPalette] = useState<typeof PALETTE_PRESETS[number] | null>(null);
+
+  useEffect(() => {
+    if (document.getElementById(FONT_PREVIEW_STYLESHEET_ID)) return;
+    const link = document.createElement("link");
+    link.id = FONT_PREVIEW_STYLESHEET_ID;
+    link.rel = "stylesheet";
+    link.href = FONT_PREVIEW_STYLESHEET_HREF;
+    document.head.appendChild(link);
+  }, []);
 
   const { data: website } = useQuery<{ theme?: (Theme & { __theme_overrides?: string[] }) | null } | null>({
     queryKey: ["/api/website"],
@@ -533,7 +549,7 @@ export function WebsiteThemeCard() {
                     </Select>
                       );
                     })()}
-                    <div className="rounded border bg-muted/20 px-3 py-2 text-sm" style={{ fontFamily: theme[field.key] || undefined }}>
+                    <div className="rounded border bg-muted/20 px-3 py-2 text-base" style={{ fontFamily: theme[field.key] || undefined }}>
                       {theme[field.key] ? FONT_PREVIEW_TEXT : "Using the master website font"}
                     </div>
                   </div>
