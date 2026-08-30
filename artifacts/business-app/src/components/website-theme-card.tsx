@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ImagePickerField } from "@/components/image-picker-field";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -577,7 +578,7 @@ export function WebsiteThemeCard() {
             <div className="space-y-3 rounded-lg border p-4">
               <div>
                 <div className="text-sm font-semibold">Hero Pictures</div>
-                <p className="text-xs text-muted-foreground">Pick a homepage image quickly. Individual hero blocks can still use their own image.</p>
+                <p className="text-xs text-muted-foreground">Pick a homepage image quickly, or upload your own. Individual hero blocks can still use their own image.</p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {HERO_IMAGE_OPTIONS.map((option) => {
@@ -605,6 +606,13 @@ export function WebsiteThemeCard() {
                   );
                 })}
               </div>
+              <ImagePickerField
+                label="Upload Your Own Hero Image"
+                value={theme.hero_background_image_url || ""}
+                onChange={chooseHeroImage}
+                hint="Recommended: 1920 x 1080 px landscape, sharp and well-lit, JPG/PNG/WebP. Under 5 MB is best; uploads up to 15 MB are accepted and optimised to WebP."
+                fieldName="site_wide_hero_image"
+              />
               {theme.hero_background_image_url && (
                 <Button type="button" size="sm" variant="outline" onClick={() => setKeys(["hero_background_image_url"], null)}>
                   Use template hero image
@@ -714,7 +722,7 @@ export function WebsiteThemeCard() {
             </div>
           </div>
 
-          <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+          <div className="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
             <div className="overflow-hidden rounded-lg border" style={{ fontFamily: theme.body_font_family || undefined }}>
               <div className="px-4 py-3 text-sm font-semibold" style={{ backgroundColor: value("nav_background"), color: value("nav_text"), fontFamily: theme.heading_font_family || undefined }}>
                 Your Business
