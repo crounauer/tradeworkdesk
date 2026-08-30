@@ -37,6 +37,9 @@ const DEFAULT_THEME: Theme = {
   heading_color: "#111827",
   text_color: "#111827",
   muted_text_color: "#475569",
+  hero_background_color: "#1c2942",
+  hero_heading_color: "#ffffff",
+  hero_subheading_color: "#dbeafe",
   nav_background: "#1f2937",
   nav_text: "#ffffff",
   footer_background: "#111827",
@@ -59,6 +62,9 @@ const PALETTE_PRESETS: Array<{ name: string; description: string; theme: Theme }
       heading_color: "#082f49",
       text_color: "#12344d",
       muted_text_color: "#526d82",
+      hero_background_color: "#06385f",
+      hero_heading_color: "#ffffff",
+      hero_subheading_color: "#dff4ff",
       nav_background: "#082f49",
       nav_text: "#ffffff",
       footer_background: "#0b2035",
@@ -78,6 +84,9 @@ const PALETTE_PRESETS: Array<{ name: string; description: string; theme: Theme }
       heading_color: "#134e4a",
       text_color: "#164e63",
       muted_text_color: "#64748b",
+      hero_background_color: "#0f766e",
+      hero_heading_color: "#ffffff",
+      hero_subheading_color: "#ccfbf1",
       nav_background: "#ecfeff",
       nav_text: "#134e4a",
       footer_background: "#164e63",
@@ -97,6 +106,9 @@ const PALETTE_PRESETS: Array<{ name: string; description: string; theme: Theme }
       heading_color: "#451a03",
       text_color: "#5f2f14",
       muted_text_color: "#8a5a33",
+      hero_background_color: "#7f1d1d",
+      hero_heading_color: "#fff7ed",
+      hero_subheading_color: "#fed7aa",
       nav_background: "#7f1d1d",
       nav_text: "#fff7ed",
       footer_background: "#3b1414",
@@ -116,6 +128,9 @@ const PALETTE_PRESETS: Array<{ name: string; description: string; theme: Theme }
       heading_color: "#18181b",
       text_color: "#27272a",
       muted_text_color: "#52525b",
+      hero_background_color: "#18181b",
+      hero_heading_color: "#ffffff",
+      hero_subheading_color: "#fed7aa",
       nav_background: "#18181b",
       nav_text: "#ffffff",
       footer_background: "#09090b",
@@ -135,6 +150,9 @@ const PALETTE_PRESETS: Array<{ name: string; description: string; theme: Theme }
       heading_color: "#14532d",
       text_color: "#1f3d2b",
       muted_text_color: "#4b6f56",
+      hero_background_color: "#14532d",
+      hero_heading_color: "#f7fee7",
+      hero_subheading_color: "#bbf7d0",
       nav_background: "#14532d",
       nav_text: "#ffffff",
       footer_background: "#052e16",
@@ -154,6 +172,9 @@ const PALETTE_PRESETS: Array<{ name: string; description: string; theme: Theme }
       heading_color: "#000000",
       text_color: "#000000",
       muted_text_color: "#374151",
+      hero_background_color: "#000000",
+      hero_heading_color: "#ffffff",
+      hero_subheading_color: "#fef3c7",
       nav_background: "#000000",
       nav_text: "#ffffff",
       footer_background: "#000000",
@@ -191,6 +212,15 @@ const COLOR_GROUPS: Array<{ label: string; description: string; keys: Array<{ ke
     ],
   },
   {
+    label: "Hero",
+    description: "The opening section background and copy colours.",
+    keys: [
+      { key: "hero_background_color", label: "Background" },
+      { key: "hero_heading_color", label: "Heading" },
+      { key: "hero_subheading_color", label: "Supporting Text" },
+    ],
+  },
+  {
     label: "Navigation",
     description: "Site header bar.",
     keys: [
@@ -213,6 +243,8 @@ const CONTRAST_PAIRS: Array<{ label: string; backgroundKey: string; textKey: str
   { label: "Body text on page", backgroundKey: "background_color", textKey: "text_color" },
   { label: "Muted text on page", backgroundKey: "background_color", textKey: "muted_text_color" },
   { label: "Text on primary", backgroundKey: "primary_color", textKey: "primary_text_color" },
+  { label: "Hero heading", backgroundKey: "hero_background_color", textKey: "hero_heading_color" },
+  { label: "Hero supporting text", backgroundKey: "hero_background_color", textKey: "hero_subheading_color" },
   { label: "Navigation", backgroundKey: "nav_background", textKey: "nav_text" },
   { label: "Footer", backgroundKey: "footer_background", textKey: "footer_text" },
 ];
@@ -467,10 +499,10 @@ export function WebsiteThemeCard() {
                   >
                     <div className="mb-3 flex items-center gap-1.5">
                       {[
+                        preset.theme.hero_background_color,
                         preset.theme.primary_color,
                         preset.theme.accent_color,
                         preset.theme.muted_background,
-                        preset.theme.footer_background,
                       ].map((color) => (
                         <span
                           key={`${preset.name}-${color}`}
@@ -595,6 +627,11 @@ export function WebsiteThemeCard() {
             <div className="overflow-hidden rounded-lg border" style={{ fontFamily: theme.body_font_family || undefined }}>
               <div className="px-4 py-3 text-sm font-semibold" style={{ backgroundColor: value("nav_background"), color: value("nav_text"), fontFamily: theme.heading_font_family || undefined }}>
                 Your Business
+              </div>
+              <div className="space-y-2 p-4 text-center" style={{ backgroundColor: value("hero_background_color"), color: value("hero_heading_color") }}>
+                <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: value("accent_color") }}>Local trade specialists</div>
+                <div className="text-lg font-bold" style={{ fontFamily: theme.heading_font_family || undefined }}>Reliable local service</div>
+                <p className="text-sm" style={{ color: value("hero_subheading_color") }}>Fast call-outs, clear pricing and tidy workmanship.</p>
               </div>
               <div className="space-y-3 p-4" style={{ backgroundColor: value("background_color"), color: value("text_color") }}>
                 <div className="text-base font-bold" style={{ fontFamily: theme.heading_font_family || undefined }}>Heading example</div>

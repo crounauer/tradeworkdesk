@@ -371,6 +371,12 @@ const THEME_OVERRIDE_TARGETS: Record<string, string[]> = {
   padding_y: ["padding_y"],
 };
 
+const HERO_THEME_OVERRIDE_TARGETS: Record<string, string[]> = {
+  hero_background_color: ["background_color", "backgroundColor", "section_bg"],
+  hero_heading_color: ["heading_color"],
+  hero_subheading_color: ["subheading_color", "text_color", "textColor"],
+};
+
 function buildThemeOverrides(theme: Record<string, unknown>): Record<string, string> {
   const listed = theme[THEME_OVERRIDE_LIST_KEY];
   if (!Array.isArray(listed)) return {};
@@ -379,6 +385,21 @@ function buildThemeOverrides(theme: Record<string, unknown>): Record<string, str
   for (const entry of listed) {
     const themeKey = String(entry);
     const targets = THEME_OVERRIDE_TARGETS[themeKey];
+    const value = theme[themeKey];
+    if (!targets || typeof value !== "string" || !value.trim()) continue;
+    for (const target of targets) overrides[target] = value.trim();
+  }
+  return overrides;
+}
+
+function buildHeroThemeOverrides(theme: Record<string, unknown>): Record<string, string> {
+  const listed = theme[THEME_OVERRIDE_LIST_KEY];
+  if (!Array.isArray(listed)) return {};
+
+  const overrides: Record<string, string> = {};
+  for (const entry of listed) {
+    const themeKey = String(entry);
+    const targets = HERO_THEME_OVERRIDE_TARGETS[themeKey];
     const value = theme[themeKey];
     if (!targets || typeof value !== "string" || !value.trim()) continue;
     for (const target of targets) overrides[target] = value.trim();
@@ -523,6 +544,7 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
         }
       : {}),
     ...buildThemeOverrides(themeObj),
+    ...(normalizedType === "hero" ? buildHeroThemeOverrides(themeObj) : {}),
     ...buildBlockOverrides(rawContent),
   };
   const renderer = blockRegistry[normalizedType];
