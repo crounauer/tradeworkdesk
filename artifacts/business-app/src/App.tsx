@@ -173,7 +173,6 @@ const SupportTicketsPage = lazyRetry(() => import("@/pages/support-tickets"));
 const PlatformSupportTicketsPage = lazyRetry(() => import("@/pages/platform-support-tickets"));
 
 const WebsiteSetup = lazyRetry(() => import("@/pages/website-setup"));
-const WebsiteTemplatesPage = lazyRetry(() => import("@/pages/website-templates"));
 const WebsitePages = lazyRetry(() => import("@/pages/website-pages"));
 const WebsitePageEditor = lazyRetry(() => import("@/pages/website-page-editor"));
 const WebsiteDomain = lazyRetry(() => import("@/pages/website-domain"));
@@ -502,7 +501,6 @@ const HelpRoute = protect(HelpPage);
 const GettingStartedRoute = protect(GettingStartedPage);
 const SupportTicketsRoute = protect(SupportTicketsPage);
 const WebsiteSetupRoute = protectFeature(WebsiteSetup, "website_builder");
-const WebsiteTemplatesRoute = protectFeature(WebsiteTemplatesPage, "website_builder");
 const WebsitePagesRoute = protectFeature(WebsitePages, "website_builder");
 const WebsitePageEditorRoute = protectFeature(WebsitePageEditor, "website_builder");
 const WebsiteDomainRoute = protectFeature(WebsiteDomain, "website_builder");
@@ -763,7 +761,7 @@ function AppRouter() {
   <Route path="/support" component={SupportTicketsRoute} />
 
         <Route path="/website" component={WebsiteSetupRoute} />
-        <Route path="/website/templates" component={WebsiteTemplatesRoute} />
+        <Route path="/website/templates">{() => <Redirect to="/website" />}</Route>
         <Route path="/website/preview" component={WebsitePreviewRoute} />
         <Route path="/website/pages" component={WebsitePagesRoute} />
         <Route path="/website/pages/:pageId" component={WebsitePageEditorRoute} />

@@ -585,6 +585,7 @@ router.post(
     let resolvedTemplate: { slug?: string; default_pages: Array<Record<string, unknown>> | null; default_theme: Record<string, unknown> | null; design_tokens?: Record<string, unknown>; figma_export_info?: Record<string, unknown>; source?: Record<string, unknown> } | null = null;
     let usedSignupDefaultTemplate = false;
     let signupDefaultTemplateSlug: string | null = null;
+    let automaticTemplateSource: "platform_default" | "first_published" | null = null;
 
     // If no explicit template was provided, fall back to the platform default
     // configured for new signups.
@@ -608,8 +609,34 @@ router.post(
         if (defaultTemplate?.id) {
           resolvedTemplateId = String(defaultTemplate.id);
           usedSignupDefaultTemplate = true;
+          automaticTemplateSource = "platform_default";
         }
       }
+    }
+
+    // The tenant setup flow no longer asks users to choose a full template.
+    // If the configured default is missing, use the first published blueprint
+    // rather than creating an empty website with no pages or theme.
+    if (!resolvedTemplateId) {
+      const { data: fallbackTemplate } = await db
+        .from("website_templates")
+        .select("id")
+        .or("status.eq.published,status.eq.live,is_active.eq.true")
+        .order("sort_order", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle() as { data: { id?: string } | null };
+
+      if (fallbackTemplate?.id) {
+        resolvedTemplateId = String(fallbackTemplate.id);
+        usedSignupDefaultTemplate = true;
+        automaticTemplateSource = "first_published";
+      }
+    }
+
+    if (!resolvedTemplateId) {
+      res.status(400).json({ error: "No website style is available. Please publish a master website template first." });
+      return;
     }
 
     // If template_id provided, fetch and validate it
@@ -670,6 +697,7 @@ router.post(
         templateId: resolvedTemplateId,
         detail: {
           default_signup_template_slug: signupDefaultTemplateSlug,
+          automatic_template_source: automaticTemplateSource,
           requested_template_id: template_id || null,
         },
       });

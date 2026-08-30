@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Palette, Save } from "lucide-react";
 import { getAccessibleTextColor, getContrastRatio, hasAccessibleContrast, sanitizeThemeColors } from "@/lib/color-contrast";
 
 type Theme = Record<string, string>;
@@ -32,6 +32,125 @@ const DEFAULT_THEME: Theme = {
   footer_background: "#111827",
   footer_text: "#9ca3af",
 };
+
+const PALETTE_KEYS = Object.keys(DEFAULT_THEME);
+
+const PALETTE_PRESETS: Array<{ name: string; description: string; theme: Theme }> = [
+  {
+    name: "Professional Blue",
+    description: "Calm, credible and service-led.",
+    theme: {
+      accent_color: "#0077b6",
+      primary_color: "#0b2545",
+      primary_text_color: "#ffffff",
+      background_color: "#f4f8fc",
+      muted_background: "#e6eef7",
+      border_color: "#c3d3e6",
+      heading_color: "#0b2545",
+      text_color: "#102a43",
+      muted_text_color: "#4f6b86",
+      nav_background: "#0b2545",
+      nav_text: "#ffffff",
+      footer_background: "#081a2f",
+      footer_text: "#bfd2e6",
+    },
+  },
+  {
+    name: "Clean Teal",
+    description: "Fresh, modern and practical.",
+    theme: {
+      accent_color: "#0d9488",
+      primary_color: "#134e4a",
+      primary_text_color: "#ffffff",
+      background_color: "#ffffff",
+      muted_background: "#f0fdfa",
+      border_color: "#99f6e4",
+      heading_color: "#0f172a",
+      text_color: "#1f2937",
+      muted_text_color: "#475569",
+      nav_background: "#134e4a",
+      nav_text: "#ffffff",
+      footer_background: "#0f172a",
+      footer_text: "#cbd5e1",
+    },
+  },
+  {
+    name: "Warm Classic",
+    description: "Established, traditional and friendly.",
+    theme: {
+      accent_color: "#b7791f",
+      primary_color: "#5a2e2e",
+      primary_text_color: "#fff8ee",
+      background_color: "#fbf4e8",
+      muted_background: "#f2e6d6",
+      border_color: "#dfc7aa",
+      heading_color: "#3f2a20",
+      text_color: "#3f2a20",
+      muted_text_color: "#7b5e4a",
+      nav_background: "#5a2e2e",
+      nav_text: "#fff8ee",
+      footer_background: "#3d1f1f",
+      footer_text: "#e9d7c0",
+    },
+  },
+  {
+    name: "Industrial Orange",
+    description: "Bold, direct and high-contrast.",
+    theme: {
+      accent_color: "#ff7a00",
+      primary_color: "#2b2d42",
+      primary_text_color: "#ffffff",
+      background_color: "#f3f4f6",
+      muted_background: "#e5e7eb",
+      border_color: "#c7cdd6",
+      heading_color: "#1f2937",
+      text_color: "#1f2937",
+      muted_text_color: "#4b5563",
+      nav_background: "#2b2d42",
+      nav_text: "#ffffff",
+      footer_background: "#1f2233",
+      footer_text: "#d1d5db",
+    },
+  },
+  {
+    name: "Eco Green",
+    description: "Clean, grounded and renewables-friendly.",
+    theme: {
+      accent_color: "#2e9b47",
+      primary_color: "#1b4332",
+      primary_text_color: "#ffffff",
+      background_color: "#f3fbf4",
+      muted_background: "#e1f1e5",
+      border_color: "#b7d7bf",
+      heading_color: "#173a2c",
+      text_color: "#173a2c",
+      muted_text_color: "#4d6f5e",
+      nav_background: "#1b4332",
+      nav_text: "#ffffff",
+      footer_background: "#122e24",
+      footer_text: "#b9d5c1",
+    },
+  },
+  {
+    name: "High Contrast",
+    description: "Simple, sharp and accessible.",
+    theme: {
+      accent_color: "#facc15",
+      primary_color: "#111827",
+      primary_text_color: "#ffffff",
+      background_color: "#ffffff",
+      muted_background: "#f3f4f6",
+      border_color: "#d1d5db",
+      heading_color: "#030712",
+      text_color: "#111827",
+      muted_text_color: "#374151",
+      nav_background: "#030712",
+      nav_text: "#ffffff",
+      footer_background: "#030712",
+      footer_text: "#e5e7eb",
+    },
+  },
+];
 
 const COLOR_GROUPS: Array<{ label: string; description: string; keys: Array<{ key: string; label: string }> }> = [
   {
@@ -219,6 +338,11 @@ export function WebsiteThemeCard() {
     saveMutation.mutate({ theme: next, overrides });
   };
 
+  const applyPalette = (presetTheme: Theme) => {
+    setTheme((current) => ({ ...current, ...presetTheme }));
+    markOverridden(PALETTE_KEYS, true);
+  };
+
   const setKeys = (keys: string[], value: string | null) => {
     setTheme((current) => {
       const next = { ...current };
@@ -246,7 +370,7 @@ export function WebsiteThemeCard() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <CardTitle className="text-base">Theme</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">Site-wide colours, fonts and shape. Anything you change here overrides the template on every block.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Choose a site-wide palette, then fine-tune colours, fonts and shape. Individual blocks can still be customised later.</p>
           </div>
           <div className="flex items-center gap-2">
             {overrides.length > 0 && (
@@ -262,6 +386,43 @@ export function WebsiteThemeCard() {
       <CardContent>
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
           <div className="space-y-4">
+            <div className="space-y-3 rounded-lg border p-4">
+              <div>
+                <div className="text-sm font-semibold">Palettes</div>
+                <p className="text-xs text-muted-foreground">Apply a complete colour set across the website. You can adjust individual colours afterwards.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {PALETTE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    className="rounded-lg border p-3 text-left transition hover:border-primary hover:bg-muted/40"
+                    onClick={() => applyPalette(preset.theme)}
+                  >
+                    <div className="mb-3 flex items-center gap-1.5">
+                      {[
+                        preset.theme.primary_color,
+                        preset.theme.accent_color,
+                        preset.theme.muted_background,
+                        preset.theme.footer_background,
+                      ].map((color) => (
+                        <span
+                          key={`${preset.name}-${color}`}
+                          className="h-5 w-5 rounded-full border"
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+                      {preset.name}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{preset.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {COLOR_GROUPS.map((group) => (
               <div key={group.label} className="space-y-3 rounded-lg border p-4">
                 <div>
