@@ -107,6 +107,25 @@ function getString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+function hexToRgbChannels(value: string): string | null {
+  const hex = String(value || "").trim();
+  const normalized = /^#([0-9a-f]{3})$/i.test(hex)
+    ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+    : hex;
+  const match = normalized.match(/^#([0-9a-f]{6})$/i);
+  if (!match) return null;
+  const int = Number.parseInt(match[1], 16);
+  return `${(int >> 16) & 255}, ${(int >> 8) & 255}, ${int & 255}`;
+}
+
+function getOverlayColor(value: unknown, opacity: number): string {
+  const overlayBase = getString(value) || "0,0,0";
+  const hexChannels = hexToRgbChannels(overlayBase);
+  if (hexChannels) return `rgba(${hexChannels}, ${opacity})`;
+  if (overlayBase.startsWith("rgb")) return overlayBase;
+  return `rgba(${overlayBase}, ${opacity})`;
+}
+
 function getSize(value: unknown, fallback: string): string {
   if (typeof value === "number" && Number.isFinite(value)) return `${value}px`;
   const asString = getString(value);
@@ -352,10 +371,7 @@ export default function HeroBlock({ content }: Props) {
   const bgColor = safeBackgroundColor ?? (isSplit ? (tone === "light" ? mutedBackgroundColorToken : "#ffffff") : primaryColorToken);
   const txtColor = safeTextColor ?? (isSplit ? "#111827" : primaryTextColorToken);
 
-  const overlayBase = getString(content.overlay_color) || "0,0,0";
-  const overlayColor = overlayBase.startsWith("rgb") || overlayBase.startsWith("#")
-    ? overlayBase
-    : `rgba(${overlayBase},${overlay_opacity})`;
+  const overlayColor = getOverlayColor(content.overlay_color, overlay_opacity);
   const bgStyle: React.CSSProperties = !isSplit && backgroundImageUrl
     ? { background: `linear-gradient(${overlayColor}, ${overlayColor}), url(${backgroundImageUrl}) center/cover no-repeat` }
     : { backgroundColor: bgColor };

@@ -370,6 +370,22 @@ function ColorInput({ label, value, onChange }: { label: string; value: string; 
   );
 }
 
+function hexToRgbChannels(value: string): string | null {
+  const hex = String(value || "").trim();
+  const normalized = /^#([0-9a-f]{3})$/i.test(hex)
+    ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+    : hex;
+  const match = normalized.match(/^#([0-9a-f]{6})$/i);
+  if (!match) return null;
+  const int = Number.parseInt(match[1], 16);
+  return `${(int >> 16) & 255}, ${(int >> 8) & 255}, ${int & 255}`;
+}
+
+function overlayFromThemeColor(color: string, opacity: number): string {
+  const channels = hexToRgbChannels(color);
+  return channels ? `rgba(${channels}, ${opacity})` : `rgba(2, 6, 23, ${opacity})`;
+}
+
 function FontOptionPreview({ label, stack }: { label: string; stack: string }) {
   return (
     <span className="flex min-w-0 flex-col gap-0.5 py-1">
@@ -515,6 +531,7 @@ export function WebsiteThemeCard() {
   const value = (key: string) => theme[key] || DEFAULT_THEME[key];
   const accent = value("accent_color");
   const accentText = getAccessibleTextColor(accent, "#ffffff");
+  const heroImageOverlay = overlayFromThemeColor(value("hero_background_color"), 0.62);
 
   return (
     <Card>
@@ -732,7 +749,7 @@ export function WebsiteThemeCard() {
                 className="relative overflow-hidden p-4 text-center"
                 style={{
                   backgroundColor: value("hero_background_color"),
-                  backgroundImage: theme.hero_background_image_url ? `linear-gradient(rgba(2,6,23,0.58), rgba(2,6,23,0.58)), url(${theme.hero_background_image_url})` : undefined,
+                  backgroundImage: theme.hero_background_image_url ? `linear-gradient(${heroImageOverlay}, ${heroImageOverlay}), url(${theme.hero_background_image_url})` : undefined,
                   backgroundPosition: "center",
                   backgroundSize: "cover",
                   color: value("hero_heading_color"),
