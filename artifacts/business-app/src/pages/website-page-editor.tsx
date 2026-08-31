@@ -2001,7 +2001,13 @@ function BlockEditor({
       const headingFont = readString(c, ["heading_font_family"], "inherit");
       const bodyFont = readString(c, ["body_font_family"], "inherit");
       const buttonFont = readString(c, ["button_font_family"], "inherit");
+      const badgeBg = readString(c, ["badge_bg"], "#fef3c7");
+      const badgeTextColor = readString(c, ["badge_text_color"], "#92400e");
+      const radius = readString(c, ["card_radius"], "10px");
       const isPreviewVisible = previewEnabled !== false;
+      const previewItems = items.length > 0
+        ? items.slice(0, 6)
+        : [{ title: "Service", description: "Service description", icon: "⚙️", cta_text: "Learn more", cta_url: "", badge: "" }];
 
       return (
         <div className="space-y-6">
@@ -2016,22 +2022,91 @@ function BlockEditor({
                     </div>
                   </CardHeader>
                   <CardContent className="p-0 xl:h-[calc(100vh-11.5rem)] xl:overflow-y-auto">
+                    <style>{`
+                      .svc-preview-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+                      @media (min-width: 700px) { .svc-preview-grid { grid-template-columns: repeat(${previewColumns}, 1fr); } }
+                      .svc-preview-panel { display: grid; grid-template-columns: 1fr; gap: 16px; }
+                      @media (min-width: 700px) { .svc-preview-panel { grid-template-columns: repeat(2, 1fr); } }
+                    `}</style>
                     <section style={{ padding: "24px 18px", background: sectionBg }}>
-                      {label ? <p style={{ margin: "0 0 6px", color: accentColor, fontWeight: 700, fontFamily: bodyFont }}>{label}</p> : null}
-                      <h3 style={{ margin: "0 0 6px", color: headingColor, fontSize: "1.35rem", fontWeight: 800, fontFamily: headingFont }}>{heading || "How we can help"}</h3>
-                      <p style={{ margin: "0 0 14px", color: bodyColor, fontFamily: bodyFont }}>{subtitle || "Core services for homeowners and businesses."}</p>
-                      <div style={{ display: "grid", gridTemplateColumns: layoutVariant === "split-list" ? "1fr" : `repeat(${previewColumns}, minmax(0, 1fr))`, gap: 10 }}>
-                        {items.slice(0, 4).map((item, i) => (
-                          <article key={i} style={{ border: `1px solid ${cardBorder}`, borderRadius: 10, background: cardBg, padding: "12px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span>{item.icon || "⚙️"}</span>
-                              <strong style={{ color: headingColor, fontFamily: headingFont }}>{item.title || "Service"}</strong>
-                            </div>
-                            <p style={{ margin: "6px 0 8px", color: bodyColor, fontSize: "0.85rem", fontFamily: bodyFont }}>{item.description || "Service description"}</p>
-                            <span style={{ color: linkColor, fontWeight: 700, fontSize: "0.82rem", fontFamily: buttonFont }}>{item.cta_text || "Learn more"} →</span>
-                          </article>
-                        ))}
+                      <div style={{ textAlign: layoutVariant === "split-list" ? "left" : "center", marginBottom: 36 }}>
+                        {label ? <p style={{ margin: "0 0 10px", color: accentColor, fontWeight: 700, fontSize: "0.8125rem", letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: bodyFont }}>{label}</p> : null}
+                        <h3 style={{ margin: "0 0 14px", color: headingColor, fontSize: "clamp(1.75rem, 3vw, 2.25rem)", fontWeight: 800, fontFamily: headingFont }}>{heading || "How we can help"}</h3>
+                        {(subtitle || layoutVariant !== "split-list") && (
+                          <p style={{ margin: layoutVariant === "split-list" ? 0 : "0 auto", maxWidth: layoutVariant === "split-list" ? 720 : 560, color: bodyColor, fontSize: "1.0625rem", fontFamily: bodyFont }}>{subtitle || "Core services for homeowners and businesses."}</p>
+                        )}
                       </div>
+
+                      {layoutVariant === "split-list" && (
+                        <div style={{ display: "grid", gap: 20 }}>
+                          <div style={{ border: `1px solid ${cardBorder}`, borderRadius: radius, background: cardBg, padding: 20 }}>
+                            <p style={{ margin: 0, color: headingColor, fontWeight: 700, fontFamily: headingFont }}>Our services at a glance</p>
+                            <p style={{ margin: "8px 0 0", color: bodyColor, fontSize: "0.9375rem", lineHeight: 1.6, fontFamily: bodyFont }}>Choose a service to learn more and request a quote.</p>
+                          </div>
+                          <div style={{ display: "grid", gap: 12 }}>
+                            {previewItems.map((item, i) => (
+                              <article key={i} style={{ border: `1px solid ${cardBorder}`, borderRadius: radius, background: cardBg, padding: "16px 18px", display: "grid", gap: 8 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  {item.icon ? <span style={{ fontSize: "1.1rem" }}>{item.icon}</span> : null}
+                                  <strong style={{ color: headingColor, fontFamily: headingFont }}>{item.title || "Service"}</strong>
+                                </div>
+                                {item.description ? <p style={{ margin: 0, color: bodyColor, fontSize: "0.9375rem", lineHeight: 1.6, fontFamily: bodyFont }}>{item.description}</p> : null}
+                                <span style={{ color: linkColor, fontWeight: 700, fontSize: "0.9rem", fontFamily: buttonFont }}>{item.cta_text || "Learn more"} →</span>
+                              </article>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {layoutVariant === "icon-panels" && (
+                        <div className="svc-preview-panel">
+                          {previewItems.map((item, i) => (
+                            <article key={i} style={{ border: `1px solid ${cardBorder}`, borderRadius: radius, background: cardBg, padding: 22, display: "grid", gap: 10 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <div style={{ width: 44, height: 44, borderRadius: "50%", background: `${accentColor}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                  <span>{item.icon || "⚙️"}</span>
+                                </div>
+                                <strong style={{ color: headingColor, fontFamily: headingFont }}>{item.title || "Service"}</strong>
+                              </div>
+                              {item.description ? <p style={{ margin: 0, color: bodyColor, lineHeight: 1.65, fontSize: "0.9375rem", fontFamily: bodyFont }}>{item.description}</p> : null}
+                              <span style={{ color: linkColor, fontWeight: 700, fontSize: "0.9rem", fontFamily: buttonFont }}>{item.cta_text || "Get a quote"} →</span>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+
+                      {layoutVariant === "compact-rows" && (
+                        <div style={{ display: "grid", gap: 8 }}>
+                          {previewItems.map((item, i) => (
+                            <article key={i} style={{ border: `1px solid ${cardBorder}`, borderRadius: radius, background: cardBg, padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                {item.icon ? <span>{item.icon}</span> : null}
+                                <span style={{ fontWeight: 700, color: headingColor, fontFamily: headingFont }}>{item.title || "Service"}</span>
+                                {item.badge ? <span style={{ background: badgeBg, color: badgeTextColor, borderRadius: 999, padding: "2px 8px", fontSize: "0.7rem", fontWeight: 700, fontFamily: bodyFont }}>{item.badge}</span> : null}
+                              </div>
+                              <span style={{ color: linkColor, fontWeight: 700, fontSize: "0.86rem", fontFamily: buttonFont }}>{item.cta_text || "Details"} →</span>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+
+                      {(layoutVariant === "card-grid" || !["split-list", "icon-panels", "compact-rows"].includes(layoutVariant)) && (
+                        <div className="svc-preview-grid">
+                          {previewItems.map((item, i) => (
+                            <article key={i} style={{ background: cardBg, borderRadius: radius, padding: "28px 24px 24px", boxShadow: "0 1px 4px rgba(0,0,0,0.07)", border: `1px solid ${cardBorder}`, display: "flex", flexDirection: "column" }}>
+                              {item.badge ? (
+                                <span style={{ display: "inline-block", background: badgeBg, color: badgeTextColor, fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", borderRadius: 4, padding: "2px 8px", marginBottom: 14, alignSelf: "flex-start", fontFamily: bodyFont }}>{item.badge}</span>
+                              ) : null}
+                              <div style={{ width: 48, height: 48, background: `${accentColor}18`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", marginBottom: 16 }}>
+                                {item.icon || "⚙️"}
+                              </div>
+                              <h4 style={{ margin: "0 0 10px", fontSize: "1.0625rem", fontWeight: 700, color: headingColor, fontFamily: headingFont }}>{item.title || "Service"}</h4>
+                              {item.description ? <p style={{ margin: "0 0 20px", color: bodyColor, fontSize: "0.9375rem", lineHeight: 1.65, flex: 1, fontFamily: bodyFont }}>{item.description}</p> : null}
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: linkColor, fontWeight: 700, fontSize: "0.9rem", marginTop: "auto", fontFamily: buttonFont }}>{item.cta_text || "Get a quote"} ›</span>
+                            </article>
+                          ))}
+                        </div>
+                      )}
                     </section>
                   </CardContent>
                 </Card>

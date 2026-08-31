@@ -203,7 +203,7 @@ export function BookJobDialog({
 
   const todayStr = new Date().toISOString().split("T")[0];
 
-  const { register, handleSubmit, watch, reset, setValue } = useForm<BookJobFormData>({
+  const { register, handleSubmit, watch, reset, setValue, getValues } = useForm<BookJobFormData>({
     defaultValues: {
       customer_mode: "existing",
       visit_intent: "standard",
@@ -220,17 +220,18 @@ export function BookJobDialog({
   const selectedJobTypeId = watch("job_type_id");
   const isLandlord = watch("new_is_landlord");
   const isAllDay = watch("all_day");
-  const enteredDuration = watch("job_duration_minutes");
   const filteredProperties = properties?.filter(p => !selectedCustomerId || p.customer_id === selectedCustomerId);
 
   useEffect(() => {
     if (!selectedJobTypeId) return;
     const selectedType = jobTypes.find((t) => t.id === selectedJobTypeId);
     const selectedDuration = Number(selectedType?.booking_duration_minutes ?? 0);
-    if (Number.isFinite(selectedDuration) && selectedDuration > 0 && !enteredDuration) {
+    // Only auto-fill when the job type changes, not on every keystroke in the duration field.
+    if (Number.isFinite(selectedDuration) && selectedDuration > 0 && !getValues("job_duration_minutes")) {
       setValue("job_duration_minutes", String(selectedDuration), { shouldDirty: false });
     }
-  }, [selectedJobTypeId, jobTypes, enteredDuration, setValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedJobTypeId, jobTypes, setValue]);
 
   const selectedCustomer = customers?.find(c => c.id === selectedCustomerId);
   const existingCustomerEmail = selectedCustomer?.email || null;
