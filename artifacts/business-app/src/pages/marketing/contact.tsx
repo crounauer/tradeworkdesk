@@ -13,7 +13,7 @@ const contactMethods = [
   {
     icon: Phone,
     title: "Phone",
-    detail: "0800 123 4567",
+    detail: "07805 364901",
     desc: "Monday to Friday, 8am - 6pm GMT.",
   },
   {
@@ -25,8 +25,8 @@ const contactMethods = [
   {
     icon: MapPin,
     title: "Office",
-    detail: "London, United Kingdom",
-    desc: "Registered in England & Wales.",
+    detail: "Ellon, Scotland",
+    desc: "Registered in Scotland.",
   },
 ];
 

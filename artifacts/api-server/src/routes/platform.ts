@@ -1225,6 +1225,14 @@ router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (re
     .eq("tenant_id", id);
   if (deleteInvoicesError) { res.status(500).json({ error: deleteInvoicesError.message }); return; }
 
+  // customer_portal_users also uses tenant_id as TEXT and its customer_id FK is
+  // restrictive (no cascade), which otherwise blocks the customers cascade below.
+  const { error: deletePortalUsersError } = await supabaseAdmin
+    .from("customer_portal_users")
+    .delete()
+    .eq("tenant_id", id);
+  if (deletePortalUsersError) { res.status(500).json({ error: deletePortalUsersError.message }); return; }
+
   const { error: deleteAddonsError } = await supabaseAdmin.from("tenant_addons").delete().eq("tenant_id", id);
   if (deleteAddonsError) { res.status(500).json({ error: deleteAddonsError.message }); return; }
 
