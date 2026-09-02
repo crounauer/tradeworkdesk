@@ -3518,6 +3518,21 @@ router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), req
     if (resetErr) { res.status(500).json({ error: resetErr.message }); return; }
   }
 
+  // Make a deleted converted job available for conversion from its enquiry again.
+  let resetEnquiryQ = supabaseAdmin
+    .from("enquiries")
+    .update({
+      status: "new",
+      linked_job_id: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("linked_job_id", params.data.id)
+    .eq("status", "converted");
+  if (req.tenantId) resetEnquiryQ = resetEnquiryQ.eq("tenant_id", req.tenantId);
+
+  const { error: resetEnquiryErr } = await resetEnquiryQ;
+  if (resetEnquiryErr) { res.status(500).json({ error: resetEnquiryErr.message }); return; }
+
   invalidateJobsCache(req.tenantId);
   invalidateHomepageCache(req.tenantId);
   res.sendStatus(204);
