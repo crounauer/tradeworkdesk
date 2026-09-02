@@ -668,14 +668,38 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
       if (!first_name || !last_name) {
         res.status(400).json({ error: "Customer first_name and last_name required" }); return;
       }
-      const { data: cust, error: custErr } = await supabaseAdmin
+      const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : null;
+      const normalizedPhone = typeof phone === "string" ? phone.trim() : null;
+      let existingCustomerQ = supabaseAdmin
         .from("customers")
-        .insert({ first_name, last_name, phone: phone || null, email: email || null, tenant_id: req.tenantId })
-        .select()
-        .single();
-      if (custErr) throw new Error(`Customer creation failed: ${custErr.message}`);
-      finalCustomerId = cust.id;
-      createdIds.customer = cust.id;
+        .select("id")
+        .eq("tenant_id", req.tenantId)
+        .eq("is_active", true)
+        .limit(1);
+
+      if (normalizedEmail && normalizedPhone) {
+        existingCustomerQ = existingCustomerQ.or(`email.eq.${normalizedEmail},phone.eq.${normalizedPhone}`);
+      } else if (normalizedEmail) {
+        existingCustomerQ = existingCustomerQ.eq("email", normalizedEmail);
+      } else if (normalizedPhone) {
+        existingCustomerQ = existingCustomerQ.eq("phone", normalizedPhone);
+      }
+
+      const { data: existingCustomer, error: existingCustomerErr } = await existingCustomerQ.maybeSingle();
+      if (existingCustomerErr) throw new Error(`Customer lookup failed: ${existingCustomerErr.message}`);
+
+      if (existingCustomer) {
+        finalCustomerId = existingCustomer.id;
+      } else {
+        const { data: cust, error: custErr } = await supabaseAdmin
+          .from("customers")
+          .insert({ first_name, last_name, phone: normalizedPhone, email: normalizedEmail, tenant_id: req.tenantId })
+          .select()
+          .single();
+        if (custErr) throw new Error(`Customer creation failed: ${custErr.message}`);
+        finalCustomerId = cust.id;
+        createdIds.customer = cust.id;
+      }
     }
 
     let finalPropertyId = property_id;
