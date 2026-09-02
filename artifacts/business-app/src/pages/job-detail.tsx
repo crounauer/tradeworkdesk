@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check,
   ClipboardCheck, Droplets, ShieldAlert, Gauge, Settings, ShieldCheck, Pipette,
-  ClipboardList, Wind, Clock, Package, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
+  ClipboardList, Wind, Clock, Camera, Upload, Trash2, Plus, Image as ImageIcon, Bookmark,
   MessageSquare, Send, Pencil, PoundSterling, Mail, ChevronDown, ChevronUp,
   CheckCircle2, Loader2, RefreshCw, CalendarPlus, RotateCcw, AlertCircle, ExternalLink, WifiOff, CloudOff,
   Phone, Smartphone, Receipt, Download, Copy
@@ -429,12 +429,12 @@ export default function JobDetail() {
     }
   };
 
-  // Records why the visit didn't finish, then offers to raise the follow-up in one go.
-  const handleVisitOutcome = async (newStatus: "awaiting_parts" | "requires_follow_up", label: string, partsRequired: boolean) => {
-    const ok = await handleStatusChange(newStatus, label);
+  // Records the unfinished visit, then offers to raise the follow-up in one go.
+  const handleVisitOutcome = async () => {
+    const ok = await handleStatusChange("requires_follow_up", "Requires Follow-up");
     if (!ok) return;
     if (isOfficeOrAdmin && !hasFollowUpLabel) {
-      setFollowUpPartsDefault(partsRequired);
+      setFollowUpPartsDefault(false);
       setShowFollowUpForm(true);
     }
   };
@@ -690,13 +690,8 @@ export default function JobDetail() {
               <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
             </Button>
           )}
-          {canComplete && job.status !== "awaiting_parts" && (
-            <Button size="sm" variant="outline" className="border-amber-300 text-amber-800 hover:bg-amber-50" onClick={() => handleVisitOutcome("awaiting_parts", "Awaiting Parts", true)} disabled={updateJob.isPending}>
-              <Package className="w-4 h-4 mr-2" /> Needs Parts
-            </Button>
-          )}
           {canComplete && job.status !== "requires_follow_up" && (
-            <Button size="sm" variant="outline" className="border-indigo-300 text-indigo-800 hover:bg-indigo-50" onClick={() => handleVisitOutcome("requires_follow_up", "Requires Follow-up", false)} disabled={updateJob.isPending}>
+            <Button size="sm" variant="outline" className="border-indigo-300 text-indigo-800 hover:bg-indigo-50" onClick={handleVisitOutcome} disabled={updateJob.isPending}>
               <CalendarPlus className="w-4 h-4 mr-2" /> Needs Another Visit
             </Button>
           )}
@@ -3173,7 +3168,6 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
               <option value="cancelled">Cancelled</option>
               <option value="requires_follow_up">Requires Follow-up</option>
               <option value="follow_up_scheduled">Follow-up Scheduled</option>
-              <option value="awaiting_parts">Awaiting Parts</option>
               <option value="invoiced">Invoiced</option>
             </select>
           </div>
