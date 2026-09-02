@@ -501,7 +501,7 @@ router.delete("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin"
 
   const { data: existingFollowUp, error: existingFollowUpErr } = await supabaseAdmin
     .from("follow_ups")
-    .select("id, status, new_job_id")
+    .select("id, status, new_job_id, original_job_id")
     .eq("id", id)
     .eq("tenant_id", req.tenantId!)
     .maybeSingle();
@@ -525,6 +525,17 @@ router.delete("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin"
 
   const { error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  let restoreJobQ = supabaseAdmin
+    .from("jobs")
+    .update({ status: "scheduled", updated_at: new Date().toISOString() })
+    .eq("id", existingFollowUp.original_job_id)
+    .eq("status", "requires_follow_up");
+  if (req.tenantId) restoreJobQ = restoreJobQ.eq("tenant_id", req.tenantId);
+
+  const { error: restoreJobErr } = await restoreJobQ;
+  if (restoreJobErr) { res.status(500).json({ error: restoreJobErr.message }); return; }
+
   invalidateHomepageCache(req.tenantId);
   res.json({ success: true });
 });
