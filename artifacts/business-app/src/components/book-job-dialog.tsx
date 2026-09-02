@@ -589,7 +589,7 @@ export function BookJobDialog({
         scheduled_date: data.scheduled_date,
         scheduled_end_date: data.scheduled_end_date || undefined,
         scheduled_time: data.all_day ? undefined : (data.scheduled_time || undefined),
-        estimated_duration: data.all_day ? null : estimatedDuration,
+          estimated_duration: data.all_day ? undefined : estimatedDuration,
         all_day: data.all_day,
         description: data.description || undefined,
         assigned_technician_id: technicianId,
