@@ -1,8 +1,8 @@
 import { useForm } from "react-hook-form";
 import { useEffect, useMemo , useRef, useState } from "react";
-import { useCreateServiceRecord, useGetServiceRecordByJob, useUpdateServiceRecord, useGetJob, customFetch, getGetServiceRecordByJobQueryKey } from "@workspace/api-client-react";
+import { useCreateServiceRecord, useGetServiceRecordByJob, useUpdateServiceRecord, useGetJob, useListAppliances, customFetch, getGetServiceRecordByJobQueryKey, getListAppliancesQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { CreateServiceRecordBody } from "@workspace/api-client-react";
+import type { Appliance, CreateServiceRecordBody } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -127,6 +127,10 @@ export default function ServiceRecordForm() {
   const queryClient = useQueryClient();
   const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetServiceRecordByJob(jobId!);
   const { data: job } = useGetJob(jobId!);
+  const { data: appliances = [] } = useListAppliances(
+    { property_id: job?.property_id || "" },
+    { query: { enabled: Boolean(job?.property_id), queryKey: getListAppliancesQueryKey({ property_id: job?.property_id || "" }) } },
+  );
 
 
   const createMutation = useCreateServiceRecord();
@@ -136,6 +140,7 @@ export default function ServiceRecordForm() {
   const populatedAt = useRef(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedApplianceId, setSelectedApplianceId] = useState("");
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
 
@@ -145,6 +150,17 @@ export default function ServiceRecordForm() {
 
   const isGas = fuelType === "gas" || fuelType === "lpg";
   const isOil = !isGas;
+
+  const prefillAppliance = (appliance: Appliance) => {
+    setValue("appliance_make", appliance.manufacturer || "");
+    setValue("appliance_model", appliance.model || "");
+    setValue("appliance_serial", appliance.serial_number || "");
+    setValue("appliance_type", appliance.boiler_type || "");
+    setValue("burner_make_model", [appliance.burner_make, appliance.burner_model].filter(Boolean).join(" / "));
+    setValue("fuel_supply_type_details", [appliance.fuel_type, appliance.system_type].filter(Boolean).join(" / "));
+    setValue("nozzle_size_fitted", appliance.nozzle_size || "");
+    setValue("oil_pressure", appliance.pump_pressure || "");
+  };
 
   const toDatetimeLocal = (v: unknown): string => {
     if (!v) return "";
@@ -380,6 +396,19 @@ export default function ServiceRecordForm() {
       });
     }
   }, [existingRecord, dataUpdatedAt, reset, job]);
+
+  useEffect(() => {
+    if (existingRecord || selectedApplianceId || appliances.length === 0) return;
+    const defaultAppliance = appliances.find((appliance) => appliance.id === job?.appliance_id)
+      || (appliances.length === 1 ? appliances[0] : undefined);
+    if (defaultAppliance) setSelectedApplianceId(defaultAppliance.id);
+  }, [appliances, existingRecord, job?.appliance_id, selectedApplianceId]);
+
+  useEffect(() => {
+    if (existingRecord || !selectedApplianceId) return;
+    const selectedAppliance = appliances.find((appliance) => appliance.id === selectedApplianceId);
+    if (selectedAppliance) prefillAppliance(selectedAppliance);
+  }, [appliances, existingRecord, selectedApplianceId]);
 
   const onSubmit = async (data: ServiceRecordFormData) => {
     if (!user?.id) return;
@@ -698,6 +727,24 @@ export default function ServiceRecordForm() {
         {isOil && (
           <Card className="p-6 shadow-sm border-amber-200 bg-amber-50/30">
             <h2 className="font-bold text-lg mb-4 text-amber-700 flex items-center gap-2"><Wrench className="w-5 h-5"/> Appliance Identification</h2>
+            {appliances.length > 0 && (
+              <div className="mb-4 max-w-xl space-y-2">
+                <Label>Appliance At This Property</Label>
+                <select
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                  value={selectedApplianceId}
+                  onChange={(event) => setSelectedApplianceId(event.target.value)}
+                >
+                  <option value="">Select appliance...</option>
+                  {appliances.map((appliance) => (
+                    <option key={appliance.id} value={appliance.id}>
+                      {[appliance.manufacturer, appliance.model].filter(Boolean).join(" ") || "Unnamed appliance"}
+                      {appliance.serial_number ? ` - ${appliance.serial_number}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="grid md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Appliance Make</Label>
