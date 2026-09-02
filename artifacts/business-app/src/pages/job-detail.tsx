@@ -431,7 +431,7 @@ export default function JobDetail() {
 
   // Records the unfinished visit, then offers to raise the follow-up in one go.
   const handleVisitOutcome = async () => {
-    const ok = await handleStatusChange("follow_up_scheduled", "Follow-up Visit Scheduled");
+    const ok = await handleStatusChange("requires_follow_up", "Requires Follow-up");
     if (!ok) return;
     if (isOfficeOrAdmin && !hasFollowUpLabel) {
       setFollowUpPartsDefault(false);
@@ -483,7 +483,7 @@ export default function JobDetail() {
 
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const isOfficeOrAdmin = isAdmin || profile?.role === "office_staff";
-  const isReturnVisitPending = job?.status === "requires_follow_up" || job?.status === "follow_up_scheduled";
+  const isReturnVisitPending = job?.status === "follow_up_scheduled";
   const canComplete = job ? job.status !== "completed" && job.status !== "invoiced" && job.status !== "cancelled" && !isReturnVisitPending : false;
   const canInvoice = job?.status === "completed";
   const canCreateFollowUp = !!job && isOfficeOrAdmin && (job.status === "completed" || job.status === "invoiced" || job.status === "awaiting_parts" || job.status === "requires_follow_up");
@@ -645,7 +645,7 @@ export default function JobDetail() {
               <span className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">Return Visit Required</span>
             )}
             {job.status === "follow_up_scheduled" && (
-              <span className="inline-flex items-center rounded-md border border-teal-200 bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800">Follow-up Visit Scheduled</span>
+              <span className="inline-flex items-center rounded-md border border-teal-200 bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800">Return Visit Scheduled</span>
             )}
             {isAllDayJob && (
               <span className="inline-flex items-center rounded-md border border-cyan-200 bg-cyan-100 px-2.5 py-1 text-xs font-semibold text-cyan-800">All Day</span>
