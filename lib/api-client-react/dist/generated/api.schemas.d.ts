@@ -206,6 +206,7 @@ export declare const JobStatus: {
     readonly requires_follow_up: "requires_follow_up";
     readonly awaiting_parts: "awaiting_parts";
     readonly invoiced: "invoiced";
+    readonly follow_up_scheduled: "follow_up_scheduled";
 };
 export type JobPriority = (typeof JobPriority)[keyof typeof JobPriority];
 export declare const JobPriority: {
@@ -721,6 +722,7 @@ export declare const UpdateJobBodyStatus: {
     readonly requires_follow_up: "requires_follow_up";
     readonly awaiting_parts: "awaiting_parts";
     readonly invoiced: "invoiced";
+    readonly follow_up_scheduled: "follow_up_scheduled";
 };
 export type UpdateJobBodyPriority = (typeof UpdateJobBodyPriority)[keyof typeof UpdateJobBodyPriority];
 export declare const UpdateJobBodyPriority: {

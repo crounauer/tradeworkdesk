@@ -107,6 +107,7 @@ const STATUS_COLORS: Record<string, string> = {
   in_progress: "bg-amber-100 text-amber-700",
   completed: "bg-emerald-100 text-emerald-700",
   requires_follow_up: "bg-rose-100 text-rose-700",
+  follow_up_scheduled: "bg-teal-100 text-teal-700",
   awaiting_parts: "bg-orange-100 text-orange-700",
   invoiced: "bg-violet-100 text-violet-700",
   cancelled: "bg-slate-200 text-slate-500",

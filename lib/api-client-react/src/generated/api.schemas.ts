@@ -220,6 +220,7 @@ export const JobStatus = {
   requires_follow_up: "requires_follow_up",
   awaiting_parts: "awaiting_parts",
   invoiced: "invoiced",
+  follow_up_scheduled: "follow_up_scheduled",
 } as const;
 
 export type JobPriority = (typeof JobPriority)[keyof typeof JobPriority];
@@ -775,6 +776,7 @@ export const UpdateJobBodyStatus = {
   requires_follow_up: "requires_follow_up",
   awaiting_parts: "awaiting_parts",
   invoiced: "invoiced",
+  follow_up_scheduled: "follow_up_scheduled",
 } as const;
 
 export type UpdateJobBodyPriority =

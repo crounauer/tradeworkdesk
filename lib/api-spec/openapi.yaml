@@ -2278,7 +2278,7 @@ components:
           enum: [service, breakdown, installation, inspection, follow_up]
         status:
           type: string
-          enum: [scheduled, in_progress, completed, cancelled, requires_follow_up, invoiced]
+          enum: [scheduled, in_progress, completed, cancelled, requires_follow_up, invoiced, follow_up_scheduled]
         priority:
           type: string
           enum: [low, medium, high, urgent]
@@ -2470,7 +2470,7 @@ components:
           enum: [service, breakdown, installation, inspection, follow_up]
         status:
           type: string
-          enum: [scheduled, in_progress, completed, cancelled, requires_follow_up, invoiced]
+          enum: [scheduled, in_progress, completed, cancelled, requires_follow_up, invoiced, follow_up_scheduled]
         priority:
           type: string
           enum: [low, medium, high, urgent]

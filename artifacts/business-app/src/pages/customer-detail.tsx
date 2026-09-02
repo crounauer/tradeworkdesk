@@ -518,6 +518,7 @@ function CustomerJobsSection({ customerId }: { customerId: string }) {
     completed: "bg-emerald-100 text-emerald-700",
     cancelled: "bg-slate-100 text-slate-500",
     requires_follow_up: "bg-rose-100 text-rose-700",
+    follow_up_scheduled: "bg-teal-100 text-teal-700",
     awaiting_parts: "bg-orange-100 text-orange-700",
     invoiced: "bg-violet-100 text-violet-700",
   };
@@ -528,6 +529,7 @@ function CustomerJobsSection({ customerId }: { customerId: string }) {
     completed: "Completed",
     cancelled: "Cancelled",
     requires_follow_up: "Follow Up",
+    follow_up_scheduled: "Follow-up Scheduled",
     awaiting_parts: "Awaiting Parts",
     invoiced: "Invoiced",
   };

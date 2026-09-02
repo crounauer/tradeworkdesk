@@ -12,6 +12,7 @@ const statusColors: Record<string, string> = {
   completed: "bg-emerald-100 text-emerald-700",
   cancelled: "bg-slate-100 text-slate-500",
   requires_follow_up: "bg-rose-100 text-rose-700",
+  follow_up_scheduled: "bg-teal-100 text-teal-700",
 };
 
 const statusLabels: Record<string, string> = {
@@ -20,6 +21,7 @@ const statusLabels: Record<string, string> = {
   completed: "Completed",
   cancelled: "Cancelled",
   requires_follow_up: "Follow Up",
+  follow_up_scheduled: "Follow-up Scheduled",
 };
 
 export default function PortalJobDetail() {

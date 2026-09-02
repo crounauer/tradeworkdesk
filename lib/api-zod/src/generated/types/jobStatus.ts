@@ -14,4 +14,7 @@ export const JobStatus = {
   completed: "completed",
   cancelled: "cancelled",
   requires_follow_up: "requires_follow_up",
+  awaiting_parts: "awaiting_parts",
+  invoiced: "invoiced",
+  follow_up_scheduled: "follow_up_scheduled",
 } as const;

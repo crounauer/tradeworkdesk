@@ -80,6 +80,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   completed: { label: "Completed", className: "bg-emerald-100 text-emerald-700" },
   cancelled: { label: "Cancelled", className: "bg-slate-100 text-slate-500" },
   requires_follow_up: { label: "Follow Up", className: "bg-rose-100 text-rose-700" },
+  follow_up_scheduled: { label: "Follow-up Scheduled", className: "bg-teal-100 text-teal-700" },
   awaiting_parts: { label: "Awaiting Parts", className: "bg-orange-100 text-orange-700" },
   invoiced: { label: "Invoiced", className: "bg-purple-100 text-purple-700" },
 };
@@ -225,7 +226,7 @@ export default function Dashboard() {
   }, [engineerFilter, engineerProfiles]);
 
   const activeTeamJobs = useMemo(
-    () => teamCalendarJobs.filter((job) => job.status !== "cancelled" && job.status !== "completed"),
+    () => teamCalendarJobs.filter((job) => job.status !== "cancelled" && job.status !== "completed" && job.status !== "follow_up_scheduled"),
     [teamCalendarJobs]
   );
 

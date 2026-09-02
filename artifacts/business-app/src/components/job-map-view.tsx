@@ -32,6 +32,7 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "#10b981",
   cancelled: "#6b7280",
   requires_follow_up: "#ef4444",
+  follow_up_scheduled: "#14b8a6",
   invoiced: "#8b5cf6",
 };
 

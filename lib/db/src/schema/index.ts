@@ -2,7 +2,7 @@ import { pgTable, uuid, text, varchar, boolean, date, time, integer, serial, num
 
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "office_staff", "technician"]);
-export const jobStatusEnum = pgEnum("job_status", ["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up"]);
+export const jobStatusEnum = pgEnum("job_status", ["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "follow_up_scheduled"]);
 export const jobTypeEnum = pgEnum("job_type", ["service", "breakdown", "installation", "inspection", "follow_up"]);
 export const priorityEnum = pgEnum("priority_level", ["low", "medium", "high", "urgent"]);
 export const propertyTypeEnum = pgEnum("property_type", ["residential", "commercial", "industrial"]);

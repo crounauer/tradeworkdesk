@@ -221,6 +221,7 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
   cancelled: "bg-gray-100 text-gray-500 border-gray-200",
   requires_follow_up: "bg-rose-100 text-rose-700 border-rose-200",
+  follow_up_scheduled: "bg-teal-100 text-teal-700 border-teal-200",
   awaiting_parts: "bg-orange-100 text-orange-700 border-orange-200",
   invoiced: "bg-violet-100 text-violet-700 border-violet-200",
 };
@@ -231,6 +232,7 @@ const STATUS_LABELS: Record<string, string> = {
   completed: "Completed",
   cancelled: "Cancelled",
   requires_follow_up: "Follow Up",
+  follow_up_scheduled: "Follow-up Scheduled",
   awaiting_parts: "Awaiting Parts",
   invoiced: "Invoiced",
 };

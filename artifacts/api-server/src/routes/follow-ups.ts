@@ -461,6 +461,14 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     res.status(500).json({ error: "Failed to link follow-up to new job" }); return;
   }
 
+  // Close out the original job now that its follow-up work has an actual booked visit.
+  let closeOriginalQ = supabaseAdmin.from("jobs").update({ status: "follow_up_scheduled" }).eq("id", followUp.original_job_id);
+  if (req.tenantId) closeOriginalQ = closeOriginalQ.eq("tenant_id", req.tenantId);
+  const { error: closeOriginalErr } = await closeOriginalQ;
+  if (closeOriginalErr) {
+    console.error("[follow-ups] failed to close original job after booking follow-up:", closeOriginalErr.message);
+  }
+
   if (assigned_technician_id) {
     void notifyUsersForEvent({
       tenantId,

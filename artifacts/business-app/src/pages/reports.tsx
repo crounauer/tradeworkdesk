@@ -41,13 +41,15 @@ const TYPE_LABELS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   scheduled: "Scheduled", in_progress: "In Progress", completed: "Completed",
-  cancelled: "Cancelled", requires_follow_up: "Follow Up", awaiting_parts: "Awaiting Parts",
+  cancelled: "Cancelled", requires_follow_up: "Follow Up", follow_up_scheduled: "Follow-up Scheduled",
+  awaiting_parts: "Awaiting Parts",
   invoiced: "Invoiced",
 };
 
 const STATUS_COLORS: Record<string, string> = {
   scheduled: "#3b82f6", in_progress: "#f59e0b", completed: "#10b981",
-  cancelled: "#94a3b8", requires_follow_up: "#f43f5e", awaiting_parts: "#f97316",
+  cancelled: "#94a3b8", requires_follow_up: "#f43f5e", follow_up_scheduled: "#14b8a6",
+  awaiting_parts: "#f97316",
   invoiced: "#8b5cf6",
 };
 
