@@ -83,6 +83,40 @@ type TechnicianJobClash = {
   estimated_duration: number;
 };
 
+type ServiceJobForApplianceSync = {
+  appliance_id: string | null;
+  job_type: string;
+  status: string;
+  scheduled_date: string;
+};
+
+async function syncApplianceServiceDates(tenantId: string, job: ServiceJobForApplianceSync): Promise<void> {
+  if (!job.appliance_id || job.job_type !== "service") return;
+
+  const { data: nextService } = await supabaseAdmin
+    .from("jobs")
+    .select("scheduled_date")
+    .eq("tenant_id", tenantId)
+    .eq("appliance_id", job.appliance_id)
+    .eq("job_type", "service")
+    .eq("status", "scheduled")
+    .eq("is_active", true)
+    .order("scheduled_date")
+    .limit(1)
+    .maybeSingle();
+
+  const applianceUpdate: { next_service_due: string | null; last_service_date?: string } = {
+    next_service_due: nextService?.scheduled_date ?? null,
+  };
+  if (job.status === "completed") applianceUpdate.last_service_date = job.scheduled_date;
+
+  await supabaseAdmin
+    .from("appliances")
+    .update(applianceUpdate)
+    .eq("id", job.appliance_id)
+    .eq("tenant_id", tenantId);
+}
+
 async function getActiveServiceCatalogueById(tenantId: string, serviceCatalogueId: string): Promise<ServiceCatalogueRow | null> {
   const { data } = await supabaseAdmin
     .from("service_catalogue")
@@ -843,6 +877,8 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     res.status(500).json({ error: error.message }); return;
   }
 
+  await syncApplianceServiceDates(req.tenantId!, data as ServiceJobForApplianceSync);
+
   invalidateJobsCache(req.tenantId);
   invalidateCalendarCache(req.tenantId);
   invalidateHomepageCache(req.tenantId);
@@ -1560,6 +1596,8 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     res.status(!data ? 404 : 500).json({ error: error.message }); return;
   }
   if (!data) { res.status(404).json({ error: "Job not found" }); return; }
+
+  await syncApplianceServiceDates(req.tenantId!, data as ServiceJobForApplianceSync);
 
   if (dateOrTimeChanging && oldSchedule) {
     const newDate = (data as Record<string, unknown>).scheduled_date as string | null;
