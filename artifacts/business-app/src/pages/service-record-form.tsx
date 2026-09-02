@@ -23,6 +23,13 @@ interface ServiceRecordFormData {
   combustion_o2: string;
   combustion_temp: string;
   combustion_efficiency: string;
+  stage_two_combustion_co2: string;
+  stage_two_combustion_co: string;
+  stage_two_combustion_o2: string;
+  stage_two_combustion_temp: string;
+  stage_two_combustion_efficiency: string;
+  stage_two_smoke_test: string;
+  stage_two_smoke_number: string;
   smoke_test: string;
   smoke_number: string;
   burner_cleaned: boolean;
@@ -136,11 +143,12 @@ export default function ServiceRecordForm() {
   const createMutation = useCreateServiceRecord();
   const updateMutation = useUpdateServiceRecord();
 
-  const { register, handleSubmit, reset, watch, setValue } = useForm<ServiceRecordFormData>();
+  const { register, handleSubmit, reset, watch, setValue, getValues } = useForm<ServiceRecordFormData>();
   const populatedAt = useRef(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedApplianceId, setSelectedApplianceId] = useState("");
+  const [burnerStages, setBurnerStages] = useState<"single" | "two">("single");
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
 
@@ -152,14 +160,17 @@ export default function ServiceRecordForm() {
   const isOil = !isGas;
 
   const prefillAppliance = (appliance: Appliance) => {
-    setValue("appliance_make", appliance.manufacturer || "");
-    setValue("appliance_model", appliance.model || "");
-    setValue("appliance_serial", appliance.serial_number || "");
-    setValue("appliance_type", appliance.boiler_type || "");
-    setValue("burner_make_model", [appliance.burner_make, appliance.burner_model].filter(Boolean).join(" / "));
-    setValue("fuel_supply_type_details", [appliance.fuel_type, appliance.system_type].filter(Boolean).join(" / "));
-    setValue("nozzle_size_fitted", appliance.nozzle_size || "");
-    setValue("oil_pressure", appliance.pump_pressure || "");
+    const fillBlank = (field: keyof ServiceRecordFormData, value: string) => {
+      if (!getValues(field) && value) setValue(field, value as never);
+    };
+    fillBlank("appliance_make", appliance.manufacturer || "");
+    fillBlank("appliance_model", appliance.model || "");
+    fillBlank("appliance_serial", appliance.serial_number || "");
+    fillBlank("appliance_type", appliance.boiler_type || "");
+    fillBlank("burner_make_model", [appliance.burner_make, appliance.burner_model].filter(Boolean).join(" / "));
+    fillBlank("fuel_supply_type_details", [appliance.fuel_type, appliance.system_type].filter(Boolean).join(" / "));
+    fillBlank("nozzle_size_fitted", appliance.nozzle_size || "");
+    fillBlank("oil_pressure", appliance.pump_pressure || "");
   };
 
   const toDatetimeLocal = (v: unknown): string => {
@@ -223,6 +234,14 @@ export default function ServiceRecordForm() {
   const stripTaggedSafetyLines = (text: unknown): string => {
     const safeText = typeof text === "string" ? text : "";
     const taggedLabels = [
+      "Burner Stages",
+      "Stage 2 CO2",
+      "Stage 2 CO",
+      "Stage 2 O2",
+      "Stage 2 Flue Temp",
+      "Stage 2 Efficiency",
+      "Stage 2 Smoke Test",
+      "Stage 2 Smoke Number",
       CAP_TYPE_LABEL,
       CAP_VALUE_LABEL,
       CAP_READING_LABEL,
@@ -298,6 +317,13 @@ export default function ServiceRecordForm() {
         combustion_o2: String(existingRecord.combustion_o2 ?? ""),
         combustion_temp: String(existingRecord.combustion_temp ?? ""),
         combustion_efficiency: String(existingRecord.combustion_efficiency ?? ""),
+        stage_two_combustion_co2: getTaggedLineValue(existingSafetyNotes, "Stage 2 CO2"),
+        stage_two_combustion_co: getTaggedLineValue(existingSafetyNotes, "Stage 2 CO"),
+        stage_two_combustion_o2: getTaggedLineValue(existingSafetyNotes, "Stage 2 O2"),
+        stage_two_combustion_temp: getTaggedLineValue(existingSafetyNotes, "Stage 2 Flue Temp"),
+        stage_two_combustion_efficiency: getTaggedLineValue(existingSafetyNotes, "Stage 2 Efficiency"),
+        stage_two_smoke_test: getTaggedLineValue(existingSafetyNotes, "Stage 2 Smoke Test"),
+        stage_two_smoke_number: getTaggedLineValue(existingSafetyNotes, "Stage 2 Smoke Number"),
         smoke_test: existingRecord.smoke_test || "",
         smoke_number: String(existingRecord.smoke_number ?? ""),
         burner_cleaned: existingRecord.burner_cleaned ?? false,
@@ -394,6 +420,7 @@ export default function ServiceRecordForm() {
         ignition_checked: existingRecord.ignition_checked ?? false,
         gas_pressure_checked: existingRecord.gas_pressure_checked ?? false,
       });
+      setBurnerStages(getTaggedLineValue(existingSafetyNotes, "Burner Stages") === "Two stage" ? "two" : "single");
     }
   }, [existingRecord, dataUpdatedAt, reset, job]);
 
@@ -436,6 +463,19 @@ export default function ServiceRecordForm() {
         return;
       }
 
+      if (burnerStages === "two") {
+        const stageTwoFields: Array<[string, string]> = [
+          ["Stage 2 CO2", data.stage_two_combustion_co2], ["Stage 2 CO", data.stage_two_combustion_co],
+          ["Stage 2 O2", data.stage_two_combustion_o2], ["Stage 2 Flue Temp", data.stage_two_combustion_temp],
+          ["Stage 2 Smoke Test", data.stage_two_smoke_test],
+        ];
+        const missingStageTwo = stageTwoFields.find(([, value]) => !String(value || "").trim());
+        if (missingStageTwo) {
+          toast({ title: "Missing Stage 2 reading", description: `${missingStageTwo[0]} is required for a two-stage burner.`, variant: "destructive" });
+          return;
+        }
+      }
+
       if (data.defects_found && !String(data.defects_details || "").trim()) {
         toast({ title: "Missing details", description: "Defect Details are required when Defects Found is checked.", variant: "destructive" });
         return;
@@ -471,6 +511,16 @@ export default function ServiceRecordForm() {
 
     const text = (value: string | null | undefined): string => (value || "").trim();
     const capLines: string[] = [];
+    if (isOil) capLines.push(`Burner Stages: ${burnerStages === "two" ? "Two stage" : "Single stage"}`);
+    if (burnerStages === "two") {
+      if (text(data.stage_two_combustion_co2)) capLines.push(`Stage 2 CO2: ${text(data.stage_two_combustion_co2)}`);
+      if (text(data.stage_two_combustion_co)) capLines.push(`Stage 2 CO: ${text(data.stage_two_combustion_co)}`);
+      if (text(data.stage_two_combustion_o2)) capLines.push(`Stage 2 O2: ${text(data.stage_two_combustion_o2)}`);
+      if (text(data.stage_two_combustion_temp)) capLines.push(`Stage 2 Flue Temp: ${text(data.stage_two_combustion_temp)}`);
+      if (text(data.stage_two_combustion_efficiency)) capLines.push(`Stage 2 Efficiency: ${text(data.stage_two_combustion_efficiency)}`);
+      if (text(data.stage_two_smoke_test)) capLines.push(`Stage 2 Smoke Test: ${text(data.stage_two_smoke_test)}`);
+      if (text(data.stage_two_smoke_number)) capLines.push(`Stage 2 Smoke Number: ${text(data.stage_two_smoke_number)}`);
+    }
     if (text(data.capacitor_value)) capLines.push(`${CAP_VALUE_LABEL}: ${text(data.capacitor_value)}`);
     if (text(data.capacitor_actual_reading)) capLines.push(`${CAP_READING_LABEL}: ${text(data.capacitor_actual_reading)}`);
     if (text(data.appliance_make)) capLines.push(`${APPLIANCE_MAKE_LABEL}: ${text(data.appliance_make)}`);
@@ -898,6 +948,20 @@ export default function ServiceRecordForm() {
 
         <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><CheckCircle2 className="w-5 h-5"/> Combustion Readings</h2>
+          {isOil && (
+            <div className="mb-5 max-w-xs space-y-2">
+              <Label>Burner Configuration</Label>
+              <select
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                value={burnerStages}
+                onChange={(event) => setBurnerStages(event.target.value as "single" | "two")}
+              >
+                <option value="single">Single stage burner</option>
+                <option value="two">Two-stage burner</option>
+              </select>
+            </div>
+          )}
+          {isOil && <p className="mb-3 text-sm font-medium text-muted-foreground">{burnerStages === "two" ? "Stage 1 readings" : "Burner readings"}</p>}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="space-y-2">
               <Label>CO2 (%)</Label>
@@ -947,6 +1011,22 @@ export default function ServiceRecordForm() {
               <div className="space-y-2">
                 <Label>Smoke Number</Label>
                 <Input {...register("smoke_number")} />
+              </div>
+            </div>
+          )}
+          {isOil && burnerStages === "two" && (
+            <div className="mt-6 border-t border-border pt-5">
+              <p className="mb-3 text-sm font-medium text-muted-foreground">Stage 2 readings</p>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="space-y-2"><Label>CO2 (%)</Label><Input {...register("stage_two_combustion_co2")} /></div>
+                <div className="space-y-2"><Label>CO (ppm)</Label><Input {...register("stage_two_combustion_co")} /></div>
+                <div className="space-y-2"><Label>O2 (%)</Label><Input {...register("stage_two_combustion_o2")} /></div>
+                <div className="space-y-2"><Label>Flue Temp</Label><Input {...register("stage_two_combustion_temp")} /></div>
+                <div className="space-y-2"><Label>Efficiency (%)</Label><Input {...register("stage_two_combustion_efficiency")} /></div>
+              </div>
+              <div className="mt-4 grid md:grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Smoke Test Result</Label><Input {...register("stage_two_smoke_test")} placeholder="Pass / Fail / Details" /></div>
+                <div className="space-y-2"><Label>Smoke Number</Label><Input {...register("stage_two_smoke_number")} /></div>
               </div>
             </div>
           )}
