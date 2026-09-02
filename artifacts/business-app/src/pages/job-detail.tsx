@@ -415,7 +415,7 @@ export default function JobDetail() {
       await updateJob.mutateAsync({
         id: job!.id,
         data: {
-          status: newStatus as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced",
+          status: newStatus as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced" | "follow_up_scheduled",
         },
       });
       qc.invalidateQueries({ queryKey: [`/api/jobs/${job!.id}`] });
@@ -483,7 +483,8 @@ export default function JobDetail() {
 
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const isOfficeOrAdmin = isAdmin || profile?.role === "office_staff";
-  const canComplete = job ? job.status !== "completed" && job.status !== "invoiced" && job.status !== "cancelled" : false;
+  const isReturnVisitPending = job?.status === "requires_follow_up" || job?.status === "follow_up_scheduled";
+  const canComplete = job ? job.status !== "completed" && job.status !== "invoiced" && job.status !== "cancelled" && !isReturnVisitPending : false;
   const canInvoice = job?.status === "completed";
   const canCreateFollowUp = !!job && isOfficeOrAdmin && (job.status === "completed" || job.status === "invoiced" || job.status === "awaiting_parts" || job.status === "requires_follow_up");
 
@@ -640,6 +641,12 @@ export default function JobDetail() {
             {isOperationalAwaitingParts && (
               <span className="inline-flex items-center rounded-md border border-orange-200 bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800">Awaiting Parts</span>
             )}
+            {job.status === "requires_follow_up" && (
+              <span className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">Return Visit Required</span>
+            )}
+            {job.status === "follow_up_scheduled" && (
+              <span className="inline-flex items-center rounded-md border border-teal-200 bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800">Return Visit Scheduled</span>
+            )}
             {isAllDayJob && (
               <span className="inline-flex items-center rounded-md border border-cyan-200 bg-cyan-100 px-2.5 py-1 text-xs font-semibold text-cyan-800">All Day</span>
             )}
@@ -693,7 +700,7 @@ export default function JobDetail() {
               <CalendarPlus className="w-4 h-4 mr-2" /> Needs Another Visit
             </Button>
           )}
-          {(job.status === "completed" || job.status === "awaiting_parts" || job.status === "requires_follow_up" || (job.status === "cancelled" && isOfficeOrAdmin)) && (
+          {(job.status === "completed" || job.status === "awaiting_parts" || job.status === "requires_follow_up" || job.status === "follow_up_scheduled" || (job.status === "cancelled" && isOfficeOrAdmin)) && (
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowReturnVisit(!showReturnVisit)} disabled={updateJob.isPending}>
               <CalendarPlus className="w-4 h-4 mr-2" /> {job.status === "cancelled" ? "Reschedule Job" : "Schedule Return Visit"}
             </Button>
@@ -747,7 +754,7 @@ export default function JobDetail() {
               {(job as unknown as { fuel_category?: string | null }).fuel_category === "gas" ? "CP12 PDF" : "Service Record PDF"}
             </Button>
           )}
-          {isAdmin && (
+          {isAdmin && !isReturnVisitPending && (
             <Button
               size="sm"
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -758,7 +765,7 @@ export default function JobDetail() {
               {hasRebookBeenUsed ? "Rebooked (1yr)" : "Rebook (1yr)"}
             </Button>
           )}
-          {isAdmin && (
+          {isAdmin && !isReturnVisitPending && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm">
@@ -2895,7 +2902,7 @@ function ReturnVisitForm({ job, onClose, onScheduled }: { job: { id: string; sta
       await update.mutateAsync({
         id: job.id,
         data: {
-          status: "scheduled" as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced",
+          status: "scheduled" as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced" | "follow_up_scheduled",
           scheduled_date: returnDate,
           scheduled_time: returnTime || undefined,
         },
@@ -3165,6 +3172,7 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
               <option value="requires_follow_up">Requires Follow-up</option>
+              <option value="follow_up_scheduled">Follow-up Scheduled</option>
               <option value="awaiting_parts">Awaiting Parts</option>
               <option value="invoiced">Invoiced</option>
             </select>
