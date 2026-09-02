@@ -588,8 +588,8 @@ export function BookJobDialog({
         priority: (data.priority || "medium") as "low" | "medium" | "high" | "urgent",
         scheduled_date: data.scheduled_date,
         scheduled_end_date: data.scheduled_end_date || undefined,
-        scheduled_time: data.all_day ? undefined : (data.scheduled_time || undefined),
-          estimated_duration: data.all_day ? undefined : estimatedDuration,
+        scheduled_time: data.scheduled_time || undefined,
+        estimated_duration: data.all_day ? undefined : estimatedDuration,
         all_day: data.all_day,
         description: data.description || undefined,
         assigned_technician_id: technicianId,
@@ -1063,7 +1063,7 @@ export function BookJobDialog({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Time</Label>
-                    <Input type="time" {...register("scheduled_time")} disabled={isAllDay} />
+                    <Input type="time" {...register("scheduled_time")} />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Job Duration (minutes)</Label>

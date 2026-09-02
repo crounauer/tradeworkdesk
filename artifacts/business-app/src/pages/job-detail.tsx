@@ -3028,7 +3028,6 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
   const onSubmit = async (data: JobEditData) => {
     if (data.all_day) {
       data.estimated_duration = "";
-      data.scheduled_time = "";
     }
 
     const estimatedDurationValue = String(data.estimated_duration || "").trim();
@@ -3044,7 +3043,7 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
       visit_intent: data.visit_intent === "estimate" ? "estimate" : "standard",
       scheduled_date: data.scheduled_date,
       scheduled_end_date: data.scheduled_end_date || null,
-      scheduled_time: data.all_day ? null : (data.scheduled_time || null),
+      scheduled_time: data.scheduled_time || null,
       estimated_duration: data.all_day ? null : parsedEstimatedDuration,
       all_day: Boolean(data.all_day),
       description: (data.description || "").trim() || null,
@@ -3195,7 +3194,7 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
           </div>
           <div className="space-y-2">
             <Label>Scheduled Time</Label>
-            <Input type="time" {...register("scheduled_time")} disabled={Boolean(isAllDay)} />
+            <Input type="time" {...register("scheduled_time")} />
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
