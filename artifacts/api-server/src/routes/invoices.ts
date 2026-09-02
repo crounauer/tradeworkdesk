@@ -1936,7 +1936,7 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
   let sourceVatRate = invoiceData.vat_rate ?? settings?.default_vat_rate ?? 20;
   let sourceNotes: string | null = null;
   let sourceCustomerNotes: string | null = invoiceData.attendance_summary || null;
-  let sourceWorksOrder: string | null = null;
+  let sourceWorksOrder: string | null = invoiceData.job_description || null;
 
   if (jobRow.from_quote_id) {
     const { data: quoteRow } = await supabaseAdmin
