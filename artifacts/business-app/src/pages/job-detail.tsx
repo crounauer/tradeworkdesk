@@ -2620,12 +2620,15 @@ function PhotosSection({ jobId }: { jobId: string }) {
   const qc = useQueryClient();
   const { hasAddon } = usePlanFeatures();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
 
   const { data: files, isLoading, queryKey: filesQueryKey } = useListFiles({ entity_type: "job", entity_id: jobId });
   const deleteMutation = useDeleteFile();
 
   const imageFiles = (files || []).filter((f) => f.file_type?.startsWith("image/"));
+  const documentFiles = (files || []).filter((f) => !f.file_type?.startsWith("image/"));
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
@@ -2659,6 +2662,37 @@ function PhotosSection({ jobId }: { jobId: string }) {
     }
   };
 
+  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    setUploadingDoc(true);
+    try {
+      for (let i = 0; i < fileList.length; i++) {
+        const formData = new FormData();
+        formData.append("file", fileList[i]);
+        formData.append("entity_type", "job");
+        formData.append("entity_id", jobId);
+        await customFetch(`${import.meta.env.BASE_URL}api/files/upload`, { method: "POST", body: formData });
+      }
+      await qc.refetchQueries({ queryKey: filesQueryKey });
+      toast({ title: "Uploaded", description: `${fileList.length} document(s) uploaded` });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Upload failed";
+      const isStorageFull = message.includes("STORAGE_LIMIT_REACHED");
+      toast({
+        title: isStorageFull ? "Storage limit reached" : "Upload Error",
+        description: isStorageFull
+          ? "You've used all your storage. Upgrade to Extra Photo Storage in Billing to get 500 GB more."
+          : message,
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingDoc(false);
+      if (docInputRef.current) docInputRef.current.value = "";
+    }
+  };
+
   const handleDelete = async (id: string) => {
     try {
       await deleteMutation.mutateAsync({ id });
@@ -2689,11 +2723,17 @@ function PhotosSection({ jobId }: { jobId: string }) {
           <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
             <Upload className="w-4 h-4 mr-1" /> {uploading ? "Uploading..." : "Upload / Take Photo"}
           </Button>
-          <Link href={`/jobs/${jobId}/files`}>
-            <Button size="sm" variant="outline">
-              <FileText className="w-4 h-4 mr-1" /> Documents
-            </Button>
-          </Link>
+          <input
+            ref={docInputRef}
+            type="file"
+            className="hidden"
+            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            multiple
+            onChange={handleDocUpload}
+          />
+          <Button size="sm" variant="outline" onClick={() => docInputRef.current?.click()} disabled={uploadingDoc}>
+            <FileText className="w-4 h-4 mr-1" /> {uploadingDoc ? "Uploading..." : "Documents"}
+          </Button>
         </div>
       </div>
 
@@ -2736,6 +2776,28 @@ function PhotosSection({ jobId }: { jobId: string }) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {documentFiles.length > 0 && (
+        <div className="mt-4 pt-4 border-t space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Documents</p>
+          {documentFiles.map((file) => (
+            <div key={file.id} className="flex items-center justify-between gap-2 border rounded-lg px-3 py-2">
+              <a href={file.signed_url || "#"} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 min-w-0 text-sm hover:text-primary">
+                <FileText className="w-4 h-4 shrink-0" />
+                <span className="truncate">{file.file_name}</span>
+              </a>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive shrink-0 h-7 w-7 p-0"
+                onClick={() => handleDelete(file.id)}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          ))}
         </div>
       )}
     </Card>
