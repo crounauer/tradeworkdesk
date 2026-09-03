@@ -30,12 +30,9 @@ export default function CookieConsentBanner({ analyticsId }: Props) {
     setConsent(value);
   }
 
-  // Nothing to consent to if this site has no analytics configured.
-  if (!analyticsId) return null;
-
   return (
     <>
-      {consent === "granted" && <GoogleAnalytics trackingId={analyticsId} />}
+      {analyticsId && consent === "granted" && <GoogleAnalytics trackingId={analyticsId} />}
       {hydrated && consent === null && (
         <div
           style={{
@@ -56,8 +53,7 @@ export default function CookieConsentBanner({ analyticsId }: Props) {
           }}
         >
           <span style={{ maxWidth: "640px" }}>
-            This site uses essential cookies to run, plus analytics cookies to understand traffic.
-            You can accept or decline analytics cookies.
+            This site uses essential cookies to run{analyticsId ? ", plus analytics cookies to understand traffic. You can accept or decline analytics cookies." : "."}
           </span>
           <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
             <button
@@ -73,24 +69,26 @@ export default function CookieConsentBanner({ analyticsId }: Props) {
                 fontSize: "14px",
               }}
             >
-              Decline
+              {analyticsId ? "Decline" : "Dismiss"}
             </button>
-            <button
-              type="button"
-              onClick={() => choose("granted")}
-              style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: "none",
-                background: "#fff",
-                color: "#0f172a",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: 600,
-              }}
-            >
-              Accept
-            </button>
+            {analyticsId && (
+              <button
+                type="button"
+                onClick={() => choose("granted")}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  border: "none",
+                  background: "#fff",
+                  color: "#0f172a",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                }}
+              >
+                Accept
+              </button>
+            )}
           </div>
         </div>
       )}

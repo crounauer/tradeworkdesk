@@ -66,9 +66,7 @@ export default async function SiteLayout({ site, children, basePath, previewToke
 
   return (
     <>
-      {website.google_analytics_id && (
-        <CookieConsentBanner analyticsId={website.google_analytics_id} />
-      )}
+      <CookieConsentBanner analyticsId={website.google_analytics_id} />
       {fonts.googleHref ? <link rel="stylesheet" href={fonts.googleHref} /> : null}
       <div style={{ backgroundColor: siteTheme.backgroundColor, ...(fonts.body ? { fontFamily: fonts.body } : {}) }}>
       {(hasThemeHeaderContent || hasHeaderBlockContent) ? (
