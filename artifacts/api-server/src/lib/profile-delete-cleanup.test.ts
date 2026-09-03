@@ -23,6 +23,13 @@ test("profile delete cleanup plan includes all profile-linked tables that block 
   assert.ok(plan.some((step) => step.table === "community_threads" && step.column === "created_by"));
   assert.ok(plan.some((step) => step.table === "community_posts" && step.column === "author_id"));
   assert.ok(plan.some((step) => step.table === "community_post_reports" && step.column === "reported_by"));
+  assert.ok(plan.some((step) => step.table === "job_time_entries" && step.column === "created_by"));
+  assert.ok(plan.some((step) => step.table === "job_email_logs" && step.column === "sent_by"));
+  assert.ok(plan.some((step) => step.table === "job_schedule_history" && step.column === "changed_by"));
+  assert.ok(plan.some((step) => step.table === "website_templates" && step.column === "created_by"));
+  assert.ok(plan.some((step) => step.table === "invoice_payments" && step.column === "created_by"));
+  assert.ok(plan.some((step) => step.table === "template_conversions" && step.column === "created_by"));
+  assert.ok(plan.some((step) => step.table === "template_conversions" && step.column === "approved_by"));
 });
 
 test("cleanupProfileReferences ignores missing tables instead of failing", async () => {

@@ -702,6 +702,40 @@ export async function sendBetaInviteCodeEmail(
   await send(to, "TradeWorkDesk Beta Invite", html, { emailType: "beta_invite" });
 }
 
+export async function sendTeamInviteEmail(
+  to: string,
+  companyName: string,
+  role: string,
+  inviteUrl: string,
+  opts?: {
+    expiresAt?: string | null;
+    tenantId?: string;
+  },
+): Promise<void> {
+  const expiry = opts?.expiresAt
+    ? new Date(opts.expiresAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+  const roleLabel = role.replace(/_/g, " ");
+
+  const html = baseHtml(`You're invited to join ${companyName}`, `
+    <h2>You're invited to join ${escHtml(companyName)}</h2>
+    <p>You've been invited to join <strong>${escHtml(companyName)}</strong> on TradeWorkDesk as a <strong>${escHtml(roleLabel)}</strong>.</p>
+    <div class="info-box">
+      ${expiry ? `<p><strong>This invite expires:</strong> ${expiry}</p>` : ""}
+    </div>
+    <p style="margin-top:24px;">
+      <a href="${escHtml(inviteUrl)}" class="btn">Accept Invite</a>
+    </p>
+    <hr class="divider"/>
+    <p style="font-size:13px; color:#64748b;">If the button does not work, use this link: <br/><a href="${escHtml(inviteUrl)}">${escHtml(inviteUrl)}</a></p>
+  `);
+
+  await send(to, `You're invited to join ${companyName} on TradeWorkDesk`, html, {
+    emailType: "team_invite",
+    tenantId: opts?.tenantId,
+  });
+}
+
 export async function sendInvoiceEmail(
   to: string,
   companyName: string,

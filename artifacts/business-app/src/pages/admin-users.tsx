@@ -3,9 +3,10 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Users, ShieldCheck, Wrench, UserCog, Package, UserPlus, Copy, Trash2, Clock } from "lucide-react";
+import { Users, ShieldCheck, Wrench, UserCog, Package, UserPlus, Copy, Trash2, Clock, Mail } from "lucide-react";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { useInitData } from "@/hooks/use-init-data";
@@ -76,6 +77,7 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
 
   // Invite state
   const [inviteRole, setInviteRole] = useState("technician");
+  const [inviteEmail, setInviteEmail] = useState("");
   const [showInviteSection, setShowInviteSection] = useState(false);
 
   const { data: users, isLoading } = useQuery<Profile[]>({
@@ -86,6 +88,19 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
   const { data: inviteCodes } = useQuery<InviteCode[]>({
     queryKey: ["admin-invite-codes"],
     queryFn: () => fetch("/api/admin/invite-codes").then(r => r.json()),
+  });
+
+  const emailInvite = useMutation({
+    mutationFn: async ({ id, email }: { id: string; email: string }) => {
+      const res = await fetch(`/api/admin/invite-codes/${id}/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Failed to send invite email"); }
+      return res.json();
+    },
+    onError: (e: Error) => toast({ title: "Error sending email", description: e.message, variant: "destructive" }),
   });
 
   const createInvite = useMutation({
@@ -102,7 +117,17 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
       queryClient.invalidateQueries({ queryKey: ["admin-invite-codes"] });
       const link = `${window.location.origin}/register?code=${data.code}`;
       navigator.clipboard.writeText(link).catch(() => {});
-      toast({ title: "Invite link created & copied!", description: `Expires in 7 days. Role: ${data.role}` });
+      const email = inviteEmail.trim();
+      if (email) {
+        emailInvite.mutate({ id: data.id, email }, {
+          onSuccess: () => {
+            toast({ title: "Invite sent!", description: `Invite link copied and emailed to ${email}.` });
+            setInviteEmail("");
+          },
+        });
+      } else {
+        toast({ title: "Invite link created & copied!", description: `Expires in 7 days. Role: ${data.role}` });
+      }
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -270,18 +295,28 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
               </Select>
             </div>
             <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted-foreground">Email (optional)</label>
+              <Input
+                type="email"
+                placeholder="name@example.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                className="w-56 bg-background"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
               <label className="text-xs text-muted-foreground invisible">Action</label>
               <Button
                 onClick={() => createInvite.mutate(inviteRole)}
-                disabled={createInvite.isPending}
+                disabled={createInvite.isPending || emailInvite.isPending}
               >
                 <Copy className="w-4 h-4 mr-1.5" />
-                Generate &amp; copy invite link
+                {inviteEmail.trim() ? "Generate & email invite" : "Generate & copy invite link"}
               </Button>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            The link expires in 7 days. Share it with your new team member — they'll register and be automatically added to your account.
+            The link expires in 7 days. Share it with your new team member (or enter their email above to send it directly) — they'll register and be automatically added to your account.
           </p>
 
           {pendingInvites.length > 0 && (
@@ -311,6 +346,21 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
                       }}
                     >
                       <Copy className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      disabled={emailInvite.isPending}
+                      onClick={() => {
+                        const email = window.prompt("Send this invite link to which email address?");
+                        if (!email) return;
+                        emailInvite.mutate({ id: inv.id, email: email.trim() }, {
+                          onSuccess: () => toast({ title: "Invite sent!", description: `Invite emailed to ${email.trim()}.` }),
+                        });
+                      }}
+                    >
+                      <Mail className="w-3.5 h-3.5" />
                     </Button>
                     <Button
                       size="sm"

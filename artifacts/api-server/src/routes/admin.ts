@@ -3,7 +3,7 @@ import multer from "multer";
 import { bustInitCache } from "./platform";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { bustInvoicingCache } from "../middlewares/require-tenant-invoicing";
-import { sendConfirmationEmail, sendNewRegistrationNotification } from "../lib/email";
+import { sendConfirmationEmail, sendNewRegistrationNotification, sendTeamInviteEmail } from "../lib/email";
 import { stripe } from "../lib/stripe";
 import crypto from "crypto";
 import { syncSeats } from "./billing";
@@ -273,6 +273,48 @@ router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admi
   });
 
   res.status(201).json(data);
+});
+
+router.post("/admin/invite-codes/:id/send-email", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const id = toSingleParam(req.params.id);
+  const email = String(req.body?.email || "").trim();
+  if (!email) { res.status(400).json({ error: "Email is required." }); return; }
+
+  let inviteQ = supabaseAdmin.from("invite_codes").select("*").eq("id", id);
+  if (req.tenantId) inviteQ = inviteQ.eq("tenant_id", req.tenantId);
+  const { data: invite, error: inviteErr } = await inviteQ.single();
+  if (inviteErr || !invite) { res.status(404).json({ error: "Invite not found" }); return; }
+  if (!invite.is_active || invite.used_at) { res.status(400).json({ error: "Invite is no longer active." }); return; }
+
+  const { data: tenant } = await supabaseAdmin.from("tenants").select("company_name").eq("id", req.tenantId!).single();
+  const companyName = (tenant as Record<string, unknown>)?.company_name as string || "Your Company";
+
+  const APP_URL = process.env.APP_URL || "https://tradeworkdesk.co.uk";
+  const inviteUrl = `${APP_URL}/register?code=${invite.code}`;
+
+  try {
+    await sendTeamInviteEmail(email, companyName, invite.role, inviteUrl, {
+      expiresAt: invite.expires_at,
+      tenantId: req.tenantId,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to send invite email";
+    res.status(500).json({ error: message });
+    return;
+  }
+
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "invite_code_emailed",
+    entityType: "invite_code",
+    entityId: id,
+    detail: { email },
+  });
+
+  res.json({ success: true });
 });
 
 router.delete("/admin/invite-codes/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
