@@ -13,7 +13,7 @@ const contactMethods = [
   {
     icon: Phone,
     title: "Phone",
-    detail: "07805 364901",
+    detail: "0330 223 8283",
     desc: "Monday to Friday, 8am - 6pm GMT.",
   },
   {

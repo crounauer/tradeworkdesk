@@ -52,13 +52,15 @@ export default function AboutPage() {
                 Built by tradespeople, for tradespeople
               </h1>
               <p className="mt-6 text-lg text-slate-600 leading-relaxed">
-                TradeWorkDesk was created in 2025 by a working plumber who couldn't find job management
-                software that fit how the trade actually works — so paper forms, lost records, and software
-                built for other industries got replaced with something purpose-built instead.
+                TradeWorkDesk was created in 2025 by Simon Ruddy, a working plumber who couldn't find job
+                management software that fit how the trade actually works — so paper forms, lost records,
+                and software built for other industries got replaced with something purpose-built instead.
               </p>
               <p className="mt-4 text-lg text-slate-600 leading-relaxed">
-                TradeWorkDesk is still in active development, shaped directly by feedback from gas, oil,
-                heat pump engineers and plumbers using it in the field every day.
+                With a background in web design and coding alongside hands-on trade experience, Simon was
+                well placed to build TradeWorkDesk from the ground up. It's still in active development,
+                shaped directly by feedback from gas, oil, heat pump engineers and plumbers using it in the
+                field every day.
               </p>
             </div>
           </div>
