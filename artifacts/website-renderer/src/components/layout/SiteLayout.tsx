@@ -3,7 +3,7 @@ import type { SiteData } from "@/lib/api";
 import { getPageBySlug, getPreviewBlocksByPageId } from "@/lib/api";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
-import GoogleAnalytics from "./GoogleAnalytics";
+import CookieConsentBanner from "./CookieConsentBanner";
 import AdminEditPageButton from "@/components/AdminEditPageButton";
 import { resolveThemeFonts } from "@/lib/siteFonts";
 import { resolveSiteTheme } from "@/lib/siteTheme";
@@ -67,7 +67,7 @@ export default async function SiteLayout({ site, children, basePath, previewToke
   return (
     <>
       {website.google_analytics_id && (
-        <GoogleAnalytics trackingId={website.google_analytics_id} />
+        <CookieConsentBanner analyticsId={website.google_analytics_id} />
       )}
       {fonts.googleHref ? <link rel="stylesheet" href={fonts.googleHref} /> : null}
       <div style={{ backgroundColor: siteTheme.backgroundColor, ...(fonts.body ? { fontFamily: fonts.body } : {}) }}>

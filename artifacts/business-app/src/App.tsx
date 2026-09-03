@@ -11,6 +11,8 @@ import { Layout } from "@/components/layout";
 import { ToolsPublicLayout } from "@/components/tools-public-layout";
 import { OfflineProvider } from "@/contexts/offline-context";
 import { toast } from "@/hooks/use-toast";
+import { CookieConsentBanner } from "@/components/cookie-consent-banner";
+import { getStoredConsent, isMarketingSitePath } from "@/lib/cookie-consent";
 
 const CHUNK_RELOAD_ATTEMPTS_KEY = "chunk_reload_attempts";
 const ACTIVE_SW_SCRIPT_KEY = "active_sw_script_url";
@@ -825,13 +827,6 @@ function AppRouter() {
   );
 }
 
-function isMarketingSitePath(path: string): boolean {
-  if (path === "/") return true;
-  if (/^\/(features|pricing|about|contact|blog|privacy-policy|terms-of-service|customers|industries|alternatives|find)(\/.*)?$/.test(path)) return true;
-  if (/^\/(gas-engineer-software|boiler-service-management-software|job-management-software-heating-engineers|oil-engineer-software|heat-pump-engineer-software|plumber-software|landlord-gas-safety-software|sole-trader-software|heating-company-software)$/.test(path)) return true;
-  return false;
-}
-
 function getOrCreateTrackingId(key: string): string {
   const existing = localStorage.getItem(key);
   if (existing) return existing;
@@ -848,6 +843,7 @@ function MarketingSiteTracker() {
   useEffect(() => {
     if (session) return;
     if (!isMarketingSitePath(location)) return;
+    if (getStoredConsent() !== "granted") return;
     if (lastTrackedPath.current === location) return;
     lastTrackedPath.current = location;
 
@@ -1122,6 +1118,7 @@ function App() {
                 <TwdAnalyticsBridge />
                 <ServiceWorkerPushBridge />
                 <AppUpdatePrompt />
+                <CookieConsentBanner />
                 <AppRouter />
               </WouterRouter>
             </ChunkErrorBoundary>

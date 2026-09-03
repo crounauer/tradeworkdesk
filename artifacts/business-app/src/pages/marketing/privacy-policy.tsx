@@ -85,7 +85,7 @@ export default function PrivacyPolicyPage() {
 
           <section>
             <h2 className="font-display text-xl font-bold text-slate-900">7. Cookies</h2>
-            <p>We use essential cookies to keep you logged in and maintain your session. We do not use tracking cookies or third-party advertising cookies. No cookie consent banner is required for essential-only cookies under UK law.</p>
+            <p>We use essential cookies and local storage to keep you logged in and maintain your session — these are always active and don't require consent. We also use anonymous, first-party analytics to understand site traffic; these only run if you accept them via the cookie banner shown on your first visit. You can decline analytics at any time without affecting how the site works.</p>
           </section>
 
           <section>
