@@ -1215,6 +1215,7 @@ export default function ServiceRecordForm() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Work Completed</Label>
+              <p className="text-xs text-muted-foreground">Only what you enter here will appear on the appliance's service history.</p>
               <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]" {...register("work_completed")} placeholder="Summary of service work..." />
             </div>
             <div className="space-y-2">

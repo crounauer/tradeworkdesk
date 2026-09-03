@@ -174,6 +174,13 @@ export interface MarkPaidInput {
   send_receipt?: boolean;
 }
 
+export interface AmendPaymentInput {
+  amount: number;
+  payment_date: string;
+  payment_method?: string;
+  payment_reference?: string;
+}
+
 // ─── Query Keys ───────────────────────────────────────────────────────────
 
 export const invoiceKeys = {
@@ -298,6 +305,33 @@ export function useMarkInvoicePaid(id: string) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: invoiceKeys.all });
+    },
+  });
+}
+
+export function useAmendInvoicePayment(id: string) {
+  const qc = useQueryClient();
+  return useMutation<Invoice, Error, { paymentId: string; input: AmendPaymentInput }>({
+    mutationFn: ({ paymentId, input }) =>
+      apiFetch<Invoice>(`/api/invoices/${id}/payments/${paymentId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: invoiceKeys.all });
+    },
+  });
+}
+
+export function useDeleteInvoicePayment(id: string) {
+  const qc = useQueryClient();
+  return useMutation<Invoice, Error, string>({
+    mutationFn: (paymentId) => apiFetch<Invoice>(`/api/invoices/${id}/payments/${paymentId}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
       qc.invalidateQueries({ queryKey: invoiceKeys.all });

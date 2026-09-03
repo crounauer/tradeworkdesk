@@ -835,6 +835,20 @@ export const GetApplianceResponse = zod
                 customer_name: zod.string().nullish(),
                 property_address: zod.string().nullish(),
                 technician_name: zod.string().nullish(),
+                work_completed: zod.string().nullish(),
+                parts_used: zod
+                  .array(
+                    zod.object({
+                      id: zod.string().uuid(),
+                      job_id: zod.string().uuid(),
+                      part_name: zod.string(),
+                      quantity: zod.number(),
+                      serial_number: zod.string().nullish(),
+                      unit_price: zod.number().nullish(),
+                      status: zod.enum(["fitted", "to_order"]).nullish(),
+                    }),
+                  )
+                  .optional(),
               }),
             ),
         )

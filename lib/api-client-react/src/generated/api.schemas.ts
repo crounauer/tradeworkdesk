@@ -282,7 +282,34 @@ export type JobListItem = Job & {
   property_longitude?: number | null;
   /** @nullable */
   property_postcode?: string | null;
+  /**
+   * Work completed summary from the job's service record, if any.
+   * @nullable
+   */
+  work_completed?: string | null;
+  parts_used?: JobPart[];
 };
+
+export type JobPartStatus = (typeof JobPartStatus)[keyof typeof JobPartStatus];
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const JobPartStatus = {
+  fitted: "fitted",
+  to_order: "to_order",
+} as const;
+
+export interface JobPart {
+  id: string;
+  job_id: string;
+  part_name: string;
+  quantity: number;
+  /** @nullable */
+  serial_number?: string | null;
+  /** @nullable */
+  unit_price?: number | null;
+  /** @nullable */
+  status?: JobPartStatus | null;
+}
 
 export type PropertyDetail = Property & {
   customer?: Customer;

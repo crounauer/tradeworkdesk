@@ -48,6 +48,8 @@ export * from "./jobDetail";
 export * from "./jobJobType";
 export * from "./jobListItem";
 export * from "./jobNote";
+export * from "./jobPart";
+export * from "./jobPartStatus";
 export * from "./jobPriority";
 export * from "./jobStatus";
 export * from "./listAppliancesParams";

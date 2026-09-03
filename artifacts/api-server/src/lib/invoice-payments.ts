@@ -132,3 +132,106 @@ export async function recordInvoicePayment(opts: {
     throw error;
   }
 }
+
+async function updateInvoicePaymentSummary(invoiceId: string, tenantId: string): Promise<Record<string, unknown>> {
+  const { data: invoice, error: invoiceErr } = await supabaseAdmin
+    .from("invoices")
+    .select("id, tenant_id, type, status, total, issue_date, due_date")
+    .eq("id", invoiceId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  if (invoiceErr) throw new Error(invoiceErr.message);
+  if (!invoice) throw new Error("Invoice not found");
+  if (invoice.type !== "invoice") throw new Error("Payments can only be changed against invoices");
+
+  const summary = await loadInvoicePayments(invoiceId, tenantId, Number(invoice.total ?? 0));
+  const latestPayment = summary.latestPayment;
+  const wasPaid = invoice.status === "paid";
+  const nextStatus = summary.balanceDue <= 0
+    ? "paid"
+    : wasPaid
+      ? (invoice.due_date && invoice.due_date < new Date().toISOString().slice(0, 10) ? "overdue" : "sent")
+      : invoice.status;
+
+  const { data: updated, error: updateErr } = await supabaseAdmin
+    .from("invoices")
+    .update({
+      paid_amount: summary.totalPaid,
+      payment_date: latestPayment?.payment_date || null,
+      payment_method: latestPayment?.payment_method || null,
+      payment_reference: latestPayment?.payment_reference || null,
+      status: nextStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", invoiceId)
+    .eq("tenant_id", tenantId)
+    .select()
+    .single();
+
+  if (updateErr || !updated) throw new Error(updateErr?.message || "Failed to update invoice payment summary");
+  return updated;
+}
+
+export async function amendInvoicePayment(opts: {
+  invoiceId: string;
+  paymentId: string;
+  tenantId: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod?: string | null;
+  paymentReference?: string | null;
+}): Promise<Record<string, unknown>> {
+  const amount = Math.round(Number(opts.amount) * 100) / 100;
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Payment amount must be greater than zero");
+
+  const { data: invoice, error: invoiceErr } = await supabaseAdmin
+    .from("invoices")
+    .select("id, total")
+    .eq("id", opts.invoiceId)
+    .eq("tenant_id", opts.tenantId)
+    .maybeSingle();
+  if (invoiceErr) throw new Error(invoiceErr.message);
+  if (!invoice) throw new Error("Invoice not found");
+
+  const summary = await loadInvoicePayments(opts.invoiceId, opts.tenantId, Number(invoice.total ?? 0));
+  const existing = summary.payments.find((payment) => payment.id === opts.paymentId);
+  if (!existing) throw new Error("Payment not found");
+  if (summary.totalPaid - Number(existing.amount) + amount - Number(invoice.total) > 0.01) {
+    throw new Error("Payment amount cannot exceed the remaining balance");
+  }
+
+  const { error: paymentErr } = await supabaseAdmin
+    .from("invoice_payments")
+    .update({
+      amount,
+      payment_date: opts.paymentDate,
+      payment_method: opts.paymentMethod || null,
+      payment_reference: opts.paymentReference || null,
+    })
+    .eq("id", opts.paymentId)
+    .eq("invoice_id", opts.invoiceId)
+    .eq("tenant_id", opts.tenantId);
+  if (paymentErr) throw new Error(paymentErr.message);
+
+  return updateInvoicePaymentSummary(opts.invoiceId, opts.tenantId);
+}
+
+export async function deleteInvoicePayment(opts: {
+  invoiceId: string;
+  paymentId: string;
+  tenantId: string;
+}): Promise<Record<string, unknown>> {
+  const { data: payment, error: paymentErr } = await supabaseAdmin
+    .from("invoice_payments")
+    .delete()
+    .eq("id", opts.paymentId)
+    .eq("invoice_id", opts.invoiceId)
+    .eq("tenant_id", opts.tenantId)
+    .select("id")
+    .maybeSingle();
+  if (paymentErr) throw new Error(paymentErr.message);
+  if (!payment) throw new Error("Payment not found");
+
+  return updateInvoicePaymentSummary(opts.invoiceId, opts.tenantId);
+}

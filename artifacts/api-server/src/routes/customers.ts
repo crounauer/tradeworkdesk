@@ -1294,7 +1294,7 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     created_at: request.sent_at || request.created_at,
   }));
 
-  let mappedEnquiryAcknowledgements: Array<{
+  let mappedAuditedCustomerEmails: Array<{
     id: string;
     job_id: null;
     job_ref: null;
@@ -1307,28 +1307,35 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
   }> = [];
 
   if (customerEmail) {
-    const { data: enquiryEmailAuditRows, error: enquiryEmailAuditError } = await supabaseAdmin
+    const { data: auditedEmailRows, error: auditedEmailError } = await supabaseAdmin
       .from("tenant_email_audit_log")
-      .select("id, to_email, subject, metadata, created_at, status")
+      .select("id, to_email, subject, metadata, created_at, status, email_type")
       .eq("tenant_id", req.tenantId!)
-      .eq("email_type", "enquiry_acknowledgement")
+      .in("email_type", ["enquiry_acknowledgement", "invoice_receipt"])
       .eq("to_email", customerEmail)
       .in("status", ["accepted", "delivered", "sent"])
       .order("created_at", { ascending: false })
       .limit(200);
 
-    if (enquiryEmailAuditError) { res.status(500).json({ error: enquiryEmailAuditError.message }); return; }
+    if (auditedEmailError) { res.status(500).json({ error: auditedEmailError.message }); return; }
 
-    mappedEnquiryAcknowledgements = (enquiryEmailAuditRows || []).map((row: Record<string, unknown>) => {
+    mappedAuditedCustomerEmails = (auditedEmailRows || []).map((row: Record<string, unknown>) => {
       const metadata = (row.metadata as Record<string, unknown> | null) || null;
-      const enquiryId = metadata?.enquiryId ? String(metadata.enquiryId) : String(row.id);
+      const isInvoiceReceipt = row.email_type === "invoice_receipt";
+      const emailId = isInvoiceReceipt
+        ? (metadata?.invoiceNumber ? String(metadata.invoiceNumber) : String(row.id))
+        : (metadata?.enquiryId ? String(metadata.enquiryId) : String(row.id));
       return {
-        id: `enquiry-ack-${String(row.id)}`,
+        id: `${isInvoiceReceipt ? "invoice-receipt" : "enquiry-ack"}-${String(row.id)}`,
         job_id: null,
         job_ref: null,
         sent_to: String(row.to_email || customerEmail),
-        subject: String(row.subject || "Enquiry acknowledgement"),
-        forms_included: [{ form_type: "enquiry_acknowledgement", form_label: "Enquiry Acknowledgement", form_id: enquiryId }],
+        subject: String(row.subject || (isInvoiceReceipt ? "Payment receipt" : "Enquiry acknowledgement")),
+        forms_included: [{
+          form_type: isInvoiceReceipt ? "invoice_receipt" : "enquiry_acknowledgement",
+          form_label: isInvoiceReceipt ? "Payment Receipt" : "Enquiry Acknowledgement",
+          form_id: emailId,
+        }],
         body_text: null,
         sent_by_name: null,
         created_at: String(row.created_at),
@@ -1336,7 +1343,7 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     });
   }
 
-  const combined = [...mappedCustomerEmails, ...mappedReviewEmails, ...mappedEnquiryAcknowledgements]
+  const combined = [...mappedCustomerEmails, ...mappedReviewEmails, ...mappedAuditedCustomerEmails]
     .sort((a, b) => new Date(String(b.created_at)).getTime() - new Date(String(a.created_at)).getTime())
     .slice(0, 200);
 

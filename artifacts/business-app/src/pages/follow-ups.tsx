@@ -468,7 +468,7 @@ function BookJobDialog({
   const [scheduledTime, setScheduledTime] = useState("");
   const [assignedTechnicianId, setAssignedTechnicianId] = useState("");
   const [carryForwardServices, setCarryForwardServices] = useState(true);
-  const [carryForwardTimeEntries, setCarryForwardTimeEntries] = useState(false);
+  const [carryForwardTimeEntries, setCarryForwardTimeEntries] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [leaveConflict, setLeaveConflict] = useState<LeaveConflict | null>(null);
   const { toast } = useToast();

@@ -39,10 +39,13 @@ import {
   useMarkInvoiceSent,
   useUnsendInvoice,
   useMarkInvoicePaid,
+  useAmendInvoicePayment,
+  useDeleteInvoicePayment,
   useAcceptQuote,
   useDeclineQuote,
   useConvertToInvoice,
   type InvoiceLineItem,
+  type InvoicePayment,
   type InvoiceStatus,
 } from "@/hooks/use-invoices";
 
@@ -309,6 +312,8 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [sendOpen, setSendOpen] = useState(false);
   const [paidOpen, setPaidOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<InvoicePayment | null>(null);
+  const [deletingPayment, setDeletingPayment] = useState<InvoicePayment | null>(null);
   const [sendReceiptOnPayment, setSendReceiptOnPayment] = useState(false);
   const [sendEmail, setSendEmail] = useState(invoice.customer?.email || "");
   const [sendNote, setSendNote] = useState("");
@@ -331,6 +336,10 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
+  const [amendedAmount, setAmendedAmount] = useState("");
+  const [amendedPaymentDate, setAmendedPaymentDate] = useState("");
+  const [amendedPaymentMethod, setAmendedPaymentMethod] = useState("");
+  const [amendedPaymentReference, setAmendedPaymentReference] = useState("");
 
   useEffect(() => {
     if (!paidOpen) return;
@@ -346,6 +355,8 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const markSentMut = useMarkInvoiceSent(id);
   const unsendMut = useUnsendInvoice(id);
   const paidMut = useMarkInvoicePaid(id);
+  const amendPaymentMut = useAmendInvoicePayment(id);
+  const deletePaymentMut = useDeleteInvoicePayment(id);
   const acceptMut = useAcceptQuote(id);
   const declineMut = useDeclineQuote(id);
   const convertMut = useConvertToInvoice(id);
@@ -496,6 +507,44 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       });
       toast({ title: "Payment recorded" });
       setPaidOpen(false);
+    } catch (e) {
+      toast({ title: "Failed", description: (e as Error).message, variant: "destructive" });
+    }
+  }
+
+  function beginAmendPayment(payment: InvoicePayment) {
+    setEditingPayment(payment);
+    setAmendedAmount(String(payment.amount));
+    setAmendedPaymentDate(payment.payment_date);
+    setAmendedPaymentMethod(payment.payment_method || "");
+    setAmendedPaymentReference(payment.payment_reference || "");
+  }
+
+  async function handleAmendPayment() {
+    if (!editingPayment) return;
+    try {
+      await amendPaymentMut.mutateAsync({
+        paymentId: editingPayment.id,
+        input: {
+          amount: Number(amendedAmount),
+          payment_date: amendedPaymentDate,
+          payment_method: amendedPaymentMethod || undefined,
+          payment_reference: amendedPaymentReference || undefined,
+        },
+      });
+      setEditingPayment(null);
+      toast({ title: "Payment amended" });
+    } catch (e) {
+      toast({ title: "Failed", description: (e as Error).message, variant: "destructive" });
+    }
+  }
+
+  async function handleDeletePayment() {
+    if (!deletingPayment) return;
+    try {
+      await deletePaymentMut.mutateAsync(deletingPayment.id);
+      setDeletingPayment(null);
+      toast({ title: "Payment deleted" });
     } catch (e) {
       toast({ title: "Failed", description: (e as Error).message, variant: "destructive" });
     }
@@ -1035,7 +1084,11 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                             {formatDate(payment.payment_date)} · {formatPaymentMethod(payment.payment_method)}{payment.payment_reference ? ` · ${payment.payment_reference}` : ""}
                           </div>
                         </div>
-                        <div className="text-xs text-muted-foreground">{new Date(payment.created_at).toLocaleString("en-GB")}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-xs text-muted-foreground">{new Date(payment.created_at).toLocaleString("en-GB")}</div>
+                          <Button variant="ghost" size="sm" onClick={() => beginAmendPayment(payment)}>Amend</Button>
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeletingPayment(payment)}>Delete</Button>
+                        </div>
                       </div>
                     ))}
                     {paymentHistory.length === 0 && (
@@ -1224,6 +1277,46 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               <CheckCircle2 className="w-4 h-4 mr-2" />
               Save Payment
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingPayment} onOpenChange={(open) => !open && setEditingPayment(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Amend Payment</DialogTitle>
+            <DialogDescription>Update this recorded payment. Invoice totals and status will be recalculated.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Amount</Label><Input type="number" min="0.01" step="0.01" value={amendedAmount} onChange={(e) => setAmendedAmount(e.target.value)} className="mt-1" /></div>
+            <div><Label>Payment Date</Label><Input type="date" value={amendedPaymentDate} onChange={(e) => setAmendedPaymentDate(e.target.value)} className="mt-1" /></div>
+            <div>
+              <Label>Payment Method (optional)</Label>
+              <Select value={amendedPaymentMethod} onValueChange={setAmendedPaymentMethod}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select payment method" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem><SelectItem value="bacs">BACS</SelectItem><SelectItem value="bank_transfer">Bank Transfer</SelectItem><SelectItem value="cc">Card</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label>Reference (optional)</Label><Input value={amendedPaymentReference} onChange={(e) => setAmendedPaymentReference(e.target.value)} className="mt-1" /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingPayment(null)}>Cancel</Button>
+            <Button onClick={handleAmendPayment} disabled={amendPaymentMut.isPending}>{amendPaymentMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Save Payment</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deletingPayment} onOpenChange={(open) => !open && setDeletingPayment(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Payment?</DialogTitle>
+            <DialogDescription>This removes the recorded payment and recalculates the invoice total and status.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingPayment(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeletePayment} disabled={deletePaymentMut.isPending}>{deletePaymentMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Delete Payment</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

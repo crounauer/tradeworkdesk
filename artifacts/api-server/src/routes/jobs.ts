@@ -1449,7 +1449,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     return;
   }
   if (rawAllDay !== undefined) {
-    updateCoreData.all_day = rawAllDay;
+    (updateCoreData as Record<string, unknown>).all_day = rawAllDay;
     if (rawAllDay === true) {
       updateCoreData.estimated_duration = null;
     }
@@ -3392,7 +3392,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     } : undefined;
 
     await sendJobFormsEmail(
-      to,
+      to!,
       cc || null,
       subject,
       jobRef,

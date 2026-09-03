@@ -2313,14 +2313,60 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         customer_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         property_address: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         technician_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        work_completed: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        parts_used: zod.ZodOptional<zod.ZodArray<zod.ZodObject<{
+            id: zod.ZodString;
+            job_id: zod.ZodString;
+            part_name: zod.ZodString;
+            quantity: zod.ZodNumber;
+            serial_number: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+            unit_price: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
+            status: zod.ZodOptional<zod.ZodNullable<zod.ZodEnum<["fitted", "to_order"]>>>;
+        }, "strip", zod.ZodTypeAny, {
+            id: string;
+            job_id: string;
+            part_name: string;
+            quantity: number;
+            status?: "fitted" | "to_order" | null | undefined;
+            serial_number?: string | null | undefined;
+            unit_price?: number | null | undefined;
+        }, {
+            id: string;
+            job_id: string;
+            part_name: string;
+            quantity: number;
+            status?: "fitted" | "to_order" | null | undefined;
+            serial_number?: string | null | undefined;
+            unit_price?: number | null | undefined;
+        }>, "many">>;
     }, "strip", zod.ZodTypeAny, {
         customer_name?: string | null | undefined;
         property_address?: string | null | undefined;
         technician_name?: string | null | undefined;
+        work_completed?: string | null | undefined;
+        parts_used?: {
+            id: string;
+            job_id: string;
+            part_name: string;
+            quantity: number;
+            status?: "fitted" | "to_order" | null | undefined;
+            serial_number?: string | null | undefined;
+            unit_price?: number | null | undefined;
+        }[] | undefined;
     }, {
         customer_name?: string | null | undefined;
         property_address?: string | null | undefined;
         technician_name?: string | null | undefined;
+        work_completed?: string | null | undefined;
+        parts_used?: {
+            id: string;
+            job_id: string;
+            part_name: string;
+            quantity: number;
+            status?: "fitted" | "to_order" | null | undefined;
+            serial_number?: string | null | undefined;
+            unit_price?: number | null | undefined;
+        }[] | undefined;
     }>>, "many">>;
 }, "strip", zod.ZodTypeAny, {
     recent_jobs?: ({
@@ -2344,6 +2390,16 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         customer_name?: string | null | undefined;
         property_address?: string | null | undefined;
         technician_name?: string | null | undefined;
+        work_completed?: string | null | undefined;
+        parts_used?: {
+            id: string;
+            job_id: string;
+            part_name: string;
+            quantity: number;
+            status?: "fitted" | "to_order" | null | undefined;
+            serial_number?: string | null | undefined;
+            unit_price?: number | null | undefined;
+        }[] | undefined;
     })[] | undefined;
     property?: {
         id: string;
@@ -2388,6 +2444,16 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         customer_name?: string | null | undefined;
         property_address?: string | null | undefined;
         technician_name?: string | null | undefined;
+        work_completed?: string | null | undefined;
+        parts_used?: {
+            id: string;
+            job_id: string;
+            part_name: string;
+            quantity: number;
+            status?: "fitted" | "to_order" | null | undefined;
+            serial_number?: string | null | undefined;
+            unit_price?: number | null | undefined;
+        }[] | undefined;
     })[] | undefined;
     property?: {
         id: string;
@@ -3248,10 +3314,11 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        technician_id: string;
         job_id: string;
+        technician_id: string;
         next_service_due?: Date | null | undefined;
         follow_up_required?: boolean | undefined;
+        work_completed?: string | null | undefined;
         arrival_time?: Date | null | undefined;
         departure_time?: Date | null | undefined;
         visual_inspection?: string | null | undefined;
@@ -3325,7 +3392,6 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         defects_details?: string | null | undefined;
         advisories?: string | null | undefined;
         parts_required?: string | null | undefined;
-        work_completed?: string | null | undefined;
         appliance_safe?: boolean | undefined;
         follow_up_notes?: string | null | undefined;
         additional_notes?: string | null | undefined;
@@ -3356,10 +3422,11 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        technician_id: string;
         job_id: string;
+        technician_id: string;
         next_service_due?: Date | null | undefined;
         follow_up_required?: boolean | undefined;
+        work_completed?: string | null | undefined;
         arrival_time?: Date | null | undefined;
         departure_time?: Date | null | undefined;
         visual_inspection?: string | null | undefined;
@@ -3433,7 +3500,6 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         defects_details?: string | null | undefined;
         advisories?: string | null | undefined;
         parts_required?: string | null | undefined;
-        work_completed?: string | null | undefined;
         appliance_safe?: boolean | undefined;
         follow_up_notes?: string | null | undefined;
         additional_notes?: string | null | undefined;
@@ -3482,8 +3548,8 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        technician_id: string;
         job_id: string;
+        technician_id: string;
         parts_required?: string | null | undefined;
         appliance_safe?: boolean | undefined;
         additional_notes?: string | null | undefined;
@@ -3499,8 +3565,8 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        technician_id: string;
         job_id: string;
+        technician_id: string;
         parts_required?: string | null | undefined;
         appliance_safe?: boolean | undefined;
         additional_notes?: string | null | undefined;
@@ -3693,10 +3759,11 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        technician_id: string;
         job_id: string;
+        technician_id: string;
         next_service_due?: Date | null | undefined;
         follow_up_required?: boolean | undefined;
+        work_completed?: string | null | undefined;
         arrival_time?: Date | null | undefined;
         departure_time?: Date | null | undefined;
         visual_inspection?: string | null | undefined;
@@ -3770,7 +3837,6 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         defects_details?: string | null | undefined;
         advisories?: string | null | undefined;
         parts_required?: string | null | undefined;
-        work_completed?: string | null | undefined;
         appliance_safe?: boolean | undefined;
         follow_up_notes?: string | null | undefined;
         additional_notes?: string | null | undefined;
@@ -3802,8 +3868,8 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        technician_id: string;
         job_id: string;
+        technician_id: string;
         parts_required?: string | null | undefined;
         appliance_safe?: boolean | undefined;
         additional_notes?: string | null | undefined;
@@ -3929,10 +3995,11 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        technician_id: string;
         job_id: string;
+        technician_id: string;
         next_service_due?: Date | null | undefined;
         follow_up_required?: boolean | undefined;
+        work_completed?: string | null | undefined;
         arrival_time?: Date | null | undefined;
         departure_time?: Date | null | undefined;
         visual_inspection?: string | null | undefined;
@@ -4006,7 +4073,6 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         defects_details?: string | null | undefined;
         advisories?: string | null | undefined;
         parts_required?: string | null | undefined;
-        work_completed?: string | null | undefined;
         appliance_safe?: boolean | undefined;
         follow_up_notes?: string | null | undefined;
         additional_notes?: string | null | undefined;
@@ -4038,8 +4104,8 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        technician_id: string;
         job_id: string;
+        technician_id: string;
         parts_required?: string | null | undefined;
         appliance_safe?: boolean | undefined;
         additional_notes?: string | null | undefined;
@@ -4334,10 +4400,11 @@ export declare const CreateServiceRecordBody: zod.ZodObject<{
     ignition_checked: zod.ZodOptional<zod.ZodBoolean>;
     gas_pressure_checked: zod.ZodOptional<zod.ZodBoolean>;
 }, "strip", zod.ZodTypeAny, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: Date | undefined;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | undefined;
     arrival_time?: Date | undefined;
     departure_time?: Date | undefined;
     visual_inspection?: string | undefined;
@@ -4411,7 +4478,6 @@ export declare const CreateServiceRecordBody: zod.ZodObject<{
     defects_details?: string | undefined;
     advisories?: string | undefined;
     parts_required?: string | undefined;
-    work_completed?: string | undefined;
     appliance_safe?: boolean | undefined;
     follow_up_notes?: string | undefined;
     additional_notes?: string | undefined;
@@ -4440,10 +4506,11 @@ export declare const CreateServiceRecordBody: zod.ZodObject<{
     gas_pressure_checked?: boolean | undefined;
     modulation_readings?: string | undefined;
 }, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: Date | undefined;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | undefined;
     arrival_time?: Date | undefined;
     departure_time?: Date | undefined;
     visual_inspection?: string | undefined;
@@ -4517,7 +4584,6 @@ export declare const CreateServiceRecordBody: zod.ZodObject<{
     defects_details?: string | undefined;
     advisories?: string | undefined;
     parts_required?: string | undefined;
-    work_completed?: string | undefined;
     appliance_safe?: boolean | undefined;
     follow_up_notes?: string | undefined;
     additional_notes?: string | undefined;
@@ -4669,10 +4735,11 @@ export declare const GetServiceRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     arrival_time?: Date | null | undefined;
     departure_time?: Date | null | undefined;
     visual_inspection?: string | null | undefined;
@@ -4746,7 +4813,6 @@ export declare const GetServiceRecordResponse: zod.ZodObject<{
     defects_details?: string | null | undefined;
     advisories?: string | null | undefined;
     parts_required?: string | null | undefined;
-    work_completed?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
@@ -4778,10 +4844,11 @@ export declare const GetServiceRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     arrival_time?: Date | null | undefined;
     departure_time?: Date | null | undefined;
     visual_inspection?: string | null | undefined;
@@ -4855,7 +4922,6 @@ export declare const GetServiceRecordResponse: zod.ZodObject<{
     defects_details?: string | null | undefined;
     advisories?: string | null | undefined;
     parts_required?: string | null | undefined;
-    work_completed?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
@@ -5001,6 +5067,7 @@ export declare const UpdateServiceRecordBody: zod.ZodObject<{
 }, "strip", zod.ZodTypeAny, {
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     arrival_time?: Date | null | undefined;
     departure_time?: Date | null | undefined;
     visual_inspection?: string | null | undefined;
@@ -5074,7 +5141,6 @@ export declare const UpdateServiceRecordBody: zod.ZodObject<{
     defects_details?: string | null | undefined;
     advisories?: string | null | undefined;
     parts_required?: string | null | undefined;
-    work_completed?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
@@ -5105,6 +5171,7 @@ export declare const UpdateServiceRecordBody: zod.ZodObject<{
 }, {
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     arrival_time?: Date | null | undefined;
     departure_time?: Date | null | undefined;
     visual_inspection?: string | null | undefined;
@@ -5178,7 +5245,6 @@ export declare const UpdateServiceRecordBody: zod.ZodObject<{
     defects_details?: string | null | undefined;
     advisories?: string | null | undefined;
     parts_required?: string | null | undefined;
-    work_completed?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
@@ -5319,10 +5385,11 @@ export declare const UpdateServiceRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     arrival_time?: Date | null | undefined;
     departure_time?: Date | null | undefined;
     visual_inspection?: string | null | undefined;
@@ -5396,7 +5463,6 @@ export declare const UpdateServiceRecordResponse: zod.ZodObject<{
     defects_details?: string | null | undefined;
     advisories?: string | null | undefined;
     parts_required?: string | null | undefined;
-    work_completed?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
@@ -5427,10 +5493,11 @@ export declare const UpdateServiceRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     arrival_time?: Date | null | undefined;
     departure_time?: Date | null | undefined;
     visual_inspection?: string | null | undefined;
@@ -5504,7 +5571,6 @@ export declare const UpdateServiceRecordResponse: zod.ZodObject<{
     defects_details?: string | null | undefined;
     advisories?: string | null | undefined;
     parts_required?: string | null | undefined;
-    work_completed?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
@@ -5618,10 +5684,11 @@ export declare const GetServiceRecordByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     arrival_time?: Date | null | undefined;
     departure_time?: Date | null | undefined;
     visual_inspection?: string | null | undefined;
@@ -5659,7 +5726,6 @@ export declare const GetServiceRecordByJobResponse: zod.ZodObject<{
     defects_details?: string | null | undefined;
     advisories?: string | null | undefined;
     parts_required?: string | null | undefined;
-    work_completed?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
@@ -5690,10 +5756,11 @@ export declare const GetServiceRecordByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     arrival_time?: Date | null | undefined;
     departure_time?: Date | null | undefined;
     visual_inspection?: string | null | undefined;
@@ -5731,7 +5798,6 @@ export declare const GetServiceRecordByJobResponse: zod.ZodObject<{
     defects_details?: string | null | undefined;
     advisories?: string | null | undefined;
     parts_required?: string | null | undefined;
-    work_completed?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
@@ -5790,8 +5856,8 @@ export declare const ListCommissioningRecordsResponseItem: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
@@ -5814,8 +5880,8 @@ export declare const ListCommissioningRecordsResponseItem: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
@@ -5863,8 +5929,8 @@ export declare const ListCommissioningRecordsResponse: zod.ZodArray<zod.ZodObjec
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
@@ -5887,8 +5953,8 @@ export declare const ListCommissioningRecordsResponse: zod.ZodArray<zod.ZodObjec
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
@@ -5933,8 +5999,8 @@ export declare const CreateCommissioningRecordBody: zod.ZodObject<{
     customer_name_signed: zod.ZodOptional<zod.ZodString>;
     notes: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | undefined;
     combustion_co2?: string | undefined;
     combustion_co?: string | undefined;
@@ -5954,8 +6020,8 @@ export declare const CreateCommissioningRecordBody: zod.ZodObject<{
     customer_instructions_given?: boolean | undefined;
     customer_name_signed?: string | undefined;
 }, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | undefined;
     combustion_co2?: string | undefined;
     combustion_co?: string | undefined;
@@ -6013,8 +6079,8 @@ export declare const GetCommissioningRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
@@ -6037,8 +6103,8 @@ export declare const GetCommissioningRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
@@ -6154,8 +6220,8 @@ export declare const UpdateCommissioningRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
@@ -6178,8 +6244,8 @@ export declare const UpdateCommissioningRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
@@ -6237,8 +6303,8 @@ export declare const GetCommissioningRecordByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
@@ -6261,8 +6327,8 @@ export declare const GetCommissioningRecordByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
@@ -6300,8 +6366,8 @@ export declare const CreateBreakdownReportBody: zod.ZodObject<{
     return_visit_notes: zod.ZodOptional<zod.ZodString>;
     additional_notes: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     parts_required?: string | undefined;
     appliance_safe?: boolean | undefined;
     additional_notes?: string | undefined;
@@ -6314,8 +6380,8 @@ export declare const CreateBreakdownReportBody: zod.ZodObject<{
     return_visit_required?: boolean | undefined;
     return_visit_notes?: string | undefined;
 }, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     parts_required?: string | undefined;
     appliance_safe?: boolean | undefined;
     additional_notes?: string | undefined;
@@ -6359,8 +6425,8 @@ export declare const GetBreakdownReportResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     parts_required?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     additional_notes?: string | null | undefined;
@@ -6376,8 +6442,8 @@ export declare const GetBreakdownReportResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     parts_required?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     additional_notes?: string | null | undefined;
@@ -6458,8 +6524,8 @@ export declare const UpdateBreakdownReportResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     parts_required?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     additional_notes?: string | null | undefined;
@@ -6475,8 +6541,8 @@ export declare const UpdateBreakdownReportResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     parts_required?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     additional_notes?: string | null | undefined;
@@ -6520,8 +6586,8 @@ export declare const GetBreakdownReportByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     parts_required?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     additional_notes?: string | null | undefined;
@@ -6537,8 +6603,8 @@ export declare const GetBreakdownReportByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     parts_required?: string | null | undefined;
     appliance_safe?: boolean | undefined;
     additional_notes?: string | null | undefined;
@@ -6576,8 +6642,8 @@ export declare const CreateOilTankInspectionBody: zod.ZodObject<{
     remedial_actions: zod.ZodOptional<zod.ZodString>;
     additional_notes: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     tank_location?: string | undefined;
     leaks_found?: boolean | undefined;
     leaks_details?: string | undefined;
@@ -6597,8 +6663,8 @@ export declare const CreateOilTankInspectionBody: zod.ZodObject<{
     overall_condition?: string | undefined;
     remedial_actions?: string | undefined;
 }, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     tank_location?: string | undefined;
     leaks_found?: boolean | undefined;
     leaks_details?: string | undefined;
@@ -6656,8 +6722,8 @@ export declare const GetOilTankInspectionResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     tank_location?: string | null | undefined;
     leaks_found?: boolean | undefined;
     leaks_details?: string | null | undefined;
@@ -6680,8 +6746,8 @@ export declare const GetOilTankInspectionResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     tank_location?: string | null | undefined;
     leaks_found?: boolean | undefined;
     leaks_details?: string | null | undefined;
@@ -6797,8 +6863,8 @@ export declare const UpdateOilTankInspectionResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     tank_location?: string | null | undefined;
     leaks_found?: boolean | undefined;
     leaks_details?: string | null | undefined;
@@ -6821,8 +6887,8 @@ export declare const UpdateOilTankInspectionResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     tank_location?: string | null | undefined;
     leaks_found?: boolean | undefined;
     leaks_details?: string | null | undefined;
@@ -6880,8 +6946,8 @@ export declare const GetOilTankInspectionByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     tank_location?: string | null | undefined;
     leaks_found?: boolean | undefined;
     leaks_details?: string | null | undefined;
@@ -6904,8 +6970,8 @@ export declare const GetOilTankInspectionByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     tank_location?: string | null | undefined;
     leaks_found?: boolean | undefined;
     leaks_details?: string | null | undefined;
@@ -6945,8 +7011,8 @@ export declare const CreateOilTankRiskAssessmentBody: zod.ZodObject<{
     assessment_date: zod.ZodOptional<zod.ZodString>;
     additional_notes: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | undefined;
     site_hazards?: string | undefined;
     environmental_risks?: string | undefined;
@@ -6961,8 +7027,8 @@ export declare const CreateOilTankRiskAssessmentBody: zod.ZodObject<{
     assessor_qualification?: string | undefined;
     assessment_date?: string | undefined;
 }, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | undefined;
     site_hazards?: string | undefined;
     environmental_risks?: string | undefined;
@@ -7010,8 +7076,8 @@ export declare const GetOilTankRiskAssessmentResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     site_hazards?: string | null | undefined;
     environmental_risks?: string | null | undefined;
@@ -7029,8 +7095,8 @@ export declare const GetOilTankRiskAssessmentResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     site_hazards?: string | null | undefined;
     environmental_risks?: string | null | undefined;
@@ -7121,8 +7187,8 @@ export declare const UpdateOilTankRiskAssessmentResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     site_hazards?: string | null | undefined;
     environmental_risks?: string | null | undefined;
@@ -7140,8 +7206,8 @@ export declare const UpdateOilTankRiskAssessmentResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     site_hazards?: string | null | undefined;
     environmental_risks?: string | null | undefined;
@@ -7189,8 +7255,8 @@ export declare const GetOilTankRiskAssessmentByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     site_hazards?: string | null | undefined;
     environmental_risks?: string | null | undefined;
@@ -7208,8 +7274,8 @@ export declare const GetOilTankRiskAssessmentByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     site_hazards?: string | null | undefined;
     environmental_risks?: string | null | undefined;
@@ -7247,8 +7313,8 @@ export declare const CreateCombustionAnalysisRecordBody: zod.ZodObject<{
     pass_fail: zod.ZodOptional<zod.ZodString>;
     additional_notes: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     smoke_number?: string | undefined;
     additional_notes?: string | undefined;
     co2_reading?: string | undefined;
@@ -7266,8 +7332,8 @@ export declare const CreateCombustionAnalysisRecordBody: zod.ZodObject<{
     calibration_date?: string | undefined;
     pass_fail?: string | undefined;
 }, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     smoke_number?: string | undefined;
     additional_notes?: string | undefined;
     co2_reading?: string | undefined;
@@ -7321,8 +7387,8 @@ export declare const GetCombustionAnalysisRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     smoke_number?: string | null | undefined;
     additional_notes?: string | null | undefined;
     co2_reading?: string | null | undefined;
@@ -7343,8 +7409,8 @@ export declare const GetCombustionAnalysisRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     smoke_number?: string | null | undefined;
     additional_notes?: string | null | undefined;
     co2_reading?: string | null | undefined;
@@ -7450,8 +7516,8 @@ export declare const UpdateCombustionAnalysisRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     smoke_number?: string | null | undefined;
     additional_notes?: string | null | undefined;
     co2_reading?: string | null | undefined;
@@ -7472,8 +7538,8 @@ export declare const UpdateCombustionAnalysisRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     smoke_number?: string | null | undefined;
     additional_notes?: string | null | undefined;
     co2_reading?: string | null | undefined;
@@ -7527,8 +7593,8 @@ export declare const GetCombustionAnalysisRecordByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     smoke_number?: string | null | undefined;
     additional_notes?: string | null | undefined;
     co2_reading?: string | null | undefined;
@@ -7549,8 +7615,8 @@ export declare const GetCombustionAnalysisRecordByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     smoke_number?: string | null | undefined;
     additional_notes?: string | null | undefined;
     co2_reading?: string | null | undefined;
@@ -7612,8 +7678,8 @@ export declare const CreateBurnerSetupRecordBody: zod.ZodObject<{
     stage_two_combustion_efficiency: zod.ZodOptional<zod.ZodString>;
     additional_notes: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     burner_model?: string | undefined;
     nozzle_size?: string | undefined;
     pump_pressure?: string | undefined;
@@ -7652,8 +7718,8 @@ export declare const CreateBurnerSetupRecordBody: zod.ZodObject<{
     stage_two_combustion_smoke?: string | undefined;
     stage_two_combustion_efficiency?: string | undefined;
 }, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     burner_model?: string | undefined;
     nozzle_size?: string | undefined;
     pump_pressure?: string | undefined;
@@ -7749,8 +7815,8 @@ export declare const GetBurnerSetupRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     burner_model?: string | null | undefined;
     nozzle_size?: string | null | undefined;
     pump_pressure?: string | null | undefined;
@@ -7792,8 +7858,8 @@ export declare const GetBurnerSetupRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     burner_model?: string | null | undefined;
     nozzle_size?: string | null | undefined;
     pump_pressure?: string | null | undefined;
@@ -7984,8 +8050,8 @@ export declare const UpdateBurnerSetupRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     burner_model?: string | null | undefined;
     nozzle_size?: string | null | undefined;
     pump_pressure?: string | null | undefined;
@@ -8007,8 +8073,8 @@ export declare const UpdateBurnerSetupRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     burner_model?: string | null | undefined;
     nozzle_size?: string | null | undefined;
     pump_pressure?: string | null | undefined;
@@ -8064,8 +8130,8 @@ export declare const GetBurnerSetupRecordByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     burner_model?: string | null | undefined;
     nozzle_size?: string | null | undefined;
     pump_pressure?: string | null | undefined;
@@ -8087,8 +8153,8 @@ export declare const GetBurnerSetupRecordByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     burner_model?: string | null | undefined;
     nozzle_size?: string | null | undefined;
     pump_pressure?: string | null | undefined;
@@ -8124,8 +8190,8 @@ export declare const CreateFireValveTestRecordBody: zod.ZodObject<{
     remedial_action: zod.ZodOptional<zod.ZodString>;
     additional_notes: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | undefined;
     valve_location?: string | undefined;
     valve_type?: string | undefined;
@@ -8137,8 +8203,8 @@ export declare const CreateFireValveTestRecordBody: zod.ZodObject<{
     reset_successful?: boolean | undefined;
     remedial_action?: string | undefined;
 }, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | undefined;
     valve_location?: string | undefined;
     valve_type?: string | undefined;
@@ -8180,8 +8246,8 @@ export declare const GetFireValveTestRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     valve_location?: string | null | undefined;
     valve_type?: string | null | undefined;
@@ -8196,8 +8262,8 @@ export declare const GetFireValveTestRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     valve_location?: string | null | undefined;
     valve_type?: string | null | undefined;
@@ -8273,8 +8339,8 @@ export declare const UpdateFireValveTestRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     valve_location?: string | null | undefined;
     valve_type?: string | null | undefined;
@@ -8289,8 +8355,8 @@ export declare const UpdateFireValveTestRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     valve_location?: string | null | undefined;
     valve_type?: string | null | undefined;
@@ -8332,8 +8398,8 @@ export declare const GetFireValveTestRecordByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     valve_location?: string | null | undefined;
     valve_type?: string | null | undefined;
@@ -8348,8 +8414,8 @@ export declare const GetFireValveTestRecordByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     valve_location?: string | null | undefined;
     valve_type?: string | null | undefined;
@@ -8380,8 +8446,8 @@ export declare const CreateOilLineVacuumTestBody: zod.ZodObject<{
     remedial_action: zod.ZodOptional<zod.ZodString>;
     additional_notes: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | undefined;
     pass_fail?: string | undefined;
     remedial_action?: string | undefined;
@@ -8395,8 +8461,8 @@ export declare const CreateOilLineVacuumTestBody: zod.ZodObject<{
     allowable_drop?: string | undefined;
     actual_drop?: string | undefined;
 }, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | undefined;
     pass_fail?: string | undefined;
     remedial_action?: string | undefined;
@@ -8442,8 +8508,8 @@ export declare const GetOilLineVacuumTestResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     pass_fail?: string | null | undefined;
     remedial_action?: string | null | undefined;
@@ -8460,8 +8526,8 @@ export declare const GetOilLineVacuumTestResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     pass_fail?: string | null | undefined;
     remedial_action?: string | null | undefined;
@@ -8547,8 +8613,8 @@ export declare const UpdateOilLineVacuumTestResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     pass_fail?: string | null | undefined;
     remedial_action?: string | null | undefined;
@@ -8565,8 +8631,8 @@ export declare const UpdateOilLineVacuumTestResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     pass_fail?: string | null | undefined;
     remedial_action?: string | null | undefined;
@@ -8612,8 +8678,8 @@ export declare const GetOilLineVacuumTestByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     pass_fail?: string | null | undefined;
     remedial_action?: string | null | undefined;
@@ -8630,8 +8696,8 @@ export declare const GetOilLineVacuumTestByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     additional_notes?: string | null | undefined;
     pass_fail?: string | null | undefined;
     remedial_action?: string | null | undefined;
@@ -8665,12 +8731,12 @@ export declare const CreateJobCompletionReportBody: zod.ZodObject<{
     follow_up_notes: zod.ZodOptional<zod.ZodString>;
     additional_notes: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | undefined;
     defects_found?: string | undefined;
     advisories?: string | undefined;
-    work_completed?: string | undefined;
     follow_up_notes?: string | undefined;
     additional_notes?: string | undefined;
     customer_name_signed?: string | undefined;
@@ -8681,12 +8747,12 @@ export declare const CreateJobCompletionReportBody: zod.ZodObject<{
     customer_sign_off?: boolean | undefined;
     next_service_date?: string | undefined;
 }, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | undefined;
     defects_found?: string | undefined;
     advisories?: string | undefined;
-    work_completed?: string | undefined;
     follow_up_notes?: string | undefined;
     additional_notes?: string | undefined;
     customer_name_signed?: string | undefined;
@@ -8730,12 +8796,12 @@ export declare const GetJobCompletionReportResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     defects_found?: string | null | undefined;
     advisories?: string | null | undefined;
-    work_completed?: string | null | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
@@ -8749,12 +8815,12 @@ export declare const GetJobCompletionReportResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     defects_found?: string | null | undefined;
     advisories?: string | null | undefined;
-    work_completed?: string | null | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
@@ -8791,9 +8857,9 @@ export declare const UpdateJobCompletionReportBody: zod.ZodObject<{
     additional_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
 }, "strip", zod.ZodTypeAny, {
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     defects_found?: string | null | undefined;
     advisories?: string | null | undefined;
-    work_completed?: string | null | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
@@ -8805,9 +8871,9 @@ export declare const UpdateJobCompletionReportBody: zod.ZodObject<{
     next_service_date?: string | null | undefined;
 }, {
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     defects_found?: string | null | undefined;
     advisories?: string | null | undefined;
-    work_completed?: string | null | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
@@ -8841,12 +8907,12 @@ export declare const UpdateJobCompletionReportResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     defects_found?: string | null | undefined;
     advisories?: string | null | undefined;
-    work_completed?: string | null | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
@@ -8860,12 +8926,12 @@ export declare const UpdateJobCompletionReportResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     defects_found?: string | null | undefined;
     advisories?: string | null | undefined;
-    work_completed?: string | null | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
@@ -8909,12 +8975,12 @@ export declare const GetJobCompletionReportByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     defects_found?: string | null | undefined;
     advisories?: string | null | undefined;
-    work_completed?: string | null | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
@@ -8928,12 +8994,12 @@ export declare const GetJobCompletionReportByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     follow_up_required?: boolean | undefined;
+    work_completed?: string | null | undefined;
     defects_found?: string | null | undefined;
     advisories?: string | null | undefined;
-    work_completed?: string | null | undefined;
     follow_up_notes?: string | null | undefined;
     additional_notes?: string | null | undefined;
     customer_name_signed?: string | null | undefined;
@@ -10109,8 +10175,8 @@ export declare const HeatPumpServiceRecordBase: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
@@ -10141,8 +10207,8 @@ export declare const HeatPumpServiceRecordBase: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
@@ -10206,8 +10272,8 @@ export declare const GetHeatPumpServiceRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
@@ -10238,8 +10304,8 @@ export declare const GetHeatPumpServiceRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
@@ -10303,8 +10369,8 @@ export declare const GetHeatPumpServiceRecordByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
@@ -10335,8 +10401,8 @@ export declare const GetHeatPumpServiceRecordByJobResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
@@ -10400,8 +10466,8 @@ export declare const UpdateHeatPumpServiceRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
@@ -10432,8 +10498,8 @@ export declare const UpdateHeatPumpServiceRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: string | null | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
@@ -10505,8 +10571,8 @@ export declare const CreateHeatPumpServiceRecordBody: zod.ZodObject<{
     technician_name_signed: zod.ZodOptional<zod.ZodString>;
     additional_notes: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: string | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
@@ -10534,8 +10600,8 @@ export declare const CreateHeatPumpServiceRecordBody: zod.ZodObject<{
     y_strainer_cleaned?: boolean | undefined;
     technician_name_signed?: string | undefined;
 }, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     next_service_due?: string | undefined;
     follow_up_required?: boolean | undefined;
     controls_checked?: boolean | undefined;
@@ -10680,8 +10746,8 @@ export declare const HeatPumpCommissioningRecordBase: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     safety_devices_checked?: boolean | undefined;
     expansion_vessel_checked?: boolean | undefined;
@@ -10704,8 +10770,8 @@ export declare const HeatPumpCommissioningRecordBase: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     safety_devices_checked?: boolean | undefined;
     expansion_vessel_checked?: boolean | undefined;
@@ -10753,8 +10819,8 @@ export declare const GetHeatPumpCommissioningRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     safety_devices_checked?: boolean | undefined;
     expansion_vessel_checked?: boolean | undefined;
@@ -10777,8 +10843,8 @@ export declare const GetHeatPumpCommissioningRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     safety_devices_checked?: boolean | undefined;
     expansion_vessel_checked?: boolean | undefined;
@@ -10826,8 +10892,8 @@ export declare const GetHeatPumpCommissioningRecordByJobResponse: zod.ZodObject<
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     safety_devices_checked?: boolean | undefined;
     expansion_vessel_checked?: boolean | undefined;
@@ -10850,8 +10916,8 @@ export declare const GetHeatPumpCommissioningRecordByJobResponse: zod.ZodObject<
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     safety_devices_checked?: boolean | undefined;
     expansion_vessel_checked?: boolean | undefined;
@@ -10899,8 +10965,8 @@ export declare const UpdateHeatPumpCommissioningRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     safety_devices_checked?: boolean | undefined;
     expansion_vessel_checked?: boolean | undefined;
@@ -10923,8 +10989,8 @@ export declare const UpdateHeatPumpCommissioningRecordResponse: zod.ZodObject<{
     id: string;
     created_at: Date;
     updated_at: Date;
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | null | undefined;
     safety_devices_checked?: boolean | undefined;
     expansion_vessel_checked?: boolean | undefined;
@@ -10980,8 +11046,8 @@ export declare const CreateHeatPumpCommissioningRecordBody: zod.ZodObject<{
     technician_name_signed: zod.ZodOptional<zod.ZodString>;
     notes: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | undefined;
     safety_devices_checked?: boolean | undefined;
     expansion_vessel_checked?: boolean | undefined;
@@ -11001,8 +11067,8 @@ export declare const CreateHeatPumpCommissioningRecordBody: zod.ZodObject<{
     buffer_tank_checked?: boolean | undefined;
     cylinder_checked?: boolean | undefined;
 }, {
-    technician_id: string;
     job_id: string;
+    technician_id: string;
     notes?: string | undefined;
     safety_devices_checked?: boolean | undefined;
     expansion_vessel_checked?: boolean | undefined;
@@ -11105,8 +11171,8 @@ export declare const JobTimeEntryResponseItem: zod.ZodObject<{
 }, "strip", zod.ZodTypeAny, {
     id: string;
     created_at: Date;
-    arrival_time: Date;
     job_id: string;
+    arrival_time: Date;
     tenant_id: string;
     notes?: string | null | undefined;
     departure_time?: Date | null | undefined;
@@ -11117,8 +11183,8 @@ export declare const JobTimeEntryResponseItem: zod.ZodObject<{
 }, {
     id: string;
     created_at: Date;
-    arrival_time: Date;
     job_id: string;
+    arrival_time: Date;
     tenant_id: string;
     notes?: string | null | undefined;
     departure_time?: Date | null | undefined;
@@ -11142,8 +11208,8 @@ export declare const JobTimeEntriesResponse: zod.ZodArray<zod.ZodObject<{
 }, "strip", zod.ZodTypeAny, {
     id: string;
     created_at: Date;
-    arrival_time: Date;
     job_id: string;
+    arrival_time: Date;
     tenant_id: string;
     notes?: string | null | undefined;
     departure_time?: Date | null | undefined;
@@ -11154,8 +11220,8 @@ export declare const JobTimeEntriesResponse: zod.ZodArray<zod.ZodObject<{
 }, {
     id: string;
     created_at: Date;
-    arrival_time: Date;
     job_id: string;
+    arrival_time: Date;
     tenant_id: string;
     notes?: string | null | undefined;
     departure_time?: Date | null | undefined;

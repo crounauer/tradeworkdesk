@@ -13,7 +13,7 @@ import { getTrueLayerToken, TL_API_BASE, TL_PAY_BASE } from "./truelayer";
 import { getPlatformSetting } from "../lib/geocode";
 import { triggerReviewRequestAutomation } from "../lib/review-request-service";
 import { notifyUsersForEvent } from "../lib/push-events";
-import { loadInvoicePayments, recordInvoicePayment } from "../lib/invoice-payments";
+import { amendInvoicePayment, deleteInvoicePayment, loadInvoicePayments, recordInvoicePayment } from "../lib/invoice-payments";
 
 const router: IRouter = Router();
 
@@ -30,6 +30,27 @@ const protect = [
   requirePlanFeature("invoicing"),
   requireTenantInvoicing,
 ];
+
+async function insertTenantAuditLog(opts: {
+  tenantId: string;
+  actorId?: string;
+  actorEmail?: string;
+  actorRole?: string;
+  eventType: string;
+  entityId: string;
+  detail: Record<string, unknown>;
+}) {
+  await supabaseAdmin.from("tenant_audit_log").insert({
+    tenant_id: opts.tenantId,
+    actor_id: opts.actorId || null,
+    actor_email: opts.actorEmail || null,
+    actor_role: opts.actorRole || null,
+    event_type: opts.eventType,
+    entity_type: "invoice_payment",
+    entity_id: opts.entityId,
+    detail: opts.detail,
+  });
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1483,6 +1504,85 @@ router.post("/invoices/:id/mark-paid", ...protect, async (req: AuthenticatedRequ
   }
 
   res.json(updated);
+});
+
+// ─── AMEND / DELETE MANUAL PAYMENT ────────────────────────────────────────
+router.put("/invoices/:id/payments/:paymentId", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const invoiceId = toSingleParam(req.params.id);
+  const paymentId = toSingleParam(req.params.paymentId);
+  const { data: invoice, error: invoiceErr } = await verifyInvoiceOwnership(invoiceId, req.tenantId!);
+  if (invoiceErr || !invoice) { res.status(404).json({ error: invoiceErr || "Invoice not found" }); return; }
+
+  const payments = await loadInvoicePayments(invoiceId, req.tenantId!, Number(invoice.total ?? 0));
+  const existing = payments.payments.find((payment) => payment.id === paymentId);
+  if (!existing) { res.status(404).json({ error: "Payment not found" }); return; }
+  if (["card", "direct_debit", "gocardless"].includes(existing.payment_method || "")) {
+    res.status(400).json({ error: "Online payments cannot be amended here. Process corrections through the payment provider." });
+    return;
+  }
+
+  const { amount, payment_date, payment_method, payment_reference } = req.body as {
+    amount?: number;
+    payment_date?: string;
+    payment_method?: string | null;
+    payment_reference?: string | null;
+  };
+  const normalizedPaymentMethod = normalizeManualPaymentMethod(payment_method || undefined);
+  if (payment_method !== undefined && payment_method !== null && !normalizedPaymentMethod) {
+    res.status(400).json({ error: "payment_method must be one of: cash, bacs, bank_transfer, cc" });
+    return;
+  }
+  if (!payment_date || Number.isNaN(Date.parse(payment_date))) {
+    res.status(400).json({ error: "payment_date must be a valid date" });
+    return;
+  }
+
+  try {
+    const updated = await amendInvoicePayment({
+      invoiceId,
+      paymentId,
+      tenantId: req.tenantId!,
+      amount: Number(amount),
+      paymentDate: payment_date,
+      paymentMethod: normalizedPaymentMethod,
+      paymentReference: payment_reference || null,
+    });
+    void insertTenantAuditLog({
+      tenantId: req.tenantId!, actorId: req.userId, actorEmail: req.userEmail, actorRole: req.userRole,
+      eventType: "invoice_payment_amended", entityId: paymentId,
+      detail: { invoice_id: invoiceId, before: existing, after: { amount, payment_date, payment_method: normalizedPaymentMethod, payment_reference: payment_reference || null } },
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+  }
+});
+
+router.delete("/invoices/:id/payments/:paymentId", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const invoiceId = toSingleParam(req.params.id);
+  const paymentId = toSingleParam(req.params.paymentId);
+  const { data: invoice, error: invoiceErr } = await verifyInvoiceOwnership(invoiceId, req.tenantId!);
+  if (invoiceErr || !invoice) { res.status(404).json({ error: invoiceErr || "Invoice not found" }); return; }
+
+  const payments = await loadInvoicePayments(invoiceId, req.tenantId!, Number(invoice.total ?? 0));
+  const existing = payments.payments.find((payment) => payment.id === paymentId);
+  if (!existing) { res.status(404).json({ error: "Payment not found" }); return; }
+  if (["card", "direct_debit", "gocardless"].includes(existing.payment_method || "")) {
+    res.status(400).json({ error: "Online payments cannot be deleted here. Process corrections through the payment provider." });
+    return;
+  }
+
+  try {
+    const updated = await deleteInvoicePayment({ invoiceId, paymentId, tenantId: req.tenantId! });
+    void insertTenantAuditLog({
+      tenantId: req.tenantId!, actorId: req.userId, actorEmail: req.userEmail, actorRole: req.userRole,
+      eventType: "invoice_payment_deleted", entityId: paymentId,
+      detail: { invoice_id: invoiceId, payment: existing },
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+  }
 });
 
 // ─── ACCEPT QUOTE ──────────────────────────────────────────────────────────

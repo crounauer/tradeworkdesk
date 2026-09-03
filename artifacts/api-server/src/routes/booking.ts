@@ -1217,6 +1217,7 @@ const convertBookingToJobHandler = (options?: { requireJobId?: boolean }) => asy
 
           if (bookingRecord.customer_email) {
             try {
+              const { companyName, details } = await loadBookingEmailCompanyDetails(req.tenantId!);
               await sendEnquiryAcknowledgementEmail(
                 bookingRecord.customer_email,
                 bookingRecord.customer_name || "Customer",

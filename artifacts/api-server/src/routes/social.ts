@@ -2261,13 +2261,7 @@ router.post(
     }
 
     const credentialsRecord = credentials as Record<string, unknown>;
-    let resolvedProfileName = String(profileName || "").trim();
-    if (platform === "x") {
-      resolvedProfileName = await resolveAndValidateXOAuth1ProfileName({
-        requestedProfileName: resolvedProfileName,
-        credentials: credentialsRecord,
-      });
-    }
+    const resolvedProfileName = String(profileName || "").trim();
 
     const encrypted = encryptCredentials(credentialsRecord as Record<string, string>);
 

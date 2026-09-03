@@ -114,11 +114,30 @@ router.get("/appliances/:id", requireAuth, requireTenant, async (req: Authentica
     .from("jobs").select("*, customers(first_name, last_name), profiles(full_name), properties(address_line1)")
     .eq("appliance_id", params.data.id).eq("is_active", true).order("scheduled_date", { ascending: false }).limit(10);
 
+  const jobIds = (jobs as ApplianceJobRow[] || []).map((j) => j.id);
+
+  const [{ data: serviceRecords }, { data: jobParts }] = jobIds.length
+    ? await Promise.all([
+        supabaseAdmin.from("service_records").select("job_id, work_completed").in("job_id", jobIds),
+        supabaseAdmin.from("job_parts").select("id, job_id, part_name, quantity, serial_number, unit_price, status").in("job_id", jobIds),
+      ])
+    : [{ data: [] }, { data: [] }];
+
+  const workCompletedByJob = new Map((serviceRecords || []).map((sr) => [sr.job_id, sr.work_completed]));
+  const partsByJob = new Map<string, unknown[]>();
+  for (const part of jobParts || []) {
+    const list = partsByJob.get(part.job_id) || [];
+    list.push(part);
+    partsByJob.set(part.job_id, list);
+  }
+
   const mappedJobs = (jobs as ApplianceJobRow[] || []).map((j) => ({
     ...j,
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
     property_address: j.properties?.address_line1 || null,
     technician_name: j.profiles?.full_name || null,
+    work_completed: workCompletedByJob.get(j.id) || null,
+    parts_used: partsByJob.get(j.id) || [],
     customers: undefined,
     profiles: undefined,
     properties: undefined,

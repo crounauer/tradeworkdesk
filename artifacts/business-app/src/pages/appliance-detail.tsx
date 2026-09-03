@@ -207,6 +207,18 @@ export default function ApplianceDetail() {
                             {job.status?.replace("_", " ")}
                           </span>
                         </div>
+                        {job.work_completed && (
+                          <p className="text-sm text-muted-foreground mt-2">{job.work_completed}</p>
+                        )}
+                        {job.parts_used && job.parts_used.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {job.parts_used.filter((p) => p.status !== "to_order").map((part) => (
+                              <span key={part.id} className="text-xs px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                                {part.part_name}{part.quantity && part.quantity > 1 ? ` x${part.quantity}` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </Card>
                     </Link>
                   ))}

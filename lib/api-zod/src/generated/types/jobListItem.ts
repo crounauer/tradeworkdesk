@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Job } from "./job";
+import type { JobPart } from "./jobPart";
 
 export type JobListItem = Job & {
   /** @nullable */
@@ -14,4 +15,10 @@ export type JobListItem = Job & {
   property_address?: string | null;
   /** @nullable */
   technician_name?: string | null;
+  /**
+   * Work completed summary from the job's service record, if any.
+   * @nullable
+   */
+  work_completed?: string | null;
+  parts_used?: JobPart[];
 };

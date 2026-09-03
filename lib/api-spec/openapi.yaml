@@ -2324,6 +2324,35 @@ components:
               type: ["string", "null"]
             job_type_name:
               type: ["string", "null"]
+            work_completed:
+              type: ["string", "null"]
+              description: Work completed summary from the job's service record, if any.
+            parts_used:
+              type: array
+              items:
+                $ref: "#/components/schemas/JobPart"
+
+    JobPart:
+      type: object
+      required: [id, job_id, part_name, quantity]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        part_name:
+          type: string
+        quantity:
+          type: number
+        serial_number:
+          type: ["string", "null"]
+        unit_price:
+          type: ["number", "null"]
+        status:
+          type: ["string", "null"]
+          enum: [fitted, to_order, null]
 
     JobDetail:
       allOf:
