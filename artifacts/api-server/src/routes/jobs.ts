@@ -92,27 +92,13 @@ type ServiceJobForApplianceSync = {
 
 async function syncApplianceServiceDates(tenantId: string, job: ServiceJobForApplianceSync): Promise<void> {
   if (!job.appliance_id || job.job_type !== "service") return;
-
-  const { data: nextService } = await supabaseAdmin
-    .from("jobs")
-    .select("scheduled_date")
-    .eq("tenant_id", tenantId)
-    .eq("appliance_id", job.appliance_id)
-    .eq("job_type", "service")
-    .eq("status", "scheduled")
-    .eq("is_active", true)
-    .order("scheduled_date")
-    .limit(1)
-    .maybeSingle();
-
-  const applianceUpdate: { next_service_due: string | null; last_service_date?: string } = {
-    next_service_due: nextService?.scheduled_date ?? null,
-  };
-  if (job.status === "completed") applianceUpdate.last_service_date = job.scheduled_date;
+  // next_service_due is only set from a completed service record (see service-records.ts)
+  // or a manual edit — a merely scheduled visit must not overwrite it.
+  if (job.status !== "completed") return;
 
   await supabaseAdmin
     .from("appliances")
-    .update(applianceUpdate)
+    .update({ last_service_date: job.scheduled_date })
     .eq("id", job.appliance_id)
     .eq("tenant_id", tenantId);
 }
