@@ -1151,29 +1151,25 @@ export default function ServiceRecordForm() {
 
         {(!isOil || oilStep === 4) && <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Shield className="w-5 h-5"/> Safety & Defects</h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 p-3 border rounded-xl hover:bg-emerald-50 cursor-pointer transition-colors">
-                <input type="checkbox" {...register("appliance_safe")} className="w-5 h-5 accent-emerald-600 rounded" />
-                <span className="font-medium">Appliance Safe to Use</span>
-              </label>
+          <div className="space-y-4">
+            <label className="flex items-center gap-3 p-3 border rounded-xl hover:bg-emerald-50 cursor-pointer">
+              <input type="checkbox" {...register("appliance_safe")} className="w-5 h-5 accent-emerald-600 rounded" />
+              <span className="font-medium">Appliance Safe to Use</span>
+            </label>
+            <div className="space-y-2">
+              <Label>Defects</Label>
+              <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...register("defects_details")} placeholder="List any defects..." />
             </div>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Defects</Label>
-                <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...register("defects_details")} placeholder="List any defects..." />
-              </div>
-              <div className="space-y-2">
-                <Label>Advisories</Label>
-                <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...register("advisories")} placeholder="Customer advisories..." />
-              </div>
+            <div className="space-y-2">
+              <Label>Advisories</Label>
+              <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...register("advisories")} placeholder="Customer advisories..." />
             </div>
           </div>
         </Card>}
 
         {(!isOil || oilStep === 4) && <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><AlertTriangle className="w-5 h-5"/> Work Summary & Follow-up</h2>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label>Work Completed</Label>
               <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]" {...register("work_completed")} placeholder="Summary of service work..." />
@@ -1182,7 +1178,7 @@ export default function ServiceRecordForm() {
               <Label>Parts Required</Label>
               <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]" {...register("parts_required")} placeholder="List any parts needed..." />
             </div>
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2">
               <Label>Additional Notes</Label>
               <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...register("additional_notes")} />
             </div>
