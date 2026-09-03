@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCreateBurnerSetupRecord, useGetBurnerSetupRecordByJob, getGetBurnerSetupRecordByJobQueryKey, useUpdateBurnerSetupRecord, customFetch } from "@workspace/api-client-react";
+import { useCreateBurnerSetupRecord, useGetBurnerSetupRecordByJob, getGetBurnerSetupRecordByJobQueryKey, useUpdateBurnerSetupRecord, customFetch, useGetJob } from "@workspace/api-client-react";
 import { useParams, useLocation, Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,14 @@ interface BurnerSetupFormData {
   burner_manufacturer: string;
   burner_model: string;
   burner_serial_number: string;
+  appliance_make: string;
+  appliance_model: string;
+  appliance_serial: string;
+  appliance_type: string;
+  appliance_location: string;
+  fuel_supply_type: string;
+  burner_stage: "single" | "two" | "fully_modulating";
+  modulation_readings: string;
   nozzle_size: string;
   nozzle_type: string;
   nozzle_angle: string;
@@ -28,6 +36,14 @@ interface BurnerSetupFormData {
   combustion_co: string;
   combustion_smoke: string;
   combustion_efficiency: string;
+  stage_two_nozzle_size: string;
+  stage_two_pump_pressure: string;
+  stage_two_air_damper_setting: string;
+  stage_two_head_setting: string;
+  stage_two_combustion_co2: string;
+  stage_two_combustion_co: string;
+  stage_two_combustion_smoke: string;
+  stage_two_combustion_efficiency: string;
   additional_notes: string;
 }
 
@@ -36,6 +52,7 @@ export default function BurnerSetupForm() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { data: job } = useGetJob(jobId!);
 
   const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetBurnerSetupRecordByJob(jobId!);
   const queryClient = useQueryClient();
@@ -45,6 +62,11 @@ export default function BurnerSetupForm() {
   const { register, handleSubmit, reset } = useForm<BurnerSetupFormData>();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [burnerStage, setBurnerStage] = useState<"single" | "two" | "fully_modulating">("single");
+  const modulationPressures = Array.from({ length: 16 }, (_, index) => index + 5);
+  const [modulationReadings, setModulationReadings] = useState<Array<{ fan_speed: string; co2: string; o2: string; co: string; nox: string }>>(
+    () => modulationPressures.map(() => ({ fan_speed: "", co2: "", o2: "", co: "", nox: "" })),
+  );
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
   const populatedAt = useRef(0);
@@ -53,6 +75,14 @@ export default function BurnerSetupForm() {
     if (existingRecord && dataUpdatedAt > populatedAt.current) {
       populatedAt.current = dataUpdatedAt;
       reset({
+        appliance_make: existingRecord.appliance_make || "",
+        appliance_model: existingRecord.appliance_model || "",
+        appliance_serial: existingRecord.appliance_serial || "",
+        appliance_type: existingRecord.appliance_type || "",
+        appliance_location: existingRecord.appliance_location || "",
+        fuel_supply_type: existingRecord.fuel_supply_type || "",
+        burner_stage: (existingRecord.burner_stage as "single" | "two" | "fully_modulating") || "single",
+        modulation_readings: existingRecord.modulation_readings || "",
         burner_manufacturer: existingRecord.burner_manufacturer || "",
         burner_model: existingRecord.burner_model || "",
         burner_serial_number: existingRecord.burner_serial_number || "",
@@ -69,14 +99,50 @@ export default function BurnerSetupForm() {
         combustion_co: existingRecord.combustion_co || "",
         combustion_smoke: existingRecord.combustion_smoke || "",
         combustion_efficiency: existingRecord.combustion_efficiency || "",
+        stage_two_nozzle_size: existingRecord.stage_two_nozzle_size || "",
+        stage_two_pump_pressure: existingRecord.stage_two_pump_pressure || "",
+        stage_two_air_damper_setting: existingRecord.stage_two_air_damper_setting || "",
+        stage_two_head_setting: existingRecord.stage_two_head_setting || "",
+        stage_two_combustion_co2: existingRecord.stage_two_combustion_co2 || "",
+        stage_two_combustion_co: existingRecord.stage_two_combustion_co || "",
+        stage_two_combustion_smoke: existingRecord.stage_two_combustion_smoke || "",
+        stage_two_combustion_efficiency: existingRecord.stage_two_combustion_efficiency || "",
         additional_notes: existingRecord.additional_notes || "",
       });
+      const savedStage = (existingRecord.burner_stage as "single" | "two" | "fully_modulating") || "single";
+      setBurnerStage(savedStage);
+      if (existingRecord.modulation_readings) {
+        try { setModulationReadings(JSON.parse(existingRecord.modulation_readings)); } catch { setModulationReadings(modulationPressures.map(() => ({ fan_speed: "", co2: "", o2: "", co: "", nox: "" }))); }
+      }
     }
   }, [existingRecord, dataUpdatedAt, reset]);
 
+  useEffect(() => {
+    if (existingRecord || !job?.appliance) return;
+    reset((current) => ({
+      ...current,
+      appliance_make: job.appliance?.manufacturer || "",
+      appliance_model: job.appliance?.model || "",
+      appliance_serial: job.appliance?.serial_number || "",
+      appliance_type: job.appliance?.boiler_type || "",
+      appliance_location: job.appliance?.location || "",
+      fuel_supply_type: [job.appliance?.fuel_type, job.appliance?.system_type].filter(Boolean).join(" / "),
+      burner_manufacturer: job.appliance?.burner_make || current.burner_manufacturer,
+      burner_model: job.appliance?.burner_model || current.burner_model,
+      nozzle_size: job.appliance?.nozzle_size || current.nozzle_size,
+      pump_pressure: job.appliance?.pump_pressure || current.pump_pressure,
+    }));
+  }, [existingRecord, job, reset]);
+
   const onSubmit = async (data: BurnerSetupFormData) => {
     if (!user?.id) return;
-    const payload = { ...data, job_id: jobId!, technician_id: user.id };
+    const payload = {
+      ...data,
+      burner_stage: burnerStage,
+      modulation_readings: burnerStage === "fully_modulating" ? JSON.stringify(modulationReadings) : undefined,
+      job_id: jobId!,
+      technician_id: user.id,
+    };
 
     try {
       if (existingRecord) {
@@ -133,6 +199,18 @@ export default function BurnerSetupForm() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
         <Card className="p-6 shadow-sm border-border/50">
+          <h2 className="font-bold text-lg mb-4 text-primary">Appliance Identification</h2>
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {(["appliance_make", "appliance_model", "appliance_serial", "appliance_type", "appliance_location", "fuel_supply_type"] as const).map((field) => (
+              <div className="space-y-2" key={field}>
+                <Label>{field.replace("appliance_", "").replace(/_/g, " ").replace(/^./, (value) => value.toUpperCase())}</Label>
+                <Input {...register(field)} />
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-orange-600 flex items-center gap-2">
             <Flame className="w-5 h-5" /> Burner Details
           </h2>
@@ -149,7 +227,35 @@ export default function BurnerSetupForm() {
               <Label>Serial Number</Label>
               <Input {...register("burner_serial_number")} placeholder="Serial number" />
             </div>
+            <div className="space-y-2">
+              <Label>Burner Configuration</Label>
+              <select
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                value={burnerStage}
+                onChange={(event) => setBurnerStage(event.target.value as "single" | "two" | "fully_modulating")}
+              >
+                <option value="single">Single stage burner</option>
+                <option value="two">Two-stage burner</option>
+                <option value="fully_modulating">Fully modulating burner (Sapphire)</option>
+              </select>
+            </div>
           </div>
+          {burnerStage === "fully_modulating" && (
+            <div className="mt-5 overflow-x-auto border-t pt-4">
+              <h3 className="font-semibold mb-3">Sapphire modulation readings</h3>
+              <table className="w-full min-w-[760px] text-sm border-collapse">
+                <thead><tr className="bg-muted/50"><th className="border p-2 text-left">Pump Pressure (bar)</th><th className="border p-2">Fan Speed (%)</th><th className="border p-2">CO2 (%)</th><th className="border p-2">O2 (%)</th><th className="border p-2">CO (ppm)</th><th className="border p-2">NOx (%)</th></tr></thead>
+                <tbody>{modulationPressures.map((pressure, index) => (
+                  <tr key={pressure}><td className="border p-2 font-medium">{pressure}</td>
+                    {(["fan_speed", "co2", "o2", "co", "nox"] as const).map((field) => (
+                      <td className="border p-1" key={field}><Input value={modulationReadings[index]?.[field] || ""} onChange={(event) => setModulationReadings((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: event.target.value } : row))} /></td>
+                    ))}
+                  </tr>
+                ))}</tbody>
+              </table>
+              <p className="mt-2 text-xs text-muted-foreground">CO2, O2, CO and NOx readings may be recorded as “Visual only” where applicable.</p>
+            </div>
+          )}
         </Card>
 
         <Card className="p-6 shadow-sm border-border/50">
@@ -177,6 +283,15 @@ export default function BurnerSetupForm() {
               <Label>Pump Vacuum (inHg)</Label>
               <Input {...register("pump_vacuum")} placeholder="e.g. 10" />
             </div>
+            {burnerStage === "two" && (
+              <>
+                <div className="sm:col-span-2 md:col-span-3 border-t pt-4 font-semibold text-muted-foreground">Stage 2 Settings</div>
+                <div className="space-y-2"><Label>Stage 2 Nozzle Size</Label><Input {...register("stage_two_nozzle_size")} /></div>
+                <div className="space-y-2"><Label>Stage 2 Pump Pressure</Label><Input {...register("stage_two_pump_pressure")} /></div>
+                <div className="space-y-2"><Label>Stage 2 Air Damper Setting</Label><Input {...register("stage_two_air_damper_setting")} /></div>
+                <div className="space-y-2"><Label>Stage 2 Head Setting</Label><Input {...register("stage_two_head_setting")} /></div>
+              </>
+            )}
           </div>
         </Card>
 
@@ -225,6 +340,15 @@ export default function BurnerSetupForm() {
               <Label>Efficiency (%)</Label>
               <Input {...register("combustion_efficiency")} placeholder="e.g. 85" />
             </div>
+            {burnerStage === "two" && (
+              <>
+                <div className="sm:col-span-2 md:col-span-4 border-t pt-4 font-semibold text-muted-foreground">Stage 2 Combustion Results</div>
+                <div className="space-y-2"><Label>Stage 2 CO2 (%)</Label><Input {...register("stage_two_combustion_co2")} /></div>
+                <div className="space-y-2"><Label>Stage 2 CO (ppm)</Label><Input {...register("stage_two_combustion_co")} /></div>
+                <div className="space-y-2"><Label>Stage 2 Smoke Number</Label><Input {...register("stage_two_combustion_smoke")} /></div>
+                <div className="space-y-2"><Label>Stage 2 Efficiency (%)</Label><Input {...register("stage_two_combustion_efficiency")} /></div>
+              </>
+            )}
             <div className="space-y-2 sm:col-span-2 md:col-span-4">
               <Label>Additional Notes</Label>
               <Input {...register("additional_notes")} placeholder="Any other observations..." />

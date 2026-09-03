@@ -7560,6 +7560,14 @@ export declare const GetCombustionAnalysisRecordByJobResponse: zod.ZodObject<{
 export declare const CreateBurnerSetupRecordBody: zod.ZodObject<{
     job_id: zod.ZodString;
     technician_id: zod.ZodString;
+    appliance_make: zod.ZodOptional<zod.ZodString>;
+    appliance_model: zod.ZodOptional<zod.ZodString>;
+    appliance_serial: zod.ZodOptional<zod.ZodString>;
+    appliance_type: zod.ZodOptional<zod.ZodString>;
+    appliance_location: zod.ZodOptional<zod.ZodString>;
+    fuel_supply_type: zod.ZodOptional<zod.ZodString>;
+    burner_stage: zod.ZodOptional<zod.ZodString>;
+    modulation_readings: zod.ZodOptional<zod.ZodString>;
     burner_manufacturer: zod.ZodOptional<zod.ZodString>;
     burner_model: zod.ZodOptional<zod.ZodString>;
     burner_serial_number: zod.ZodOptional<zod.ZodString>;
@@ -7576,6 +7584,14 @@ export declare const CreateBurnerSetupRecordBody: zod.ZodObject<{
     combustion_co: zod.ZodOptional<zod.ZodString>;
     combustion_smoke: zod.ZodOptional<zod.ZodString>;
     combustion_efficiency: zod.ZodOptional<zod.ZodString>;
+    stage_two_nozzle_size: zod.ZodOptional<zod.ZodString>;
+    stage_two_pump_pressure: zod.ZodOptional<zod.ZodString>;
+    stage_two_air_damper_setting: zod.ZodOptional<zod.ZodString>;
+    stage_two_head_setting: zod.ZodOptional<zod.ZodString>;
+    stage_two_combustion_co2: zod.ZodOptional<zod.ZodString>;
+    stage_two_combustion_co: zod.ZodOptional<zod.ZodString>;
+    stage_two_combustion_smoke: zod.ZodOptional<zod.ZodString>;
+    stage_two_combustion_efficiency: zod.ZodOptional<zod.ZodString>;
     additional_notes: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
     technician_id: string;
@@ -7586,7 +7602,15 @@ export declare const CreateBurnerSetupRecordBody: zod.ZodObject<{
     combustion_co2?: string | undefined;
     combustion_co?: string | undefined;
     combustion_efficiency?: string | undefined;
+    appliance_make?: string | undefined;
+    appliance_model?: string | undefined;
+    appliance_serial?: string | undefined;
+    appliance_type?: string | undefined;
     additional_notes?: string | undefined;
+    appliance_location?: string | undefined;
+    fuel_supply_type?: string | undefined;
+    burner_stage?: string | undefined;
+    modulation_readings?: string | undefined;
     burner_manufacturer?: string | undefined;
     burner_serial_number?: string | undefined;
     nozzle_type?: string | undefined;
@@ -7597,6 +7621,14 @@ export declare const CreateBurnerSetupRecordBody: zod.ZodObject<{
     air_damper_setting?: string | undefined;
     head_setting?: string | undefined;
     combustion_smoke?: string | undefined;
+    stage_two_nozzle_size?: string | undefined;
+    stage_two_pump_pressure?: string | undefined;
+    stage_two_air_damper_setting?: string | undefined;
+    stage_two_head_setting?: string | undefined;
+    stage_two_combustion_co2?: string | undefined;
+    stage_two_combustion_co?: string | undefined;
+    stage_two_combustion_smoke?: string | undefined;
+    stage_two_combustion_efficiency?: string | undefined;
 }, {
     technician_id: string;
     job_id: string;
@@ -7606,7 +7638,15 @@ export declare const CreateBurnerSetupRecordBody: zod.ZodObject<{
     combustion_co2?: string | undefined;
     combustion_co?: string | undefined;
     combustion_efficiency?: string | undefined;
+    appliance_make?: string | undefined;
+    appliance_model?: string | undefined;
+    appliance_serial?: string | undefined;
+    appliance_type?: string | undefined;
     additional_notes?: string | undefined;
+    appliance_location?: string | undefined;
+    fuel_supply_type?: string | undefined;
+    burner_stage?: string | undefined;
+    modulation_readings?: string | undefined;
     burner_manufacturer?: string | undefined;
     burner_serial_number?: string | undefined;
     nozzle_type?: string | undefined;
@@ -7617,6 +7657,14 @@ export declare const CreateBurnerSetupRecordBody: zod.ZodObject<{
     air_damper_setting?: string | undefined;
     head_setting?: string | undefined;
     combustion_smoke?: string | undefined;
+    stage_two_nozzle_size?: string | undefined;
+    stage_two_pump_pressure?: string | undefined;
+    stage_two_air_damper_setting?: string | undefined;
+    stage_two_head_setting?: string | undefined;
+    stage_two_combustion_co2?: string | undefined;
+    stage_two_combustion_co?: string | undefined;
+    stage_two_combustion_smoke?: string | undefined;
+    stage_two_combustion_efficiency?: string | undefined;
 }>;
 /**
  * @summary Get burner setup record by ID
@@ -7632,6 +7680,14 @@ export declare const GetBurnerSetupRecordResponse: zod.ZodObject<{
     id: zod.ZodString;
     job_id: zod.ZodString;
     technician_id: zod.ZodString;
+    appliance_make: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_model: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_serial: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    fuel_supply_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    burner_stage: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    modulation_readings: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_manufacturer: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_model: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_serial_number: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -7648,6 +7704,14 @@ export declare const GetBurnerSetupRecordResponse: zod.ZodObject<{
     combustion_co: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     combustion_smoke: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     combustion_efficiency: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_nozzle_size: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_pump_pressure: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_air_damper_setting: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_head_setting: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_combustion_co2: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_combustion_co: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_combustion_smoke: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_combustion_efficiency: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     additional_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     created_at: zod.ZodDate;
     updated_at: zod.ZodDate;
@@ -7663,7 +7727,15 @@ export declare const GetBurnerSetupRecordResponse: zod.ZodObject<{
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
     combustion_efficiency?: string | null | undefined;
+    appliance_make?: string | null | undefined;
+    appliance_model?: string | null | undefined;
+    appliance_serial?: string | null | undefined;
+    appliance_type?: string | null | undefined;
     additional_notes?: string | null | undefined;
+    appliance_location?: string | null | undefined;
+    fuel_supply_type?: string | null | undefined;
+    burner_stage?: string | null | undefined;
+    modulation_readings?: string | null | undefined;
     burner_manufacturer?: string | null | undefined;
     burner_serial_number?: string | null | undefined;
     nozzle_type?: string | null | undefined;
@@ -7674,6 +7746,14 @@ export declare const GetBurnerSetupRecordResponse: zod.ZodObject<{
     air_damper_setting?: string | null | undefined;
     head_setting?: string | null | undefined;
     combustion_smoke?: string | null | undefined;
+    stage_two_nozzle_size?: string | null | undefined;
+    stage_two_pump_pressure?: string | null | undefined;
+    stage_two_air_damper_setting?: string | null | undefined;
+    stage_two_head_setting?: string | null | undefined;
+    stage_two_combustion_co2?: string | null | undefined;
+    stage_two_combustion_co?: string | null | undefined;
+    stage_two_combustion_smoke?: string | null | undefined;
+    stage_two_combustion_efficiency?: string | null | undefined;
 }, {
     id: string;
     created_at: Date;
@@ -7686,7 +7766,15 @@ export declare const GetBurnerSetupRecordResponse: zod.ZodObject<{
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
     combustion_efficiency?: string | null | undefined;
+    appliance_make?: string | null | undefined;
+    appliance_model?: string | null | undefined;
+    appliance_serial?: string | null | undefined;
+    appliance_type?: string | null | undefined;
     additional_notes?: string | null | undefined;
+    appliance_location?: string | null | undefined;
+    fuel_supply_type?: string | null | undefined;
+    burner_stage?: string | null | undefined;
+    modulation_readings?: string | null | undefined;
     burner_manufacturer?: string | null | undefined;
     burner_serial_number?: string | null | undefined;
     nozzle_type?: string | null | undefined;
@@ -7697,6 +7785,14 @@ export declare const GetBurnerSetupRecordResponse: zod.ZodObject<{
     air_damper_setting?: string | null | undefined;
     head_setting?: string | null | undefined;
     combustion_smoke?: string | null | undefined;
+    stage_two_nozzle_size?: string | null | undefined;
+    stage_two_pump_pressure?: string | null | undefined;
+    stage_two_air_damper_setting?: string | null | undefined;
+    stage_two_head_setting?: string | null | undefined;
+    stage_two_combustion_co2?: string | null | undefined;
+    stage_two_combustion_co?: string | null | undefined;
+    stage_two_combustion_smoke?: string | null | undefined;
+    stage_two_combustion_efficiency?: string | null | undefined;
 }>;
 /**
  * @summary Update burner setup record
@@ -7709,6 +7805,14 @@ export declare const UpdateBurnerSetupRecordParams: zod.ZodObject<{
     id: string;
 }>;
 export declare const UpdateBurnerSetupRecordBody: zod.ZodObject<{
+    appliance_make: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_model: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_serial: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    fuel_supply_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    burner_stage: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    modulation_readings: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_manufacturer: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_model: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_serial_number: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -7725,6 +7829,14 @@ export declare const UpdateBurnerSetupRecordBody: zod.ZodObject<{
     combustion_co: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     combustion_smoke: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     combustion_efficiency: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_nozzle_size: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_pump_pressure: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_air_damper_setting: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_head_setting: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_combustion_co2: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_combustion_co: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_combustion_smoke: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    stage_two_combustion_efficiency: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     additional_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
 }, "strip", zod.ZodTypeAny, {
     burner_model?: string | null | undefined;
@@ -7733,7 +7845,15 @@ export declare const UpdateBurnerSetupRecordBody: zod.ZodObject<{
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
     combustion_efficiency?: string | null | undefined;
+    appliance_make?: string | null | undefined;
+    appliance_model?: string | null | undefined;
+    appliance_serial?: string | null | undefined;
+    appliance_type?: string | null | undefined;
     additional_notes?: string | null | undefined;
+    appliance_location?: string | null | undefined;
+    fuel_supply_type?: string | null | undefined;
+    burner_stage?: string | null | undefined;
+    modulation_readings?: string | null | undefined;
     burner_manufacturer?: string | null | undefined;
     burner_serial_number?: string | null | undefined;
     nozzle_type?: string | null | undefined;
@@ -7744,6 +7864,14 @@ export declare const UpdateBurnerSetupRecordBody: zod.ZodObject<{
     air_damper_setting?: string | null | undefined;
     head_setting?: string | null | undefined;
     combustion_smoke?: string | null | undefined;
+    stage_two_nozzle_size?: string | null | undefined;
+    stage_two_pump_pressure?: string | null | undefined;
+    stage_two_air_damper_setting?: string | null | undefined;
+    stage_two_head_setting?: string | null | undefined;
+    stage_two_combustion_co2?: string | null | undefined;
+    stage_two_combustion_co?: string | null | undefined;
+    stage_two_combustion_smoke?: string | null | undefined;
+    stage_two_combustion_efficiency?: string | null | undefined;
 }, {
     burner_model?: string | null | undefined;
     nozzle_size?: string | null | undefined;
@@ -7751,7 +7879,15 @@ export declare const UpdateBurnerSetupRecordBody: zod.ZodObject<{
     combustion_co2?: string | null | undefined;
     combustion_co?: string | null | undefined;
     combustion_efficiency?: string | null | undefined;
+    appliance_make?: string | null | undefined;
+    appliance_model?: string | null | undefined;
+    appliance_serial?: string | null | undefined;
+    appliance_type?: string | null | undefined;
     additional_notes?: string | null | undefined;
+    appliance_location?: string | null | undefined;
+    fuel_supply_type?: string | null | undefined;
+    burner_stage?: string | null | undefined;
+    modulation_readings?: string | null | undefined;
     burner_manufacturer?: string | null | undefined;
     burner_serial_number?: string | null | undefined;
     nozzle_type?: string | null | undefined;
@@ -7762,6 +7898,14 @@ export declare const UpdateBurnerSetupRecordBody: zod.ZodObject<{
     air_damper_setting?: string | null | undefined;
     head_setting?: string | null | undefined;
     combustion_smoke?: string | null | undefined;
+    stage_two_nozzle_size?: string | null | undefined;
+    stage_two_pump_pressure?: string | null | undefined;
+    stage_two_air_damper_setting?: string | null | undefined;
+    stage_two_head_setting?: string | null | undefined;
+    stage_two_combustion_co2?: string | null | undefined;
+    stage_two_combustion_co?: string | null | undefined;
+    stage_two_combustion_smoke?: string | null | undefined;
+    stage_two_combustion_efficiency?: string | null | undefined;
 }>;
 export declare const UpdateBurnerSetupRecordResponse: zod.ZodObject<{
     id: zod.ZodString;

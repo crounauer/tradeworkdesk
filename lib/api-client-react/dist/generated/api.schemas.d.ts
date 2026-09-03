@@ -1512,6 +1512,14 @@ export interface BurnerSetupRecord {
     id: string;
     job_id: string;
     technician_id: string;
+    appliance_make?: string | null;
+    appliance_model?: string | null;
+    appliance_serial?: string | null;
+    appliance_type?: string | null;
+    appliance_location?: string | null;
+    fuel_supply_type?: string | null;
+    burner_stage?: string | null;
+    modulation_readings?: string | null;
     /** @nullable */
     burner_manufacturer?: string | null;
     /** @nullable */
@@ -1544,6 +1552,14 @@ export interface BurnerSetupRecord {
     combustion_smoke?: string | null;
     /** @nullable */
     combustion_efficiency?: string | null;
+    stage_two_nozzle_size?: string | null;
+    stage_two_pump_pressure?: string | null;
+    stage_two_air_damper_setting?: string | null;
+    stage_two_head_setting?: string | null;
+    stage_two_combustion_co2?: string | null;
+    stage_two_combustion_co?: string | null;
+    stage_two_combustion_smoke?: string | null;
+    stage_two_combustion_efficiency?: string | null;
     /** @nullable */
     additional_notes?: string | null;
     created_at: string;
@@ -1552,6 +1568,14 @@ export interface BurnerSetupRecord {
 export interface CreateBurnerSetupRecordBody {
     job_id: string;
     technician_id: string;
+    appliance_make?: string;
+    appliance_model?: string;
+    appliance_serial?: string;
+    appliance_type?: string;
+    appliance_location?: string;
+    fuel_supply_type?: string;
+    burner_stage?: string;
+    modulation_readings?: string;
     burner_manufacturer?: string;
     burner_model?: string;
     burner_serial_number?: string;
@@ -1568,9 +1592,25 @@ export interface CreateBurnerSetupRecordBody {
     combustion_co?: string;
     combustion_smoke?: string;
     combustion_efficiency?: string;
+    stage_two_nozzle_size?: string;
+    stage_two_pump_pressure?: string;
+    stage_two_air_damper_setting?: string;
+    stage_two_head_setting?: string;
+    stage_two_combustion_co2?: string;
+    stage_two_combustion_co?: string;
+    stage_two_combustion_smoke?: string;
+    stage_two_combustion_efficiency?: string;
     additional_notes?: string;
 }
 export interface UpdateBurnerSetupRecordBody {
+    appliance_make?: string | null;
+    appliance_model?: string | null;
+    appliance_serial?: string | null;
+    appliance_type?: string | null;
+    appliance_location?: string | null;
+    fuel_supply_type?: string | null;
+    burner_stage?: string | null;
+    modulation_readings?: string | null;
     /** @nullable */
     burner_manufacturer?: string | null;
     /** @nullable */
@@ -1603,6 +1643,14 @@ export interface UpdateBurnerSetupRecordBody {
     combustion_smoke?: string | null;
     /** @nullable */
     combustion_efficiency?: string | null;
+    stage_two_nozzle_size?: string | null;
+    stage_two_pump_pressure?: string | null;
+    stage_two_air_damper_setting?: string | null;
+    stage_two_head_setting?: string | null;
+    stage_two_combustion_co2?: string | null;
+    stage_two_combustion_co?: string | null;
+    stage_two_combustion_smoke?: string | null;
+    stage_two_combustion_efficiency?: string | null;
     /** @nullable */
     additional_notes?: string | null;
 }

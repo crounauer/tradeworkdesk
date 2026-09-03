@@ -1,0 +1,17 @@
+ALTER TABLE burner_setup_records
+  ADD COLUMN IF NOT EXISTS appliance_make text,
+  ADD COLUMN IF NOT EXISTS appliance_model text,
+  ADD COLUMN IF NOT EXISTS appliance_serial text,
+  ADD COLUMN IF NOT EXISTS appliance_type text,
+  ADD COLUMN IF NOT EXISTS appliance_location text,
+  ADD COLUMN IF NOT EXISTS fuel_supply_type text,
+  ADD COLUMN IF NOT EXISTS burner_stage text,
+  ADD COLUMN IF NOT EXISTS modulation_readings text,
+  ADD COLUMN IF NOT EXISTS stage_two_nozzle_size text,
+  ADD COLUMN IF NOT EXISTS stage_two_pump_pressure text,
+  ADD COLUMN IF NOT EXISTS stage_two_air_damper_setting text,
+  ADD COLUMN IF NOT EXISTS stage_two_head_setting text,
+  ADD COLUMN IF NOT EXISTS stage_two_combustion_co2 text,
+  ADD COLUMN IF NOT EXISTS stage_two_combustion_co text,
+  ADD COLUMN IF NOT EXISTS stage_two_combustion_smoke text,
+  ADD COLUMN IF NOT EXISTS stage_two_combustion_efficiency text;

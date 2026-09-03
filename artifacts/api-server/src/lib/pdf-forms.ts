@@ -212,6 +212,23 @@ function str(v: unknown): string {
   return s;
 }
 
+function formatModulationReadings(value: unknown): string {
+  if (!value) return "";
+  try {
+    const readings = JSON.parse(String(value)) as Array<Record<string, unknown>>;
+    return readings
+      .map((reading, index) => {
+        const values = [reading.fan_speed, reading.co2, reading.o2, reading.co, reading.nox].map(str);
+        if (!values.some(Boolean)) return "";
+        return `${index + 5} bar | Fan ${values[0] || "N/A"}% | CO2 ${values[1] || "N/A"}% | O2 ${values[2] || "N/A"}% | CO ${values[3] || "N/A"} ppm | NOx ${values[4] || "N/A"}%`;
+      })
+      .filter(Boolean)
+      .join("\n");
+  } catch {
+    return str(value);
+  }
+}
+
 function addPdfFooter(doc: any, company: PdfCompanySettings | undefined, docType: string): void {
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
@@ -389,22 +406,33 @@ const JOB_COMPLETION_REPORT_SECTIONS: SectionDef[] = [
 
 const BURNER_SETUP_SECTIONS: SectionDef[] = [
   {
+    title: "Appliance Identification",
+    fields: ["appliance_make", "appliance_model", "appliance_serial", "appliance_type", "appliance_location", "fuel_supply_type", "burner_stage"],
+  },
+  {
     title: "Burner Details",
     fields: ["burner_manufacturer", "burner_model", "burner_serial_number"],
     color: [234, 88, 12],
   },
   {
     title: "Nozzle Settings",
-    fields: ["nozzle_size", "nozzle_type", "nozzle_angle"],
+    fields: ["nozzle_size", "nozzle_type", "nozzle_angle", "stage_two_nozzle_size"],
+  },
+  {
+    title: "Sapphire Modulation Readings",
+    fields: ["modulation_readings"],
   },
   {
     title: "Pressure & Electrode Settings",
     fields: ["pump_pressure", "pump_vacuum", "electrode_gap", "electrode_position",
-             "air_damper_setting", "head_setting"],
+             "air_damper_setting", "head_setting", "stage_two_pump_pressure",
+             "stage_two_air_damper_setting", "stage_two_head_setting"],
   },
   {
     title: "Combustion Readings",
-    fields: ["combustion_co2", "combustion_co", "combustion_smoke", "combustion_efficiency"],
+    fields: ["combustion_co2", "combustion_co", "combustion_smoke", "combustion_efficiency",
+             "stage_two_combustion_co2", "stage_two_combustion_co", "stage_two_combustion_smoke",
+             "stage_two_combustion_efficiency"],
   },
   {
     title: "Notes",
@@ -639,6 +667,9 @@ export function generateFormPdf(
   const sections = FORM_SECTIONS[formType] || null;
   const isGas = fuelType === "gas" || fuelType === "lpg";
   const effectiveRecord = (() => {
+    if (formType === "burner_setup_record") {
+      return { ...record, modulation_readings: formatModulationReadings(record.modulation_readings) };
+    }
     if (formType !== "service_record") return record;
 
     const safetyNotes = str(record.safety_devices_notes);

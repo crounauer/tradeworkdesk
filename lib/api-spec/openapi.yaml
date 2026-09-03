@@ -3845,6 +3845,22 @@ components:
         technician_id:
           type: string
           format: uuid
+        appliance_make:
+          type: ["string", "null"]
+        appliance_model:
+          type: ["string", "null"]
+        appliance_serial:
+          type: ["string", "null"]
+        appliance_type:
+          type: ["string", "null"]
+        appliance_location:
+          type: ["string", "null"]
+        fuel_supply_type:
+          type: ["string", "null"]
+        burner_stage:
+          type: ["string", "null"]
+        modulation_readings:
+          type: ["string", "null"]
         burner_manufacturer:
           type: ["string", "null"]
         burner_model:
@@ -3876,6 +3892,22 @@ components:
         combustion_smoke:
           type: ["string", "null"]
         combustion_efficiency:
+          type: ["string", "null"]
+        stage_two_nozzle_size:
+          type: ["string", "null"]
+        stage_two_pump_pressure:
+          type: ["string", "null"]
+        stage_two_air_damper_setting:
+          type: ["string", "null"]
+        stage_two_head_setting:
+          type: ["string", "null"]
+        stage_two_combustion_co2:
+          type: ["string", "null"]
+        stage_two_combustion_co:
+          type: ["string", "null"]
+        stage_two_combustion_smoke:
+          type: ["string", "null"]
+        stage_two_combustion_efficiency:
           type: ["string", "null"]
         additional_notes:
           type: ["string", "null"]
@@ -3896,6 +3928,22 @@ components:
         technician_id:
           type: string
           format: uuid
+        appliance_make:
+          type: string
+        appliance_model:
+          type: string
+        appliance_serial:
+          type: string
+        appliance_type:
+          type: string
+        appliance_location:
+          type: string
+        fuel_supply_type:
+          type: string
+        burner_stage:
+          type: string
+        modulation_readings:
+          type: string
         burner_manufacturer:
           type: string
         burner_model:
@@ -3927,6 +3975,22 @@ components:
         combustion_smoke:
           type: string
         combustion_efficiency:
+          type: string
+        stage_two_nozzle_size:
+          type: string
+        stage_two_pump_pressure:
+          type: string
+        stage_two_air_damper_setting:
+          type: string
+        stage_two_head_setting:
+          type: string
+        stage_two_combustion_co2:
+          type: string
+        stage_two_combustion_co:
+          type: string
+        stage_two_combustion_smoke:
+          type: string
+        stage_two_combustion_efficiency:
           type: string
         additional_notes:
           type: string
@@ -3934,6 +3998,22 @@ components:
     UpdateBurnerSetupRecordBody:
       type: object
       properties:
+        appliance_make:
+          type: ["string", "null"]
+        appliance_model:
+          type: ["string", "null"]
+        appliance_serial:
+          type: ["string", "null"]
+        appliance_type:
+          type: ["string", "null"]
+        appliance_location:
+          type: ["string", "null"]
+        fuel_supply_type:
+          type: ["string", "null"]
+        burner_stage:
+          type: ["string", "null"]
+        modulation_readings:
+          type: ["string", "null"]
         burner_manufacturer:
           type: ["string", "null"]
         burner_model:
@@ -3965,6 +4045,22 @@ components:
         combustion_smoke:
           type: ["string", "null"]
         combustion_efficiency:
+          type: ["string", "null"]
+        stage_two_nozzle_size:
+          type: ["string", "null"]
+        stage_two_pump_pressure:
+          type: ["string", "null"]
+        stage_two_air_damper_setting:
+          type: ["string", "null"]
+        stage_two_head_setting:
+          type: ["string", "null"]
+        stage_two_combustion_co2:
+          type: ["string", "null"]
+        stage_two_combustion_co:
+          type: ["string", "null"]
+        stage_two_combustion_smoke:
+          type: ["string", "null"]
+        stage_two_combustion_efficiency:
           type: ["string", "null"]
         additional_notes:
           type: ["string", "null"]
