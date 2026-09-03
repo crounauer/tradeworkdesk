@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Rocket, Building2, Users, Briefcase, Receipt, Globe2, CalendarDays, Megaphone, Wrench } from "lucide-react";
+import { CheckCircle2, Rocket, Building2, Users, Briefcase, Receipt, Globe2, CalendarDays, Megaphone, Wrench, Camera, WifiOff, FileText } from "lucide-react";
 import { Link } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 
 type Step = {
   title: string;
@@ -151,7 +152,176 @@ const phases: Phase[] = [
   },
 ];
 
+const technicianPhases: Phase[] = [
+  {
+    id: "first-day",
+    title: "Your First Day",
+    icon: Briefcase,
+    eta: "10 min",
+    steps: [
+      {
+        title: "Find your jobs",
+        detail: "Your assigned jobs for today and upcoming visits show on the Dashboard and Schedule.",
+        href: "/schedule",
+        label: "Open Schedule",
+      },
+      {
+        title: "Open a job",
+        detail: "Tap into a job to see the customer, property, appliance history, and any notes left by the office.",
+        href: "/jobs",
+        label: "Open Jobs",
+      },
+      {
+        title: "Log your time",
+        detail: "Record arrival and departure time on each job so office staff can track visit duration.",
+        href: "/jobs",
+        label: "Open Jobs",
+      },
+    ],
+  },
+  {
+    id: "on-site-workflow",
+    title: "On-Site Workflow",
+    icon: Camera,
+    eta: "As you work",
+    steps: [
+      {
+        title: "Upload photos and documents",
+        detail: "Take photos of the appliance, faults, or nameplates, and upload any paperwork straight from the job.",
+        href: "/jobs",
+        label: "Open Jobs",
+      },
+      {
+        title: "Complete service forms",
+        detail: "Fill in service records, breakdown reports, or commissioning forms from the job's Actions & Forms section.",
+        href: "/jobs",
+        label: "Open Jobs",
+      },
+      {
+        title: "Add parts and services used",
+        detail: "Record parts fitted and services carried out so the office can invoice accurately.",
+        href: "/jobs",
+        label: "Open Jobs",
+      },
+    ],
+  },
+  {
+    id: "staying-on-track",
+    title: "Staying On Track",
+    icon: WifiOff,
+    eta: "Ongoing",
+    steps: [
+      {
+        title: "Work offline if needed",
+        detail: "No signal at a property? Keep working — changes sync automatically once you're back online.",
+        href: "/jobs",
+        label: "Open Jobs",
+      },
+      {
+        title: "Flag jobs needing another visit",
+        detail: "If parts are needed or the job isn't finished, mark it as requiring a follow-up.",
+        href: "/follow-ups",
+        label: "Open Follow-Ups",
+      },
+      {
+        title: "Check your shopping list",
+        detail: "If enabled for you, track parts you need to order or pick up.",
+        href: "/shopping-lists",
+        label: "Open Shopping Lists",
+      },
+    ],
+  },
+];
+
 export default function GettingStartedPage() {
+  const { profile } = useAuth();
+  const isTechnician = profile?.role === "technician";
+
+  if (isTechnician) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500 max-w-5xl">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-2">
+              <Rocket className="w-7 h-7 text-primary" />
+              Getting Started
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              A quick guide to finding your jobs and getting work logged correctly.
+            </p>
+          </div>
+          <Badge variant="secondary" className="h-fit">New Technician</Badge>
+        </div>
+
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-5">
+            <p className="text-sm text-muted-foreground">
+              Tip: work through these in order on your first job. Each step links directly to the relevant screen.
+            </p>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          {technicianPhases.map((phase) => {
+            const Icon = phase.icon;
+            return (
+              <Card key={phase.id}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Icon className="w-4 h-4 text-primary" />
+                    {phase.title}
+                    <Badge variant="outline" className="ml-auto">{phase.eta}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {phase.steps.map((step) => (
+                    <div key={step.title} className="rounded-lg border p-3">
+                      <p className="font-semibold text-sm flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        {step.title}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">{step.detail}</p>
+                      <Link href={step.href} className="inline-flex mt-2 text-sm text-primary hover:underline">
+                        {step.label}
+                      </Link>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><Camera className="w-4 h-4" /> Photos & Docs</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">Upload photos and files directly from a job to keep records complete.</CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><FileText className="w-4 h-4" /> Forms</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">Service records, breakdown reports and commissioning forms live under each job.</CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><WifiOff className="w-4 h-4" /> Offline Mode</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">No signal on-site? Keep working — everything syncs when you're back online.</CardContent>
+          </Card>
+        </div>
+
+        <Card className="p-5 text-center border-slate-200 bg-slate-50">
+          <p className="text-sm text-muted-foreground">
+            Need more detail? Visit the <Link href="/help" className="text-primary hover:underline font-medium">User Guide</Link> for step-by-step walkthroughs.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-5xl">
       <div className="flex items-start justify-between gap-3 flex-wrap">
