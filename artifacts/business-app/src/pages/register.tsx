@@ -18,6 +18,11 @@ function getBetaCodeFromUrl() {
   return params.get("beta") ?? "";
 }
 
+function getEmailFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("email") ?? "";
+}
+
 type ValidateResult = { valid: boolean; role: string } | null;
 type RegisterMode = "invite" | "company";
 type Product = "tradeworkdesk" | "tradesite" | "bundle";
@@ -40,7 +45,7 @@ export default function Register() {
   const [step, setStep] = useState(1);
 
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(getEmailFromUrl);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -587,7 +592,7 @@ export default function Register() {
               </div>
               <div className="space-y-2">
                 <Label>Email Address</Label>
-                <Input type="email" placeholder="jane@example.com" value={email} onChange={e => { setEmail(e.target.value); clearFieldError("email"); }} className={fieldErrors.email ? "border-destructive focus-visible:ring-destructive/30" : ""} required />
+                <Input type="email" placeholder="jane@example.com" value={email} onChange={e => { setEmail(e.target.value); clearFieldError("email"); }} className={fieldErrors.email ? "border-destructive focus-visible:ring-destructive/30" : ""} required readOnly={!!getEmailFromUrl()} />
                 {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
               </div>
             </div>

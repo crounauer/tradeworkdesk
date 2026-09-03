@@ -292,7 +292,7 @@ router.post("/admin/invite-codes/:id/send-email", requireAuth, requireTenant, re
   const companyName = (tenant as Record<string, unknown>)?.company_name as string || "Your Company";
 
   const APP_URL = process.env.APP_URL || "https://tradeworkdesk.co.uk";
-  const inviteUrl = `${APP_URL}/register?code=${invite.code}`;
+  const inviteUrl = `${APP_URL}/register?code=${invite.code}&email=${encodeURIComponent(email)}`;
 
   try {
     await sendTeamInviteEmail(email, companyName, invite.role, inviteUrl, {

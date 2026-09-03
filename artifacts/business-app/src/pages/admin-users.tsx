@@ -115,9 +115,9 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["admin-invite-codes"] });
-      const link = `${window.location.origin}/register?code=${data.code}`;
-      navigator.clipboard.writeText(link).catch(() => {});
       const email = inviteEmail.trim();
+      const link = `${window.location.origin}/register?code=${data.code}${email ? `&email=${encodeURIComponent(email)}` : ""}`;
+      navigator.clipboard.writeText(link).catch(() => {});
       if (email) {
         emailInvite.mutate({ id: data.id, email }, {
           onSuccess: () => {
