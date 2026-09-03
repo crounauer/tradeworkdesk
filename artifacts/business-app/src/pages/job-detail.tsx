@@ -2620,9 +2620,7 @@ function PhotosSection({ jobId }: { jobId: string }) {
   const qc = useQueryClient();
   const { hasAddon } = usePlanFeatures();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const docInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadingDoc, setUploadingDoc] = useState(false);
 
   const { data: files, isLoading, queryKey: filesQueryKey } = useListFiles({ entity_type: "job", entity_id: jobId });
   const deleteMutation = useDeleteFile();
@@ -2638,15 +2636,16 @@ function PhotosSection({ jobId }: { jobId: string }) {
     setUploading(true);
     try {
       for (let i = 0; i < fileList.length; i++) {
-        const compressed = await compressImageClient(fileList[i]);
+        const file = fileList[i];
+        const toUpload = file.type.startsWith("image/") ? await compressImageClient(file) : file;
         const formData = new FormData();
-        formData.append("file", compressed);
+        formData.append("file", toUpload);
         formData.append("entity_type", "job");
         formData.append("entity_id", jobId);
         await customFetch(`${import.meta.env.BASE_URL}api/files/upload`, { method: "POST", body: formData });
       }
       await qc.refetchQueries({ queryKey: filesQueryKey });
-      toast({ title: "Uploaded", description: `${fileList.length} photo(s) uploaded` });
+      toast({ title: "Uploaded", description: `${fileList.length} file(s) uploaded` });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Upload failed";
       const isStorageFull = message.includes("STORAGE_LIMIT_REACHED");
@@ -2660,37 +2659,6 @@ function PhotosSection({ jobId }: { jobId: string }) {
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileList = e.target.files;
-    if (!fileList || fileList.length === 0) return;
-
-    setUploadingDoc(true);
-    try {
-      for (let i = 0; i < fileList.length; i++) {
-        const formData = new FormData();
-        formData.append("file", fileList[i]);
-        formData.append("entity_type", "job");
-        formData.append("entity_id", jobId);
-        await customFetch(`${import.meta.env.BASE_URL}api/files/upload`, { method: "POST", body: formData });
-      }
-      await qc.refetchQueries({ queryKey: filesQueryKey });
-      toast({ title: "Uploaded", description: `${fileList.length} document(s) uploaded` });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Upload failed";
-      const isStorageFull = message.includes("STORAGE_LIMIT_REACHED");
-      toast({
-        title: isStorageFull ? "Storage limit reached" : "Upload Error",
-        description: isStorageFull
-          ? "You've used all your storage. Upgrade to Extra Photo Storage in Billing to get 500 GB more."
-          : message,
-        variant: "destructive",
-      });
-    } finally {
-      setUploadingDoc(false);
-      if (docInputRef.current) docInputRef.current.value = "";
     }
   };
 
@@ -2717,23 +2685,12 @@ function PhotosSection({ jobId }: { jobId: string }) {
             ref={fileInputRef}
             type="file"
             className="hidden"
-            accept="image/*"
+            accept="image/*,.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             multiple
             onChange={handleUpload}
           />
           <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-            <Upload className="w-4 h-4 mr-1" /> {uploading ? "Uploading..." : "Upload / Take Photo"}
-          </Button>
-          <input
-            ref={docInputRef}
-            type="file"
-            className="hidden"
-            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            multiple
-            onChange={handleDocUpload}
-          />
-          <Button size="sm" variant="outline" onClick={() => docInputRef.current?.click()} disabled={uploadingDoc}>
-            <FileText className="w-4 h-4 mr-1" /> {uploadingDoc ? "Uploading..." : "Documents"}
+            <Upload className="w-4 h-4 mr-1" /> {uploading ? "Uploading..." : "Upload File"}
           </Button>
         </div>
       </div>
