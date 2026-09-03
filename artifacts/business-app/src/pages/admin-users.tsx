@@ -80,14 +80,22 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [showInviteSection, setShowInviteSection] = useState(false);
 
-  const { data: users, isLoading } = useQuery<Profile[]>({
+  const { data: users, isLoading, error: usersError } = useQuery<Profile[]>({
     queryKey: ["admin-users"],
-    queryFn: () => fetch("/api/admin/users").then(r => r.json()),
+    queryFn: async () => {
+      const res = await fetch("/api/admin/users");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to load users");
+      return res.json();
+    },
   });
 
   const { data: inviteCodes } = useQuery<InviteCode[]>({
     queryKey: ["admin-invite-codes"],
-    queryFn: () => fetch("/api/admin/invite-codes").then(r => r.json()),
+    queryFn: async () => {
+      const res = await fetch("/api/admin/invite-codes");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to load invite codes");
+      return res.json();
+    },
   });
 
   const emailInvite = useMutation({
@@ -143,13 +151,21 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
   // Available per-seat addons this tenant has active
   const { data: availableAddons } = useQuery<TenantAddon[]>({
     queryKey: ["admin-available-addons"],
-    queryFn: () => fetch("/api/admin/available-addons").then(r => r.json()),
+    queryFn: async () => {
+      const res = await fetch("/api/admin/available-addons");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to load add-ons");
+      return res.json();
+    },
   });
 
   // Current user-addon assignments
   const { data: userAddons } = useQuery<UserAddon[]>({
     queryKey: ["admin-user-addons"],
-    queryFn: () => fetch("/api/admin/user-addons").then(r => r.json()),
+    queryFn: async () => {
+      const res = await fetch("/api/admin/user-addons");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to load user add-ons");
+      return res.json();
+    },
   });
 
   // Build userId → Set<addonId> from server data
@@ -224,6 +240,7 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
   });
 
   if (isLoading) return <div className="p-8">Loading users...</div>;
+  if (usersError) return <div className="p-8 text-destructive">{(usersError as Error).message || "Failed to load team members."}</div>;
 
   const pendingInvites = (inviteCodes ?? []).filter(c => c.is_active && !c.used_at && (!c.expires_at || new Date(c.expires_at) > new Date()));
   const technicians = users?.filter((user) => user.role === "technician") ?? [];
