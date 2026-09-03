@@ -330,6 +330,41 @@ function PublicPage<P extends Record<string, unknown>>({ component: Component, .
   );
 }
 
+function RegisterRoute() {
+  const { session, signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
+  const inviteCode = new URLSearchParams(window.location.search).get("code");
+
+  if (session && inviteCode) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+        <div className="max-w-md w-full bg-background border border-border rounded-2xl shadow-sm p-6 text-center space-y-4">
+          <h1 className="text-xl font-display font-bold">You're already signed in</h1>
+          <p className="text-sm text-muted-foreground">
+            You're currently signed in as <strong>{session.user.email}</strong>. To accept this invite as a
+            different account, sign out first, then reopen the invite link (or use a private/incognito window).
+          </p>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              disabled={signingOut}
+              onClick={() => { setSigningOut(true); signOut(); }}
+              className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-medium disabled:opacity-60"
+            >
+              {signingOut ? "Signing out..." : "Sign Out & Accept Invite"}
+            </button>
+            <a href="/" className="w-full h-11 flex items-center justify-center rounded-lg border border-border font-medium">
+              Go to Dashboard Instead
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return session ? <Redirect to="/" /> : <Register />;
+}
+
 function RootRoute() {
   const { session, isLoading, mfaPending, profile, profileReady } = useAuth();
   const { hasFeature } = usePlanFeatures();
@@ -667,9 +702,7 @@ function AppRouter() {
           <ResetPassword />
         </Route>
 
-        <Route path="/register">
-          {session ? <Redirect to="/" /> : <Register />}
-        </Route>
+        <Route path="/register" component={RegisterRoute} />
 
         <Route path="/dashboard">{() => <Redirect to="/" />}</Route>
         <Route path="/debug/push-test" component={DebugPushNotificationPage} />
