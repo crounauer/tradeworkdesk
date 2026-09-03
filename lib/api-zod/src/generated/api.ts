@@ -1107,6 +1107,7 @@ export const GetJobResponse = zod
           boiler_type: zod.string().nullish(),
           fuel_type: zod.string().nullish(),
           system_type: zod.string().nullish(),
+          location: zod.string().nullish(),
           installation_date: zod.coerce.date().nullish(),
           warranty_expiry: zod.coerce.date().nullish(),
           burner_make: zod.string().nullish(),

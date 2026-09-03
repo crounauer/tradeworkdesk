@@ -133,7 +133,7 @@ export default function BurnerSetupForm() {
       appliance_model: job.appliance?.model || "",
       appliance_serial: job.appliance?.serial_number || "",
       appliance_type: job.appliance?.boiler_type || "",
-      appliance_location: job.appliance?.location || "",
+      appliance_location: job.appliance?.location || job.property?.boiler_location || "",
       fuel_supply_type: [job.appliance?.fuel_type, job.appliance?.system_type].filter(Boolean).join(" / "),
       appliance_installation_date: job.appliance?.installation_date || "",
       appliance_warranty_expiry: job.appliance?.warranty_expiry || "",
@@ -240,22 +240,6 @@ export default function BurnerSetupForm() {
               <Input {...register("burner_serial_number")} placeholder="Serial number" />
             </div>
           </div>
-          {burnerStage === "fully_modulating" && (
-            <div className="mt-5 overflow-x-auto border-t pt-4">
-              <h3 className="font-semibold mb-3">Sapphire modulation readings</h3>
-              <table className="w-full min-w-[760px] text-sm border-collapse">
-                <thead><tr className="bg-muted/50"><th className="border p-2 text-left">Pump Pressure (bar)</th><th className="border p-2">Fan Speed (%)</th><th className="border p-2">CO2 (%)</th><th className="border p-2">O2 (%)</th><th className="border p-2">CO (ppm)</th><th className="border p-2">NOx (%)</th></tr></thead>
-                <tbody>{modulationPressures.map((pressure, index) => (
-                  <tr key={pressure}><td className="border p-2 font-medium">{pressure}</td>
-                    {(["fan_speed", "co2", "o2", "co", "nox"] as const).map((field) => (
-                      <td className="border p-1" key={field}><Input value={modulationReadings[index]?.[field] || ""} onChange={(event) => setModulationReadings((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: event.target.value } : row))} /></td>
-                    ))}
-                  </tr>
-                ))}</tbody>
-              </table>
-              <p className="mt-2 text-xs text-muted-foreground">CO2, O2, CO and NOx readings may be recorded as “Visual only” where applicable.</p>
-            </div>
-          )}
         </Card>
 
         <Card className="p-6 shadow-sm border-border/50">
@@ -298,35 +282,44 @@ export default function BurnerSetupForm() {
               <option value="fully_modulating">Fully modulating burner (Sapphire)</option>
             </select>
           </div>
-          <p className="mb-3 text-sm font-semibold text-muted-foreground">
-            {burnerStage === "two" ? "Stage 1 Combustion Results" : burnerStage === "fully_modulating" ? "Fully Modulating Combustion Results" : "Stage 1 Combustion Results"}
-          </p>
-          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label>CO2 (%)</Label>
-              <Input {...register("combustion_co2")} placeholder="e.g. 10.5" />
+          {burnerStage === "fully_modulating" ? (
+            <div className="overflow-x-auto border-t pt-4">
+              <h3 className="font-semibold mb-3">Sapphire modulation readings</h3>
+              <table className="w-full min-w-[760px] text-sm border-collapse">
+                <thead><tr className="bg-muted/50"><th className="border p-2 text-left">Pump Pressure (bar)</th><th className="border p-2">Fan Speed (%)</th><th className="border p-2">CO2 (%)</th><th className="border p-2">O2 (%)</th><th className="border p-2">CO (ppm)</th><th className="border p-2">NOx (%)</th></tr></thead>
+                <tbody>{modulationPressures.map((pressure, index) => (
+                  <tr key={pressure}><td className="border p-2 font-medium">{pressure}</td>
+                    {(["fan_speed", "co2", "o2", "co", "nox"] as const).map((field) => (
+                      <td className="border p-1" key={field}><Input value={modulationReadings[index]?.[field] || ""} onChange={(event) => setModulationReadings((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: event.target.value } : row))} /></td>
+                    ))}
+                  </tr>
+                ))}</tbody>
+              </table>
+              <p className="mt-2 text-xs text-muted-foreground">CO2, O2, CO and NOx readings may be recorded as “Visual only” where applicable.</p>
             </div>
-            <div className="space-y-2">
-              <Label>CO (ppm)</Label>
-              <Input {...register("combustion_co")} placeholder="e.g. 42" />
-            </div>
-            <div className="space-y-2">
-              <Label>Smoke Number</Label>
-              <Input {...register("combustion_smoke")} placeholder="0-9" />
-            </div>
-            <div className="space-y-2">
-              <Label>Efficiency (%)</Label>
-              <Input {...register("combustion_efficiency")} placeholder="e.g. 85" />
-            </div>
-            {burnerStage === "two" && (
-              <>
-                <div className="sm:col-span-2 md:col-span-4 border-t pt-4 font-semibold text-muted-foreground">Stage 2 Combustion Results</div>
-                <div className="space-y-2"><Label>Stage 2 CO2 (%)</Label><Input {...register("stage_two_combustion_co2")} /></div>
-                <div className="space-y-2"><Label>Stage 2 CO (ppm)</Label><Input {...register("stage_two_combustion_co")} /></div>
-                <div className="space-y-2"><Label>Stage 2 Smoke Number</Label><Input {...register("stage_two_combustion_smoke")} /></div>
-                <div className="space-y-2"><Label>Stage 2 Efficiency (%)</Label><Input {...register("stage_two_combustion_efficiency")} /></div>
-              </>
-            )}
+          ) : (
+            <>
+              <p className="mb-3 text-sm font-semibold text-muted-foreground">Stage 1 Combustion Results</p>
+              <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-2"><Label>CO2 (%)</Label><Input {...register("combustion_co2")} placeholder="e.g. 10.5" /></div>
+                <div className="space-y-2"><Label>CO (ppm)</Label><Input {...register("combustion_co")} placeholder="e.g. 42" /></div>
+                <div className="space-y-2"><Label>Smoke Number</Label><Input {...register("combustion_smoke")} placeholder="0-9" /></div>
+                <div className="space-y-2"><Label>Efficiency (%)</Label><Input {...register("combustion_efficiency")} placeholder="e.g. 85" /></div>
+              </div>
+              {burnerStage === "two" && (
+                <div className="mt-5 border-t pt-4">
+                  <p className="mb-3 text-sm font-semibold text-muted-foreground">Stage 2 Combustion Results</p>
+                  <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="space-y-2"><Label>CO2 (%)</Label><Input {...register("stage_two_combustion_co2")} /></div>
+                    <div className="space-y-2"><Label>CO (ppm)</Label><Input {...register("stage_two_combustion_co")} /></div>
+                    <div className="space-y-2"><Label>Smoke Number</Label><Input {...register("stage_two_combustion_smoke")} /></div>
+                    <div className="space-y-2"><Label>Efficiency (%)</Label><Input {...register("stage_two_combustion_efficiency")} /></div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4">
             <div className="space-y-2 sm:col-span-2 md:col-span-4">
               <Label>Additional Notes</Label>
               <Input {...register("additional_notes")} placeholder="Any other observations..." />

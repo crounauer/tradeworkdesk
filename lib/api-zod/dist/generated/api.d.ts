@@ -3044,6 +3044,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         boiler_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         fuel_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         system_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         installation_date: zod.ZodOptional<zod.ZodNullable<zod.ZodDate>>;
         warranty_expiry: zod.ZodOptional<zod.ZodNullable<zod.ZodDate>>;
         burner_make: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -3073,6 +3074,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         boiler_type?: string | null | undefined;
         fuel_type?: string | null | undefined;
         system_type?: string | null | undefined;
+        location?: string | null | undefined;
         installation_date?: Date | null | undefined;
         warranty_expiry?: Date | null | undefined;
         burner_make?: string | null | undefined;
@@ -3096,6 +3098,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         boiler_type?: string | null | undefined;
         fuel_type?: string | null | undefined;
         system_type?: string | null | undefined;
+        location?: string | null | undefined;
         installation_date?: Date | null | undefined;
         warranty_expiry?: Date | null | undefined;
         burner_make?: string | null | undefined;
@@ -3676,6 +3679,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         boiler_type?: string | null | undefined;
         fuel_type?: string | null | undefined;
         system_type?: string | null | undefined;
+        location?: string | null | undefined;
         installation_date?: Date | null | undefined;
         warranty_expiry?: Date | null | undefined;
         burner_make?: string | null | undefined;
@@ -3911,6 +3915,7 @@ export declare const GetJobResponse: zod.ZodIntersection<zod.ZodObject<{
         boiler_type?: string | null | undefined;
         fuel_type?: string | null | undefined;
         system_type?: string | null | undefined;
+        location?: string | null | undefined;
         installation_date?: Date | null | undefined;
         warranty_expiry?: Date | null | undefined;
         burner_make?: string | null | undefined;
