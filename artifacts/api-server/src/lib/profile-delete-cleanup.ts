@@ -52,7 +52,18 @@ function isMissingTableError(error: { message?: string; code?: string } | null |
   if (!error) return false;
   const msg = String(error.message || "").toLowerCase();
   const code = String(error.code || "");
-  return code === "42P01" || msg.includes("does not exist") || msg.includes("relation") && msg.includes("does not exist");
+  // 42P01 = raw Postgres "relation does not exist".
+  // PGRST205/PGRST204 = Supabase PostgREST "table/column not found in schema cache"
+  // (happens when a migration/patch was never applied to this tenant's database).
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    code === "PGRST204" ||
+    msg.includes("does not exist") ||
+    (msg.includes("relation") && msg.includes("does not exist")) ||
+    msg.includes("could not find the table") ||
+    msg.includes("schema cache")
+  );
 }
 
 export async function cleanupProfileReferences(supabase: any, userId: string): Promise<void> {

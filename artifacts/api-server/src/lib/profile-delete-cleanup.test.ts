@@ -48,3 +48,18 @@ test("cleanupProfileReferences ignores missing tables instead of failing", async
   await assert.doesNotReject(() => cleanupProfileReferences(fakeSupabase, "user-123"));
   assert.ok(calls.length > 0);
 });
+
+test("cleanupProfileReferences ignores PostgREST 'missing from schema cache' errors too", async () => {
+  // Supabase's PostgREST layer reports a table that was never migrated onto this
+  // tenant's DB differently from raw Postgres (no 42P01 / "does not exist" text).
+  const fakeSupabase = {
+    from(table: string) {
+      return {
+        update: () => ({ eq: async () => ({ error: { code: "PGRST205", message: `Could not find the table 'public.${table}' in the schema cache` } }) }),
+        delete: () => ({ eq: async () => ({ error: { code: "PGRST205", message: `Could not find the table 'public.${table}' in the schema cache` } }) }),
+      };
+    },
+  };
+
+  await assert.doesNotReject(() => cleanupProfileReferences(fakeSupabase, "user-123"));
+});
