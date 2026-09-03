@@ -169,10 +169,7 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
 
           <div className="mt-12 pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-slate-500">
-              &copy; {new Date().getFullYear()} TradeWorkDesk Ltd. All rights reserved.
-            </p>
-            <p className="text-sm text-slate-500">
-              Registered in England & Wales. Made for gas, oil, heat pump engineers &amp; plumbers.
+              &copy; {new Date().getFullYear()} TradeWorkDesk. All rights reserved.
             </p>
           </div>
         </div>

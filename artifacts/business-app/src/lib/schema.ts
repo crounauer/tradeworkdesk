@@ -44,19 +44,12 @@ export function softwareApplicationSchema() {
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     offers: {
-      "@type": "AggregateOffer",
+      "@type": "Offer",
       priceCurrency: "GBP",
-      lowPrice: "29",
-      highPrice: "99",
-      offerCount: "3",
+      price: "8.50",
     },
     description:
       "Job management software for gas engineers, oil engineers, heat pump engineers and plumbers. Manage jobs, customers, digital forms, compliance, and reports from one platform.",
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.8",
-      reviewCount: "127",
-    },
   };
 }
 

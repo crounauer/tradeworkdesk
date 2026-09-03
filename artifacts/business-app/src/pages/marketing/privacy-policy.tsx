@@ -24,7 +24,7 @@ export default function PrivacyPolicyPage() {
         <div className="prose prose-slate max-w-none space-y-8 text-slate-700 leading-relaxed">
           <section>
             <h2 className="font-display text-xl font-bold text-slate-900">1. Who We Are</h2>
-            <p>TradeWorkDesk Ltd ("we", "us", "our") is a company registered in England and Wales. We operate the TradeWorkDesk platform at www.tradeworkdesk.co.uk. We are the data controller for the personal data we process through our platform.</p>
+            <p>TradeWorkDesk ("we", "us", "our") is operated as a trading name from Scotland and is in the process of being incorporated as Work Desk Digital Group Ltd. We operate the TradeWorkDesk platform at www.tradeworkdesk.co.uk. We are the data controller for the personal data we process through our platform.</p>
             <p>For data protection enquiries, contact us at: privacy@tradeworkdesk.co.uk</p>
           </section>
 

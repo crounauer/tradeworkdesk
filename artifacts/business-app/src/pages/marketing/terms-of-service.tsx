@@ -7,7 +7,7 @@ export default function TermsOfServicePage() {
     <MarketingLayout>
       <SEOHead
         title="Terms of Service"
-        description="TradeWorkDesk terms of service. The agreement between you and TradeWorkDesk Ltd governing your use of the TradeWorkDesk platform."
+        description="TradeWorkDesk terms of service. The agreement between you and TradeWorkDesk governing your use of the TradeWorkDesk platform."
         canonical={`${SITE_URL}/terms-of-service`}
         schema={[
           breadcrumbSchema([
@@ -24,7 +24,7 @@ export default function TermsOfServicePage() {
         <div className="prose prose-slate max-w-none space-y-8 text-slate-700 leading-relaxed">
           <section>
             <h2 className="font-display text-xl font-bold text-slate-900">1. Agreement</h2>
-            <p>These terms of service ("Terms") are a legal agreement between you and TradeWorkDesk Ltd ("TradeWorkDesk", "we", "us"), a company registered in England and Wales. By creating an account or using the TradeWorkDesk platform, you agree to these Terms.</p>
+            <p>These terms of service ("Terms") are a legal agreement between you and TradeWorkDesk ("we", "us"), operated as a trading name from Scotland. TradeWorkDesk is in the process of being incorporated as Work Desk Digital Group Ltd. By creating an account or using the TradeWorkDesk platform, you agree to these Terms.</p>
             <p>If you are using TradeWorkDesk on behalf of a business, you represent that you have authority to bind that business to these Terms.</p>
           </section>
 
@@ -96,7 +96,7 @@ export default function TermsOfServicePage() {
 
           <section>
             <h2 className="font-display text-xl font-bold text-slate-900">12. Governing Law</h2>
-            <p>These Terms are governed by the laws of England and Wales. Any disputes will be subject to the exclusive jurisdiction of the courts of England and Wales.</p>
+            <p>These Terms are governed by the laws of Scotland. Any disputes will be subject to the exclusive jurisdiction of the courts of Scotland.</p>
           </section>
 
           <section>

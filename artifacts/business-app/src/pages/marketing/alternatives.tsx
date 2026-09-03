@@ -20,7 +20,7 @@ const comparisonFeatures = [
   { feature: "Role-based team access", tradeworkdesk: true, generic: true },
   { feature: "UK-based support team", tradeworkdesk: true, generic: false },
   { feature: "No long-term contracts", tradeworkdesk: true, generic: false },
-  { feature: "Built by registered engineers", tradeworkdesk: true, generic: false },
+  { feature: "Built by a tradesperson", tradeworkdesk: true, generic: false },
 ];
 
 const faqs = [
