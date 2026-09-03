@@ -274,8 +274,9 @@ function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; ma
       fuel_type: appliance.fuel_type || "",
       system_type: appliance.system_type || "",
       location: appliance.location || "",
-      installation_date: appliance.installation_date || "",
-      warranty_expiry: appliance.warranty_expiry || "",
+      // API returns full ISO datetimes; <input type="date"> needs YYYY-MM-DD or it renders blank.
+      installation_date: appliance.installation_date ? String(appliance.installation_date).slice(0, 10) : "",
+      warranty_expiry: appliance.warranty_expiry ? String(appliance.warranty_expiry).slice(0, 10) : "",
       burner_make: appliance.burner_make || "",
       burner_model: appliance.burner_model || "",
       nozzle_size: appliance.nozzle_size || "",
