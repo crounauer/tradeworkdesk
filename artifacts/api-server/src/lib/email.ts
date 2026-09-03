@@ -724,7 +724,7 @@ export async function sendTeamInviteEmail(
       ${expiry ? `<p><strong>This invite expires:</strong> ${expiry}</p>` : ""}
     </div>
     <p style="margin-top:24px;">
-      <a href="${escHtml(inviteUrl)}" class="btn">Accept Invite</a>
+      <a href="${escHtml(inviteUrl)}" class="btn" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;border-radius:8px;padding:12px 24px;font-weight:600;font-size:14px;">Accept Invite</a>
     </p>
     <hr class="divider"/>
     <p style="font-size:13px; color:#64748b;">If the button does not work, use this link: <br/><a href="${escHtml(inviteUrl)}">${escHtml(inviteUrl)}</a></p>
