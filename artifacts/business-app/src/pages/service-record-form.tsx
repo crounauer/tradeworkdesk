@@ -149,6 +149,7 @@ export default function ServiceRecordForm() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedApplianceId, setSelectedApplianceId] = useState("");
   const [burnerStages, setBurnerStages] = useState<"single" | "two">("single");
+  const [oilStep, setOilStep] = useState(1);
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
 
@@ -754,7 +755,25 @@ export default function ServiceRecordForm() {
           </Card>
         )}
 
-        <Card className="p-6 shadow-sm border-border/50">
+        {isOil && (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {["Appliance", "Inspection", "Burner", "Outcome"].map((label, index) => {
+              const step = index + 1;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setOilStep(step)}
+                  className={`h-10 border text-sm font-semibold transition-colors ${oilStep === step ? "border-amber-500 bg-amber-100 text-amber-900" : "border-border bg-background text-muted-foreground hover:bg-muted"}`}
+                >
+                  {step}. {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {(!isOil || oilStep === 1) && <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Calendar className="w-5 h-5"/> Service Date</h2>
           <div className="max-w-xs">
             <div className="space-y-2">
@@ -772,9 +791,9 @@ export default function ServiceRecordForm() {
               </div>
             </div>
           </div>
-        </Card>
+        </Card>}
 
-        {isOil && (
+        {isOil && oilStep === 1 && (
           <Card className="p-6 shadow-sm border-amber-200 bg-amber-50/30">
             <h2 className="font-bold text-lg mb-4 text-amber-700 flex items-center gap-2"><Wrench className="w-5 h-5"/> Appliance Identification</h2>
             {appliances.length > 0 && (
@@ -882,7 +901,7 @@ export default function ServiceRecordForm() {
           </Card>
         )}
 
-        <Card className="p-6 shadow-sm border-border/50">
+        {(!isOil || oilStep === 2) && <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><CheckCircle2 className="w-5 h-5"/> Visual Inspection</h2>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -898,7 +917,7 @@ export default function ServiceRecordForm() {
               <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]" {...register("visual_inspection")} />
             </div>
           </div>
-        </Card>
+        </Card>}
 
         {isGas && (
           <Card className="p-6 shadow-sm border-blue-200 bg-blue-50/30">
@@ -946,7 +965,7 @@ export default function ServiceRecordForm() {
           </Card>
         )}
 
-        <Card className="p-6 shadow-sm border-border/50">
+        {(!isOil || oilStep === 3) && <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><CheckCircle2 className="w-5 h-5"/> Combustion Readings</h2>
           {isOil && (
             <div className="mb-5 max-w-xs space-y-2">
@@ -1030,9 +1049,9 @@ export default function ServiceRecordForm() {
               </div>
             </div>
           )}
-        </Card>
+        </Card>}
 
-        <Card className="p-6 shadow-sm border-border/50">
+        {(!isOil || oilStep === 3) && <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Wrench className="w-5 h-5"/> Checks & Cleaning</h2>
           {isGas && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1124,7 +1143,7 @@ export default function ServiceRecordForm() {
               </div>
             )}
           </div>
-        </Card>
+        </Card>}
 
         {isGas && (
           <Card className={`p-6 shadow-sm ${isImmediatelyDangerous ? "border-red-300 bg-red-50/50" : isAtRisk ? "border-amber-300 bg-amber-50/50" : "border-border/50"}`}>
@@ -1168,7 +1187,7 @@ export default function ServiceRecordForm() {
           </Card>
         )}
 
-        <Card className="p-6 shadow-sm border-border/50">
+        {(!isOil || oilStep === 4) && <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><Shield className="w-5 h-5"/> Safety & Defects</h2>
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -1200,9 +1219,9 @@ export default function ServiceRecordForm() {
               </div>
             </div>
           </div>
-        </Card>
+        </Card>}
 
-        <Card className="p-6 shadow-sm border-border/50">
+        {(!isOil || oilStep === 4) && <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary flex items-center gap-2"><AlertTriangle className="w-5 h-5"/> Work Summary & Follow-up</h2>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -1234,9 +1253,16 @@ export default function ServiceRecordForm() {
               <Input type="date" {...register("next_service_due")} />
             </div>
           </div>
-        </Card>
+        </Card>}
 
-        <div className="flex justify-between gap-4 sticky bottom-6 z-10 bg-background/80 p-4 rounded-2xl backdrop-blur-md border border-border shadow-xl">
+        {isOil && (
+          <div className="flex items-center justify-between border-t border-border pt-4">
+            <Button type="button" variant="outline" onClick={() => setOilStep((step) => Math.max(1, step - 1))} disabled={oilStep === 1}>Back</Button>
+            {oilStep < 4 && <Button type="button" onClick={() => setOilStep((step) => Math.min(4, step + 1))}>Continue</Button>}
+          </div>
+        )}
+
+        {(!isOil || oilStep === 4) && <div className="flex justify-between gap-4 sticky bottom-6 z-10 bg-background/80 p-4 rounded-2xl backdrop-blur-md border border-border shadow-xl">
           <div>
             {existingRecord && isAdmin && !showDeleteConfirm && (
               <Button variant="ghost" type="button" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setShowDeleteConfirm(true)}>
@@ -1270,7 +1296,7 @@ export default function ServiceRecordForm() {
               {(createMutation.isPending || updateMutation.isPending) ? "Saving..." : existingRecord ? "Update Record" : "Save Record"}
             </Button>
           </div>
-        </div>
+        </div>}
       </form>
     </div>
   );
