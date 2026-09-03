@@ -511,6 +511,9 @@ function CustomerJobsSection({ customerId }: { customerId: string }) {
 
     return sortDirection === "desc" ? b.id.localeCompare(a.id) : a.id.localeCompare(b.id);
   });
+  const completedJobs = sortedJobs.filter((job) => job.status === "completed" || job.status === "invoiced");
+  const activeJobs = sortedJobs.filter((job) => job.status !== "completed" && job.status !== "invoiced" && job.status !== "cancelled");
+  const otherJobs = sortedJobs.filter((job) => job.status === "cancelled");
 
   const statusColors: Record<string, string> = {
     scheduled: "bg-blue-100 text-blue-700",
@@ -554,10 +557,43 @@ function CustomerJobsSection({ customerId }: { customerId: string }) {
           </Button>
         </div>
       </div>
+      {activeJobs.length > 0 && (
+        <JobGroup title="Scheduled & active" jobs={activeJobs} statusColors={statusColors} statusLabels={statusLabels} />
+      )}
+      {completedJobs.length > 0 && (
+        <JobGroup title="Completed" jobs={completedJobs} statusColors={statusColors} statusLabels={statusLabels} completed />
+      )}
+      {otherJobs.length > 0 && (
+        <JobGroup title="Other" jobs={otherJobs} statusColors={statusColors} statusLabels={statusLabels} />
+      )}
+    </div>
+  );
+}
+
+function JobGroup({
+  title,
+  jobs,
+  statusColors,
+  statusLabels,
+  completed = false,
+}: {
+  title: string;
+  jobs: Array<{ id: string; job_ref?: string; status: string; job_type?: string; job_type_name?: string; scheduled_date?: string; description?: string }>;
+  statusColors: Record<string, string>;
+  statusLabels: Record<string, string>;
+  completed?: boolean;
+}) {
+  return (
+    <section className="space-y-2">
+      <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+        <span className={`h-2 w-2 rounded-full ${completed ? "bg-emerald-500" : "bg-blue-500"}`} />
+        {title}
+        <span className="font-normal">({jobs.length})</span>
+      </h3>
       <div className="space-y-2">
-        {sortedJobs.map(job => (
+        {jobs.map(job => (
           <Link key={job.id} href={`/jobs/${job.id}`}>
-            <Card className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
+            <Card className={`p-4 transition-all cursor-pointer ${completed ? "border-emerald-200/80 bg-emerald-50/30 hover:border-emerald-300" : "border-blue-200/80 bg-blue-50/20 hover:border-blue-300"} hover:shadow-md`}>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[job.status] || "bg-slate-100 text-slate-600"}`}>
@@ -568,9 +604,7 @@ function CustomerJobsSection({ customerId }: { customerId: string }) {
                       {job.job_ref ? `#${job.job_ref}` : `#${job.id.slice(0, 8)}`}
                       {(job.job_type_name || job.job_type) ? ` — ${job.job_type_name || job.job_type}` : ""}
                     </p>
-                    {job.description && (
-                      <p className="text-xs text-muted-foreground truncate">{job.description}</p>
-                    )}
+                    {job.description && <p className="text-xs text-muted-foreground truncate">{job.description}</p>}
                   </div>
                 </div>
                 {job.scheduled_date && (
@@ -584,7 +618,7 @@ function CustomerJobsSection({ customerId }: { customerId: string }) {
           </Link>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
