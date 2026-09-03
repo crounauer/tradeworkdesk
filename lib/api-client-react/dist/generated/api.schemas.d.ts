@@ -164,6 +164,8 @@ export interface Appliance {
     /** @nullable */
     system_type?: string | null;
     /** @nullable */
+    location?: string | null;
+    /** @nullable */
     installation_date?: string | null;
     /** @nullable */
     warranty_expiry?: string | null;
@@ -330,6 +332,7 @@ export interface CreateApplianceBody {
     boiler_type?: string;
     fuel_type?: string;
     system_type?: string;
+    location?: string;
     installation_date?: string;
     warranty_expiry?: string;
     burner_make?: string;
@@ -354,6 +357,8 @@ export interface UpdateApplianceBody {
     fuel_type?: string | null;
     /** @nullable */
     system_type?: string | null;
+    /** @nullable */
+    location?: string | null;
     /** @nullable */
     installation_date?: string | null;
     /** @nullable */

@@ -297,12 +297,8 @@ export function generateServiceRecordPdf(data: ServiceRecordPdfData, company?: P
   y += 8;
   const sr = data.serviceRecord;
   const safetyNotes = sr.safety_devices_notes || "";
-  const CAP_VALUE_LABEL = "Capacitor Value";
-  const CAP_READING_LABEL = "Capacitor Actual Reading";
   const HEAT_EXCHANGER_TURBULATORS_LABEL = "Heat Exchanger Turbulators";
   const COMBUSTION_CHAMBER_BAFFLES_LABEL = "Combustion Chamber Baffles";
-  const BLAST_NOZZLE_SIZE_LABEL = "Blast Assembly Nozzle Size";
-  const BLAST_ELECTRODE_SETTINGS_TEXT_LABEL = "Blast Assembly Electrode Settings";
   const BURNER_ORING_LABEL = "Burner O-Ring";
   const CONDENSATE_CONDITION_LABEL = "Condensate Condition";
   const OIL_PUMP_PRESSURE_LABEL = "Oil Pump Pressure";
@@ -314,14 +310,16 @@ export function generateServiceRecordPdf(data: ServiceRecordPdfData, company?: P
   const SOLENOID_NOTES_LABEL = "Solenoid Notes";
   const ELECTRONICS_CONTROLBOX_LABEL = "Electronics Controlbox";
   const MOTOR_TEXT_LABEL = "Motor";
-  const BLAST_TUBE_CONDITION_LABEL = "Blast Tube Condition";
+  const STAGE_TWO_CO2_LABEL = "Stage 2 CO2";
+  const STAGE_TWO_CO_LABEL = "Stage 2 CO";
+  const STAGE_TWO_O2_LABEL = "Stage 2 O2";
+  const STAGE_TWO_FLUE_TEMP_LABEL = "Stage 2 Flue Temp";
+  const STAGE_TWO_EFFICIENCY_LABEL = "Stage 2 Efficiency";
+  const STAGE_TWO_SMOKE_TEST_LABEL = "Stage 2 Smoke Test";
+  const STAGE_TWO_SMOKE_NUMBER_LABEL = "Stage 2 Smoke Number";
   const taggedSafetyLabels = [
-    CAP_VALUE_LABEL,
-    CAP_READING_LABEL,
     HEAT_EXCHANGER_TURBULATORS_LABEL,
     COMBUSTION_CHAMBER_BAFFLES_LABEL,
-    BLAST_NOZZLE_SIZE_LABEL,
-    BLAST_ELECTRODE_SETTINGS_TEXT_LABEL,
     BURNER_ORING_LABEL,
     CONDENSATE_CONDITION_LABEL,
     OIL_PUMP_PRESSURE_LABEL,
@@ -333,7 +331,13 @@ export function generateServiceRecordPdf(data: ServiceRecordPdfData, company?: P
     SOLENOID_NOTES_LABEL,
     ELECTRONICS_CONTROLBOX_LABEL,
     MOTOR_TEXT_LABEL,
-    BLAST_TUBE_CONDITION_LABEL,
+    STAGE_TWO_CO2_LABEL,
+    STAGE_TWO_CO_LABEL,
+    STAGE_TWO_O2_LABEL,
+    STAGE_TWO_FLUE_TEMP_LABEL,
+    STAGE_TWO_EFFICIENCY_LABEL,
+    STAGE_TWO_SMOKE_TEST_LABEL,
+    STAGE_TWO_SMOKE_NUMBER_LABEL,
   ];
 
   y = addSection(y, "Job Details", [
@@ -347,6 +351,18 @@ export function generateServiceRecordPdf(data: ServiceRecordPdfData, company?: P
   y = addSection(y, "Arrival & Departure", [
     ["Arrival Time", sr.arrival_time || ""],
     ["Departure Time", sr.departure_time || ""],
+  ]);
+
+  y = addSection(y, "Appliance Identification", [
+    ["Make", getTaggedLineValue(safetyNotes, "Appliance Make")],
+    ["Manufacturer Date", getTaggedLineValue(safetyNotes, "Appliance Manufacturer Date")],
+    ["Model", getTaggedLineValue(safetyNotes, "Appliance Model")],
+    ["Serial", getTaggedLineValue(safetyNotes, "Appliance Serial")],
+    ["Type", getTaggedLineValue(safetyNotes, "Appliance Type")],
+    ["Output", getTaggedLineValue(safetyNotes, "Appliance Output")],
+    ["Location Within Property", getTaggedLineValue(safetyNotes, "Appliance Location Within Property")],
+    ["Fuel Supply Type Details", getTaggedLineValue(safetyNotes, "Fuel Supply Type Details")],
+    ["Burner Make / Model", getTaggedLineValue(safetyNotes, "Burner Make / Model")],
   ]);
 
   y = addSection(y, "Visual Inspection", [
@@ -363,43 +379,35 @@ export function generateServiceRecordPdf(data: ServiceRecordPdfData, company?: P
     ["Efficiency (%)", sr.combustion_efficiency || ""],
     ["Smoke Test", sr.smoke_test || ""],
     ["Smoke Number", sr.smoke_number || ""],
+    [STAGE_TWO_CO2_LABEL, getTaggedLineValue(safetyNotes, STAGE_TWO_CO2_LABEL)],
+    [STAGE_TWO_CO_LABEL, getTaggedLineValue(safetyNotes, STAGE_TWO_CO_LABEL)],
+    [STAGE_TWO_O2_LABEL, getTaggedLineValue(safetyNotes, STAGE_TWO_O2_LABEL)],
+    [STAGE_TWO_FLUE_TEMP_LABEL, getTaggedLineValue(safetyNotes, STAGE_TWO_FLUE_TEMP_LABEL)],
+    [STAGE_TWO_EFFICIENCY_LABEL, getTaggedLineValue(safetyNotes, STAGE_TWO_EFFICIENCY_LABEL)],
+    [STAGE_TWO_SMOKE_TEST_LABEL, getTaggedLineValue(safetyNotes, STAGE_TWO_SMOKE_TEST_LABEL)],
+    [STAGE_TWO_SMOKE_NUMBER_LABEL, getTaggedLineValue(safetyNotes, STAGE_TWO_SMOKE_NUMBER_LABEL)],
   ]);
 
   y = addSection(y, "Checks & Cleaning", [
     ["Heat Exchanger", getTaggedLineValue(safetyNotes, HEAT_EXCHANGER_TURBULATORS_LABEL)],
     ["Combustion Chamber", getTaggedLineValue(safetyNotes, COMBUSTION_CHAMBER_BAFFLES_LABEL)],
-    ["Nozzle", getTaggedLineValue(safetyNotes, BLAST_NOZZLE_SIZE_LABEL) || sr.nozzle_size_fitted || ""],
     ["Electrodes", getTaggedLineValue(safetyNotes, ELECTRODES_CONDITION_LABEL)],
     ["O-Ring", getTaggedLineValue(safetyNotes, BURNER_ORING_LABEL)],
     ["Condensate", getTaggedLineValue(safetyNotes, CONDENSATE_CONDITION_LABEL)],
     ["Oil Pump", getTaggedLineValue(safetyNotes, OIL_PUMP_PRESSURE_LABEL)],
     ["Air Setting", getTaggedLineValue(safetyNotes, AIR_SETTING_LABEL)],
-    ["Capacitor", getTaggedLineValue(safetyNotes, CAP_READING_LABEL)],
-    ["Oil Pressure", sr.oil_pressure || ""],
     ["Solednoid", getTaggedLineValue(safetyNotes, SOLENOID_NOTES_LABEL)],
     ["Control Box", getTaggedLineValue(safetyNotes, ELECTRONICS_CONTROLBOX_LABEL)],
     ["Control Panel", getTaggedLineValue(safetyNotes, CONTROL_PANEL_NOTES_LABEL)],
     ["Motor", getTaggedLineValue(safetyNotes, MOTOR_TEXT_LABEL)],
     ["PRV", getTaggedLineValue(safetyNotes, PRV_NOTES_LABEL)],
     ["Oil Hose/s", getTaggedLineValue(safetyNotes, OIL_HOSES_NOTES_LABEL)],
-    ["Blast Tube", getTaggedLineValue(safetyNotes, BLAST_TUBE_CONDITION_LABEL)],
-    ["Nozzle Changed", bool(sr.nozzle_replaced)],
-    ["Electrodes Changed", bool(sr.electrodes_replaced)],
-    ["Filter Checked", bool(sr.filter_checked)],
-    ["Filter Cleaned", bool(sr.filter_cleaned)],
-    ["Filter Replaced", bool(sr.filter_replaced)],
-    ["Oil Line Checked", bool(sr.oil_line_checked)],
-    ["Fire Valve Checked", bool(sr.fire_valve_checked)],
-    ["Capacitor Value", getTaggedLineValue(safetyNotes, CAP_VALUE_LABEL)],
     ["Legacy Safety Notes", stripTaggedLines(safetyNotes, taggedSafetyLabels)],
   ]);
 
   y = addSection(y, "Safety & Defects", [
     ["Appliance Safe", bool(sr.appliance_safe)],
-    ["Leaks Found", bool(sr.leaks_found)],
-    ["Leak Details", sr.leaks_details || ""],
-    ["Defects Found", bool(sr.defects_found)],
-    ["Defect Details", sr.defects_details || ""],
+    ["Defects", sr.defects_details || ""],
     ["Advisories", sr.advisories || ""],
   ]);
 
@@ -407,9 +415,6 @@ export function generateServiceRecordPdf(data: ServiceRecordPdfData, company?: P
     ["Work Completed", sr.work_completed || ""],
     ["Parts Required", sr.parts_required || ""],
     ["Additional Notes", sr.additional_notes || ""],
-    ["Follow-up Required", bool(sr.follow_up_required)],
-    ["Follow-up Notes", sr.follow_up_notes || ""],
-    ["Next Service Due", sr.next_service_due || ""],
   ]);
 
   y = checkPageBreak(y, 30);

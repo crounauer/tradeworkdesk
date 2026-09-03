@@ -2125,6 +2125,8 @@ components:
           type: ["string", "null"]
         system_type:
           type: ["string", "null"]
+        location:
+          type: ["string", "null"]
         installation_date:
           type: ["string", "null"]
           format: date
@@ -2191,6 +2193,8 @@ components:
           type: string
         system_type:
           type: string
+        location:
+          type: string
         installation_date:
           type: string
           format: date
@@ -2230,6 +2234,8 @@ components:
         fuel_type:
           type: ["string", "null"]
         system_type:
+          type: ["string", "null"]
+        location:
           type: ["string", "null"]
         installation_date:
           type: ["string", "null"]

@@ -42,6 +42,7 @@ type ApplianceCreateData = {
   boiler_type: string;
   fuel_type: string;
   system_type: string;
+  location: string;
   installation_date: string;
   next_service_due: string;
   warranty_expiry: string;
@@ -102,6 +103,7 @@ export default function PropertyDetail() {
       boiler_type: "regular",
       fuel_type: "gas",
       system_type: "",
+      location: "",
       installation_date: "",
       next_service_due: "",
       warranty_expiry: "",
@@ -159,6 +161,7 @@ export default function PropertyDetail() {
           boiler_type: data.boiler_type || undefined,
           fuel_type: data.fuel_type || undefined,
           system_type: data.system_type || undefined,
+          location: data.location.trim() || undefined,
           installation_date: data.installation_date || undefined,
           next_service_due: data.next_service_due || undefined,
           warranty_expiry: data.warranty_expiry || undefined,
@@ -384,6 +387,10 @@ export default function PropertyDetail() {
                           <option value="sealed">Sealed</option>
                           <option value="other">Other</option>
                         </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Appliance Location</Label>
+                        <Input placeholder="e.g. Kitchen cupboard" {...registerAppliance("location")} />
                       </div>
                       <div className="space-y-1.5">
                         <Label>Installation Date</Label>

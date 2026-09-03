@@ -14,6 +14,7 @@ export interface CreateApplianceBody {
   boiler_type?: string;
   fuel_type?: string;
   system_type?: string;
+  location?: string;
   installation_date?: Date;
   warranty_expiry?: Date;
   burner_make?: string;

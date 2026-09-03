@@ -87,6 +87,7 @@ export const appliances = pgTable("appliances", {
   boiler_type: boilerTypeEnum("boiler_type"),
   fuel_type: fuelTypeEnum("fuel_type"),
   system_type: systemTypeEnum("system_type"),
+  location: text("location"),
   installation_date: date("installation_date"),
   warranty_expiry: date("warranty_expiry"),
   burner_make: text("burner_make"),

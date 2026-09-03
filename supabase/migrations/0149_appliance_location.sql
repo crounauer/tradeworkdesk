@@ -1,0 +1,1 @@
+ALTER TABLE appliances ADD COLUMN IF NOT EXISTS location text;

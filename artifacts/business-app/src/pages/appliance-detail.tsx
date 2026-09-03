@@ -63,6 +63,7 @@ type ApplianceEditData = {
   boiler_type?: string;
   fuel_type?: string;
   system_type?: string;
+  location?: string;
   installation_date?: string;
   warranty_expiry?: string;
   burner_make?: string;
@@ -219,7 +220,7 @@ export default function ApplianceDetail() {
   );
 }
 
-function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; manufacturer?: string | null; model?: string | null; serial_number?: string | null; boiler_type?: string | null; fuel_type?: string | null; system_type?: string | null; installation_date?: string | null; warranty_expiry?: string | null; burner_make?: string | null; burner_model?: string | null; nozzle_size?: string | null; pump_pressure?: string | null; notes?: string | null }; onClose: () => void }) {
+function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; manufacturer?: string | null; model?: string | null; serial_number?: string | null; boiler_type?: string | null; fuel_type?: string | null; system_type?: string | null; location?: string | null; installation_date?: string | null; warranty_expiry?: string | null; burner_make?: string | null; burner_model?: string | null; nozzle_size?: string | null; pump_pressure?: string | null; notes?: string | null }; onClose: () => void }) {
   const qc = useQueryClient();
   const update = useUpdateAppliance();
   const { toast } = useToast();
@@ -242,6 +243,7 @@ function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; ma
       boiler_type: appliance.boiler_type || "",
       fuel_type: appliance.fuel_type || "",
       system_type: appliance.system_type || "",
+      location: appliance.location || "",
       installation_date: appliance.installation_date || "",
       warranty_expiry: appliance.warranty_expiry || "",
       burner_make: appliance.burner_make || "",
@@ -263,6 +265,7 @@ function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; ma
           boiler_type: data.boiler_type || undefined,
           fuel_type: data.fuel_type || undefined,
           system_type: data.system_type || undefined,
+          location: data.location || undefined,
           installation_date: data.installation_date || undefined,
           warranty_expiry: data.warranty_expiry || undefined,
           burner_make: data.burner_make || undefined,
@@ -326,6 +329,10 @@ function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; ma
               <option value="sealed">Sealed</option>
               <option value="other">Other</option>
             </select>
+          </div>
+          <div className="space-y-2">
+            <Label>Appliance Location</Label>
+            <Input placeholder="e.g. Kitchen cupboard" {...register("location")} />
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

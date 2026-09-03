@@ -168,10 +168,18 @@ export default function ServiceRecordForm() {
     fillBlank("appliance_model", appliance.model || "");
     fillBlank("appliance_serial", appliance.serial_number || "");
     fillBlank("appliance_type", appliance.boiler_type || "");
+    fillBlank("appliance_manufacturer_date", appliance.installation_date ? String(appliance.installation_date).slice(0, 10) : "");
+    fillBlank("appliance_location_within_property", appliance.location || "");
     fillBlank("burner_make_model", [appliance.burner_make, appliance.burner_model].filter(Boolean).join(" / "));
     fillBlank("fuel_supply_type_details", [appliance.fuel_type, appliance.system_type].filter(Boolean).join(" / "));
     fillBlank("nozzle_size_fitted", appliance.nozzle_size || "");
     fillBlank("oil_pressure", appliance.pump_pressure || "");
+    fillBlank("next_service_due", appliance.next_service_due ? String(appliance.next_service_due).slice(0, 10) : "");
+    fillBlank("additional_notes", [
+      appliance.warranty_expiry ? `Warranty expiry: ${String(appliance.warranty_expiry).slice(0, 10)}` : "",
+      appliance.controls ? `Controls: ${appliance.controls}` : "",
+      appliance.notes || "",
+    ].filter(Boolean).join("\n"));
   };
 
   const toDatetimeLocal = (v: unknown): string => {
@@ -477,23 +485,10 @@ export default function ServiceRecordForm() {
         }
       }
 
-      if (data.defects_found && !String(data.defects_details || "").trim()) {
-        toast({ title: "Missing details", description: "Defect Details are required when Defects Found is checked.", variant: "destructive" });
-        return;
-      }
-      if (data.leaks_found && !String(data.leaks_details || "").trim()) {
-        toast({ title: "Missing details", description: "Leak Details are required when Oil Leaks Found is checked.", variant: "destructive" });
-        return;
-      }
-      if (data.follow_up_required && !String(data.follow_up_notes || "").trim()) {
-        toast({ title: "Missing details", description: "Follow-up Notes are required when Follow-up Required is checked.", variant: "destructive" });
-        return;
-      }
-
       const smokeFailed = String(data.smoke_test || "").toLowerCase().includes("fail");
       const coLooksHigh = String(data.combustion_co || "").toLowerCase().includes("high");
       if ((smokeFailed || coLooksHigh) && data.appliance_safe) {
-        const safetyNotesPresent = [data.defects_details, data.leaks_details, data.advisories].some((v) => String(v || "").trim().length > 0);
+        const safetyNotesPresent = [data.defects_details, data.advisories].some((v) => String(v || "").trim().length > 0);
         if (!safetyNotesPresent) {
           toast({
             title: "Safety notes required",
@@ -866,23 +861,6 @@ export default function ServiceRecordForm() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Capacitor</Label>
-                <Input {...register("capacitor_value")} placeholder="Value (e.g. 4 uF)" />
-              </div>
-              <div className="space-y-2">
-                <Label>Nozzle</Label>
-                <Input {...register("nozzle_size_fitted")} placeholder="Size (e.g. 0.50 USG 60S)" />
-              </div>
-              <div className="space-y-2">
-                <Label>Oil Pressure</Label>
-                <Input {...register("oil_pressure")} placeholder="Setting (e.g. 7.0 bar)" />
-              </div>
-              <div className="space-y-2">
-                <Label>Blast Tube</Label>
-                <Input {...register("blast_tube_condition")} placeholder="Setting / condition" />
-              </div>
-
               <div className="space-y-2 md:col-span-2">
                 <Label>Appliance Location Within Property</Label>
                 <Input
@@ -1081,10 +1059,6 @@ export default function ServiceRecordForm() {
                   <Input {...register("combustion_chamber_baffles")} placeholder="Notes" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
-                  <Label className="font-semibold">Nozzle</Label>
-                  <Input {...register("blast_nozzle_size")} placeholder="Nozzle size" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
                   <Label className="font-semibold">Electrodes</Label>
                   <Input {...register("electrodes_condition")} placeholder="Condition" />
                 </div>
@@ -1103,14 +1077,6 @@ export default function ServiceRecordForm() {
                 <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
                   <Label className="font-semibold">Air Setting</Label>
                   <Input {...register("air_setting")} placeholder="Air setting" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
-                  <Label className="font-semibold">Capacitor</Label>
-                  <Input {...register("capacitor_actual_reading")} placeholder="Reading" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
-                  <Label className="font-semibold">Oil Pressure</Label>
-                  <Input {...register("oil_pressure")} placeholder="Setting" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
                   <Label className="font-semibold">Solednoid</Label>
@@ -1135,10 +1101,6 @@ export default function ServiceRecordForm() {
                 <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
                   <Label className="font-semibold">Oil Hose/s</Label>
                   <Input {...register("oil_hoses_notes")} placeholder="Notes" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] items-center gap-2">
-                  <Label className="font-semibold">Blast Tube</Label>
-                  <Input {...register("blast_tube_condition")} placeholder="Condition" />
                 </div>
               </div>
             )}
@@ -1195,22 +1157,10 @@ export default function ServiceRecordForm() {
                 <input type="checkbox" {...register("appliance_safe")} className="w-5 h-5 accent-emerald-600 rounded" />
                 <span className="font-medium">Appliance Safe to Use</span>
               </label>
-              <label className="flex items-center gap-3 p-3 border rounded-xl hover:bg-rose-50 cursor-pointer transition-colors">
-                <input type="checkbox" {...register("leaks_found")} className="w-5 h-5 accent-rose-600 rounded" />
-                <span className="font-medium">{isGas ? "Gas Leaks Found" : "Oil Leaks Found"}</span>
-              </label>
-              <div className="space-y-2">
-                <Label>Leak Details</Label>
-                <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...register("leaks_details")} placeholder="Describe any leaks..." />
-              </div>
             </div>
             <div className="space-y-4">
-              <label className="flex items-center gap-3 p-3 border rounded-xl hover:bg-rose-50 cursor-pointer transition-colors">
-                <input type="checkbox" {...register("defects_found")} className="w-5 h-5 accent-rose-600 rounded" />
-                <span className="font-medium">Defects Found</span>
-              </label>
               <div className="space-y-2">
-                <Label>Defect Details</Label>
+                <Label>Defects</Label>
                 <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...register("defects_details")} placeholder="List any defects..." />
               </div>
               <div className="space-y-2">
@@ -1235,22 +1185,6 @@ export default function ServiceRecordForm() {
             <div className="space-y-2 md:col-span-2">
               <Label>Additional Notes</Label>
               <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...register("additional_notes")} />
-            </div>
-          </div>
-          <div className="grid md:grid-cols-2 gap-4 mt-4">
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 p-3 border rounded-xl hover:bg-amber-50 cursor-pointer transition-colors">
-                <input type="checkbox" {...register("follow_up_required")} className="w-5 h-5 accent-amber-600 rounded" />
-                <span className="font-medium">Follow-up Required</span>
-              </label>
-              <div className="space-y-2">
-                <Label>Follow-up Notes</Label>
-                <textarea className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[60px]" {...register("follow_up_notes")} placeholder="Details about follow-up..." />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Next Service Due</Label>
-              <Input type="date" {...register("next_service_due")} />
             </div>
           </div>
         </Card>}
