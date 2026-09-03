@@ -13,13 +13,20 @@ import { useToast } from "@/hooks/use-toast";
 import { useLookupOptions } from "@/hooks/use-lookup-options";
 
 const APPLIANCE_BOILER_TYPE_OPTIONS = [
-  { value: "boiler", label: "Boiler" },
+  { value: "combi", label: "Combi" },
+  { value: "system", label: "System" },
+  { value: "regular", label: "Regular" },
+  { value: "back_boiler", label: "Back Boiler" },
+  { value: "boiler", label: "Boiler (Other)" },
   { value: "heat_pump", label: "Heat Pump" },
   { value: "water_heater", label: "Water Heater" },
   { value: "stove", label: "Stove" },
   { value: "fire", label: "Fire" },
   { value: "other", label: "Other" },
 ];
+
+// Combi/System/Regular/Back Boiler only make sense for gas or oil appliances.
+const BOILER_SPECIFIC_TYPES = ["combi", "system", "regular", "back_boiler"];
 
 const APPLIANCE_FUEL_TYPE_OPTIONS = [
   { value: "gas", label: "Gas" },
@@ -239,6 +246,11 @@ function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; ma
   const { register, handleSubmit, reset, watch, setValue } = useForm<ApplianceEditData>();
   const [customNozzle, setCustomNozzle] = useState("");
   const nozzleValue = watch("nozzle_size") || "";
+  const fuelTypeValue = watch("fuel_type") || "";
+  const boilerTypeValue = watch("boiler_type") || "";
+  const visibleBoilerTypeOptions = APPLIANCE_BOILER_TYPE_OPTIONS.filter(
+    (opt) => !BOILER_SPECIFIC_TYPES.includes(opt.value) || fuelTypeValue === "gas" || fuelTypeValue === "oil"
+  );
 
   useEffect(() => {
     if (!nozzleValue || APPLIANCE_NOZZLE_SIZE_OPTIONS.includes(nozzleValue) || nozzleValue === "Custom...") {
@@ -246,6 +258,12 @@ function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; ma
     }
     setCustomNozzle(nozzleValue);
   }, [nozzleValue]);
+
+  useEffect(() => {
+    if (boilerTypeValue && BOILER_SPECIFIC_TYPES.includes(boilerTypeValue) && fuelTypeValue !== "gas" && fuelTypeValue !== "oil") {
+      setValue("boiler_type", "");
+    }
+  }, [fuelTypeValue, boilerTypeValue, setValue]);
 
   useEffect(() => {
     reset({
@@ -319,7 +337,7 @@ function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; ma
             <Label>Appliance Type</Label>
             <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("boiler_type")}>
               <option value="">Select...</option>
-              {APPLIANCE_BOILER_TYPE_OPTIONS.map((opt) => (
+              {visibleBoilerTypeOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>

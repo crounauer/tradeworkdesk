@@ -17,6 +17,22 @@ const PropertyLocationLookup = lazy(() => import("@/components/property-location
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
 const PropertyMapPreview = lazy(() => import("@/components/property-map-preview"));
 
+// Combi/System/Regular/Back Boiler only make sense for gas or oil appliances.
+const BOILER_SPECIFIC_TYPES = ["combi", "system", "regular", "back_boiler"];
+
+const APPLIANCE_BOILER_TYPE_OPTIONS = [
+  { value: "combi", label: "Combi" },
+  { value: "system", label: "System" },
+  { value: "regular", label: "Regular" },
+  { value: "back_boiler", label: "Back Boiler" },
+  { value: "boiler", label: "Boiler (Other)" },
+  { value: "heat_pump", label: "Heat Pump" },
+  { value: "water_heater", label: "Water Heater" },
+  { value: "stove", label: "Stove" },
+  { value: "fire", label: "Fire" },
+  { value: "other", label: "Other" },
+];
+
 type PropertyEditData = {
   address_line1: string;
   address_line2?: string;
@@ -47,6 +63,7 @@ type ApplianceCreateData = {
   next_service_due: string;
   warranty_expiry: string;
   nozzle_size: string;
+  pump_pressure: string;
   notes: string;
 };
 
@@ -108,17 +125,29 @@ export default function PropertyDetail() {
       next_service_due: "",
       warranty_expiry: "",
       nozzle_size: "",
+      pump_pressure: "",
       notes: "",
     },
   });
   const [customApplianceNozzle, setCustomApplianceNozzle] = useState("");
   const applianceNozzleValue = watchAppliance("nozzle_size") || "";
+  const applianceFuelTypeValue = watchAppliance("fuel_type") || "";
+  const applianceBoilerTypeValue = watchAppliance("boiler_type") || "";
+  const visibleBoilerTypeOptions = APPLIANCE_BOILER_TYPE_OPTIONS.filter(
+    (opt) => !BOILER_SPECIFIC_TYPES.includes(opt.value) || applianceFuelTypeValue === "gas" || applianceFuelTypeValue === "oil"
+  );
 
   useEffect(() => {
     if (applianceNozzleValue && !APPLIANCE_NOZZLE_SIZE_OPTIONS.includes(applianceNozzleValue)) {
       setCustomApplianceNozzle(applianceNozzleValue);
     }
   }, [applianceNozzleValue]);
+
+  useEffect(() => {
+    if (applianceBoilerTypeValue && BOILER_SPECIFIC_TYPES.includes(applianceBoilerTypeValue) && applianceFuelTypeValue !== "gas" && applianceFuelTypeValue !== "oil") {
+      setApplianceValue("boiler_type", "");
+    }
+  }, [applianceFuelTypeValue, applianceBoilerTypeValue, setApplianceValue]);
 
   // Lazy geocode: if this property has no coords, trigger a background PATCH
   // which the API will use to geocode and persist the coordinates.
@@ -166,6 +195,7 @@ export default function PropertyDetail() {
           next_service_due: data.next_service_due || undefined,
           warranty_expiry: data.warranty_expiry || undefined,
           nozzle_size: data.nozzle_size || undefined,
+          pump_pressure: data.pump_pressure.trim() || undefined,
           notes: data.notes.trim() || undefined,
         },
       });
@@ -351,14 +381,7 @@ export default function PropertyDetail() {
                         <Label>Appliance Type</Label>
                         <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...registerAppliance("boiler_type")}>
                           <option value="">Select...</option>
-                          {[
-                            { value: "boiler", label: "Boiler" },
-                            { value: "heat_pump", label: "Heat Pump" },
-                            { value: "water_heater", label: "Water Heater" },
-                            { value: "stove", label: "Stove" },
-                            { value: "fire", label: "Fire" },
-                            { value: "other", label: "Other" },
-                          ].map((opt) => (
+                          {visibleBoilerTypeOptions.map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                           ))}
                         </select>
@@ -439,6 +462,10 @@ export default function PropertyDetail() {
                             className="mt-2"
                           />
                         )}
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Pump Pressure</Label>
+                        <Input placeholder="e.g. 10 bar" {...registerAppliance("pump_pressure")} />
                       </div>
                     </div>
                     <div className="space-y-1.5">

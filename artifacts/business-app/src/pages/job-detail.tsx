@@ -79,13 +79,20 @@ type JobLike = {
 };
 
 const APPLIANCE_BOILER_TYPE_OPTIONS = [
-  { value: "boiler", label: "Boiler" },
+  { value: "combi", label: "Combi" },
+  { value: "system", label: "System" },
+  { value: "regular", label: "Regular" },
+  { value: "back_boiler", label: "Back Boiler" },
+  { value: "boiler", label: "Boiler (Other)" },
   { value: "heat_pump", label: "Heat Pump" },
   { value: "water_heater", label: "Water Heater" },
   { value: "stove", label: "Stove" },
   { value: "fire", label: "Fire" },
   { value: "other", label: "Other" },
 ];
+
+// Combi/System/Regular/Back Boiler only make sense for gas or oil appliances.
+const BOILER_SPECIFIC_TYPES = ["combi", "system", "regular", "back_boiler"];
 
 const APPLIANCE_FUEL_TYPE_OPTIONS = [
   { value: "gas", label: "Gas" },
@@ -134,6 +141,7 @@ type ApplianceCreateData = {
   next_service_due: string;
   warranty_expiry: string;
   nozzle_size: string;
+  pump_pressure: string;
   notes: string;
 };
 
@@ -233,17 +241,29 @@ export default function JobDetail() {
       next_service_due: "",
       warranty_expiry: "",
       nozzle_size: "",
+      pump_pressure: "",
       notes: "",
     },
   });
   const [customApplianceNozzle, setCustomApplianceNozzle] = useState("");
   const applianceNozzleValue = watchAppliance("nozzle_size") || "";
+  const applianceFuelTypeValue = watchAppliance("fuel_type") || "";
+  const applianceBoilerTypeValue = watchAppliance("boiler_type") || "";
+  const visibleBoilerTypeOptions = APPLIANCE_BOILER_TYPE_OPTIONS.filter(
+    (opt) => !BOILER_SPECIFIC_TYPES.includes(opt.value) || applianceFuelTypeValue === "gas" || applianceFuelTypeValue === "oil"
+  );
 
   useEffect(() => {
     if (applianceNozzleValue && !APPLIANCE_NOZZLE_SIZE_OPTIONS.includes(applianceNozzleValue) && applianceNozzleValue !== "Custom...") {
       setCustomApplianceNozzle(applianceNozzleValue);
     }
   }, [applianceNozzleValue]);
+
+  useEffect(() => {
+    if (applianceBoilerTypeValue && BOILER_SPECIFIC_TYPES.includes(applianceBoilerTypeValue) && applianceFuelTypeValue !== "gas" && applianceFuelTypeValue !== "oil") {
+      setApplianceValue("boiler_type", "");
+    }
+  }, [applianceFuelTypeValue, applianceBoilerTypeValue, setApplianceValue]);
 
   useEffect(() => {
     if (isOnline && onlineJob && id) {
@@ -565,6 +585,7 @@ export default function JobDetail() {
           next_service_due: data.next_service_due || undefined,
           warranty_expiry: data.warranty_expiry || undefined,
           nozzle_size: data.nozzle_size || undefined,
+          pump_pressure: data.pump_pressure.trim() || undefined,
           notes: data.notes.trim() || undefined,
         },
       });
@@ -1421,7 +1442,7 @@ export default function JobDetail() {
                         <Label>Appliance Type</Label>
                         <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...registerAppliance("boiler_type")}>
                           <option value="">Select...</option>
-                          {APPLIANCE_BOILER_TYPE_OPTIONS.map((opt) => (
+                          {visibleBoilerTypeOptions.map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                           ))}
                         </select>
@@ -1495,6 +1516,10 @@ export default function JobDetail() {
                             className="mt-2"
                           />
                         )}
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Pump Pressure</Label>
+                        <Input placeholder="e.g. 10 bar" {...registerAppliance("pump_pressure")} />
                       </div>
                     </div>
                     <div className="space-y-1.5">
@@ -2664,6 +2689,11 @@ function PhotosSection({ jobId }: { jobId: string }) {
           <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
             <Upload className="w-4 h-4 mr-1" /> {uploading ? "Uploading..." : "Upload / Take Photo"}
           </Button>
+          <Link href={`/jobs/${jobId}/files`}>
+            <Button size="sm" variant="outline">
+              <FileText className="w-4 h-4 mr-1" /> Documents
+            </Button>
+          </Link>
         </div>
       </div>
 
