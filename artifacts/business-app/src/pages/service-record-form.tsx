@@ -148,7 +148,11 @@ export default function ServiceRecordForm() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedApplianceId, setSelectedApplianceId] = useState("");
-  const [burnerStages, setBurnerStages] = useState<"single" | "two">("single");
+  const [burnerStages, setBurnerStages] = useState<"single" | "two" | "fully_modulating">("single");
+  const modulationPressures = Array.from({ length: 16 }, (_, index) => index + 5);
+  const [modulationReadings, setModulationReadings] = useState<Array<{ fan_speed: string; co2: string; o2: string; co: string; nox: string }>>(
+    () => modulationPressures.map(() => ({ fan_speed: "", co2: "", o2: "", co: "", nox: "" })),
+  );
   const [oilStep, setOilStep] = useState(1);
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
@@ -429,7 +433,11 @@ export default function ServiceRecordForm() {
         ignition_checked: existingRecord.ignition_checked ?? false,
         gas_pressure_checked: existingRecord.gas_pressure_checked ?? false,
       });
-      setBurnerStages(getTaggedLineValue(existingSafetyNotes, "Burner Stages") === "Two stage" ? "two" : "single");
+      const savedStage = existingRecord.modulation_readings ? "fully_modulating" : getTaggedLineValue(existingSafetyNotes, "Burner Stages") === "Two stage" ? "two" : "single";
+      setBurnerStages(savedStage);
+      if (existingRecord.modulation_readings) {
+        try { setModulationReadings(JSON.parse(existingRecord.modulation_readings)); } catch { setModulationReadings(modulationPressures.map(() => ({ fan_speed: "", co2: "", o2: "", co: "", nox: "" }))); }
+      }
     }
   }, [existingRecord, dataUpdatedAt, reset, job]);
 
@@ -507,7 +515,7 @@ export default function ServiceRecordForm() {
 
     const text = (value: string | null | undefined): string => (value || "").trim();
     const capLines: string[] = [];
-    if (isOil) capLines.push(`Burner Stages: ${burnerStages === "two" ? "Two stage" : "Single stage"}`);
+    if (isOil && burnerStages !== "fully_modulating") capLines.push(`Burner Stages: ${burnerStages === "two" ? "Two stage" : "Single stage"}`);
     if (burnerStages === "two") {
       if (text(data.stage_two_combustion_co2)) capLines.push(`Stage 2 CO2: ${text(data.stage_two_combustion_co2)}`);
       if (text(data.stage_two_combustion_co)) capLines.push(`Stage 2 CO: ${text(data.stage_two_combustion_co)}`);
@@ -559,6 +567,7 @@ export default function ServiceRecordForm() {
     const payload: CreateServiceRecordBody = {
       job_id: jobId!,
       technician_id: user.id,
+      modulation_readings: isOil && burnerStages === "fully_modulating" ? JSON.stringify(modulationReadings) : undefined,
       arrival_time: data.service_date || undefined,
       visual_inspection: data.visual_inspection || undefined,
       appliance_condition: data.appliance_condition || undefined,
@@ -965,13 +974,31 @@ export default function ServiceRecordForm() {
               <select
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
                 value={burnerStages}
-                onChange={(event) => setBurnerStages(event.target.value as "single" | "two")}
+                onChange={(event) => setBurnerStages(event.target.value as "single" | "two" | "fully_modulating")}
               >
                 <option value="single">Single stage burner</option>
                 <option value="two">Two-stage burner</option>
+                <option value="fully_modulating">Fully modulating burner (Sapphire)</option>
               </select>
             </div>
           )}
+          {isOil && burnerStages === "fully_modulating" ? (
+            <div className="overflow-x-auto border-t pt-4">
+              <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Sapphire modulation readings</h3>
+              <table className="w-full min-w-[760px] text-sm border-collapse">
+                <thead><tr className="bg-muted/50"><th className="border p-2 text-left">Pump Pressure (bar)</th><th className="border p-2">Fan Speed (%)</th><th className="border p-2">CO2 (%)</th><th className="border p-2">O2 (%)</th><th className="border p-2">CO (ppm)</th><th className="border p-2">NOx (%)</th></tr></thead>
+                <tbody>{modulationPressures.map((pressure, index) => (
+                  <tr key={pressure}><td className="border p-2 font-medium">{pressure}</td>
+                    {(["fan_speed", "co2", "o2", "co", "nox"] as const).map((field) => (
+                      <td className="border p-1" key={field}><Input value={modulationReadings[index]?.[field] || ""} onChange={(event) => setModulationReadings((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: event.target.value } : row))} /></td>
+                    ))}
+                  </tr>
+                ))}</tbody>
+              </table>
+              <p className="mt-2 text-xs text-muted-foreground">CO2, O2, CO and NOx readings may be recorded as “Visual only” where applicable.</p>
+            </div>
+          ) : (
+          <>
           {isOil && <p className="mb-3 text-sm font-medium text-muted-foreground">{burnerStages === "two" ? "Stage 1 readings" : "Burner readings"}</p>}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="space-y-2">
@@ -1040,6 +1067,8 @@ export default function ServiceRecordForm() {
                 <div className="space-y-2"><Label>Smoke Number</Label><Input {...register("stage_two_smoke_number")} /></div>
               </div>
             </div>
+          )}
+          </>
           )}
         </Card>}
 

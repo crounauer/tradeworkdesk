@@ -1416,6 +1416,7 @@ export const DeleteJobParams = zod.object({
 export const CreateServiceRecordBody = zod.object({
   job_id: zod.string().uuid(),
   technician_id: zod.string().uuid(),
+  modulation_readings: zod.string().optional(),
   arrival_time: zod.coerce.date().optional(),
   departure_time: zod.coerce.date().optional(),
   visual_inspection: zod.string().optional(),
@@ -1538,6 +1539,7 @@ export const GetServiceRecordResponse = zod.object({
   id: zod.string().uuid(),
   job_id: zod.string().uuid(),
   technician_id: zod.string().uuid(),
+  modulation_readings: zod.string().nullish(),
   arrival_time: zod.coerce.date().nullish(),
   departure_time: zod.coerce.date().nullish(),
   visual_inspection: zod.string().nullish(),
@@ -1660,6 +1662,7 @@ export const UpdateServiceRecordParams = zod.object({
 });
 
 export const UpdateServiceRecordBody = zod.object({
+  modulation_readings: zod.string().nullish(),
   arrival_time: zod.coerce.date().nullish(),
   departure_time: zod.coerce.date().nullish(),
   visual_inspection: zod.string().nullish(),

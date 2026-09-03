@@ -395,6 +395,7 @@ export interface ServiceRecord {
     id: string;
     job_id: string;
     technician_id: string;
+    modulation_readings?: string | null;
     /** @nullable */
     arrival_time?: string | null;
     /** @nullable */
@@ -768,6 +769,7 @@ export declare const CreateServiceRecordBodyApplianceClassification: {
 export interface CreateServiceRecordBody {
     job_id: string;
     technician_id: string;
+    modulation_readings?: string;
     arrival_time?: string;
     departure_time?: string;
     visual_inspection?: string;
@@ -882,6 +884,7 @@ export declare const UpdateServiceRecordBodyApplianceClassification: {
     readonly not_to_current_standards: "not_to_current_standards";
 };
 export interface UpdateServiceRecordBody {
+    modulation_readings?: string | null;
     /** @nullable */
     arrival_time?: string | null;
     /** @nullable */

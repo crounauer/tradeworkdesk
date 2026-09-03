@@ -290,7 +290,7 @@ const SERVICE_RECORD_SECTIONS: SectionDef[] = [
              "co_co2_ratio", "flue_spillage_test", "ventilation_adequate",
              "smoke_test", "smoke_number", "stage_two_combustion_co2", "stage_two_combustion_co",
              "stage_two_combustion_o2", "stage_two_combustion_temp", "stage_two_combustion_efficiency",
-             "stage_two_smoke_test", "stage_two_smoke_number"],
+             "stage_two_smoke_test", "stage_two_smoke_number", "modulation_readings"],
   },
   {
     title: "Checks & Cleaning",
@@ -408,7 +408,7 @@ const BURNER_SETUP_SECTIONS: SectionDef[] = [
   {
     title: "Appliance Identification",
     fields: ["appliance_make", "appliance_model", "appliance_serial", "appliance_type", "appliance_location", "fuel_supply_type",
-         "appliance_installation_date", "appliance_warranty_expiry", "appliance_next_service_due", "appliance_notes", "burner_stage"],
+             "appliance_installation_date", "appliance_warranty_expiry", "nozzle_size", "pump_pressure", "appliance_notes", "burner_stage"],
   },
   {
     title: "Burner Details",
@@ -668,6 +668,9 @@ export function generateFormPdf(
   const sections = FORM_SECTIONS[formType] || null;
   const isGas = fuelType === "gas" || fuelType === "lpg";
   const effectiveRecord = (() => {
+    if (formType === "service_record") {
+      return { ...record, modulation_readings: formatModulationReadings(record.modulation_readings) };
+    }
     if (formType === "burner_setup_record") {
       return { ...record, modulation_readings: formatModulationReadings(record.modulation_readings) };
     }

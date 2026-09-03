@@ -2508,6 +2508,8 @@ components:
         technician_id:
           type: string
           format: uuid
+        modulation_readings:
+          type: ["string", "null"]
         arrival_time:
           type: ["string", "null"]
           format: date-time
@@ -2661,6 +2663,8 @@ components:
         technician_id:
           type: string
           format: uuid
+        modulation_readings:
+          type: string
         arrival_time:
           type: string
           format: date-time
@@ -2801,6 +2805,8 @@ components:
     UpdateServiceRecordBody:
       type: object
       properties:
+        modulation_readings:
+          type: ["string", "null"]
         arrival_time:
           type: ["string", "null"]
           format: date-time

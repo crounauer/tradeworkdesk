@@ -23,7 +23,6 @@ interface BurnerSetupFormData {
   fuel_supply_type: string;
   appliance_installation_date: string;
   appliance_warranty_expiry: string;
-  appliance_next_service_due: string;
   appliance_notes: string;
   burner_stage: "single" | "two" | "fully_modulating";
   modulation_readings: string;
@@ -87,7 +86,6 @@ export default function BurnerSetupForm() {
         fuel_supply_type: existingRecord.fuel_supply_type || "",
         appliance_installation_date: existingRecord.appliance_installation_date || "",
         appliance_warranty_expiry: existingRecord.appliance_warranty_expiry || "",
-        appliance_next_service_due: existingRecord.appliance_next_service_due || "",
         appliance_notes: existingRecord.appliance_notes || "",
         burner_stage: (existingRecord.burner_stage as "single" | "two" | "fully_modulating") || "single",
         modulation_readings: existingRecord.modulation_readings || "",
@@ -137,7 +135,6 @@ export default function BurnerSetupForm() {
       fuel_supply_type: [job.appliance?.fuel_type, job.appliance?.system_type].filter(Boolean).join(" / "),
       appliance_installation_date: job.appliance?.installation_date || "",
       appliance_warranty_expiry: job.appliance?.warranty_expiry || "",
-      appliance_next_service_due: job.appliance?.next_service_due || "",
       appliance_notes: job.appliance?.notes || "",
       burner_manufacturer: job.appliance?.burner_make || current.burner_manufacturer,
       burner_model: job.appliance?.burner_model || current.burner_model,
@@ -213,9 +210,9 @@ export default function BurnerSetupForm() {
         <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary">Appliance Identification</h2>
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {(["appliance_make", "appliance_model", "appliance_serial", "appliance_type", "appliance_location", "fuel_supply_type", "appliance_installation_date", "appliance_warranty_expiry", "appliance_next_service_due", "appliance_notes"] as const).map((field) => (
+            {(["appliance_make", "appliance_model", "appliance_serial", "appliance_type", "appliance_location", "fuel_supply_type", "appliance_installation_date", "appliance_warranty_expiry", "nozzle_size", "pump_pressure", "appliance_notes"] as const).map((field) => (
               <div className="space-y-2" key={field}>
-                <Label>{field.replace("appliance_", "").replace(/_/g, " ").replace(/^./, (value) => value.toUpperCase())}</Label>
+                <Label>{field === "nozzle_size" ? "Nozzle Size" : field === "pump_pressure" ? "Pump Pressure" : field.replace("appliance_", "").replace(/_/g, " ").replace(/^./, (value) => value.toUpperCase())}</Label>
                 <Input type={field.includes("date") || field.includes("expiry") || field.includes("due") ? "date" : "text"} {...register(field)} />
               </div>
             ))}
