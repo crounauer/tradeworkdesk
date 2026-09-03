@@ -73,6 +73,7 @@ type ApplianceEditData = {
   location?: string;
   installation_date?: string;
   warranty_expiry?: string;
+  next_service_due?: string;
   burner_make?: string;
   burner_model?: string;
   nozzle_size?: string;
@@ -277,6 +278,7 @@ function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; ma
       // API returns full ISO datetimes; <input type="date"> needs YYYY-MM-DD or it renders blank.
       installation_date: appliance.installation_date ? String(appliance.installation_date).slice(0, 10) : "",
       warranty_expiry: appliance.warranty_expiry ? String(appliance.warranty_expiry).slice(0, 10) : "",
+      next_service_due: appliance.next_service_due ? String(appliance.next_service_due).slice(0, 10) : "",
       burner_make: appliance.burner_make || "",
       burner_model: appliance.burner_model || "",
       nozzle_size: appliance.nozzle_size || "",
@@ -299,6 +301,7 @@ function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; ma
           location: data.location || undefined,
           installation_date: data.installation_date || undefined,
           warranty_expiry: data.warranty_expiry || undefined,
+          next_service_due: data.next_service_due || undefined,
           burner_make: data.burner_make || undefined,
           burner_model: data.burner_model || undefined,
           nozzle_size: data.nozzle_size || undefined,
@@ -374,6 +377,10 @@ function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; ma
           <div className="space-y-2">
             <Label>Warranty Expiry</Label>
             <Input type="date" {...register("warranty_expiry")} />
+          </div>
+          <div className="space-y-2">
+            <Label>Next Service Due</Label>
+            <Input type="date" {...register("next_service_due")} />
           </div>
           <div className="space-y-2">
             <Label>Burner Make</Label>
