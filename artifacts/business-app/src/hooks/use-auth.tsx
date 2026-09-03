@@ -84,6 +84,28 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   const [mfaPending, setMfaPending] = useState(false);
   const queryClient = useQueryClient();
   const hasPrefetched = useRef(false);
+  const hasAppliedInvite = useRef(false);
+
+  // The invite code travels with the confirmation link (emailRedirectTo) so it
+  // survives even if the user clicks "Confirm your email" on a different
+  // device/browser than where they signed up. Falls back to localStorage for
+  // the same-tab, no-confirmation-required path.
+  const applyPendingInviteIfAny = (accessToken: string) => {
+    if (hasAppliedInvite.current) return;
+    const urlCode = new URLSearchParams(window.location.search).get("code");
+    const pendingCode = urlCode || localStorage.getItem("pending_invite_code");
+    if (!pendingCode) return;
+    hasAppliedInvite.current = true;
+    localStorage.removeItem("pending_invite_code");
+    fetch("/api/auth/use-invite", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ code: pendingCode }),
+    }).catch(() => {});
+  };
 
   const checkMfaStatus = async () => {
     try {
@@ -122,6 +144,9 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         setIsLoading(false);
         if (session) checkMfaStatus();
+        // Handles the email-confirmation redirect landing here as an
+        // INITIAL_SESSION rather than a SIGNED_IN event.
+        if (session?.access_token) applyPendingInviteIfAny(session.access_token);
         return;
       }
 
@@ -159,18 +184,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (event === "SIGNED_IN" && session?.access_token) {
-        const pendingCode = localStorage.getItem("pending_invite_code");
-        if (pendingCode) {
-          localStorage.removeItem("pending_invite_code");
-          fetch("/api/auth/use-invite", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({ code: pendingCode }),
-          }).catch(() => {});
-        }
+        applyPendingInviteIfAny(session.access_token);
       }
     });
 

@@ -228,10 +228,16 @@ export default function Register() {
 
     setLoading(true);
     try {
+      const trimmedCode = code.trim().toUpperCase();
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName } },
+        options: {
+          data: { full_name: fullName },
+          // Keeps the invite code attached even if the confirmation link is
+          // opened on a different device/browser than the signup happened on.
+          emailRedirectTo: `${window.location.origin}/register?code=${trimmedCode}`,
+        },
       });
 
       if (signUpError) throw signUpError;
@@ -245,7 +251,7 @@ export default function Register() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ code: code.trim().toUpperCase() }),
+          body: JSON.stringify({ code: trimmedCode }),
         });
         if (!inviteRes.ok) {
           const err = await inviteRes.json();
@@ -254,7 +260,7 @@ export default function Register() {
         toast({ title: "Welcome to TradeWorkDesk!", description: "Your account is ready." });
         navigate("/");
       } else {
-        localStorage.setItem("pending_invite_code", code.trim().toUpperCase());
+        localStorage.setItem("pending_invite_code", trimmedCode);
         setDone(true);
       }
     } catch (err) {
