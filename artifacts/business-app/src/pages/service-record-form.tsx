@@ -860,6 +860,20 @@ export default function ServiceRecordForm() {
                   placeholder={[job?.appliance?.fuel_type, job?.appliance?.system_type].filter(Boolean).join(" / ") || "Enter fuel/system details (e.g. Oil / Combi)"}
                 />
               </div>
+              <div className="space-y-2">
+                <Label>Nozzle Size</Label>
+                <Input
+                  {...register("nozzle_size_fitted")}
+                  placeholder={job?.appliance?.nozzle_size || "Enter nozzle size"}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Pump Pressure</Label>
+                <Input
+                  {...register("oil_pressure")}
+                  placeholder={job?.appliance?.pump_pressure || "Enter pump pressure"}
+                />
+              </div>
 
               <div className="space-y-2 md:col-span-2">
                 <Label>Appliance Location Within Property</Label>

@@ -244,7 +244,7 @@ const SERVICE_RECORD_SECTIONS: SectionDef[] = [
     title: "Appliance Identification",
     fields: ["appliance_make", "appliance_manufacturer_date", "appliance_model", "appliance_serial",
              "appliance_type", "appliance_output", "appliance_location_within_property",
-             "fuel_supply_type_details", "burner_make_model"],
+             "fuel_supply_type_details", "nozzle_size_fitted", "oil_pressure", "burner_make_model"],
     fuel: "oil",
   },
   {
