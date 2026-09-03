@@ -2626,6 +2626,7 @@ function PhotosSection({ jobId }: { jobId: string }) {
 
   const { data: files, isLoading, queryKey: filesQueryKey } = useListFiles({ entity_type: "job", entity_id: jobId });
   const deleteMutation = useDeleteFile();
+  const [previewFile, setPreviewFile] = useState<{ url: string; name: string; type: string } | null>(null);
 
   const imageFiles = (files || []).filter((f) => f.file_type?.startsWith("image/"));
   const documentFiles = (files || []).filter((f) => !f.file_type?.startsWith("image/"));
@@ -2784,10 +2785,14 @@ function PhotosSection({ jobId }: { jobId: string }) {
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Documents</p>
           {documentFiles.map((file) => (
             <div key={file.id} className="flex items-center justify-between gap-2 border rounded-lg px-3 py-2">
-              <a href={file.signed_url || "#"} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 min-w-0 text-sm hover:text-primary">
+              <button
+                type="button"
+                onClick={() => file.signed_url && setPreviewFile({ url: file.signed_url, name: file.file_name, type: file.file_type || "" })}
+                className="flex items-center gap-2 min-w-0 text-sm hover:text-primary text-left"
+              >
                 <FileText className="w-4 h-4 shrink-0" />
                 <span className="truncate">{file.file_name}</span>
-              </a>
+              </button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -2800,6 +2805,34 @@ function PhotosSection({ jobId }: { jobId: string }) {
           ))}
         </div>
       )}
+
+      <Dialog open={!!previewFile} onOpenChange={(open) => { if (!open) setPreviewFile(null); }}>
+        <DialogContent className="max-w-4xl w-full h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="truncate pr-6">{previewFile?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            {previewFile && (
+              previewFile.type === "application/pdf" ? (
+                <iframe src={previewFile.url} title={previewFile.name} className="w-full h-full rounded-lg border" />
+              ) : (
+                <iframe
+                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(previewFile.url)}&embedded=true`}
+                  title={previewFile.name}
+                  className="w-full h-full rounded-lg border"
+                />
+              )
+            )}
+          </div>
+          <DialogFooter>
+            {previewFile && (
+              <a href={previewFile.url} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="sm"><Download className="w-4 h-4 mr-1" /> Open in New Tab</Button>
+              </a>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
