@@ -10,6 +10,19 @@ test("profile delete cleanup plan includes all profile-linked tables that block 
   assert.ok(plan.some((step) => step.table === "service_records" && step.column === "technician_id"));
   assert.ok(plan.some((step) => step.table === "job_notes" && step.column === "author_id"));
   assert.ok(plan.some((step) => step.table === "tenant_audit_log" && step.column === "actor_id"));
+  assert.ok(plan.some((step) => step.table === "oil_tank_inspections" && step.column === "technician_id"));
+  assert.ok(plan.some((step) => step.table === "oil_tank_risk_assessments" && step.column === "technician_id"));
+  assert.ok(plan.some((step) => step.table === "combustion_analysis_records" && step.column === "technician_id"));
+  assert.ok(plan.some((step) => step.table === "burner_setup_records" && step.column === "technician_id"));
+  assert.ok(plan.some((step) => step.table === "fire_valve_test_records" && step.column === "technician_id"));
+  assert.ok(plan.some((step) => step.table === "oil_line_vacuum_tests" && step.column === "technician_id"));
+  assert.ok(plan.some((step) => step.table === "job_completion_reports" && step.column === "technician_id"));
+  assert.ok(plan.some((step) => step.table === "invoices" && step.column === "created_by"));
+  assert.ok(plan.some((step) => step.table === "shopping_lists" && step.column === "created_by"));
+  assert.ok(plan.some((step) => step.table === "shopping_lists" && step.column === "assigned_to"));
+  assert.ok(plan.some((step) => step.table === "community_threads" && step.column === "created_by"));
+  assert.ok(plan.some((step) => step.table === "community_posts" && step.column === "author_id"));
+  assert.ok(plan.some((step) => step.table === "community_post_reports" && step.column === "reported_by"));
 });
 
 test("cleanupProfileReferences ignores missing tables instead of failing", async () => {
