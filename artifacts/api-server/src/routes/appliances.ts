@@ -46,6 +46,7 @@ interface ApplianceJobRow {
   property_id: string;
   status: string;
   job_type: string;
+  service_catalogue_id: string | null;
   scheduled_date: string;
   description: string | null;
   assigned_technician_id: string | null;
@@ -116,6 +117,12 @@ router.get("/appliances/:id", requireAuth, requireTenant, async (req: Authentica
 
   const jobIds = (jobs as ApplianceJobRow[] || []).map((j) => j.id);
 
+  const serviceCatalogueIds = [...new Set((jobs as ApplianceJobRow[] || []).map((j) => j.service_catalogue_id).filter((v): v is string => !!v))];
+  const { data: serviceCatalogueRows } = serviceCatalogueIds.length
+    ? await supabaseAdmin.from("service_catalogue").select("id, name").in("id", serviceCatalogueIds)
+    : { data: [] };
+  const serviceNameById = new Map((serviceCatalogueRows || []).map((s: { id: string; name: string }) => [s.id, s.name]));
+
   const [{ data: serviceRecords }, { data: jobParts }] = jobIds.length
     ? await Promise.all([
         supabaseAdmin.from("service_records").select("job_id, work_completed").in("job_id", jobIds),
@@ -136,6 +143,7 @@ router.get("/appliances/:id", requireAuth, requireTenant, async (req: Authentica
     customer_name: j.customers ? `${j.customers.first_name} ${j.customers.last_name}` : null,
     property_address: j.properties?.address_line1 || null,
     technician_name: j.profiles?.full_name || null,
+    job_type_name: (j.service_catalogue_id ? serviceNameById.get(j.service_catalogue_id) : null) ?? j.job_type?.replace(/_/g, " ") ?? null,
     work_completed: workCompletedByJob.get(j.id) || null,
     parts_used: partsByJob.get(j.id) || [],
     customers: undefined,

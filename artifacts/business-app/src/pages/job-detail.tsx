@@ -3340,11 +3340,13 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
   const [completedForms, setCompletedForms] = useState<CompletedForm[]>([]);
   const [selectedForms, setSelectedForms] = useState<Set<string>>(new Set());
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
+  const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
   const [loadingForms, setLoadingForms] = useState(true);
 
   const { data: files } = useListFiles({ entity_type: "job", entity_id: jobId });
   const photos = (files || []).filter((f) => f.file_type?.startsWith("image/"));
+  const documents = (files || []).filter((f) => !f.file_type?.startsWith("image/"));
 
   useEffect(() => {
     let cancelled = false;
@@ -3397,7 +3399,23 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
     }
   };
 
-  const totalSelected = selectedForms.size + selectedPhotos.size;
+  const toggleDocument = (docId: string) => {
+    setSelectedDocuments(prev => {
+      const next = new Set(prev);
+      if (next.has(docId)) next.delete(docId); else next.add(docId);
+      return next;
+    });
+  };
+
+  const selectAllDocuments = () => {
+    if (selectedDocuments.size === documents.length) {
+      setSelectedDocuments(new Set());
+    } else {
+      setSelectedDocuments(new Set(documents.map(d => d.id)));
+    }
+  };
+
+  const totalSelected = selectedForms.size + selectedPhotos.size + selectedDocuments.size;
 
   const handleSend = async () => {
     if (!to) { toast({ title: "Error", description: "Recipient email is required", variant: "destructive" }); return; }
@@ -3408,7 +3426,10 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
     setSending(true);
     try {
       const formsPayload = completedForms.filter(f => selectedForms.has(f.form_id)).map(f => ({ form_type: f.form_type, form_id: f.form_id }));
-      const photoIdsPayload = photos.filter(p => selectedPhotos.has(p.id)).map(p => p.id);
+      const photoIdsPayload = [
+        ...photos.filter(p => selectedPhotos.has(p.id)).map(p => p.id),
+        ...documents.filter(d => selectedDocuments.has(d.id)).map(d => d.id),
+      ];
       const result = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/email-forms`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3423,6 +3444,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
       const parts: string[] = [];
       if (selectedForms.size > 0) parts.push(`${selectedForms.size} form(s)`);
       if (selectedPhotos.size > 0) parts.push(`${selectedPhotos.size} photo(s)`);
+      if (selectedDocuments.size > 0) parts.push(`${selectedDocuments.size} document(s)`);
       const desc = `${parts.join(" and ")} emailed to ${to}`;
       if (result.warning) {
         toast({ title: "Email Sent (with warnings)", description: `${desc}. ${result.warning}`, variant: "default" });
@@ -3444,6 +3466,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
     const parts: string[] = [];
     if (selectedForms.size > 0) parts.push(`${selectedForms.size} Form${selectedForms.size !== 1 ? "s" : ""}`);
     if (selectedPhotos.size > 0) parts.push(`${selectedPhotos.size} Photo${selectedPhotos.size !== 1 ? "s" : ""}`);
+    if (selectedDocuments.size > 0) parts.push(`${selectedDocuments.size} Document${selectedDocuments.size !== 1 ? "s" : ""}`);
     if (parts.length === 0 && customerMessage.trim().length > 0) return "Send Message";
     return `Send ${parts.join(" & ") || "Email"}`;
   };
@@ -3529,6 +3552,26 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
                         </div>
                       </div>
                     )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {documents.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Documents ({documents.length})</Label>
+                <Button variant="ghost" size="sm" className="text-xs" onClick={selectAllDocuments}>
+                  {selectedDocuments.size === documents.length ? "Deselect All" : "Select All"}
+                </Button>
+              </div>
+              <div className="space-y-1 max-h-48 overflow-y-auto border border-border rounded-lg p-2">
+                {documents.map(d => (
+                  <label key={d.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer">
+                    <input type="checkbox" checked={selectedDocuments.has(d.id)} onChange={() => toggleDocument(d.id)} className="rounded border-border" />
+                    <FileText className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span className="text-sm truncate">{d.file_name}</span>
                   </label>
                 ))}
               </div>

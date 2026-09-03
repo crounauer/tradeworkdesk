@@ -835,6 +835,7 @@ export const GetApplianceResponse = zod
                 customer_name: zod.string().nullish(),
                 property_address: zod.string().nullish(),
                 technician_name: zod.string().nullish(),
+                job_type_name: zod.string().nullish(),
                 work_completed: zod.string().nullish(),
                 parts_used: zod
                   .array(

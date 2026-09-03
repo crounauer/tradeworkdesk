@@ -2313,6 +2313,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         customer_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         property_address: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         technician_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        job_type_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         work_completed: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         parts_used: zod.ZodOptional<zod.ZodArray<zod.ZodObject<{
             id: zod.ZodString;
@@ -2343,6 +2344,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         customer_name?: string | null | undefined;
         property_address?: string | null | undefined;
         technician_name?: string | null | undefined;
+        job_type_name?: string | null | undefined;
         work_completed?: string | null | undefined;
         parts_used?: {
             id: string;
@@ -2357,6 +2359,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         customer_name?: string | null | undefined;
         property_address?: string | null | undefined;
         technician_name?: string | null | undefined;
+        job_type_name?: string | null | undefined;
         work_completed?: string | null | undefined;
         parts_used?: {
             id: string;
@@ -2390,6 +2393,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         customer_name?: string | null | undefined;
         property_address?: string | null | undefined;
         technician_name?: string | null | undefined;
+        job_type_name?: string | null | undefined;
         work_completed?: string | null | undefined;
         parts_used?: {
             id: string;
@@ -2444,6 +2448,7 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         customer_name?: string | null | undefined;
         property_address?: string | null | undefined;
         technician_name?: string | null | undefined;
+        job_type_name?: string | null | undefined;
         work_completed?: string | null | undefined;
         parts_used?: {
             id: string;

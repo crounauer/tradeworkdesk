@@ -208,7 +208,7 @@ export default function ApplianceDetail() {
                       <Card className="p-4 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
                         <div className="flex justify-between items-start">
                           <div>
-                            <p className="font-bold capitalize">{job.job_type?.replace("_", " ")}</p>
+                            <p className="font-bold capitalize">{job.job_type_name || job.job_type?.replace("_", " ")}</p>
                             <p className="text-sm text-muted-foreground">{formatDate(job.scheduled_date)} - {job.technician_name || "Unassigned"}</p>
                           </div>
                           <span className="text-xs font-semibold px-2 py-1 rounded-md bg-slate-100 capitalize">
@@ -240,7 +240,7 @@ export default function ApplianceDetail() {
   );
 }
 
-function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; manufacturer?: string | null; model?: string | null; serial_number?: string | null; boiler_type?: string | null; fuel_type?: string | null; system_type?: string | null; location?: string | null; installation_date?: string | null; warranty_expiry?: string | null; burner_make?: string | null; burner_model?: string | null; nozzle_size?: string | null; pump_pressure?: string | null; notes?: string | null }; onClose: () => void }) {
+function EditApplianceForm({ appliance, onClose }: { appliance: { id: string; manufacturer?: string | null; model?: string | null; serial_number?: string | null; boiler_type?: string | null; fuel_type?: string | null; system_type?: string | null; location?: string | null; installation_date?: string | null; warranty_expiry?: string | null; next_service_due?: string | null; burner_make?: string | null; burner_model?: string | null; nozzle_size?: string | null; pump_pressure?: string | null; notes?: string | null }; onClose: () => void }) {
   const qc = useQueryClient();
   const update = useUpdateAppliance();
   const { toast } = useToast();
