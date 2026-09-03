@@ -66,13 +66,6 @@ const features = [
   },
 ];
 
-const stats = [
-  { value: "2,500+", label: "Jobs Managed Monthly" },
-  { value: "98%", label: "Customer Satisfaction" },
-  { value: "5hrs", label: "Saved Per Engineer/Week" },
-  { value: "4.8/5", label: "Average Rating" },
-];
-
 const addons = [
   "Digital Forms & Certificates",
   "Digital Signatures",
@@ -172,21 +165,6 @@ export default function HomePage() {
                 30-day free trial. No credit card required.
               </p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-white border-y border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <p className="text-3xl md:text-4xl font-display font-bold text-slate-900">
-                  {stat.value}
-                </p>
-                <p className="mt-1 text-sm text-slate-500">{stat.label}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>

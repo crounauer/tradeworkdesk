@@ -42,7 +42,7 @@ const tradePages: Record<string, TradePageConfig> = {
     credentials: [
       { label: "Gas Safe Register", body: "Our forms capture every data point required by Gas Safe Register inspections, including appliance details, flue readings, and safety device checks." },
       { label: "Industry Compliance", body: "All digital service records, breakdown reports, and commissioning forms are designed to meet current UK gas safety regulations." },
-      { label: "Built by Registered Engineers", body: "TradeWorkDesk was founded by a Gas Safe registered engineer with 15+ years of hands-on experience in domestic and commercial gas work." },
+      { label: "Built by a Tradesperson", body: "TradeWorkDesk was created by a working plumber who couldn't find software built for how gas engineers and heating trades actually operate on site." },
     ],
     faqs: [
       {
@@ -90,7 +90,7 @@ const tradePages: Record<string, TradePageConfig> = {
     credentials: [
       { label: "Gas Safe Register", body: "Service records and compliance documentation designed around Gas Safe Register requirements for domestic and commercial gas work." },
       { label: "OFTEC", body: "Oil boiler service and inspection records aligned with OFTEC standards for oil-fired appliance maintenance." },
-      { label: "Built by Industry Professionals", body: "Created by a team that includes Gas Safe and OFTEC registered engineers who understand the compliance demands of running a heating business." },
+      { label: "Built by a Tradesperson", body: "Created by a working plumber who understands the compliance demands of running a heating business day to day." },
     ],
     faqs: [
       {
@@ -186,7 +186,7 @@ const tradePages: Record<string, TradePageConfig> = {
     credentials: [
       { label: "OFTEC (Oil Firing Technical Association)", body: "All inspection and service records are structured around OFTEC compliance requirements, including CD/11 and CD/12 equivalent documentation." },
       { label: "Industry Standards", body: "Tank condition assessments, fire valve tests, and oil line vacuum tests follow current UK industry standards for oil-fired heating installations." },
-      { label: "Built by Registered Engineers", body: "Our founder holds both Gas Safe and OFTEC registrations, ensuring oil heating workflows reflect real-world inspection and servicing requirements." },
+      { label: "Built by a Tradesperson", body: "TradeWorkDesk was created by an OFTEC-trained plumber, so oil heating workflows reflect real-world inspection and servicing requirements." },
     ],
     faqs: [
       {
@@ -234,7 +234,7 @@ const tradePages: Record<string, TradePageConfig> = {
     credentials: [
       { label: "MCS (Microgeneration Certification Scheme)", body: "Commissioning forms, handover documentation, and service records are structured to meet MCS certification requirements for renewable heating installations." },
       { label: "Manufacturer Standards", body: "Performance data logging supports COP readings, flow temperatures, and refrigerant pressures aligned with manufacturer commissioning requirements." },
-      { label: "Built with Industry Input", body: "Our development team works closely with MCS certified heat pump installers to ensure every workflow reflects current installation and servicing best practices." },
+      { label: "Built by a Tradesperson", body: "TradeWorkDesk was created by a working plumber, with heat pump workflows shaped by ongoing feedback from installers using the platform." },
     ],
     faqs: [
       {
@@ -282,7 +282,7 @@ const tradePages: Record<string, TradePageConfig> = {
     credentials: [
       { label: "CIPHE (Chartered Institute of Plumbing and Heating Engineering)", body: "TradeWorkDesk helps maintain professional documentation standards aligned with CIPHE expectations for qualified plumbers." },
       { label: "G3 Unvented Hot Water", body: "Dedicated record structures for G3-qualified unvented hot water cylinder work, including installation records, safety device checks, and annual service documentation." },
-      { label: "Built by Trade Professionals", body: "Our team includes experienced plumbing and heating professionals who understand the documentation and compliance needs of general plumbing businesses." },
+      { label: "Built by a Tradesperson", body: "TradeWorkDesk was created by a working plumber who understands the documentation and compliance needs of general plumbing businesses." },
     ],
     faqs: [
       {
@@ -330,7 +330,7 @@ const tradePages: Record<string, TradePageConfig> = {
     credentials: [
       { label: "Gas Safe Register", body: "CP12 landlord gas safety records capture all data points required by Gas Safe Register, including appliance details, flue readings, safety device checks, and engineer sign-off." },
       { label: "Regulatory Compliance", body: "Records meet the requirements of the Gas Safety (Installation and Use) Regulations 1998 for landlord gas safety checks on rented properties." },
-      { label: "Built by Gas Engineers", body: "Our founder has over 15 years of experience carrying out landlord gas safety checks and understands the documentation and scheduling demands of portfolio work." },
+      { label: "Built by a Tradesperson", body: "TradeWorkDesk was created by a working plumber who understands the documentation and scheduling demands of portfolio work." },
     ],
     faqs: [
       {

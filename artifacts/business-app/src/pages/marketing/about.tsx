@@ -5,29 +5,11 @@ import { breadcrumbSchema, organizationSchema } from "@/lib/schema";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Shield, Users, Wrench, Award } from "lucide-react";
 
-const team = [
-  {
-    name: "James Harrison",
-    role: "Founder & Lead Engineer",
-    bio: "Gas Safe and OFTEC registered engineer with 15+ years across gas, oil, and heat pump installations. Built TradeWorkDesk after experiencing the pain of paper-based job management first-hand — and realising every heating and plumbing trade deserved better tooling.",
-  },
-  {
-    name: "Sarah Mitchell",
-    role: "Head of Product",
-    bio: "Former operations manager at a 30-engineer firm covering gas servicing, oil boiler maintenance, heat pump commissioning, and general plumbing. Understands the day-to-day challenges of running a multi-trade service company from the office side.",
-  },
-  {
-    name: "David Chen",
-    role: "Technical Director",
-    bio: "Software engineer with a decade of experience building field service platforms. Works closely with Gas Safe, OFTEC, and MCS registered engineers to ensure every workflow reflects real-world trade requirements.",
-  },
-];
-
 const values = [
   {
     icon: Wrench,
-    title: "Built by Tradespeople, for Tradespeople",
-    desc: "We're not a Silicon Valley startup guessing what tradespeople need. Our founder is a Gas Safe and OFTEC registered engineer who built this because gas, oil, heat pump engineers and plumbers all deserved purpose-built software.",
+    title: "Built by a Tradesperson, for Tradespeople",
+    desc: "TradeWorkDesk was created by a working plumber who couldn't find software that fit how the trade actually works — so we built it, for gas, oil, heat pump engineers and plumbers alike.",
   },
   {
     icon: Shield,
@@ -50,8 +32,8 @@ export default function AboutPage() {
   return (
     <MarketingLayout>
       <SEOHead
-        title="About TradeWorkDesk — Built by Gas, Oil, Heat Pump & Plumbing Engineers"
-        description="TradeWorkDesk was founded by a Gas Safe and OFTEC registered engineer who understood the heating and plumbing industry's need for purpose-built job management software. Meet the team behind the platform."
+        title="About TradeWorkDesk — Built for Gas, Oil, Heat Pump & Plumbing Trades"
+        description="TradeWorkDesk was created by a working plumber who couldn't find job management software built for the trade. Find out why we built TradeWorkDesk and what we stand for."
         canonical={`${SITE_URL}/about`}
         schema={[
           breadcrumbSchema([
@@ -70,14 +52,13 @@ export default function AboutPage() {
                 Built by tradespeople, for tradespeople
               </h1>
               <p className="mt-6 text-lg text-slate-600 leading-relaxed">
-                TradeWorkDesk started in 2023 when our founder — a Gas Safe and OFTEC registered engineer
-                with 15 years across gas, oil, and heat pump work — got fed up with paper forms, lost records, and
-                software that didn't understand the heating and plumbing industry.
+                TradeWorkDesk was created in 2025 by a working plumber who couldn't find job management
+                software that fit how the trade actually works — so paper forms, lost records, and software
+                built for other industries got replaced with something purpose-built instead.
               </p>
               <p className="mt-4 text-lg text-slate-600 leading-relaxed">
-                He built the tool he wished existed: a platform that speaks the language of
-                gas engineers, oil technicians, heat pump installers, and plumbers — handles compliance naturally,
-                and works from a phone on site with no signal.
+                TradeWorkDesk is still in active development, shaped directly by feedback from gas, oil,
+                heat pump engineers and plumbers using it in the field every day.
               </p>
             </div>
           </div>
@@ -97,29 +78,6 @@ export default function AboutPage() {
                   <h3 className="font-display font-semibold text-lg text-slate-900">{v.title}</h3>
                   <p className="mt-2 text-sm text-slate-600 leading-relaxed">{v.desc}</p>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-slate-50 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="font-display text-3xl font-bold text-slate-900 mb-4">The team</h2>
-          <p className="text-lg text-slate-600 mb-12 max-w-2xl">
-            A small, focused team that combines deep industry knowledge with modern software engineering.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {team.map((person) => (
-              <div key={person.name} className="bg-white rounded-2xl p-8 border border-slate-200">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <span className="text-2xl font-display font-bold text-primary">
-                    {person.name.split(" ").map((n) => n[0]).join("")}
-                  </span>
-                </div>
-                <h3 className="font-display font-semibold text-lg text-slate-900">{person.name}</h3>
-                <p className="text-sm text-primary font-medium">{person.role}</p>
-                <p className="mt-3 text-sm text-slate-600 leading-relaxed">{person.bio}</p>
               </div>
             ))}
           </div>
