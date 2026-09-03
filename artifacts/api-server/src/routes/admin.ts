@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
 import { bustInitCache } from "./platform";
-import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireRole, requireTenant, requirePlanFeature, invalidateProfileCache, type AuthenticatedRequest } from "../middlewares/auth";
 import { bustInvoicingCache } from "../middlewares/require-tenant-invoicing";
 import { sendConfirmationEmail, sendNewRegistrationNotification, sendTeamInviteEmail } from "../lib/email";
 import { stripe } from "../lib/stripe";
@@ -93,6 +93,8 @@ router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"
   const { data, error } = await q.select().single();
 
   if (error) { res.status(500).json({ error: error.message }); return; }
+
+  if (updates.role !== undefined) invalidateProfileCache(id);
 
   await insertTenantAuditLog({
     tenantId: req.tenantId,
@@ -389,6 +391,12 @@ router.post("/auth/use-invite", requireAuth, async (req: AuthenticatedRequest, r
     supabaseAdmin.from("invite_codes").update({ used_by: req.userId, used_at: new Date().toISOString() }).eq("id", inv.id),
     supabaseAdmin.from("profiles").update(profileUpdates).eq("id", req.userId!),
   ]);
+
+  // The requireAuth middleware may have already cached this user's pre-invite
+  // profile (no tenant / wrong role) earlier in this same request. Without
+  // this, the next request within the cache TTL would see stale data and the
+  // user would appear to have no tenant/role even though accepting "succeeded".
+  invalidateProfileCache(req.userId!);
 
   // Sync per-seat billing now this user has joined the tenant
   if (inv.tenant_id) {

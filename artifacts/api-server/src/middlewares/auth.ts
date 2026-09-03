@@ -48,6 +48,13 @@ function hasSuperAdminAccessOverride(notes: unknown): boolean {
 const profileCache = new Map<string, { role: string; tenant_id: string | null; expiresAt: number }>();
 const PROFILE_CACHE_TTL_MS = 120_000;
 
+// Call after any direct DB write to profiles.role/tenant_id (e.g. accepting an
+// invite, changing a user's role) so the next request doesn't serve stale
+// cached auth data for up to PROFILE_CACHE_TTL_MS.
+export function invalidateProfileCache(userId: string): void {
+  profileCache.delete(userId);
+}
+
 const mfaCache = new Map<string, { hasVerifiedTotp: boolean; expiresAt: number }>();
 const MFA_CACHE_TTL_MS = 120_000;
 
