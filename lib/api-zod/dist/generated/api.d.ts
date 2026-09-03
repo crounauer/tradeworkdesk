@@ -7568,6 +7568,10 @@ export declare const CreateBurnerSetupRecordBody: zod.ZodObject<{
     fuel_supply_type: zod.ZodOptional<zod.ZodString>;
     burner_stage: zod.ZodOptional<zod.ZodString>;
     modulation_readings: zod.ZodOptional<zod.ZodString>;
+    appliance_installation_date: zod.ZodOptional<zod.ZodString>;
+    appliance_warranty_expiry: zod.ZodOptional<zod.ZodString>;
+    appliance_next_service_due: zod.ZodOptional<zod.ZodString>;
+    appliance_notes: zod.ZodOptional<zod.ZodString>;
     burner_manufacturer: zod.ZodOptional<zod.ZodString>;
     burner_model: zod.ZodOptional<zod.ZodString>;
     burner_serial_number: zod.ZodOptional<zod.ZodString>;
@@ -7611,6 +7615,10 @@ export declare const CreateBurnerSetupRecordBody: zod.ZodObject<{
     fuel_supply_type?: string | undefined;
     burner_stage?: string | undefined;
     modulation_readings?: string | undefined;
+    appliance_installation_date?: string | undefined;
+    appliance_warranty_expiry?: string | undefined;
+    appliance_next_service_due?: string | undefined;
+    appliance_notes?: string | undefined;
     burner_manufacturer?: string | undefined;
     burner_serial_number?: string | undefined;
     nozzle_type?: string | undefined;
@@ -7647,6 +7655,10 @@ export declare const CreateBurnerSetupRecordBody: zod.ZodObject<{
     fuel_supply_type?: string | undefined;
     burner_stage?: string | undefined;
     modulation_readings?: string | undefined;
+    appliance_installation_date?: string | undefined;
+    appliance_warranty_expiry?: string | undefined;
+    appliance_next_service_due?: string | undefined;
+    appliance_notes?: string | undefined;
     burner_manufacturer?: string | undefined;
     burner_serial_number?: string | undefined;
     nozzle_type?: string | undefined;
@@ -7688,6 +7700,10 @@ export declare const GetBurnerSetupRecordResponse: zod.ZodObject<{
     fuel_supply_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_stage: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     modulation_readings: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_installation_date: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_warranty_expiry: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_next_service_due: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_manufacturer: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_model: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_serial_number: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -7736,6 +7752,10 @@ export declare const GetBurnerSetupRecordResponse: zod.ZodObject<{
     fuel_supply_type?: string | null | undefined;
     burner_stage?: string | null | undefined;
     modulation_readings?: string | null | undefined;
+    appliance_installation_date?: string | null | undefined;
+    appliance_warranty_expiry?: string | null | undefined;
+    appliance_next_service_due?: string | null | undefined;
+    appliance_notes?: string | null | undefined;
     burner_manufacturer?: string | null | undefined;
     burner_serial_number?: string | null | undefined;
     nozzle_type?: string | null | undefined;
@@ -7775,6 +7795,10 @@ export declare const GetBurnerSetupRecordResponse: zod.ZodObject<{
     fuel_supply_type?: string | null | undefined;
     burner_stage?: string | null | undefined;
     modulation_readings?: string | null | undefined;
+    appliance_installation_date?: string | null | undefined;
+    appliance_warranty_expiry?: string | null | undefined;
+    appliance_next_service_due?: string | null | undefined;
+    appliance_notes?: string | null | undefined;
     burner_manufacturer?: string | null | undefined;
     burner_serial_number?: string | null | undefined;
     nozzle_type?: string | null | undefined;
@@ -7813,6 +7837,10 @@ export declare const UpdateBurnerSetupRecordBody: zod.ZodObject<{
     fuel_supply_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_stage: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     modulation_readings: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_installation_date: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_warranty_expiry: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_next_service_due: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    appliance_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_manufacturer: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_model: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     burner_serial_number: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -7854,6 +7882,10 @@ export declare const UpdateBurnerSetupRecordBody: zod.ZodObject<{
     fuel_supply_type?: string | null | undefined;
     burner_stage?: string | null | undefined;
     modulation_readings?: string | null | undefined;
+    appliance_installation_date?: string | null | undefined;
+    appliance_warranty_expiry?: string | null | undefined;
+    appliance_next_service_due?: string | null | undefined;
+    appliance_notes?: string | null | undefined;
     burner_manufacturer?: string | null | undefined;
     burner_serial_number?: string | null | undefined;
     nozzle_type?: string | null | undefined;
@@ -7888,6 +7920,10 @@ export declare const UpdateBurnerSetupRecordBody: zod.ZodObject<{
     fuel_supply_type?: string | null | undefined;
     burner_stage?: string | null | undefined;
     modulation_readings?: string | null | undefined;
+    appliance_installation_date?: string | null | undefined;
+    appliance_warranty_expiry?: string | null | undefined;
+    appliance_next_service_due?: string | null | undefined;
+    appliance_notes?: string | null | undefined;
     burner_manufacturer?: string | null | undefined;
     burner_serial_number?: string | null | undefined;
     nozzle_type?: string | null | undefined;

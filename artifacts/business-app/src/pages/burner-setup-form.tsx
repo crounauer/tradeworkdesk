@@ -21,6 +21,10 @@ interface BurnerSetupFormData {
   appliance_type: string;
   appliance_location: string;
   fuel_supply_type: string;
+  appliance_installation_date: string;
+  appliance_warranty_expiry: string;
+  appliance_next_service_due: string;
+  appliance_notes: string;
   burner_stage: "single" | "two" | "fully_modulating";
   modulation_readings: string;
   nozzle_size: string;
@@ -81,6 +85,10 @@ export default function BurnerSetupForm() {
         appliance_type: existingRecord.appliance_type || "",
         appliance_location: existingRecord.appliance_location || "",
         fuel_supply_type: existingRecord.fuel_supply_type || "",
+        appliance_installation_date: existingRecord.appliance_installation_date || "",
+        appliance_warranty_expiry: existingRecord.appliance_warranty_expiry || "",
+        appliance_next_service_due: existingRecord.appliance_next_service_due || "",
+        appliance_notes: existingRecord.appliance_notes || "",
         burner_stage: (existingRecord.burner_stage as "single" | "two" | "fully_modulating") || "single",
         modulation_readings: existingRecord.modulation_readings || "",
         burner_manufacturer: existingRecord.burner_manufacturer || "",
@@ -127,6 +135,10 @@ export default function BurnerSetupForm() {
       appliance_type: job.appliance?.boiler_type || "",
       appliance_location: job.appliance?.location || "",
       fuel_supply_type: [job.appliance?.fuel_type, job.appliance?.system_type].filter(Boolean).join(" / "),
+      appliance_installation_date: job.appliance?.installation_date || "",
+      appliance_warranty_expiry: job.appliance?.warranty_expiry || "",
+      appliance_next_service_due: job.appliance?.next_service_due || "",
+      appliance_notes: job.appliance?.notes || "",
       burner_manufacturer: job.appliance?.burner_make || current.burner_manufacturer,
       burner_model: job.appliance?.burner_model || current.burner_model,
       nozzle_size: job.appliance?.nozzle_size || current.nozzle_size,
@@ -188,7 +200,7 @@ export default function BurnerSetupForm() {
           <h1 className="text-3xl font-display font-bold flex items-center gap-3">
             <Flame className="w-8 h-8 text-orange-500" /> Burner Setup Record
           </h1>
-          <p className="text-muted-foreground mt-1">Record burner details, nozzle, pressure, and electrode settings.</p>
+          <p className="text-muted-foreground mt-1">Record burner details, electrode settings, and combustion results.</p>
         </div>
         {existingRecord && (
           <Button variant="outline" onClick={handleExportPdf}>
@@ -201,10 +213,10 @@ export default function BurnerSetupForm() {
         <Card className="p-6 shadow-sm border-border/50">
           <h2 className="font-bold text-lg mb-4 text-primary">Appliance Identification</h2>
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {(["appliance_make", "appliance_model", "appliance_serial", "appliance_type", "appliance_location", "fuel_supply_type"] as const).map((field) => (
+            {(["appliance_make", "appliance_model", "appliance_serial", "appliance_type", "appliance_location", "fuel_supply_type", "appliance_installation_date", "appliance_warranty_expiry", "appliance_next_service_due", "appliance_notes"] as const).map((field) => (
               <div className="space-y-2" key={field}>
                 <Label>{field.replace("appliance_", "").replace(/_/g, " ").replace(/^./, (value) => value.toUpperCase())}</Label>
-                <Input {...register(field)} />
+                <Input type={field.includes("date") || field.includes("expiry") || field.includes("due") ? "date" : "text"} {...register(field)} />
               </div>
             ))}
           </div>
@@ -227,18 +239,6 @@ export default function BurnerSetupForm() {
               <Label>Serial Number</Label>
               <Input {...register("burner_serial_number")} placeholder="Serial number" />
             </div>
-            <div className="space-y-2">
-              <Label>Burner Configuration</Label>
-              <select
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
-                value={burnerStage}
-                onChange={(event) => setBurnerStage(event.target.value as "single" | "two" | "fully_modulating")}
-              >
-                <option value="single">Single stage burner</option>
-                <option value="two">Two-stage burner</option>
-                <option value="fully_modulating">Fully modulating burner (Sapphire)</option>
-              </select>
-            </div>
           </div>
           {burnerStage === "fully_modulating" && (
             <div className="mt-5 overflow-x-auto border-t pt-4">
@@ -256,43 +256,6 @@ export default function BurnerSetupForm() {
               <p className="mt-2 text-xs text-muted-foreground">CO2, O2, CO and NOx readings may be recorded as “Visual only” where applicable.</p>
             </div>
           )}
-        </Card>
-
-        <Card className="p-6 shadow-sm border-border/50">
-          <h2 className="font-bold text-lg mb-4 text-blue-600 flex items-center gap-2">
-            <Settings className="w-5 h-5" /> Nozzle & Pressure
-          </h2>
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Nozzle Size (USgal/h)</Label>
-              <Input {...register("nozzle_size")} placeholder="e.g. 0.50, 0.65" />
-            </div>
-            <div className="space-y-2">
-              <Label>Nozzle Type</Label>
-              <Input {...register("nozzle_type")} placeholder="e.g. Solid, Semi-solid, Hollow" />
-            </div>
-            <div className="space-y-2">
-              <Label>Nozzle Angle</Label>
-              <Input {...register("nozzle_angle")} placeholder="e.g. 60°, 80°" />
-            </div>
-            <div className="space-y-2">
-              <Label>Pump Pressure (bar)</Label>
-              <Input {...register("pump_pressure")} placeholder="e.g. 7, 10" />
-            </div>
-            <div className="space-y-2">
-              <Label>Pump Vacuum (inHg)</Label>
-              <Input {...register("pump_vacuum")} placeholder="e.g. 10" />
-            </div>
-            {burnerStage === "two" && (
-              <>
-                <div className="sm:col-span-2 md:col-span-3 border-t pt-4 font-semibold text-muted-foreground">Stage 2 Settings</div>
-                <div className="space-y-2"><Label>Stage 2 Nozzle Size</Label><Input {...register("stage_two_nozzle_size")} /></div>
-                <div className="space-y-2"><Label>Stage 2 Pump Pressure</Label><Input {...register("stage_two_pump_pressure")} /></div>
-                <div className="space-y-2"><Label>Stage 2 Air Damper Setting</Label><Input {...register("stage_two_air_damper_setting")} /></div>
-                <div className="space-y-2"><Label>Stage 2 Head Setting</Label><Input {...register("stage_two_head_setting")} /></div>
-              </>
-            )}
-          </div>
         </Card>
 
         <Card className="p-6 shadow-sm border-border/50">
@@ -323,6 +286,21 @@ export default function BurnerSetupForm() {
           <h2 className="font-bold text-lg mb-4 text-emerald-600 flex items-center gap-2">
             <Gauge className="w-5 h-5" /> Final Combustion Results
           </h2>
+          <div className="max-w-xs space-y-2 mb-5">
+            <Label>Burner Configuration</Label>
+            <select
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+              value={burnerStage}
+              onChange={(event) => setBurnerStage(event.target.value as "single" | "two" | "fully_modulating")}
+            >
+              <option value="single">Single stage burner</option>
+              <option value="two">Two-stage burner</option>
+              <option value="fully_modulating">Fully modulating burner (Sapphire)</option>
+            </select>
+          </div>
+          <p className="mb-3 text-sm font-semibold text-muted-foreground">
+            {burnerStage === "two" ? "Stage 1 Combustion Results" : burnerStage === "fully_modulating" ? "Fully Modulating Combustion Results" : "Stage 1 Combustion Results"}
+          </p>
           <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label>CO2 (%)</Label>

@@ -407,7 +407,8 @@ const JOB_COMPLETION_REPORT_SECTIONS: SectionDef[] = [
 const BURNER_SETUP_SECTIONS: SectionDef[] = [
   {
     title: "Appliance Identification",
-    fields: ["appliance_make", "appliance_model", "appliance_serial", "appliance_type", "appliance_location", "fuel_supply_type", "burner_stage"],
+    fields: ["appliance_make", "appliance_model", "appliance_serial", "appliance_type", "appliance_location", "fuel_supply_type",
+         "appliance_installation_date", "appliance_warranty_expiry", "appliance_next_service_due", "appliance_notes", "burner_stage"],
   },
   {
     title: "Burner Details",

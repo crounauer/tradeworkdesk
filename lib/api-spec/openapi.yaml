@@ -3861,6 +3861,17 @@ components:
           type: ["string", "null"]
         modulation_readings:
           type: ["string", "null"]
+        appliance_installation_date:
+          type: ["string", "null"]
+          format: date
+        appliance_warranty_expiry:
+          type: ["string", "null"]
+          format: date
+        appliance_next_service_due:
+          type: ["string", "null"]
+          format: date
+        appliance_notes:
+          type: ["string", "null"]
         burner_manufacturer:
           type: ["string", "null"]
         burner_model:
@@ -3944,6 +3955,17 @@ components:
           type: string
         modulation_readings:
           type: string
+        appliance_installation_date:
+          type: string
+          format: date
+        appliance_warranty_expiry:
+          type: string
+          format: date
+        appliance_next_service_due:
+          type: string
+          format: date
+        appliance_notes:
+          type: string
         burner_manufacturer:
           type: string
         burner_model:
@@ -4013,6 +4035,14 @@ components:
         burner_stage:
           type: ["string", "null"]
         modulation_readings:
+          type: ["string", "null"]
+        appliance_installation_date:
+          type: ["string", "null"]
+        appliance_warranty_expiry:
+          type: ["string", "null"]
+        appliance_next_service_due:
+          type: ["string", "null"]
+        appliance_notes:
           type: ["string", "null"]
         burner_manufacturer:
           type: ["string", "null"]

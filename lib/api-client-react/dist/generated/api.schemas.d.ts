@@ -1520,6 +1520,10 @@ export interface BurnerSetupRecord {
     fuel_supply_type?: string | null;
     burner_stage?: string | null;
     modulation_readings?: string | null;
+    appliance_installation_date?: string | null;
+    appliance_warranty_expiry?: string | null;
+    appliance_next_service_due?: string | null;
+    appliance_notes?: string | null;
     /** @nullable */
     burner_manufacturer?: string | null;
     /** @nullable */
@@ -1576,6 +1580,10 @@ export interface CreateBurnerSetupRecordBody {
     fuel_supply_type?: string;
     burner_stage?: string;
     modulation_readings?: string;
+    appliance_installation_date?: string;
+    appliance_warranty_expiry?: string;
+    appliance_next_service_due?: string;
+    appliance_notes?: string;
     burner_manufacturer?: string;
     burner_model?: string;
     burner_serial_number?: string;
@@ -1611,6 +1619,10 @@ export interface UpdateBurnerSetupRecordBody {
     fuel_supply_type?: string | null;
     burner_stage?: string | null;
     modulation_readings?: string | null;
+    appliance_installation_date?: string | null;
+    appliance_warranty_expiry?: string | null;
+    appliance_next_service_due?: string | null;
+    appliance_notes?: string | null;
     /** @nullable */
     burner_manufacturer?: string | null;
     /** @nullable */
