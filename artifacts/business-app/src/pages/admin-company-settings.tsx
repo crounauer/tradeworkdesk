@@ -2109,6 +2109,7 @@ export default function AdminCompanySettings() {
 
         {/* Public Directory Listing */}
         <PublicDirectoryCard />
+        <DirectoryReviewsCard />
 
         {/* Invoicing & Quotes */}
         <Card>
@@ -3563,6 +3564,122 @@ function PublicDirectoryCard() {
             {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : <><Save className="w-4 h-4 mr-2" /> Save Listing</>}
           </Button>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Directory Reviews Moderation Card
+// ---------------------------------------------------------------------------
+type DirectoryReview = {
+  id: string;
+  reviewer_name: string;
+  reviewer_email: string | null;
+  rating: number;
+  comment: string | null;
+  is_approved: boolean;
+  created_at: string;
+};
+
+function DirectoryReviewsCard() {
+  const { toast } = useToast();
+  const [reviews, setReviews] = useState<DirectoryReview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const loadReviews = () => {
+    setLoading(true);
+    customFetch("/api/admin/directory-reviews")
+      .then((data) => setReviews(Array.isArray(data) ? data as DirectoryReview[] : []))
+      .catch(() => setReviews([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadReviews(); }, []);
+
+  const setApproval = async (id: string, is_approved: boolean) => {
+    setBusyId(id);
+    try {
+      await customFetch(`/api/admin/directory-reviews/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_approved }),
+      });
+      setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, is_approved } : r)));
+      toast({ title: is_approved ? "Review approved" : "Review hidden" });
+    } catch (err) {
+      toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const deleteReview = async (id: string) => {
+    setBusyId(id);
+    try {
+      await customFetch(`/api/admin/directory-reviews/${id}`, { method: "DELETE" });
+      setReviews((prev) => prev.filter((r) => r.id !== id));
+      toast({ title: "Review deleted" });
+    } catch (err) {
+      toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const pending = reviews.filter((r) => !r.is_approved);
+  const approved = reviews.filter((r) => r.is_approved);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Directory Reviews</CardTitle>
+        <CardDescription>Moderate customer reviews left on your public directory profile. New reviews are hidden until approved.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading reviews…</p>
+        ) : reviews.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No reviews yet.</p>
+        ) : (
+          <>
+            {pending.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pending approval ({pending.length})</p>
+                {pending.map((r) => (
+                  <div key={r.id} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-medium">{r.reviewer_name} · {r.rating}/5</p>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" disabled={busyId === r.id} onClick={() => setApproval(r.id, true)}>Approve</Button>
+                        <Button size="sm" variant="ghost" className="text-destructive" disabled={busyId === r.id} onClick={() => deleteReview(r.id)}>Delete</Button>
+                      </div>
+                    </div>
+                    {r.comment && <p className="text-sm text-muted-foreground">{r.comment}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {approved.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Published ({approved.length})</p>
+                {approved.map((r) => (
+                  <div key={r.id} className="rounded-lg border border-border p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-medium">{r.reviewer_name} · {r.rating}/5</p>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="ghost" disabled={busyId === r.id} onClick={() => setApproval(r.id, false)}>Hide</Button>
+                        <Button size="sm" variant="ghost" className="text-destructive" disabled={busyId === r.id} onClick={() => deleteReview(r.id)}>Delete</Button>
+                      </div>
+                    </div>
+                    {r.comment && <p className="text-sm text-muted-foreground">{r.comment}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   );

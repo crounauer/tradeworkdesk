@@ -4,7 +4,17 @@ import { MarketingLayout } from "@/components/marketing-layout";
 import { SEOHead, SITE_URL } from "@/components/seo-head";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Phone, Globe, Mail, Wrench, CheckCircle, ArrowLeft, ShieldCheck } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { MapPin, Phone, Globe, Mail, Wrench, CheckCircle, ArrowLeft, ShieldCheck, Star, Send } from "lucide-react";
+
+interface DirectoryReview {
+  id: string;
+  reviewer_name: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+}
 
 interface BusinessProfile {
   slug: string;
@@ -23,6 +33,173 @@ interface BusinessProfile {
   logo_url: string | null;
   gas_safe_number: string | null;
   oftec_number: string | null;
+  rating_average: number | null;
+  rating_count: number;
+  reviews: DirectoryReview[];
+}
+
+function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n)}
+          aria-label={`${n} star${n === 1 ? "" : "s"}`}
+          className="p-0.5"
+        >
+          <Star className={`w-6 h-6 ${n <= value ? "fill-amber-500 text-amber-500" : "text-slate-300"}`} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ContactBusinessForm({ slug }: { slug: string }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [message, setMessage] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState(""); // honeypot
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/directory/${slug}/enquiry`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, phone, message, website_url: websiteUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send enquiry");
+      setResult({ ok: true, text: "Message sent! The business will be in touch soon." });
+      setName(""); setEmail(""); setPhone(""); setMessage("");
+    } catch (err) {
+      setResult({ ok: false, text: (err as Error).message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="cb-name">Your Name</Label>
+        <Input id="cb-name" value={name} onChange={e => setName(e.target.value)} required />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="cb-email">Email</Label>
+          <Input id="cb-email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="cb-phone">Phone</Label>
+          <Input id="cb-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="cb-message">Message</Label>
+        <textarea
+          id="cb-message"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[90px]"
+          value={message}
+          onChange={e => setMessage(e.target.value)}
+          placeholder="What do you need help with?"
+          required
+        />
+      </div>
+      {/* Honeypot field, hidden from real visitors */}
+      <input
+        type="text"
+        value={websiteUrl}
+        onChange={e => setWebsiteUrl(e.target.value)}
+        className="hidden"
+        tabIndex={-1}
+        autoComplete="off"
+      />
+      <Button type="submit" className="w-full" disabled={submitting}>
+        <Send className="w-4 h-4 mr-2" /> {submitting ? "Sending..." : "Send Message"}
+      </Button>
+      {result && (
+        <p className={`text-sm ${result.ok ? "text-emerald-600" : "text-destructive"}`}>{result.text}</p>
+      )}
+    </form>
+  );
+}
+
+function LeaveReviewForm({ slug, onSubmitted }: { slug: string; onSubmitted: () => void }) {
+  const [reviewerName, setReviewerName] = useState("");
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState(""); // honeypot
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rating) { setResult({ ok: false, text: "Please select a star rating." }); return; }
+    setSubmitting(true);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/directory/${slug}/reviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewer_name: reviewerName, rating, comment, website_url: websiteUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit review");
+      setResult({ ok: true, text: data.message || "Thanks for your review!" });
+      setReviewerName(""); setRating(0); setComment("");
+      onSubmitted();
+    } catch (err) {
+      setResult({ ok: false, text: (err as Error).message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
+      <h3 className="text-base font-semibold text-slate-900">Leave a Review</h3>
+      <div className="space-y-1.5">
+        <Label htmlFor="rv-name">Your Name</Label>
+        <Input id="rv-name" value={reviewerName} onChange={e => setReviewerName(e.target.value)} required />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Rating</Label>
+        <StarRating value={rating} onChange={setRating} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="rv-comment">Comment (optional)</Label>
+        <textarea
+          id="rv-comment"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[80px]"
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+          placeholder="Tell others about your experience…"
+        />
+      </div>
+      <input
+        type="text"
+        value={websiteUrl}
+        onChange={e => setWebsiteUrl(e.target.value)}
+        className="hidden"
+        tabIndex={-1}
+        autoComplete="off"
+      />
+      <Button type="submit" size="sm" disabled={submitting}>
+        {submitting ? "Submitting..." : "Submit Review"}
+      </Button>
+      {result && (
+        <p className={`text-sm ${result.ok ? "text-emerald-600" : "text-destructive"}`}>{result.text}</p>
+      )}
+    </form>
+  );
 }
 
 export default function BusinessProfilePage() {
@@ -30,8 +207,9 @@ export default function BusinessProfilePage() {
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
 
-  useEffect(() => {
+  const loadProfile = () => {
     if (!slug) return;
     setLoading(true);
     fetch(`/api/directory/${slug}`)
@@ -44,7 +222,13 @@ export default function BusinessProfilePage() {
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
+
 
   if (loading) {
     return (
@@ -97,6 +281,13 @@ export default function BusinessProfilePage() {
       postalCode: profile.postcode || undefined,
       addressCountry: "GB",
     } : undefined,
+    ...(profile.rating_count > 0 && {
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: profile.rating_average,
+        reviewCount: profile.rating_count,
+      },
+    }),
   };
 
   return (
@@ -139,6 +330,13 @@ export default function BusinessProfilePage() {
             )}
             <div className="min-w-0 flex-1">
               <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-1">{profile.name}</h1>
+              {profile.rating_count > 0 && (
+                <p className="flex items-center gap-1.5 text-amber-600 mb-1">
+                  <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                  <span className="font-semibold">{profile.rating_average}</span>
+                  <span className="text-slate-500">({profile.rating_count} review{profile.rating_count === 1 ? "" : "s"})</span>
+                </p>
+              )}
               {profile.service_area && (
                 <p className="flex items-center gap-1.5 text-slate-600 mb-3">
                   <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
@@ -276,8 +474,53 @@ export default function BusinessProfilePage() {
                   </a>
                 </Button>
               )}
+
+              <div className="pt-3 border-t border-slate-100">
+                <p className="text-sm font-medium text-slate-900 mb-3">Or send a message</p>
+                <ContactBusinessForm slug={profile.slug} />
+              </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Reviews */}
+      <section className="border-t border-slate-200 bg-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-semibold text-slate-900">
+              Reviews {profile.rating_count > 0 && `(${profile.rating_count})`}
+            </h2>
+            <Button variant="outline" size="sm" onClick={() => setShowReviewForm(v => !v)}>
+              {showReviewForm ? "Cancel" : "Leave a Review"}
+            </Button>
+          </div>
+
+          {showReviewForm && (
+            <div className="mb-6">
+              <LeaveReviewForm slug={profile.slug} onSubmitted={() => setShowReviewForm(false)} />
+            </div>
+          )}
+
+          {profile.reviews.length === 0 ? (
+            <p className="text-slate-500 text-sm">No reviews yet. Be the first to leave one.</p>
+          ) : (
+            <div className="space-y-4">
+              {profile.reviews.map(rv => (
+                <div key={rv.id} className="rounded-lg border border-slate-200 p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="font-medium text-slate-900">{rv.reviewer_name}</p>
+                    <div className="flex">
+                      {[1, 2, 3, 4, 5].map(n => (
+                        <Star key={n} className={`w-3.5 h-3.5 ${n <= rv.rating ? "fill-amber-500 text-amber-500" : "text-slate-300"}`} />
+                      ))}
+                    </div>
+                  </div>
+                  {rv.comment && <p className="text-sm text-slate-600">{rv.comment}</p>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

@@ -19,6 +19,17 @@ export interface GeoResult {
   display_name: string;
 }
 
+export function calculateDistanceMiles(origin: { latitude: number; longitude: number }, target: { latitude: number; longitude: number }): number {
+  const toRad = (v: number) => (v * Math.PI) / 180;
+  const earthRadiusMiles = 3958.8;
+  const dLat = toRad(target.latitude - origin.latitude);
+  const dLon = toRad(target.longitude - origin.longitude);
+  const lat1 = toRad(origin.latitude);
+  const lat2 = toRad(target.latitude);
+  const a = Math.sin(dLat / 2) ** 2 + Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * earthRadiusMiles * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export async function getIdealPostcodesKey(): Promise<string | null> {
   const { data } = await supabaseAdmin
     .from("platform_settings")

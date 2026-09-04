@@ -32,7 +32,7 @@ import { createHash } from "crypto";
 import { supabaseAdmin } from "../lib/supabase";
 import { sendBookingPendingApprovalEmail, sendJobConfirmationEmail, sendEnquiryAcknowledgementEmail, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
 import { notifyUsersForEvent } from "../lib/push-events";
-import { geocodeAddress, getIdealPostcodesKey, idealPostcodesLookup, normalizeUKPostcode } from "../lib/geocode";
+import { geocodeAddress, getIdealPostcodesKey, idealPostcodesLookup, normalizeUKPostcode, calculateDistanceMiles } from "../lib/geocode";
 import { hasActiveAddon, getAddonCredits, deductAddonCredit } from "../lib/tenant-limits";
 import {
   requireAuth,
@@ -382,17 +382,6 @@ async function isRequestedSlotStillAvailable(args: {
 
 function normalizePostcode(value: string | null | undefined): string {
   return (value || "").trim().toUpperCase().replace(/\s+/g, "");
-}
-
-function calculateDistanceMiles(origin: { latitude: number; longitude: number }, target: { latitude: number; longitude: number }): number {
-  const toRad = (v: number) => (v * Math.PI) / 180;
-  const earthRadiusMiles = 3958.8;
-  const dLat = toRad(target.latitude - origin.latitude);
-  const dLon = toRad(target.longitude - origin.longitude);
-  const lat1 = toRad(origin.latitude);
-  const lat2 = toRad(target.latitude);
-  const a = Math.sin(dLat / 2) ** 2 + Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
-  return 2 * earthRadiusMiles * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function toSingleParam(value: string | string[] | undefined): string {

@@ -5,7 +5,8 @@ import { SEOHead, SITE_URL } from "@/components/seo-head";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, MapPin, Phone, Globe, Wrench } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, MapPin, Phone, Globe, Wrench, Star } from "lucide-react";
 
 interface BusinessListing {
   slug: string;
@@ -20,25 +21,38 @@ interface BusinessListing {
   email: string | null;
   website: string | null;
   logo_url: string | null;
+  distance_miles: number | null;
+  rating_average: number | null;
+  rating_count: number;
 }
 
 export default function DirectoryPage() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [location, setLocation] = useState("");
+  const [debouncedLocation, setDebouncedLocation] = useState("");
+  const [radius, setRadius] = useState("");
   const [listings, setListings] = useState<BusinessListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Debounce the search input
+  // Debounce the search inputs
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 300);
     return () => clearTimeout(t);
   }, [query]);
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedLocation(location), 500);
+    return () => clearTimeout(t);
+  }, [location]);
+
+  useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
     if (debouncedQuery) params.set("q", debouncedQuery);
+    if (debouncedLocation) params.set("location", debouncedLocation);
+    if (debouncedLocation && radius) params.set("radius", radius);
 
     fetch(`/api/directory${params.size ? `?${params}` : ""}`)
       .then(r => r.json())
@@ -48,7 +62,7 @@ export default function DirectoryPage() {
       })
       .catch(() => setError("Failed to load directory. Please try again."))
       .finally(() => setLoading(false));
-  }, [debouncedQuery]);
+  }, [debouncedQuery, debouncedLocation, radius]);
 
   const locationLabel = (b: BusinessListing) => {
     const parts = [b.service_area || b.city, b.county].filter(Boolean);
@@ -78,15 +92,41 @@ export default function DirectoryPage() {
           </p>
 
           {/* Search */}
-          <div className="relative max-w-xl mx-auto">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            <Input
-              type="search"
-              placeholder="Search by name, trade, or location…"
-              className="pl-9 h-12 text-base"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-            />
+          <div className="max-w-xl mx-auto space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Input
+                type="search"
+                placeholder="Search by name or trade…"
+                className="pl-9 h-12 text-base"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <Input
+                  type="search"
+                  placeholder="Postcode or town…"
+                  className="pl-9 h-11 text-base"
+                  value={location}
+                  onChange={e => setLocation(e.target.value)}
+                />
+              </div>
+              <Select value={radius || "any"} onValueChange={(v) => setRadius(v === "any" ? "" : v)}>
+                <SelectTrigger className="w-36 h-11 bg-white">
+                  <SelectValue placeholder="Any distance" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any distance</SelectItem>
+                  <SelectItem value="5">Within 5 miles</SelectItem>
+                  <SelectItem value="10">Within 10 miles</SelectItem>
+                  <SelectItem value="20">Within 20 miles</SelectItem>
+                  <SelectItem value="50">Within 50 miles</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </section>
@@ -109,8 +149,8 @@ export default function DirectoryPage() {
           <div className="text-center py-16">
             <Wrench className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <p className="text-slate-500 text-lg">
-              {debouncedQuery
-                ? `No results for "${debouncedQuery}". Try a different search.`
+              {debouncedQuery || debouncedLocation
+                ? "No results match your search. Try a different location or search term."
                 : "No businesses are listed yet."}
             </p>
           </div>
@@ -149,6 +189,13 @@ export default function DirectoryPage() {
                         <p className="flex items-center gap-1 text-sm text-slate-500 mt-0.5">
                           <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
                           {locationLabel(b)}
+                          {b.distance_miles != null && ` · ${b.distance_miles} mi`}
+                        </p>
+                      )}
+                      {b.rating_count > 0 && (
+                        <p className="flex items-center gap-1 text-sm text-amber-600 mt-0.5">
+                          <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                          {b.rating_average} <span className="text-slate-400">({b.rating_count})</span>
                         </p>
                       )}
                     </div>
