@@ -1464,6 +1464,9 @@ export default function AdminCompanySettings() {
           </CardContent>
         </Card>
 
+        <PublicDirectoryCard />
+        <DirectoryReviewsCard />
+
           </TabsContent>
 
           <TabsContent value="team" className="space-y-6 pt-4">
@@ -2106,10 +2109,6 @@ export default function AdminCompanySettings() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Public Directory Listing */}
-        <PublicDirectoryCard />
-        <DirectoryReviewsCard />
 
         {/* Invoicing & Quotes */}
         <Card>
@@ -3317,6 +3316,9 @@ function PublicDirectoryCard() {
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [tradeTypes, setTradeTypes] = useState("");
+  const [newService, setNewService] = useState("");
+  const [editingServiceIndex, setEditingServiceIndex] = useState<number | null>(null);
+  const [editingServiceValue, setEditingServiceValue] = useState("");
   const [serviceArea, setServiceArea] = useState("");
   const [coverageRadius, setCoverageRadius] = useState("");
   const [coverageRadiusSupported, setCoverageRadiusSupported] = useState(true);
@@ -3420,6 +3422,27 @@ function PublicDirectoryCard() {
   const normalisedSlug = slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
   const previewUrl = normalisedSlug ? `tradeworkdesk.co.uk/find/${normalisedSlug}` : "tradeworkdesk.co.uk/find/your-slug";
   const radiusMiles = parseRadiusMiles(coverageRadius);
+  const services = tradeTypes.split(",").map((service) => service.trim()).filter(Boolean);
+
+  const addService = () => {
+    const service = newService.trim();
+    if (!service || services.some((item) => item.toLowerCase() === service.toLowerCase())) return;
+    setTradeTypes([...services, service].join(", "));
+    setNewService("");
+  };
+
+  const saveServiceEdit = () => {
+    if (editingServiceIndex === null) return;
+    const service = editingServiceValue.trim();
+    if (!service) return;
+    setTradeTypes(services.map((item, index) => index === editingServiceIndex ? service : item).join(", "));
+    setEditingServiceIndex(null);
+    setEditingServiceValue("");
+  };
+
+  const deleteService = (index: number) => {
+    setTradeTypes(services.filter((_, serviceIndex) => serviceIndex !== index).join(", "));
+  };
 
   return (
     <Card>
@@ -3473,15 +3496,55 @@ function PublicDirectoryCard() {
           <p className="text-xs text-muted-foreground">Shown on your profile page. Keep it under 250 characters for best results.</p>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="trade_types">Services offered</Label>
-          <Input
-            id="trade_types"
-            placeholder="e.g. Boiler Service, Gas Engineer, Heat Pump Installation"
-            value={tradeTypes}
-            onChange={e => setTradeTypes(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">Comma-separated list of your services. Used for search and filtering.</p>
+        <div className="space-y-2">
+          <Label htmlFor="new_directory_service">Services offered</Label>
+          <div className="flex gap-2">
+            <Input
+              id="new_directory_service"
+              placeholder="e.g. Oil boiler service"
+              value={newService}
+              onChange={e => setNewService(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addService(); } }}
+            />
+            <Button type="button" variant="outline" onClick={addService} disabled={!newService.trim()}>
+              <Plus className="w-4 h-4 mr-1" /> Add
+            </Button>
+          </div>
+          {services.length > 0 ? (
+            <div className="space-y-2">
+              {services.map((service, index) => (
+                <div key={`${service}-${index}`} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
+                  {editingServiceIndex === index ? (
+                    <Input
+                      value={editingServiceValue}
+                      onChange={e => setEditingServiceValue(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveServiceEdit(); } if (e.key === "Escape") setEditingServiceIndex(null); }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span className="flex-1 text-sm font-medium">{service}</span>
+                  )}
+                  {editingServiceIndex === index ? (
+                    <>
+                      <Button type="button" size="sm" onClick={saveServiceEdit} disabled={!editingServiceValue.trim()}>Save</Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setEditingServiceIndex(null)}>Cancel</Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button type="button" size="sm" variant="ghost" title={`Edit ${service}`} onClick={() => { setEditingServiceIndex(index); setEditingServiceValue(service); }}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" title={`Delete ${service}`} className="text-destructive hover:text-destructive" onClick={() => deleteService(index)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Add each service separately to help customers find your business.</p>
+          )}
         </div>
 
         <div className="space-y-1.5">
