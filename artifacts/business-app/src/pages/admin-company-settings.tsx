@@ -3509,7 +3509,7 @@ function PublicDirectoryCard() {
             value={description}
             onChange={e => setDescription(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">Shown on your profile page. Keep it under 250 characters for best results.</p>
+          <p className="text-xs text-muted-foreground">Shown on your profile page. Supports **bold**, *italic*, ## headings, and - bullet points. Save Listing publishes changes.</p>
         </div>
 
         <div className="space-y-2">
@@ -3561,6 +3561,7 @@ function PublicDirectoryCard() {
           ) : (
             <p className="text-xs text-muted-foreground">Add each service separately to help customers find your business.</p>
           )}
+          <p className="text-xs text-muted-foreground">Changes are saved to your live listing when you select Save Listing below.</p>
         </div>
 
         <div className="space-y-1.5">

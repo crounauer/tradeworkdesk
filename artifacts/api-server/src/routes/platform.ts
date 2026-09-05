@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
 import multer from "multer";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import path from "path";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireSuperAdmin, type AuthenticatedRequest } from "../middlewares/auth";
-import { sendBetaInviteCodeEmail, sendWelcomeEmail } from "../lib/email";
+import { sendBetaInviteCodeEmail, sendSimpleNotification, sendWelcomeEmail } from "../lib/email";
 import { notifySuperAdminsPlatformIncident } from "../lib/support-ticket-notifications";
 import { stripe } from "../lib/stripe";
 import { getEffectiveLimits, getEffectiveLimitsFromCache, getCurrentUserCount, getJobsThisMonth, grantTrialUsageCredits } from "../lib/tenant-limits";
@@ -2811,6 +2812,103 @@ function generateBetaCode(): string {
 }
 
 const APP_URL = (process.env.APP_URL || "https://tradeworkdesk.co.uk").replace(/\/+$/, "");
+
+const launchInterestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again later." },
+  keyGenerator: (req) => `launch-interest:${ipKeyGenerator(req.ip || "unknown")}`,
+});
+
+router.post("/public/launch-interest", launchInterestLimiter, async (req, res): Promise<void> => {
+  const { full_name, email, business_name, phone, trade, website_url } = req.body as Record<string, unknown>;
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+  const normalizedName = typeof full_name === "string" ? full_name.trim() : "";
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (typeof website_url === "string" && website_url.trim()) {
+    res.status(400).json({ error: "Invalid submission" });
+    return;
+  }
+  if (!normalizedName || !emailRegex.test(normalizedEmail)) {
+    res.status(400).json({ error: "Your name and a valid email address are required." });
+    return;
+  }
+
+  const { error } = await supabaseAdmin
+    .from("launch_interest")
+    .upsert({
+      full_name: normalizedName,
+      email: normalizedEmail,
+      business_name: typeof business_name === "string" ? business_name.trim() || null : null,
+      phone: typeof phone === "string" ? phone.trim() || null : null,
+      trade: typeof trade === "string" ? trade.trim() || null : null,
+    }, { onConflict: "email" });
+
+  if (error) {
+    res.status(500).json({ error: "Could not register your interest. Please try again." });
+    return;
+  }
+
+  sendSimpleNotification(
+    normalizedEmail,
+    "Thanks for your interest in TradeWorkDesk",
+    `Hi ${normalizedName},\n\nThanks for registering your interest in TradeWorkDesk. We are currently in private beta and will email you as soon as public signup opens.\n\nThe TradeWorkDesk team`,
+    { emailType: "launch_interest_confirmation" },
+  ).catch((err) => console.error("[launch-interest] confirmation email failed:", err));
+
+  res.status(201).json({ ok: true });
+});
+
+router.get("/platform/launch-interest", requireAuth, requireSuperAdmin, async (_req: AuthenticatedRequest, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("launch_interest")
+    .select("id, full_name, email, business_name, phone, trade, notified_at, created_at")
+    .order("created_at", { ascending: false });
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
+router.post("/platform/launch-interest/notify", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: contacts, error } = await supabaseAdmin
+    .from("launch_interest")
+    .select("id, full_name, email")
+    .is("notified_at", null)
+    .order("created_at")
+    .limit(100);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  let notified = 0;
+  const failed: string[] = [];
+  for (const contact of contacts || []) {
+    try {
+      await sendSimpleNotification(
+        contact.email,
+        "TradeWorkDesk is now open",
+        `Hi ${contact.full_name},\n\nTradeWorkDesk is now open for new businesses. Start your free trial and manage jobs, customers, compliance, and invoicing from one place.\n\nGet started: ${APP_URL}/register\n\nThe TradeWorkDesk team`,
+        { emailType: "launch_interest_notification" },
+      );
+      await supabaseAdmin.from("launch_interest").update({ notified_at: new Date().toISOString() }).eq("id", contact.id);
+      notified++;
+    } catch (err) {
+      console.error("[launch-interest] launch notification failed:", err);
+      failed.push(contact.email);
+    }
+  }
+
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail || "super_admin",
+    event_type: "launch_interest_notified",
+    entity_type: "launch_interest",
+    entity_id: null,
+    detail: { notified, failed: failed.length },
+  });
+
+  res.json({ ok: true, notified, failed });
+});
 
 router.get("/platform/beta-invites", requireAuth, requireSuperAdmin, async (_req: AuthenticatedRequest, res): Promise<void> => {
   const { data, error } = await supabaseAdmin

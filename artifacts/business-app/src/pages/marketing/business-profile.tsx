@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { Link, useParams } from "wouter";
 import { MarketingLayout } from "@/components/marketing-layout";
 import { SEOHead, SITE_URL } from "@/components/seo-head";
@@ -36,6 +36,43 @@ interface BusinessProfile {
   rating_average: number | null;
   rating_count: number;
   reviews: DirectoryReview[];
+}
+
+function renderInlineMarkup(value: string) {
+  return value.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("*") && part.endsWith("*")) return <em key={index}>{part.slice(1, -1)}</em>;
+    return <Fragment key={index}>{part}</Fragment>;
+  });
+}
+
+function AboutMarkup({ value }: { value: string }) {
+  const lines = value.split("\n");
+  const content: React.ReactNode[] = [];
+  let bullets: string[] = [];
+
+  const flushBullets = () => {
+    if (bullets.length === 0) return;
+    content.push(<ul key={`list-${content.length}`} className="list-disc space-y-1 pl-5">{bullets.map((item, index) => <li key={index}>{renderInlineMarkup(item)}</li>)}</ul>);
+    bullets = [];
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("- ")) {
+      bullets.push(trimmed.slice(2));
+      continue;
+    }
+    flushBullets();
+    if (!trimmed) continue;
+    if (trimmed.startsWith("## ")) {
+      content.push(<h3 key={`heading-${content.length}`} className="font-semibold text-slate-900">{renderInlineMarkup(trimmed.slice(3))}</h3>);
+    } else {
+      content.push(<p key={`paragraph-${content.length}`}>{renderInlineMarkup(trimmed)}</p>);
+    }
+  }
+  flushBullets();
+  return <div className="space-y-3 text-slate-600 leading-relaxed">{content}</div>;
 }
 
 function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -305,7 +342,7 @@ export default function BusinessProfilePage() {
 
       {/* Back nav */}
       <div className="border-b border-slate-200 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <Link href="/find" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Back to directory
@@ -315,7 +352,7 @@ export default function BusinessProfilePage() {
 
       {/* Profile header */}
       <section className="bg-gradient-to-br from-slate-50 via-blue-50/30 to-white py-10 md:py-14">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-start gap-6">
             {profile.logo_url ? (
               <img
@@ -356,14 +393,14 @@ export default function BusinessProfilePage() {
       </section>
 
       {/* Main content */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* About + credentials */}
           <div className="md:col-span-2 space-y-6">
             {profile.description && (
               <div>
                 <h2 className="text-lg font-semibold text-slate-900 mb-2">About</h2>
-                <p className="text-slate-600 leading-relaxed">{profile.description}</p>
+                <AboutMarkup value={profile.description} />
               </div>
             )}
 
@@ -486,7 +523,7 @@ export default function BusinessProfilePage() {
 
       {/* Reviews */}
       <section className="border-t border-slate-200 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-semibold text-slate-900">
               Reviews {profile.rating_count > 0 && `(${profile.rating_count})`}

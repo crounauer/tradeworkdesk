@@ -32,6 +32,17 @@ interface BetaInvite {
   created_at: string;
 }
 
+interface LaunchInterest {
+  id: string;
+  full_name: string;
+  email: string;
+  business_name: string | null;
+  phone: string | null;
+  trade: string | null;
+  notified_at: string | null;
+  created_at: string;
+}
+
 export default function PlatformBetaInvites() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -50,6 +61,29 @@ export default function PlatformBetaInvites() {
       if (!res.ok) throw new Error("Failed to load beta invites");
       return res.json();
     },
+  });
+
+  const { data: launchInterest = [], isLoading: isLoadingInterest } = useQuery<LaunchInterest[]>({
+    queryKey: ["launch-interest"],
+    queryFn: async () => {
+      const res = await fetch("/api/platform/launch-interest");
+      if (!res.ok) throw new Error("Failed to load launch interest");
+      return res.json();
+    },
+  });
+
+  const notifyInterestMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/platform/launch-interest/notify", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send launch notifications");
+      return data as { notified: number; failed: string[] };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["launch-interest"] });
+      toast({ title: "Launch notifications sent", description: `${data.notified} prospect${data.notified === 1 ? "" : "s"} notified.${data.failed.length ? ` ${data.failed.length} failed.` : ""}` });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
   const createMutation = useMutation({
@@ -153,6 +187,7 @@ export default function PlatformBetaInvites() {
 
   const activeCount = invites.filter((i) => i.is_active && i.used_count < i.max_uses).length;
   const totalUsed = invites.reduce((sum, i) => sum + i.used_count, 0);
+  const unnotifiedInterest = launchInterest.filter((contact) => !contact.notified_at);
 
   return (
     <div className="space-y-6">
@@ -210,6 +245,43 @@ export default function PlatformBetaInvites() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5" /> Public Launch Interest</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {isLoadingInterest ? "Loading prospects..." : `${launchInterest.length} registered interest · ${unnotifiedInterest.length} awaiting launch notification`}
+            </p>
+            <Button
+              onClick={() => {
+                if (window.confirm(`Email ${unnotifiedInterest.length} prospect${unnotifiedInterest.length === 1 ? "" : "s"} that TradeWorkDesk is open?`)) notifyInterestMutation.mutate();
+              }}
+              disabled={notifyInterestMutation.isPending || unnotifiedInterest.length === 0}
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              {notifyInterestMutation.isPending ? "Sending..." : "Notify All at Launch"}
+            </Button>
+          </div>
+          {!isLoadingInterest && launchInterest.length > 0 && (
+            <div className="max-h-64 overflow-y-auto rounded-lg border divide-y">
+              {launchInterest.map((contact) => (
+                <div key={contact.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{contact.full_name}{contact.business_name ? ` · ${contact.business_name}` : ""}</p>
+                    <p className="text-xs text-muted-foreground truncate">{contact.email}{contact.trade ? ` · ${contact.trade}` : ""}</p>
+                  </div>
+                  <span className={`shrink-0 text-xs font-medium ${contact.notified_at ? "text-emerald-600" : "text-amber-600"}`}>
+                    {contact.notified_at ? "Notified" : "Awaiting launch"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {showCreate && (
         <Card>

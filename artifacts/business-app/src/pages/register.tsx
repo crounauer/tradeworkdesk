@@ -55,6 +55,9 @@ export default function Register() {
   const [codeError, setCodeError] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [showBetaAccess, setShowBetaAccess] = useState(() => Boolean(getBetaCodeFromUrl()));
+  const [interestTrade, setInterestTrade] = useState("");
+  const [interestSubmitted, setInterestSubmitted] = useState(false);
 
   const [companyName, setCompanyName] = useState("");
   const [phone, setPhone] = useState("");
@@ -270,6 +273,35 @@ export default function Register() {
     }
   }
 
+  async function handleInterestSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!fullName.trim() || !email.trim()) {
+      toast({ title: "Please complete your name and email", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/public/launch-interest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: fullName.trim(),
+          email: email.trim(),
+          business_name: companyName.trim() || undefined,
+          phone: phone.trim() || undefined,
+          trade: interestTrade.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not register your interest");
+      setInterestSubmitted(true);
+    } catch (err) {
+      toast({ title: "Could not register interest", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleCompanySubmit(e: React.FormEvent) {
     e.preventDefault();
     const missing: string[] = [];
@@ -458,6 +490,23 @@ export default function Register() {
           },
         ];
 
+  if (interestSubmitted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <div className="w-full max-w-md p-8 bg-card rounded-3xl shadow-xl text-center space-y-4">
+          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+          </div>
+          <h1 className="text-2xl font-display font-bold">You're on the list</h1>
+          <p className="text-muted-foreground">
+            Thanks for your interest. We'll email <strong>{email}</strong> as soon as TradeWorkDesk opens for public signup.
+          </p>
+          <Button className="w-full mt-2" onClick={() => navigate("/")}>Back to Home</Button>
+        </div>
+      </div>
+    );
+  }
+
   if (done) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
@@ -508,7 +557,7 @@ export default function Register() {
           <h1 className="text-2xl font-display font-bold text-foreground">Join TradeWorkDesk</h1>
         </div>
 
-        {mode === "company" && (
+        {mode === "company" && showBetaAccess && (
           <div className="space-y-2 mb-4">
             <Label className="flex items-center gap-1.5">
               <Ticket className="w-4 h-4" />
@@ -547,9 +596,9 @@ export default function Register() {
         <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-4">
           <button
             className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${mode === "company" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"}`}
-            onClick={() => { setMode("company"); setStep(1); }}
+            onClick={() => { setMode("company"); setShowBetaAccess(false); setStep(1); }}
           >
-            <Building2 className="w-4 h-4 inline mr-1.5 -mt-0.5" />New Company
+            <Building2 className="w-4 h-4 inline mr-1.5 -mt-0.5" />Join Waitlist
           </button>
           <button
             className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${mode === "invite" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"}`}
@@ -636,7 +685,7 @@ export default function Register() {
               {loading ? "Creating account..." : "Create Account"}
             </Button>
           </form>
-        ) : (
+        ) : showBetaAccess ? (
           <>
             {stepIndicator}
 
@@ -819,6 +868,40 @@ export default function Register() {
               </form>
             )}
           </>
+        ) : (
+          <form onSubmit={handleInterestSubmit} className="space-y-4">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-slate-700">
+              TradeWorkDesk is currently in private beta. Register your interest and we'll email you when public signup opens.
+            </div>
+            <div className="space-y-2">
+              <Label>Your Name</Label>
+              <Input placeholder="Jane Smith" value={fullName} onChange={e => setFullName(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label>Email Address</Label>
+              <Input type="email" placeholder="jane@company.com" value={email} onChange={e => setEmail(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label>Business Name <span className="text-xs text-muted-foreground">(optional)</span></Label>
+              <Input placeholder="e.g. Smith Plumbing" value={companyName} onChange={e => setCompanyName(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Trade <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <Input placeholder="e.g. Plumber" value={interestTrade} onChange={e => setInterestTrade(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Phone <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <Input placeholder="07xxx" value={phone} onChange={e => setPhone(e.target.value)} />
+              </div>
+            </div>
+            <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
+              {loading ? "Registering interest..." : "Register Interest"}
+            </Button>
+            <button type="button" className="w-full text-sm text-primary hover:underline" onClick={() => setShowBetaAccess(true)}>
+              Have a private beta invite code?
+            </button>
+          </form>
         )}
 
           <p className="text-center text-sm text-muted-foreground mt-4">
