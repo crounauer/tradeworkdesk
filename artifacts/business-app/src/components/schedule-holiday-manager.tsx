@@ -135,8 +135,8 @@ export default function ScheduleHolidayManager() {
 
   async function refreshAll() {
     await Promise.all([
-      qc.invalidateQueries({ queryKey: ["calendar-holidays"] }),
-      qc.invalidateQueries({ queryKey: ["/api/calendar"] }),
+      qc.refetchQueries({ queryKey: ["calendar-holidays"], type: "active" }),
+      qc.refetchQueries({ queryKey: ["/api/calendar"], type: "active" }),
     ]);
   }
 

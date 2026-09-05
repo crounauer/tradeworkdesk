@@ -3339,7 +3339,13 @@ function PublicDirectoryCard() {
         setIsListed(!!data.is_publicly_listed);
         setSlug((data.listing_slug as string) ?? "");
         setDescription((data.public_description as string) ?? "");
-        setTradeTypes((data.trade_types as string) ?? "");
+        const savedServices = (data.trade_types as string) ?? "";
+        try {
+          const parsedServices = JSON.parse(savedServices);
+          setTradeTypes(Array.isArray(parsedServices) ? JSON.stringify(parsedServices) : savedServices);
+        } catch {
+          setTradeTypes(savedServices);
+        }
         setServiceArea((data.service_area as string) ?? "");
         setCoverageRadius(data.coverage_radius_miles != null ? String(data.coverage_radius_miles) : "");
         setCoverageRadiusSupported(data.coverage_radius_supported !== false);
@@ -3422,12 +3428,22 @@ function PublicDirectoryCard() {
   const normalisedSlug = slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
   const previewUrl = normalisedSlug ? `tradeworkdesk.co.uk/find/${normalisedSlug}` : "tradeworkdesk.co.uk/find/your-slug";
   const radiusMiles = parseRadiusMiles(coverageRadius);
-  const services = tradeTypes.split(",").map((service) => service.trim()).filter(Boolean);
+  const services = (() => {
+    try {
+      const parsed = JSON.parse(tradeTypes);
+      if (Array.isArray(parsed) && parsed.every((service) => typeof service === "string")) {
+        return parsed.map((service) => service.trim()).filter(Boolean);
+      }
+    } catch {
+      // Existing listings use the previous comma-separated format.
+    }
+    return tradeTypes.split(",").map((service) => service.trim()).filter(Boolean);
+  })();
 
   const addService = () => {
     const service = newService.trim();
     if (!service || services.some((item) => item.toLowerCase() === service.toLowerCase())) return;
-    setTradeTypes([...services, service].join(", "));
+    setTradeTypes(JSON.stringify([...services, service]));
     setNewService("");
   };
 
@@ -3435,13 +3451,13 @@ function PublicDirectoryCard() {
     if (editingServiceIndex === null) return;
     const service = editingServiceValue.trim();
     if (!service) return;
-    setTradeTypes(services.map((item, index) => index === editingServiceIndex ? service : item).join(", "));
+    setTradeTypes(JSON.stringify(services.map((item, index) => index === editingServiceIndex ? service : item)));
     setEditingServiceIndex(null);
     setEditingServiceValue("");
   };
 
   const deleteService = (index: number) => {
-    setTradeTypes(services.filter((_, serviceIndex) => serviceIndex !== index).join(", "));
+    setTradeTypes(JSON.stringify(services.filter((_, serviceIndex) => serviceIndex !== index)));
   };
 
   return (

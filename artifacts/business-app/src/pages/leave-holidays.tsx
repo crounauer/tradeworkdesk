@@ -10,8 +10,71 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { customFetch } from "@workspace/api-client-react";
+import { formatDate } from "@/lib/utils";
 
 const ScheduleHolidayManager = lazy(() => import("@/components/schedule-holiday-manager"));
+
+type TechnicianLeave = {
+  id: string;
+  technician_id: string | null;
+  name: string;
+  start_date: string;
+  end_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  holiday_type: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
+};
+
+const leaveTypeLabel: Record<TechnicianLeave["holiday_type"], string> = {
+  technician_leave: "Holiday",
+  technician_away: "Away",
+  technician_sick: "Sick leave",
+  public_holiday: "Public holiday",
+  bank_holiday: "Bank holiday",
+};
+
+function MyLeaveList({ technicianId }: { technicianId: string }) {
+  const { data: holidays = [], isLoading } = useQuery<TechnicianLeave[]>({
+    queryKey: ["my-leave", technicianId],
+    queryFn: () => customFetch("/api/calendar/holidays?date_from=2000-01-01&date_to=2100-12-31") as Promise<TechnicianLeave[]>,
+  });
+  const myLeave = holidays
+    .filter((holiday) => holiday.technician_id === technicianId)
+    .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">My Leave</CardTitle>
+        <CardDescription>Your booked holiday, away, and sick leave.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading your leave…</p>
+        ) : myLeave.length === 0 ? (
+          <p className="text-sm text-muted-foreground">You have no leave booked.</p>
+        ) : (
+          <div className="space-y-2">
+            {myLeave.map((holiday) => (
+              <div key={holiday.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium">{holiday.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDate(holiday.start_date)}{holiday.start_date !== holiday.end_date ? ` – ${formatDate(holiday.end_date)}` : ""}
+                    {holiday.start_time && holiday.end_time ? ` · ${holiday.start_time.slice(0, 5)}–${holiday.end_time.slice(0, 5)}` : " · All day"}
+                  </p>
+                </div>
+                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{leaveTypeLabel[holiday.holiday_type]}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function LeaveHolidaysPage() {
   const { profile } = useAuth();
@@ -91,15 +154,6 @@ export default function LeaveHolidaysPage() {
     );
   }
 
-  if (!canManageHolidays) {
-    return (
-      <div className="space-y-3">
-        <h1 className="text-3xl font-display font-bold text-foreground">Leave & Holidays</h1>
-        <p className="text-sm text-muted-foreground">You do not have permission to manage leave and holidays.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-start gap-3">
@@ -113,6 +167,8 @@ export default function LeaveHolidaysPage() {
           </p>
         </div>
       </div>
+
+      {profile?.id ? <MyLeaveList technicianId={profile.id} /> : null}
 
       <Suspense fallback={<div className="rounded-xl border border-border bg-card animate-pulse" style={{ height: 360 }} />}>
         <ScheduleHolidayManager />

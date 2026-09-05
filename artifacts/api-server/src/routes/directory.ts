@@ -88,6 +88,19 @@ interface ListingRow {
   tenant_id: string;
 }
 
+function parseTradeTypes(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
+      return parsed.map((item) => item.trim()).filter(Boolean);
+    }
+  } catch {
+    // Existing listings used a comma-separated string before individual services.
+  }
+  return value.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
 // ---------------------------------------------------------------------------
 // PUBLIC: GET /api/directory — list all publicly listed businesses
 // Optional query params: ?q=search&trade=Gas+Engineer&location=AB10+1AB&radius=20
@@ -114,7 +127,7 @@ router.get("/directory", async (req: Request, res: Response): Promise<void> => {
       (r.name || "").toLowerCase().includes(term) ||
       (r.trading_name || "").toLowerCase().includes(term) ||
       (r.public_description || "").toLowerCase().includes(term) ||
-      (r.trade_types || "").toLowerCase().includes(term) ||
+      parseTradeTypes(r.trade_types).some((item) => item.toLowerCase().includes(term)) ||
       (r.service_area || "").toLowerCase().includes(term) ||
       (r.city || "").toLowerCase().includes(term) ||
       (r.county || "").toLowerCase().includes(term) ||
@@ -126,7 +139,7 @@ router.get("/directory", async (req: Request, res: Response): Promise<void> => {
   if (trade && trade.trim()) {
     const tradeTerm = trade.trim().toLowerCase();
     results = results.filter(r =>
-      (r.trade_types || "").toLowerCase().includes(tradeTerm)
+      parseTradeTypes(r.trade_types).some((item) => item.toLowerCase().includes(tradeTerm))
     );
   }
 
@@ -172,7 +185,7 @@ router.get("/directory", async (req: Request, res: Response): Promise<void> => {
     slug: r.listing_slug,
     name: r.trading_name || r.name,
     description: r.public_description,
-    trade_types: r.trade_types ? r.trade_types.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
+    trade_types: parseTradeTypes(r.trade_types),
     service_area: r.service_area,
     city: r.city,
     county: r.county,
@@ -220,7 +233,7 @@ router.get("/directory/:slug", async (req: Request, res: Response): Promise<void
     slug: r.listing_slug,
     name: r.trading_name || r.name,
     description: r.public_description,
-    trade_types: r.trade_types ? r.trade_types.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
+    trade_types: parseTradeTypes(r.trade_types),
     service_area: r.service_area,
     address_line1: r.address_line1,
     address_line2: r.address_line2,
