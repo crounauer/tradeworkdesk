@@ -3379,13 +3379,15 @@ function PublicDirectoryCard() {
         setSlug((data.listing_slug as string) ?? "");
         setDescription((data.public_description as string) ?? "");
         const savedServices = (data.trade_types as string) ?? "";
+        let normalizedServices = savedServices;
         try {
           const parsedServices = JSON.parse(savedServices);
-          setTradeTypes(Array.isArray(parsedServices) ? JSON.stringify(parsedServices) : savedServices);
+          normalizedServices = Array.isArray(parsedServices) ? JSON.stringify(parsedServices) : savedServices;
         } catch {
-          setTradeTypes(savedServices);
+          normalizedServices = savedServices;
         }
-        setManufacturerAffiliations(Array.isArray(data.manufacturer_affiliations)
+        setTradeTypes(normalizedServices);
+        const normalizedAffiliations = Array.isArray(data.manufacturer_affiliations)
           ? (data.manufacturer_affiliations as Partial<ManufacturerAffiliation>[]).map((affiliation) => ({
               name: affiliation.name || "",
               title: affiliation.title || "",
@@ -3393,7 +3395,8 @@ function PublicDirectoryCard() {
               logo_url: affiliation.logo_url || "",
               verification_url: affiliation.verification_url || "",
             }))
-          : []);
+          : [];
+        setManufacturerAffiliations(normalizedAffiliations);
         setServiceArea((data.service_area as string) ?? "");
         setCoverageRadius(data.coverage_radius_miles != null ? String(data.coverage_radius_miles) : "");
         setCoverageRadiusSupported(data.coverage_radius_supported !== false);
@@ -3402,10 +3405,10 @@ function PublicDirectoryCard() {
           isListed: !!data.is_publicly_listed,
           slug: (data.listing_slug as string) ?? "",
           description: (data.public_description as string) ?? "",
-          tradeTypes: (data.trade_types as string) ?? "",
+          tradeTypes: normalizedServices,
           serviceArea: (data.service_area as string) ?? "",
           coverageRadius: data.coverage_radius_miles != null ? String(data.coverage_radius_miles) : "",
-          manufacturerAffiliations: Array.isArray(data.manufacturer_affiliations) ? data.manufacturer_affiliations : [],
+          manufacturerAffiliations: normalizedAffiliations,
         });
         setLoaded(true);
       })
