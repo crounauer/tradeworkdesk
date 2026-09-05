@@ -93,6 +93,7 @@ type ManufacturerAffiliation = {
   title?: string;
   description?: string;
   logo_url?: string;
+  verification_url?: string;
 };
 
 function parseManufacturerAffiliations(value: unknown): ManufacturerAffiliation[] {
@@ -104,6 +105,7 @@ function parseManufacturerAffiliations(value: unknown): ManufacturerAffiliation[
       title: typeof item.title === "string" ? item.title.trim() : "",
       description: typeof item.description === "string" ? item.description.trim() : "",
       logo_url: typeof item.logo_url === "string" ? item.logo_url : "",
+      verification_url: typeof item.verification_url === "string" && /^https?:\/\//i.test(item.verification_url.trim()) ? item.verification_url.trim() : "",
     }))
     .filter((item) => item.name || item.title);
 }

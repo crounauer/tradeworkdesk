@@ -1245,6 +1245,15 @@ export default function AdminCompanySettings() {
     </div>
   );
 
+  useEffect(() => {
+    if (!isDirty) return;
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+  }, [isDirty]);
 
   if (isLoading) {
     return (
@@ -1279,6 +1288,15 @@ export default function AdminCompanySettings() {
           )}
         </div>
       </div>
+
+      {isDirty && (
+        <div className="sticky top-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm">
+          <span>You have unsaved settings changes.</span>
+          <Button type="button" size="sm" onClick={() => doSave(true)} disabled={autoSaveStatus === "saving"}>
+            <Save className="mr-1.5 h-4 w-4" /> Save Changes
+          </Button>
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -3317,6 +3335,7 @@ type ManufacturerAffiliation = {
   title: string;
   description: string;
   logo_url: string;
+  verification_url: string;
 };
 
 function PublicDirectoryCard() {
@@ -3327,10 +3346,11 @@ function PublicDirectoryCard() {
   const [description, setDescription] = useState("");
   const [tradeTypes, setTradeTypes] = useState("");
   const [manufacturerAffiliations, setManufacturerAffiliations] = useState<ManufacturerAffiliation[]>([]);
-  const [newAffiliation, setNewAffiliation] = useState<ManufacturerAffiliation>({ name: "", title: "", description: "", logo_url: "" });
+  const [newAffiliation, setNewAffiliation] = useState<ManufacturerAffiliation>({ name: "", title: "", description: "", logo_url: "", verification_url: "" });
   const [editingAffiliationIndex, setEditingAffiliationIndex] = useState<number | null>(null);
   const [editingAffiliation, setEditingAffiliation] = useState<ManufacturerAffiliation | null>(null);
   const [uploadingAffiliationLogo, setUploadingAffiliationLogo] = useState(false);
+  const [savingAffiliations, setSavingAffiliations] = useState(false);
   const [newService, setNewService] = useState("");
   const [editingServiceIndex, setEditingServiceIndex] = useState<number | null>(null);
   const [editingServiceValue, setEditingServiceValue] = useState("");
@@ -3342,6 +3362,8 @@ function PublicDirectoryCard() {
   const [coverageLookupLoading, setCoverageLookupLoading] = useState(false);
   const [coverageLookupError, setCoverageLookupError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [directoryDirty, setDirectoryDirty] = useState(false);
+  const initialDirectoryStateRef = useRef<string | null>(null);
   const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "taken" | "available">("idle");
   const slugTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -3361,15 +3383,45 @@ function PublicDirectoryCard() {
         } catch {
           setTradeTypes(savedServices);
         }
-        setManufacturerAffiliations(Array.isArray(data.manufacturer_affiliations) ? data.manufacturer_affiliations as ManufacturerAffiliation[] : []);
+        setManufacturerAffiliations(Array.isArray(data.manufacturer_affiliations)
+          ? (data.manufacturer_affiliations as Partial<ManufacturerAffiliation>[]).map((affiliation) => ({
+              name: affiliation.name || "",
+              title: affiliation.title || "",
+              description: affiliation.description || "",
+              logo_url: affiliation.logo_url || "",
+              verification_url: affiliation.verification_url || "",
+            }))
+          : []);
         setServiceArea((data.service_area as string) ?? "");
         setCoverageRadius(data.coverage_radius_miles != null ? String(data.coverage_radius_miles) : "");
         setCoverageRadiusSupported(data.coverage_radius_supported !== false);
         setBusinessPostcode(String(companyData.postcode || "").trim());
+        initialDirectoryStateRef.current = JSON.stringify({
+          isListed: !!data.is_publicly_listed,
+          slug: (data.listing_slug as string) ?? "",
+          description: (data.public_description as string) ?? "",
+          tradeTypes: (data.trade_types as string) ?? "",
+          serviceArea: (data.service_area as string) ?? "",
+          coverageRadius: data.coverage_radius_miles != null ? String(data.coverage_radius_miles) : "",
+          manufacturerAffiliations: Array.isArray(data.manufacturer_affiliations) ? data.manufacturer_affiliations : [],
+        });
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
   }, []);
+
+  useEffect(() => {
+    if (!loaded || !initialDirectoryStateRef.current) return;
+    setDirectoryDirty(initialDirectoryStateRef.current !== JSON.stringify({
+      isListed,
+      slug,
+      description,
+      tradeTypes,
+      serviceArea,
+      coverageRadius,
+      manufacturerAffiliations,
+    }));
+  }, [loaded, isListed, slug, description, tradeTypes, serviceArea, coverageRadius, manufacturerAffiliations]);
 
   useEffect(() => {
     const postcode = businessPostcode.trim();
@@ -3430,6 +3482,8 @@ function PublicDirectoryCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_publicly_listed: isListed, listing_slug: slug, public_description: description, trade_types: tradeTypes, service_area: serviceArea, coverage_radius_miles: coverageRadius, manufacturer_affiliations: manufacturerAffiliations }),
       });
+      initialDirectoryStateRef.current = JSON.stringify({ isListed, slug, description, tradeTypes, serviceArea, coverageRadius, manufacturerAffiliations });
+      setDirectoryDirty(false);
       toast({ title: "Directory listing saved", description: isListed ? "Your business is now publicly listed." : "Listing saved (not publicly visible)." });
       setSlugStatus("idle");
     } catch (err) {
@@ -3500,8 +3554,27 @@ function PublicDirectoryCard() {
       title: newAffiliation.title.trim(),
       description: newAffiliation.description.trim(),
       logo_url: newAffiliation.logo_url,
+      verification_url: newAffiliation.verification_url.trim(),
     }]);
-    setNewAffiliation({ name: "", title: "", description: "", logo_url: "" });
+    setNewAffiliation({ name: "", title: "", description: "", logo_url: "", verification_url: "" });
+  };
+
+  const saveAffiliations = async () => {
+    setSavingAffiliations(true);
+    try {
+      await customFetch("/api/admin/directory-listing", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ manufacturer_affiliations: manufacturerAffiliations }),
+      });
+      initialDirectoryStateRef.current = JSON.stringify({ isListed, slug, description, tradeTypes, serviceArea, coverageRadius, manufacturerAffiliations });
+      setDirectoryDirty(false);
+      toast({ title: "Affiliations saved", description: "Your public profile has been updated." });
+    } catch (err) {
+      toast({ title: "Could not save affiliations", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setSavingAffiliations(false);
+    }
   };
 
   const startAffiliationEdit = (index: number) => {
@@ -3520,6 +3593,7 @@ function PublicDirectoryCard() {
       title: editingAffiliation.title.trim(),
       description: editingAffiliation.description.trim(),
       logo_url: editingAffiliation.logo_url,
+      verification_url: editingAffiliation.verification_url.trim(),
     } : item));
     setEditingAffiliationIndex(null);
     setEditingAffiliation(null);
@@ -3537,6 +3611,14 @@ function PublicDirectoryCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
+        {directoryDirty && (
+          <div className="sticky top-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm">
+            <span>You have unsaved directory listing changes.</span>
+            <Button type="button" size="sm" onClick={handleSave} disabled={saving}>
+              <Save className="mr-1.5 h-4 w-4" /> Save Listing
+            </Button>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-slate-900">Show my business in the public directory</p>
@@ -3655,6 +3737,7 @@ function PublicDirectoryCard() {
                       <Input aria-label="Manufacturer" value={editingAffiliation.name} onChange={(event) => setEditingAffiliation((current) => current ? { ...current, name: event.target.value } : current)} />
                       <Input aria-label="Accreditation or training" value={editingAffiliation.title} onChange={(event) => setEditingAffiliation((current) => current ? { ...current, title: event.target.value } : current)} />
                       <Textarea aria-label="Public detail" rows={2} className="sm:col-span-2" value={editingAffiliation.description} onChange={(event) => setEditingAffiliation((current) => current ? { ...current, description: event.target.value } : current)} />
+                      <Input type="url" aria-label="Manufacturer verification link" className="sm:col-span-2" placeholder="https://manufacturer.example/accreditation" value={editingAffiliation.verification_url} onChange={(event) => setEditingAffiliation((current) => current ? { ...current, verification_url: event.target.value } : current)} />
                       <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
                         <Input type="file" accept="image/*" className="max-w-sm" disabled={uploadingAffiliationLogo} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadAffiliationLogo(file, (logoUrl) => setEditingAffiliation((current) => current ? { ...current, logo_url: logoUrl } : current)); event.currentTarget.value = ""; }} />
                         {editingAffiliation.logo_url && <img src={editingAffiliation.logo_url} alt="Affiliation logo preview" className="h-8 w-8 object-contain" />}
@@ -3695,6 +3778,11 @@ function PublicDirectoryCard() {
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="affiliation-description">Public detail <span className="text-muted-foreground">(optional)</span></Label>
               <Textarea id="affiliation-description" rows={2} placeholder="e.g. Extended warranties on oil boilers, solar thermal and heat pump installations." value={newAffiliation.description} onChange={(event) => setNewAffiliation((current) => ({ ...current, description: event.target.value }))} />
+              <p className="text-xs text-muted-foreground">Supports **bold**, *italic*, ## headings, and - bullet points.</p>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="affiliation-verification-url">Manufacturer verification link <span className="text-muted-foreground">(optional)</span></Label>
+              <Input id="affiliation-verification-url" type="url" placeholder="https://manufacturer.example/accreditation" value={newAffiliation.verification_url} onChange={(event) => setNewAffiliation((current) => ({ ...current, verification_url: event.target.value }))} />
             </div>
             <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
               <Input type="file" accept="image/*" className="max-w-sm" disabled={uploadingAffiliationLogo} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadAffiliationLogo(file, (logoUrl) => setNewAffiliation((current) => ({ ...current, logo_url: logoUrl }))); event.currentTarget.value = ""; }} />
@@ -3704,7 +3792,12 @@ function PublicDirectoryCard() {
               </Button>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">Select Save Listing below to publish affiliation changes.</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">Save affiliations to publish them on your public profile.</p>
+            <Button type="button" size="sm" onClick={saveAffiliations} disabled={savingAffiliations || editingAffiliationIndex !== null}>
+              {savingAffiliations ? "Saving..." : "Save Affiliations"}
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-1.5">

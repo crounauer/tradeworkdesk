@@ -21,6 +21,7 @@ interface ManufacturerAffiliation {
   title?: string;
   description?: string;
   logo_url?: string;
+  verification_url?: string;
 }
 
 interface BusinessProfile {
@@ -461,7 +462,7 @@ export default function BusinessProfilePage() {
             {profile.manufacturer_affiliations.length > 0 && (
               <div>
                 <h2 className="text-lg font-semibold text-slate-900 mb-3">Manufacturer Affiliations &amp; Training</h2>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-3">
                   {profile.manufacturer_affiliations.map((affiliation, index) => (
                     <div key={`${affiliation.name}-${affiliation.title}-${index}`} className="flex gap-3 rounded-lg border border-slate-200 bg-white p-4">
                       {affiliation.logo_url ? (
@@ -474,7 +475,12 @@ export default function BusinessProfilePage() {
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-slate-900">{affiliation.name || affiliation.title}</p>
                         {affiliation.title && affiliation.name && <p className="text-sm text-primary">{affiliation.title}</p>}
-                        {affiliation.description && <p className="mt-1 text-sm text-slate-600">{affiliation.description}</p>}
+                        {affiliation.description && <div className="mt-2 text-sm"><AboutMarkup value={affiliation.description} /></div>}
+                        {affiliation.verification_url && (
+                          <a href={affiliation.verification_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex text-sm font-medium text-primary hover:underline">
+                            Verify accreditation
+                          </a>
+                        )}
                       </div>
                     </div>
                   ))}
