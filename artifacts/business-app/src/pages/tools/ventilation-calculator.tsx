@@ -115,7 +115,7 @@ export default function VentilationCalculator() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-20">
       <SEOHead
         title="Combustion Air Ventilation Calculator — BS 5410-1"
         description="Size combustion air openings for oil and gas-fired appliances. Free calculator for heating engineers, compliant with BS 5410-1:2014 and OFTEC OFS D200."

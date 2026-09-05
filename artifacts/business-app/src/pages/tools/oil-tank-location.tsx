@@ -146,7 +146,7 @@ export default function OilTankLocation() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-20">
       <SEOHead
         title="Oil Tank Siting Distance Calculator — OFTEC OFS T100"
         description="Check oil tank siting distances, bund requirements and secondary containment volumes. Free tool for OFTEC-registered engineers, compliant with OFS T100, Part J and CIRIA C736."

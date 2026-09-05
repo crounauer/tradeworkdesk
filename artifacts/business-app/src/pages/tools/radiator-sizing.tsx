@@ -126,7 +126,7 @@ export default function RadiatorSizing() {
   const F = bsEn442CorrectionFactor(Ft, Rt, 20);
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-20">
       <SEOHead
         title="Free Radiator Sizing Calculator — BS EN 442"
         description="Calculate room heat loss and corrected radiator output at any flow temperature. Free tool for heating engineers, fully compliant with BS EN 442."

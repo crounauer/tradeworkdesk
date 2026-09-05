@@ -176,7 +176,7 @@ export default function PumpHead() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-20">
       <SEOHead
         title="Pump Head & Pipe Sizing Calculator — CIBSE Guide C"
         description="Size heating pipework and calculate total pump head for the index circuit. Free tool using CIBSE Guide C Table 4.9 pressure drop data and BSRIA BG 2/2003."

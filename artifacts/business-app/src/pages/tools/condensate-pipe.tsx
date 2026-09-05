@@ -99,7 +99,7 @@ export default function CondensatePipe() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-20">
       <SEOHead
         title="Condensate Pipe Sizing Checker — BS EN 13384"
         description="Size condensate pipework, check fall, trap depth and freeze protection for condensing boilers. Free tool compliant with BS EN 13384, Building Regulations Part H and HHIC CN-01."

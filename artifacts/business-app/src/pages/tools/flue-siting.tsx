@@ -154,7 +154,7 @@ export default function FlueSiting() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-20">
       <SEOHead
         title="Oil Flue Terminal Siting Checklist — OFTEC OFS T200"
         description="Check oil flue terminal clearances for BS 5410-1:2014 and OFTEC OFS T200. Free pass/fail checklist for heating engineers covering all terminal types."

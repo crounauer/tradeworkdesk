@@ -201,7 +201,7 @@ export default function GasFlueSiting() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-20">
       <SEOHead
         title="Gas Flue Terminal Siting Checklist — BS 5440-1"
         description="Check gas flue terminal clearances for balanced flue and open-flue appliances. Free checklist compliant with BS 5440-1:2008 and Gas Safety (Installation and Use) Regulations 1998."

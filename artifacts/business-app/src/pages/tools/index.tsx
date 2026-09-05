@@ -115,7 +115,7 @@ export default function ToolsIndex() {
   const visible = active === "all" ? tools : tools.filter(t => t.categories.includes(active as Exclude<Category, "all">));
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-20">
       <SEOHead
         title="Free Engineering Calculators for Heating Engineers"
         description="Free UK heating engineering calculators — radiator sizing, flue siting, oil tank distances, expansion vessel sizing and more. Built by TradeWorkDesk for gas, oil and heat pump engineers."

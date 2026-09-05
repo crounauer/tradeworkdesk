@@ -112,7 +112,7 @@ export default function ExpansionVessel() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6 pb-20">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-20">
       <SEOHead
         title="Expansion Vessel Sizing Calculator — BS EN 12828"
         description="Calculate minimum expansion vessel size for sealed heating systems including glycol correction. Free tool compliant with BS EN 12828, BS 7074-1 and CIBSE CP1."
