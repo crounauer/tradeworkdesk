@@ -1282,11 +1282,12 @@ export default function AdminCompanySettings() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="flex w-max min-w-full sm:grid sm:grid-cols-5">
+          <TabsList className="flex w-max min-w-full sm:grid sm:grid-cols-6">
             <TabsTrigger value="profile" className="flex-1">Profile</TabsTrigger>
             <TabsTrigger value="team" className="flex-1">Team</TabsTrigger>
             <TabsTrigger value="finance" className="flex-1">Finance</TabsTrigger>
             <TabsTrigger value="catalogue" className="flex-1">Catalogue</TabsTrigger>
+            <TabsTrigger value="directory" className="flex-1">Directory</TabsTrigger>
             <TabsTrigger value="notifications" className="flex-1">Notifications</TabsTrigger>
           </TabsList>
         </div>
@@ -1463,9 +1464,6 @@ export default function AdminCompanySettings() {
             </div>
           </CardContent>
         </Card>
-
-        <PublicDirectoryCard />
-        <DirectoryReviewsCard />
 
           </TabsContent>
 
@@ -2336,6 +2334,11 @@ export default function AdminCompanySettings() {
         <ProductCatalogueSection />
         <ServiceCatalogueSection />
 
+          </TabsContent>
+
+          <TabsContent value="directory" className="space-y-6 pt-4">
+            <PublicDirectoryCard />
+            <DirectoryReviewsCard />
           </TabsContent>
 
           <TabsContent value="notifications" className="space-y-6 pt-4">
@@ -3309,6 +3312,13 @@ function ServiceCatalogueSection() {
 // ---------------------------------------------------------------------------
 // Public Directory Listing Card (standalone, separate API call)
 // ---------------------------------------------------------------------------
+type ManufacturerAffiliation = {
+  name: string;
+  title: string;
+  description: string;
+  logo_url: string;
+};
+
 function PublicDirectoryCard() {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -3316,6 +3326,9 @@ function PublicDirectoryCard() {
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [tradeTypes, setTradeTypes] = useState("");
+  const [manufacturerAffiliations, setManufacturerAffiliations] = useState<ManufacturerAffiliation[]>([]);
+  const [newAffiliation, setNewAffiliation] = useState<ManufacturerAffiliation>({ name: "", title: "", description: "", logo_url: "" });
+  const [uploadingAffiliationLogo, setUploadingAffiliationLogo] = useState(false);
   const [newService, setNewService] = useState("");
   const [editingServiceIndex, setEditingServiceIndex] = useState<number | null>(null);
   const [editingServiceValue, setEditingServiceValue] = useState("");
@@ -3346,6 +3359,7 @@ function PublicDirectoryCard() {
         } catch {
           setTradeTypes(savedServices);
         }
+        setManufacturerAffiliations(Array.isArray(data.manufacturer_affiliations) ? data.manufacturer_affiliations as ManufacturerAffiliation[] : []);
         setServiceArea((data.service_area as string) ?? "");
         setCoverageRadius(data.coverage_radius_miles != null ? String(data.coverage_radius_miles) : "");
         setCoverageRadiusSupported(data.coverage_radius_supported !== false);
@@ -3412,7 +3426,7 @@ function PublicDirectoryCard() {
       await customFetch("/api/admin/directory-listing", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_publicly_listed: isListed, listing_slug: slug, public_description: description, trade_types: tradeTypes, service_area: serviceArea, coverage_radius_miles: coverageRadius }),
+        body: JSON.stringify({ is_publicly_listed: isListed, listing_slug: slug, public_description: description, trade_types: tradeTypes, service_area: serviceArea, coverage_radius_miles: coverageRadius, manufacturer_affiliations: manufacturerAffiliations }),
       });
       toast({ title: "Directory listing saved", description: isListed ? "Your business is now publicly listed." : "Listing saved (not publicly visible)." });
       setSlugStatus("idle");
@@ -3458,6 +3472,34 @@ function PublicDirectoryCard() {
 
   const deleteService = (index: number) => {
     setTradeTypes(JSON.stringify(services.filter((_, serviceIndex) => serviceIndex !== index)));
+  };
+
+  const uploadAffiliationLogo = async (file: File) => {
+    setUploadingAffiliationLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append("logo", file);
+      const data = await customFetch("/api/admin/directory-affiliations/logo", { method: "POST", body: formData }) as { logo_url: string };
+      setNewAffiliation((current) => ({ ...current, logo_url: data.logo_url }));
+    } catch (err) {
+      toast({ title: "Logo upload failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setUploadingAffiliationLogo(false);
+    }
+  };
+
+  const addAffiliation = () => {
+    if (!newAffiliation.name.trim() && !newAffiliation.title.trim()) {
+      toast({ title: "Manufacturer or accreditation required", variant: "destructive" });
+      return;
+    }
+    setManufacturerAffiliations((current) => [...current, {
+      name: newAffiliation.name.trim(),
+      title: newAffiliation.title.trim(),
+      description: newAffiliation.description.trim(),
+      logo_url: newAffiliation.logo_url,
+    }]);
+    setNewAffiliation({ name: "", title: "", description: "", logo_url: "" });
   };
 
   return (
@@ -3573,6 +3615,54 @@ function PublicDirectoryCard() {
             onChange={e => setServiceArea(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">Shown on your profile so customers know if you cover their area.</p>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <Label>Manufacturer Affiliations &amp; Training</Label>
+            <p className="text-xs text-muted-foreground mt-1">Add any approved installer scheme, manufacturer training, or accreditation. Entries appear on your public directory profile.</p>
+          </div>
+
+          {manufacturerAffiliations.length > 0 && (
+            <div className="space-y-2">
+              {manufacturerAffiliations.map((affiliation, index) => (
+                <div key={`${affiliation.name}-${affiliation.title}-${index}`} className="flex items-start gap-3 rounded-lg border border-border p-3">
+                  {affiliation.logo_url ? <img src={affiliation.logo_url} alt="" className="h-10 w-10 rounded border bg-white object-contain" /> : <div className="h-10 w-10 rounded border bg-muted" />}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{affiliation.name || affiliation.title}</p>
+                    {affiliation.title && affiliation.name && <p className="text-xs text-muted-foreground">{affiliation.title}</p>}
+                    {affiliation.description && <p className="mt-1 text-xs text-muted-foreground">{affiliation.description}</p>}
+                  </div>
+                  <Button type="button" size="sm" variant="ghost" title={`Delete ${affiliation.name || affiliation.title}`} className="text-destructive hover:text-destructive" onClick={() => setManufacturerAffiliations((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="grid gap-3 rounded-lg border border-dashed border-border p-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="affiliation-name">Manufacturer</Label>
+              <Input id="affiliation-name" placeholder="e.g. Grant UK" value={newAffiliation.name} onChange={(event) => setNewAffiliation((current) => ({ ...current, name: event.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="affiliation-title">Accreditation or training</Label>
+              <Input id="affiliation-title" placeholder="e.g. G1 Accredited Installer" value={newAffiliation.title} onChange={(event) => setNewAffiliation((current) => ({ ...current, title: event.target.value }))} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="affiliation-description">Public detail <span className="text-muted-foreground">(optional)</span></Label>
+              <Textarea id="affiliation-description" rows={2} placeholder="e.g. Extended warranties on oil boilers, solar thermal and heat pump installations." value={newAffiliation.description} onChange={(event) => setNewAffiliation((current) => ({ ...current, description: event.target.value }))} />
+            </div>
+            <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+              <Input type="file" accept="image/*" className="max-w-sm" disabled={uploadingAffiliationLogo} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadAffiliationLogo(file); event.currentTarget.value = ""; }} />
+              {newAffiliation.logo_url && <img src={newAffiliation.logo_url} alt="Manufacturer logo preview" className="h-8 w-8 object-contain" />}
+              <Button type="button" variant="outline" onClick={addAffiliation} disabled={uploadingAffiliationLogo}>
+                <Plus className="mr-1 w-4 h-4" /> {uploadingAffiliationLogo ? "Uploading..." : "Add Affiliation"}
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Select Save Listing below to publish affiliation changes.</p>
         </div>
 
         <div className="space-y-1.5">

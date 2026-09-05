@@ -16,6 +16,13 @@ interface DirectoryReview {
   created_at: string;
 }
 
+interface ManufacturerAffiliation {
+  name: string;
+  title?: string;
+  description?: string;
+  logo_url?: string;
+}
+
 interface BusinessProfile {
   slug: string;
   name: string;
@@ -33,6 +40,9 @@ interface BusinessProfile {
   logo_url: string | null;
   gas_safe_number: string | null;
   oftec_number: string | null;
+  company_number: string | null;
+  vat_number: string | null;
+  manufacturer_affiliations: ManufacturerAffiliation[];
   rating_average: number | null;
   rating_count: number;
   reviews: DirectoryReview[];
@@ -404,9 +414,9 @@ export default function BusinessProfilePage() {
               </div>
             )}
 
-            {(profile.gas_safe_number || profile.oftec_number) && (
+            {(profile.gas_safe_number || profile.oftec_number || profile.company_number || profile.vat_number) && (
               <div>
-                <h2 className="text-lg font-semibold text-slate-900 mb-3">Accreditations</h2>
+                <h2 className="text-lg font-semibold text-slate-900 mb-3">Business Details &amp; Accreditations</h2>
                 <div className="flex flex-col gap-2">
                   {profile.gas_safe_number && (
                     <div className="flex items-center gap-3 p-3 rounded-lg border border-green-200 bg-green-50">
@@ -426,6 +436,48 @@ export default function BusinessProfilePage() {
                       </div>
                     </div>
                   )}
+                  {profile.company_number && (
+                    <div className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50">
+                      <ShieldCheck className="w-5 h-5 text-slate-600 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">Company Registration</p>
+                        <p className="text-xs text-slate-600">Company No. {profile.company_number}</p>
+                      </div>
+                    </div>
+                  )}
+                  {profile.vat_number && (
+                    <div className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50">
+                      <ShieldCheck className="w-5 h-5 text-slate-600 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">VAT Registered</p>
+                        <p className="text-xs text-slate-600">VAT No. {profile.vat_number}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {profile.manufacturer_affiliations.length > 0 && (
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 mb-3">Manufacturer Affiliations &amp; Training</h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {profile.manufacturer_affiliations.map((affiliation, index) => (
+                    <div key={`${affiliation.name}-${affiliation.title}-${index}`} className="flex gap-3 rounded-lg border border-slate-200 bg-white p-4">
+                      {affiliation.logo_url ? (
+                        <img src={affiliation.logo_url} alt={`${affiliation.name || affiliation.title || "Manufacturer"} logo`} className="h-12 w-12 shrink-0 rounded border border-slate-100 bg-white object-contain" />
+                      ) : (
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-slate-100 bg-slate-50">
+                          <Wrench className="h-5 w-5 text-primary" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900">{affiliation.name || affiliation.title}</p>
+                        {affiliation.title && affiliation.name && <p className="text-sm text-primary">{affiliation.title}</p>}
+                        {affiliation.description && <p className="mt-1 text-sm text-slate-600">{affiliation.description}</p>}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

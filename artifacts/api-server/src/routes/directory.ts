@@ -88,6 +88,26 @@ interface ListingRow {
   tenant_id: string;
 }
 
+type ManufacturerAffiliation = {
+  name: string;
+  title?: string;
+  description?: string;
+  logo_url?: string;
+};
+
+function parseManufacturerAffiliations(value: unknown): ManufacturerAffiliation[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
+    .map((item) => ({
+      name: typeof item.name === "string" ? item.name.trim() : "",
+      title: typeof item.title === "string" ? item.title.trim() : "",
+      description: typeof item.description === "string" ? item.description.trim() : "",
+      logo_url: typeof item.logo_url === "string" ? item.logo_url : "",
+    }))
+    .filter((item) => item.name || item.title);
+}
+
 function parseTradeTypes(value: string | null): string[] {
   if (!value) return [];
   try {
@@ -209,14 +229,14 @@ router.get("/directory/:slug", async (req: Request, res: Response): Promise<void
 
   const { data, error } = await supabaseAdmin
     .from("company_settings")
-    .select("id, name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, logo_url, listing_slug, public_description, trade_types, service_area, tenant_id, gas_safe_number, oftec_number")
+    .select("id, name, trading_name, phone, email, website, address_line1, address_line2, city, county, postcode, logo_url, listing_slug, public_description, trade_types, service_area, tenant_id, gas_safe_number, oftec_number, company_number, vat_number, manufacturer_affiliations")
     .eq("listing_slug", slug)
     .eq("is_publicly_listed", true)
     .single();
 
   if (error || !data) { res.status(404).json({ error: "Business not found" }); return; }
 
-  const r = data as ListingRow & { gas_safe_number?: string; oftec_number?: string; address_line2?: string };
+  const r = data as ListingRow & { gas_safe_number?: string; oftec_number?: string; company_number?: string; vat_number?: string; manufacturer_affiliations?: unknown; address_line2?: string };
 
   const { data: reviewRows } = await supabaseAdmin
     .from("directory_reviews")
@@ -246,6 +266,9 @@ router.get("/directory/:slug", async (req: Request, res: Response): Promise<void
     logo_url: r.logo_url,
     gas_safe_number: r.gas_safe_number || null,
     oftec_number: r.oftec_number || null,
+    company_number: r.company_number || null,
+    vat_number: r.vat_number || null,
+    manufacturer_affiliations: parseManufacturerAffiliations(r.manufacturer_affiliations),
     rating_average: ratingAverage != null ? Math.round(ratingAverage * 10) / 10 : null,
     rating_count: reviews.length,
     reviews: reviews.map(rv => ({ id: rv.id, reviewer_name: rv.reviewer_name, rating: rv.rating, comment: rv.comment, created_at: rv.created_at })),
@@ -369,7 +392,7 @@ router.post("/directory/:slug/reviews", directoryReviewLimiter, async (req: Requ
 router.get("/admin/directory-listing", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   let q = supabaseAdmin
     .from("company_settings")
-    .select("is_publicly_listed, listing_slug, public_description, trade_types, service_area, coverage_radius_miles")
+    .select("is_publicly_listed, listing_slug, public_description, trade_types, service_area, coverage_radius_miles, manufacturer_affiliations")
     .eq("singleton_id", "default");
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data, error } = await q.maybeSingle();
@@ -401,13 +424,14 @@ router.get("/admin/directory-listing", requireAuth, requireTenant, requireRole("
 // PRIVATE: PATCH /api/admin/directory-listing — update listing settings
 // ---------------------------------------------------------------------------
 router.patch("/admin/directory-listing", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { is_publicly_listed, listing_slug, public_description, trade_types, service_area, coverage_radius_miles } = req.body as {
+  const { is_publicly_listed, listing_slug, public_description, trade_types, service_area, coverage_radius_miles, manufacturer_affiliations } = req.body as {
     is_publicly_listed?: boolean;
     listing_slug?: string;
     public_description?: string;
     trade_types?: string;
     service_area?: string;
     coverage_radius_miles?: number | string;
+    manufacturer_affiliations?: unknown;
   };
 
   const updates: Record<string, unknown> = {};
@@ -418,6 +442,9 @@ router.patch("/admin/directory-listing", requireAuth, requireTenant, requireRole
   if (coverage_radius_miles !== undefined) {
     const parsed = typeof coverage_radius_miles === "string" ? Number(coverage_radius_miles) : coverage_radius_miles;
     updates.coverage_radius_miles = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+  if (manufacturer_affiliations !== undefined) {
+    updates.manufacturer_affiliations = parseManufacturerAffiliations(manufacturer_affiliations);
   }
 
   if (listing_slug !== undefined) {

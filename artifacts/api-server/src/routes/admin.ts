@@ -615,6 +615,7 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     "notification_emails",
     "service_area", "coverage_radius_miles",
     "gas_safe_number", "oftec_number", "vat_number", "company_number",
+    "manufacturer_affiliations",
     "default_hourly_rate", "call_out_fee", "default_vat_rate", "default_payment_terms_days", "currency",
     "rates_url", "trading_terms_url", "job_number_prefix",
     "show_rates_url_on_invoices", "show_rates_url_on_quotes",
@@ -941,6 +942,20 @@ router.post("/admin/company-settings/logo", requireAuth, requireTenant, requireR
 
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.json({ logo_url: data.logo_url, logo_storage_path: data.logo_storage_path });
+});
+
+router.post("/admin/directory-affiliations/logo", requireAuth, requireTenant, requireRole("admin"), logoUpload.single("logo"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  if (!req.file) { res.status(400).json({ error: "No file uploaded." }); return; }
+
+  const ext = req.file.originalname.split(".").pop()?.toLowerCase() || "png";
+  const storagePath = `${req.tenantId}/affiliations/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabaseAdmin.storage
+    .from("company-logos")
+    .upload(storagePath, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  const { data } = supabaseAdmin.storage.from("company-logos").getPublicUrl(storagePath);
+  res.status(201).json({ logo_url: data.publicUrl, storage_path: storagePath });
 });
 
 router.delete("/admin/company-settings/logo", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
