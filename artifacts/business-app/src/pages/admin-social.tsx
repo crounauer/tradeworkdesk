@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { AsyncSaveButton } from "@/components/ui/async-save-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1923,13 +1924,7 @@ function EditAccountDialog({
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
           </DialogClose>
-          <Button
-            onClick={() => updateMutation.mutate()}
-            disabled={updateMutation.isPending || !profileName.trim()}
-          >
-            {updateMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Save Changes
-          </Button>
+          <AsyncSaveButton onSave={() => updateMutation.mutateAsync()} label="Save Changes" disabled={!profileName.trim()} />
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -2316,14 +2311,7 @@ function PostsTab() {
                 Publish Now
               </Button>
             )}
-            <Button
-              type="button"
-              onClick={() => editMutation.mutate(false)}
-              disabled={editMutation.isPending || !editContent.trim()}
-            >
-              {editMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Save Changes
-            </Button>
+            <AsyncSaveButton type="button" onSave={() => editMutation.mutateAsync(false)} label="Save Changes" disabled={!editContent.trim()} />
           </DialogFooter>
         </DialogContent>
       </Dialog>

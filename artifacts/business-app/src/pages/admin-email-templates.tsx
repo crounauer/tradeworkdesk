@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AsyncSaveButton } from "@/components/ui/async-save-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -318,9 +319,7 @@ export default function AdminEmailTemplates() {
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Save Email Templates
-        </Button>
+        <AsyncSaveButton onSave={handleSave} label="Save Email Templates" />
       </div>
     </div>
   );

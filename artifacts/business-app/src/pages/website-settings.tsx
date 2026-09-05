@@ -6,6 +6,7 @@ import { Link, useSearch } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AsyncSaveButton } from "@/components/ui/async-save-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -241,9 +242,7 @@ export default function WebsiteSettings() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const handleSave = () => {
-    saveMutation.mutate(form);
-  };
+  const handleSave = () => saveMutation.mutateAsync(form);
 
   if (isLoading) {
     return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
@@ -278,10 +277,7 @@ export default function WebsiteSettings() {
           </Link>
           <h1 className="text-2xl font-bold">Website Settings</h1>
         </div>
-        <Button onClick={handleSave} disabled={saveMutation.isPending}>
-          {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          Save Changes
-        </Button>
+        <AsyncSaveButton onSave={handleSave} label="Save Changes" />
       </div>
 
       <Tabs defaultValue={defaultTab}>

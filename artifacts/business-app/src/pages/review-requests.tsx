@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AsyncSaveButton } from "@/components/ui/async-save-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -323,10 +324,7 @@ export default function ReviewRequests() {
                   onChange={(e) => setSettings((s) => ({ ...s, max_per_customer_days: parseInt(e.target.value) || 90 }))} />
               </div>
               <div className="flex justify-end pt-2">
-                <Button onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending}>
-                  {saveSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                  Save Settings
-                </Button>
+                <AsyncSaveButton onSave={() => saveSettingsMutation.mutateAsync()} label="Save Settings" />
               </div>
             </CardContent>
           </Card>

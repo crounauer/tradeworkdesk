@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AsyncSaveButton } from "@/components/ui/async-save-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -173,7 +174,7 @@ export default function PlatformAnnouncements() {
     });
   };
 
-  const handleSubmit = (isNew: boolean) => {
+  const handleSubmit = async (isNew: boolean) => {
     if (!form.target_admin_dashboard && !form.target_websites) {
       toast({ title: "Select at least one channel", description: "Choose dashboard, website, or both.", variant: "destructive" });
       return;
@@ -185,10 +186,9 @@ export default function PlatformAnnouncements() {
     }
 
     if (isNew) {
-      createMutation.mutate();
-      return;
+      return createMutation.mutateAsync();
     }
-    updateMutation.mutate();
+    return updateMutation.mutateAsync();
   };
 
   const renderAnnouncementForm = (isNew: boolean) => (
@@ -289,12 +289,7 @@ export default function PlatformAnnouncements() {
         </div>
 
         <div className="flex gap-2">
-          <Button
-            onClick={() => handleSubmit(isNew)}
-            disabled={createMutation.isPending || updateMutation.isPending || !form.title || !form.body}
-          >
-            <Save className="w-3 h-3 mr-1" />{isNew ? "Publish" : "Save Changes"}
-          </Button>
+          <AsyncSaveButton onSave={() => handleSubmit(isNew)} label={isNew ? "Publish" : "Save Changes"} disabled={!form.title || !form.body} />
           <Button variant="outline" onClick={() => { setShowNew(false); setEditingId(null); setForm(EMPTY_FORM); }}>
             <X className="w-4 h-4 mr-1" />Cancel
           </Button>

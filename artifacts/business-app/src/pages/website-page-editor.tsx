@@ -16,6 +16,7 @@ import { Link, useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AsyncSaveButton } from "@/components/ui/async-save-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -5790,14 +5791,10 @@ export default function WebsitePageEditor() {
     }
   }, [blocks, pageId, toast]);
 
-  const handleSave = () => {
-    if (isDirty) {
-      saveBlocksMutation.mutate();
-    }
-    if (metaDirty) {
-      saveMetaMutation.mutate();
-    }
-  };
+  const handleSave = () => Promise.all([
+    ...(isDirty ? [saveBlocksMutation.mutateAsync()] : []),
+    ...(metaDirty ? [saveMetaMutation.mutateAsync()] : []),
+  ]);
 
   if (isLoading) {
     return (
@@ -5886,10 +5883,7 @@ export default function WebsitePageEditor() {
               <Undo2 className="w-3.5 h-3.5 mr-1" /> Discard
             </Button>
           )}
-          <Button onClick={handleSave} disabled={isSaving || !hasUnsavedChanges} size="sm">
-            {isSaving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
-            Save
-          </Button>
+          <AsyncSaveButton onSave={handleSave} disabled={!hasUnsavedChanges} size="sm" label="Save" />
           {page.status === "draft" && (
             <Button
               variant="default"

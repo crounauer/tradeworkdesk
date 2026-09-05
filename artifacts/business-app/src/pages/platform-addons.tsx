@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AsyncSaveButton } from "@/components/ui/async-save-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -518,9 +519,7 @@ export default function PlatformAddons() {
                 </div>
               )}
               <div className="flex gap-2">
-                <Button size="sm" onClick={() => updatePlanMutation.mutate(String(plan.id))} disabled={updatePlanMutation.isPending}>
-                  <Save className="w-3 h-3 mr-1" /> {updatePlanMutation.isPending ? "Saving..." : "Save"}
-                </Button>
+                <AsyncSaveButton size="sm" onSave={() => updatePlanMutation.mutateAsync(String(plan.id))} label="Save" />
                 <Button size="sm" variant="outline" onClick={() => setEditingPlanId(null)}>
                   <X className="w-3 h-3 mr-1" /> Cancel
                 </Button>

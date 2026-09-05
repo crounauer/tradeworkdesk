@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AsyncSaveButton } from "@/components/ui/async-save-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -427,10 +428,7 @@ export default function MaintenancePlans() {
                 </div>
               </div>
               <div className="flex justify-end pt-2">
-                <Button onClick={() => saveReminderSettingsMutation.mutate()} disabled={saveReminderSettingsMutation.isPending}>
-                  {saveReminderSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                  Save Settings
-                </Button>
+                <AsyncSaveButton onSave={() => saveReminderSettingsMutation.mutateAsync()} label="Save Settings" />
               </div>
             </CardContent>
           </Card>
@@ -452,10 +450,7 @@ export default function MaintenancePlans() {
                   rows={6} className="font-mono text-xs" />
               </div>
               <div className="flex justify-end pt-2">
-                <Button onClick={() => saveReminderSettingsMutation.mutate()} disabled={saveReminderSettingsMutation.isPending}>
-                  {saveReminderSettingsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                  Save Settings
-                </Button>
+                <AsyncSaveButton onSave={() => saveReminderSettingsMutation.mutateAsync()} label="Save Settings" />
               </div>
             </CardContent>
           </Card>

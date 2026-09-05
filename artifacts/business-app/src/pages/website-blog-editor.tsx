@@ -7,6 +7,7 @@ import { Link, useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AsyncSaveButton } from "@/components/ui/async-save-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -471,13 +472,7 @@ export default function WebsiteBlogEditor() {
                         </a>
                       </Button>
                     )}
-          <Button
-            onClick={() => saveMutation.mutate()}
-            disabled={!dirty || saveMutation.isPending}
-          >
-            {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
-            Save
-          </Button>
+          <AsyncSaveButton onSave={() => saveMutation.mutateAsync()} label="Save" disabled={!dirty} />
         </div>
       </div>
 

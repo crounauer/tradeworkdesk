@@ -3351,6 +3351,8 @@ function PublicDirectoryCard() {
   const [editingAffiliation, setEditingAffiliation] = useState<ManufacturerAffiliation | null>(null);
   const [uploadingAffiliationLogo, setUploadingAffiliationLogo] = useState(false);
   const [savingAffiliations, setSavingAffiliations] = useState(false);
+  const [listingSaved, setListingSaved] = useState(false);
+  const [affiliationsSaved, setAffiliationsSaved] = useState(false);
   const [newService, setNewService] = useState("");
   const [editingServiceIndex, setEditingServiceIndex] = useState<number | null>(null);
   const [editingServiceValue, setEditingServiceValue] = useState("");
@@ -3475,6 +3477,7 @@ function PublicDirectoryCard() {
 
   const handleSave = async () => {
     if (!slug.trim()) { toast({ title: "URL required", description: "Enter a URL slug before saving.", variant: "destructive" }); return; }
+    setListingSaved(false);
     setSaving(true);
     try {
       await customFetch("/api/admin/directory-listing", {
@@ -3484,6 +3487,8 @@ function PublicDirectoryCard() {
       });
       initialDirectoryStateRef.current = JSON.stringify({ isListed, slug, description, tradeTypes, serviceArea, coverageRadius, manufacturerAffiliations });
       setDirectoryDirty(false);
+      setListingSaved(true);
+      setTimeout(() => setListingSaved(false), 3000);
       toast({ title: "Directory listing saved", description: isListed ? "Your business is now publicly listed." : "Listing saved (not publicly visible)." });
       setSlugStatus("idle");
     } catch (err) {
@@ -3560,6 +3565,7 @@ function PublicDirectoryCard() {
   };
 
   const saveAffiliations = async () => {
+    setAffiliationsSaved(false);
     setSavingAffiliations(true);
     try {
       await customFetch("/api/admin/directory-listing", {
@@ -3569,6 +3575,8 @@ function PublicDirectoryCard() {
       });
       initialDirectoryStateRef.current = JSON.stringify({ isListed, slug, description, tradeTypes, serviceArea, coverageRadius, manufacturerAffiliations });
       setDirectoryDirty(false);
+      setAffiliationsSaved(true);
+      setTimeout(() => setAffiliationsSaved(false), 3000);
       toast({ title: "Affiliations saved", description: "Your public profile has been updated." });
     } catch (err) {
       toast({ title: "Could not save affiliations", description: (err as Error).message, variant: "destructive" });
@@ -3615,7 +3623,8 @@ function PublicDirectoryCard() {
           <div className="sticky top-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm">
             <span>You have unsaved directory listing changes.</span>
             <Button type="button" size="sm" onClick={handleSave} disabled={saving}>
-              <Save className="mr-1.5 h-4 w-4" /> Save Listing
+              {listingSaved ? <Check className="mr-1.5 h-4 w-4" /> : <Save className="mr-1.5 h-4 w-4" />}
+              {saving ? "Saving..." : listingSaved ? "Saved" : "Save Listing"}
             </Button>
           </div>
         )}
@@ -3795,7 +3804,7 @@ function PublicDirectoryCard() {
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">Save affiliations to publish them on your public profile.</p>
             <Button type="button" size="sm" onClick={saveAffiliations} disabled={savingAffiliations || editingAffiliationIndex !== null}>
-              {savingAffiliations ? "Saving..." : "Save Affiliations"}
+              {savingAffiliations ? "Saving..." : affiliationsSaved ? "Saved" : "Save Affiliations"}
             </Button>
           </div>
         </div>
@@ -3866,7 +3875,7 @@ function PublicDirectoryCard() {
 
         <div className="flex justify-end pt-1">
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : <><Save className="w-4 h-4 mr-2" /> Save Listing</>}
+            {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : listingSaved ? <><Check className="w-4 h-4 mr-2" /> Saved</> : <><Save className="w-4 h-4 mr-2" /> Save Listing</>}
           </Button>
         </div>
       </CardContent>

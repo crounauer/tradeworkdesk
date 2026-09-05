@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { AsyncSaveButton } from "@/components/ui/async-save-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -191,21 +192,16 @@ export default function AdminSmsTemplates() {
                 />
                 <p className="text-xs text-muted-foreground text-right">{senderName.length}/{MAX_SENDER}</p>
               </div>
-              <Button
-                onClick={() => saveSenderMutation.mutate(senderName)}
-                disabled={saveSenderMutation.isPending || !senderDirty || !senderName.trim()}
-              >
-                {saveSenderMutation.isPending
-                  ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  : <Save className="w-4 h-4 mr-2" />}
-                Save
-              </Button>
+              <AsyncSaveButton
+                onSave={() => saveSenderMutation.mutateAsync(senderName)}
+                label="Save Sender"
+                disabled={!senderDirty || !senderName.trim()}
+              />
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* ── Templates ── */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
