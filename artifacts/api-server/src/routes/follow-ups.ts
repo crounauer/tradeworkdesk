@@ -49,8 +49,8 @@ router.get("/follow-ups", requireAuth, requireTenant, requirePlanFeature("job_ma
       q = q.not("parts_description", "is", null).neq("parts_description", "");
     }
   } else {
-    // Default "All" view excludes terminal follow-ups
-    q = q.neq("status", "completed").neq("status", "cancelled");
+    // Default "All" view shows actionable follow-ups only; booked items live in the Booked tab.
+    q = q.neq("status", "completed").neq("status", "cancelled").neq("status", "booked");
   }
 
   const { data, error, count } = await q;

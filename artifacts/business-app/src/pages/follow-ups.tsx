@@ -292,7 +292,7 @@ export default function FollowUps() {
             qc.invalidateQueries({ queryKey: ["homepage"] });
             qc.invalidateQueries({ queryKey: ["me-init"] });
             qc.invalidateQueries({ queryKey: ["/api/jobs"] });
-            toast({ title: "Job booked", description: "Follow-up job has been created and scheduled." });
+            toast({ title: "Job booked", description: "Follow-up job has been created and moved to Booked." });
             navigate(`/jobs/${jobId}`);
           }}
         />
