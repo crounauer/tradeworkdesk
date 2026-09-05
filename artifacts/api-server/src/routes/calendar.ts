@@ -541,12 +541,88 @@ router.post(
   },
 );
 
+router.patch(
+  "/calendar/holidays/:id",
+  requireAuth,
+  requireTenant,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { name, start_date, end_date, start_time, end_time, holiday_type, notes } = req.body as {
+      name?: string;
+      start_date?: string;
+      end_date?: string;
+      start_time?: string | null;
+      end_time?: string | null;
+      holiday_type?: "technician_leave" | "technician_away" | "technician_sick";
+      notes?: string | null;
+    };
+
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from("calendar_holidays")
+      .select("id, technician_id, holiday_type")
+      .eq("id", req.params.id)
+      .eq("tenant_id", req.tenantId)
+      .maybeSingle();
+
+    if (fetchError) { res.status(500).json({ error: "Failed to load holiday" }); return; }
+    if (!existing) { res.status(404).json({ error: "Holiday not found" }); return; }
+
+    const canManageAll = ["admin", "office_staff", "super_admin"].includes(req.userRole || "");
+    const isOwnLeave = existing.technician_id === req.userId && ["technician_leave", "technician_away", "technician_sick"].includes(String(existing.holiday_type));
+    if (!canManageAll && !isOwnLeave) { res.status(403).json({ error: "Not authorized" }); return; }
+
+    const updates: Record<string, unknown> = {};
+    if (name !== undefined) updates.name = name.trim();
+    if (start_date !== undefined) updates.start_date = start_date;
+    if (end_date !== undefined) updates.end_date = end_date || start_date;
+    if (holiday_type !== undefined) updates.holiday_type = holiday_type;
+    if (notes !== undefined) updates.notes = notes?.trim() || null;
+
+    const normalizedStartTime = normalize24HourTime(start_time ?? undefined);
+    const normalizedEndTime = normalize24HourTime(end_time ?? undefined);
+    if (start_time !== undefined || end_time !== undefined) {
+      updates.start_time = normalizedStartTime;
+      updates.end_time = normalizedEndTime;
+    }
+
+    const nextStart = String(updates.start_date ?? req.body.start_date ?? "");
+    const nextEnd = String(updates.end_date ?? req.body.end_date ?? nextStart);
+    if (nextStart && nextEnd && nextEnd < nextStart) { res.status(400).json({ error: "end_date cannot be before start_date" }); return; }
+    if ((start_time || end_time) && (!normalizedStartTime || !normalizedEndTime)) { res.status(400).json({ error: "start_time and end_time must both be valid HH:MM values" }); return; }
+    if (normalizedStartTime && normalizedEndTime && normalizedEndTime <= normalizedStartTime) { res.status(400).json({ error: "end_time must be after start_time" }); return; }
+
+    const { data, error } = await supabaseAdmin
+      .from("calendar_holidays")
+      .update(updates)
+      .eq("id", req.params.id)
+      .eq("tenant_id", req.tenantId)
+      .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, holiday_type, notes, source, created_at, updated_at")
+      .single();
+
+    if (error) { res.status(500).json({ error: error.message || "Failed to update holiday" }); return; }
+    invalidateCalendarCache(req.tenantId);
+    res.json(data);
+  },
+);
+
 router.delete(
   "/calendar/holidays/:id",
   requireAuth,
   requireTenant,
-  requireRole("admin", "office_staff", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from("calendar_holidays")
+      .select("id, technician_id, holiday_type")
+      .eq("id", req.params.id)
+      .eq("tenant_id", req.tenantId)
+      .maybeSingle();
+
+    if (fetchError) { res.status(500).json({ error: "Failed to load holiday" }); return; }
+    if (!existing) { res.status(404).json({ error: "Holiday not found" }); return; }
+
+    const canManageAll = ["admin", "office_staff", "super_admin"].includes(req.userRole || "");
+    const isOwnLeave = existing.technician_id === req.userId && ["technician_leave", "technician_away", "technician_sick"].includes(String(existing.holiday_type));
+    if (!canManageAll && !isOwnLeave) { res.status(403).json({ error: "Not authorized" }); return; }
+
     const { error } = await supabaseAdmin
       .from("calendar_holidays")
       .delete()

@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { CalendarCheck } from "lucide-react";
+import { CalendarCheck, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useCompanySettings, useUpdateCompanySettings } from "@/hooks/use-company-settings";
@@ -8,9 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { formatDate } from "@/lib/utils";
 
@@ -36,6 +38,11 @@ const leaveTypeLabel: Record<TechnicianLeave["holiday_type"], string> = {
 };
 
 function MyLeaveList({ technicianId }: { technicianId: string }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", start_date: "", end_date: "", start_time: "", end_time: "", holiday_type: "technician_leave" as TechnicianLeave["holiday_type"] });
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
   const { data: holidays = [], isLoading } = useQuery<TechnicianLeave[]>({
     queryKey: ["my-leave", technicianId],
     queryFn: () => customFetch("/api/calendar/holidays?date_from=2000-01-01&date_to=2100-12-31") as Promise<TechnicianLeave[]>,
@@ -43,6 +50,65 @@ function MyLeaveList({ technicianId }: { technicianId: string }) {
   const myLeave = holidays
     .filter((holiday) => holiday.technician_id === technicianId)
     .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)));
+
+  const refreshLeave = async () => {
+    await Promise.all([
+      qc.refetchQueries({ queryKey: ["my-leave", technicianId], type: "active" }),
+      qc.refetchQueries({ queryKey: ["calendar-holidays"], type: "active" }),
+      qc.refetchQueries({ queryKey: ["/api/calendar"], type: "active" }),
+    ]);
+  };
+
+  const startEdit = (holiday: TechnicianLeave) => {
+    setEditingId(holiday.id);
+    setEditForm({
+      name: holiday.name,
+      start_date: String(holiday.start_date).slice(0, 10),
+      end_date: String(holiday.end_date).slice(0, 10),
+      start_time: holiday.start_time?.slice(0, 5) || "",
+      end_time: holiday.end_time?.slice(0, 5) || "",
+      holiday_type: holiday.holiday_type,
+    });
+  };
+
+  const saveEdit = async (id: string) => {
+    setSubmittingId(id);
+    try {
+      await customFetch(`/api/calendar/holidays/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editForm.name,
+          start_date: editForm.start_date,
+          end_date: editForm.end_date,
+          start_time: editForm.start_time || null,
+          end_time: editForm.end_time || null,
+          holiday_type: editForm.holiday_type,
+        }),
+      });
+      setEditingId(null);
+      await refreshLeave();
+      toast({ title: "Leave updated" });
+    } catch (error) {
+      toast({ title: "Failed to update leave", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setSubmittingId(null);
+    }
+  };
+
+  const deleteLeave = async (id: string) => {
+    if (!window.confirm("Delete this leave block?")) return;
+    setSubmittingId(id);
+    try {
+      await customFetch(`/api/calendar/holidays/${id}`, { method: "DELETE" });
+      await refreshLeave();
+      toast({ title: "Leave deleted" });
+    } catch (error) {
+      toast({ title: "Failed to delete leave", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setSubmittingId(null);
+    }
+  };
 
   return (
     <Card>
@@ -59,14 +125,42 @@ function MyLeaveList({ technicianId }: { technicianId: string }) {
           <div className="space-y-2">
             {myLeave.map((holiday) => (
               <div key={holiday.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium">{holiday.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatDate(holiday.start_date)}{holiday.start_date !== holiday.end_date ? ` – ${formatDate(holiday.end_date)}` : ""}
-                    {holiday.start_time && holiday.end_time ? ` · ${holiday.start_time.slice(0, 5)}–${holiday.end_time.slice(0, 5)}` : " · All day"}
-                  </p>
-                </div>
-                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{leaveTypeLabel[holiday.holiday_type]}</span>
+                {editingId === holiday.id ? (
+                  <div className="grid w-full gap-2 md:grid-cols-6">
+                    <Input className="md:col-span-2" value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
+                    <Input type="date" value={editForm.start_date} onChange={(e) => setEditForm((f) => ({ ...f, start_date: e.target.value }))} />
+                    <Input type="date" value={editForm.end_date} onChange={(e) => setEditForm((f) => ({ ...f, end_date: e.target.value }))} />
+                    <Input type="time" value={editForm.start_time} onChange={(e) => setEditForm((f) => ({ ...f, start_time: e.target.value }))} />
+                    <Input type="time" value={editForm.end_time} onChange={(e) => setEditForm((f) => ({ ...f, end_time: e.target.value }))} />
+                    <Select value={editForm.holiday_type} onValueChange={(value) => setEditForm((f) => ({ ...f, holiday_type: value as TechnicianLeave["holiday_type"] }))}>
+                      <SelectTrigger className="md:col-span-2"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="technician_leave">Holiday</SelectItem>
+                        <SelectItem value="technician_away">Away</SelectItem>
+                        <SelectItem value="technician_sick">Sick leave</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="md:col-span-4 flex justify-end gap-2">
+                      <Button type="button" size="sm" onClick={() => void saveEdit(holiday.id)} disabled={submittingId === holiday.id || !editForm.name.trim()}>{submittingId === holiday.id ? "Saving..." : "Save"}</Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium">{holiday.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDate(holiday.start_date)}{holiday.start_date !== holiday.end_date ? ` – ${formatDate(holiday.end_date)}` : ""}
+                        {holiday.start_time && holiday.end_time ? ` · ${holiday.start_time.slice(0, 5)}–${holiday.end_time.slice(0, 5)}` : " · All day"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{leaveTypeLabel[holiday.holiday_type]}</span>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => startEdit(holiday)}><Pencil className="h-4 w-4" /></Button>
+                      <Button type="button" size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => void deleteLeave(holiday.id)} disabled={submittingId === holiday.id}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
