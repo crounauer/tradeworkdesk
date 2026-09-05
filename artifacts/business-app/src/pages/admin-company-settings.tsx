@@ -3328,6 +3328,8 @@ function PublicDirectoryCard() {
   const [tradeTypes, setTradeTypes] = useState("");
   const [manufacturerAffiliations, setManufacturerAffiliations] = useState<ManufacturerAffiliation[]>([]);
   const [newAffiliation, setNewAffiliation] = useState<ManufacturerAffiliation>({ name: "", title: "", description: "", logo_url: "" });
+  const [editingAffiliationIndex, setEditingAffiliationIndex] = useState<number | null>(null);
+  const [editingAffiliation, setEditingAffiliation] = useState<ManufacturerAffiliation | null>(null);
   const [uploadingAffiliationLogo, setUploadingAffiliationLogo] = useState(false);
   const [newService, setNewService] = useState("");
   const [editingServiceIndex, setEditingServiceIndex] = useState<number | null>(null);
@@ -3474,13 +3476,13 @@ function PublicDirectoryCard() {
     setTradeTypes(JSON.stringify(services.filter((_, serviceIndex) => serviceIndex !== index)));
   };
 
-  const uploadAffiliationLogo = async (file: File) => {
+  const uploadAffiliationLogo = async (file: File, onUploaded: (logoUrl: string) => void) => {
     setUploadingAffiliationLogo(true);
     try {
       const formData = new FormData();
       formData.append("logo", file);
       const data = await customFetch("/api/admin/directory-affiliations/logo", { method: "POST", body: formData }) as { logo_url: string };
-      setNewAffiliation((current) => ({ ...current, logo_url: data.logo_url }));
+      onUploaded(data.logo_url);
     } catch (err) {
       toast({ title: "Logo upload failed", description: (err as Error).message, variant: "destructive" });
     } finally {
@@ -3500,6 +3502,27 @@ function PublicDirectoryCard() {
       logo_url: newAffiliation.logo_url,
     }]);
     setNewAffiliation({ name: "", title: "", description: "", logo_url: "" });
+  };
+
+  const startAffiliationEdit = (index: number) => {
+    setEditingAffiliationIndex(index);
+    setEditingAffiliation({ ...manufacturerAffiliations[index] });
+  };
+
+  const saveAffiliationEdit = () => {
+    if (editingAffiliationIndex === null || !editingAffiliation) return;
+    if (!editingAffiliation.name.trim() && !editingAffiliation.title.trim()) {
+      toast({ title: "Manufacturer or accreditation required", variant: "destructive" });
+      return;
+    }
+    setManufacturerAffiliations((current) => current.map((item, index) => index === editingAffiliationIndex ? {
+      name: editingAffiliation.name.trim(),
+      title: editingAffiliation.title.trim(),
+      description: editingAffiliation.description.trim(),
+      logo_url: editingAffiliation.logo_url,
+    } : item));
+    setEditingAffiliationIndex(null);
+    setEditingAffiliation(null);
   };
 
   return (
@@ -3627,15 +3650,34 @@ function PublicDirectoryCard() {
             <div className="space-y-2">
               {manufacturerAffiliations.map((affiliation, index) => (
                 <div key={`${affiliation.name}-${affiliation.title}-${index}`} className="flex items-start gap-3 rounded-lg border border-border p-3">
-                  {affiliation.logo_url ? <img src={affiliation.logo_url} alt="" className="h-10 w-10 rounded border bg-white object-contain" /> : <div className="h-10 w-10 rounded border bg-muted" />}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{affiliation.name || affiliation.title}</p>
-                    {affiliation.title && affiliation.name && <p className="text-xs text-muted-foreground">{affiliation.title}</p>}
-                    {affiliation.description && <p className="mt-1 text-xs text-muted-foreground">{affiliation.description}</p>}
-                  </div>
-                  <Button type="button" size="sm" variant="ghost" title={`Delete ${affiliation.name || affiliation.title}`} className="text-destructive hover:text-destructive" onClick={() => setManufacturerAffiliations((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+                  {editingAffiliationIndex === index && editingAffiliation ? (
+                    <div className="grid flex-1 gap-3 sm:grid-cols-2">
+                      <Input aria-label="Manufacturer" value={editingAffiliation.name} onChange={(event) => setEditingAffiliation((current) => current ? { ...current, name: event.target.value } : current)} />
+                      <Input aria-label="Accreditation or training" value={editingAffiliation.title} onChange={(event) => setEditingAffiliation((current) => current ? { ...current, title: event.target.value } : current)} />
+                      <Textarea aria-label="Public detail" rows={2} className="sm:col-span-2" value={editingAffiliation.description} onChange={(event) => setEditingAffiliation((current) => current ? { ...current, description: event.target.value } : current)} />
+                      <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+                        <Input type="file" accept="image/*" className="max-w-sm" disabled={uploadingAffiliationLogo} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadAffiliationLogo(file, (logoUrl) => setEditingAffiliation((current) => current ? { ...current, logo_url: logoUrl } : current)); event.currentTarget.value = ""; }} />
+                        {editingAffiliation.logo_url && <img src={editingAffiliation.logo_url} alt="Affiliation logo preview" className="h-8 w-8 object-contain" />}
+                        <Button type="button" size="sm" onClick={saveAffiliationEdit} disabled={uploadingAffiliationLogo}>Save</Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => { setEditingAffiliationIndex(null); setEditingAffiliation(null); }}>Cancel</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {affiliation.logo_url ? <img src={affiliation.logo_url} alt="" className="h-10 w-10 rounded border bg-white object-contain" /> : <div className="h-10 w-10 rounded border bg-muted" />}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">{affiliation.name || affiliation.title}</p>
+                        {affiliation.title && affiliation.name && <p className="text-xs text-muted-foreground">{affiliation.title}</p>}
+                        {affiliation.description && <p className="mt-1 text-xs text-muted-foreground">{affiliation.description}</p>}
+                      </div>
+                      <Button type="button" size="sm" variant="ghost" title={`Edit ${affiliation.name || affiliation.title}`} onClick={() => startAffiliationEdit(index)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" title={`Delete ${affiliation.name || affiliation.title}`} className="text-destructive hover:text-destructive" onClick={() => setManufacturerAffiliations((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -3655,7 +3697,7 @@ function PublicDirectoryCard() {
               <Textarea id="affiliation-description" rows={2} placeholder="e.g. Extended warranties on oil boilers, solar thermal and heat pump installations." value={newAffiliation.description} onChange={(event) => setNewAffiliation((current) => ({ ...current, description: event.target.value }))} />
             </div>
             <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
-              <Input type="file" accept="image/*" className="max-w-sm" disabled={uploadingAffiliationLogo} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadAffiliationLogo(file); event.currentTarget.value = ""; }} />
+              <Input type="file" accept="image/*" className="max-w-sm" disabled={uploadingAffiliationLogo} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadAffiliationLogo(file, (logoUrl) => setNewAffiliation((current) => ({ ...current, logo_url: logoUrl }))); event.currentTarget.value = ""; }} />
               {newAffiliation.logo_url && <img src={newAffiliation.logo_url} alt="Manufacturer logo preview" className="h-8 w-8 object-contain" />}
               <Button type="button" variant="outline" onClick={addAffiliation} disabled={uploadingAffiliationLogo}>
                 <Plus className="mr-1 w-4 h-4" /> {uploadingAffiliationLogo ? "Uploading..." : "Add Affiliation"}
