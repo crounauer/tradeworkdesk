@@ -874,7 +874,9 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
         {logs.map(log => {
           const isOpen = openEntries.has(log.id);
           const emailBody = getCustomerEmailLogBodyText(log);
-          const enquiryAttachment = (log.forms_included || []).find((entry) => entry.form_type === "enquiry_acknowledgement");
+          const enquiryAttachment = (log.forms_included || []).find(
+            (entry) => entry.form_type === "enquiry_acknowledgement" || entry.form_type === "enquiry_not_proceeding",
+          );
           const enquiryId = enquiryAttachment?.form_id || null;
           const card = (
             <Card className={`p-4 border border-border/50 transition-all ${log.job_id ? "hover:border-primary/50 hover:shadow-md" : ""}`}>
