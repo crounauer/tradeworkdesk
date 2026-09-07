@@ -11,7 +11,7 @@ import { Loader2, Mail, Save, ExternalLink } from "lucide-react";
 import { useCompanySettings, useUpdateCompanySettings, type CompanySettings } from "@/hooks/use-company-settings";
 import { useToast } from "@/hooks/use-toast";
 
-type EditableTemplateKey = "enquiry_acknowledgement" | "job_confirmation" | "portal_invite" | "booking_pending_approval";
+type EditableTemplateKey = "enquiry_acknowledgement" | "enquiry_not_proceeding" | "job_confirmation" | "portal_invite" | "booking_pending_approval";
 
 interface EditableTemplateDef {
   key: EditableTemplateKey;
@@ -29,6 +29,14 @@ const TEMPLATE_DEFS: EditableTemplateDef[] = [
     description: "Sent when a new enquiry is logged and acknowledgement is enabled.",
     defaultSubject: "We have logged your enquiry — {{company_name}}",
     defaultBody: "Dear {{customer_name}},\n\nThank you for getting in touch with {{company_name}}. We have logged your enquiry ({{enquiry_id}}) and a member of our team will review it as soon as possible.\n\nIf you need to add anything to your enquiry, please reply to this email.",
+    variables: ["{{customer_name}}", "{{company_name}}", "{{enquiry_id}}", "{{source}}", "{{priority}}", "{{description}}"],
+  },
+  {
+    key: "enquiry_not_proceeding",
+    label: "Enquiry Not Proceeding",
+    description: "Sent when an enquiry does not turn into a job and you want to close the loop politely.",
+    defaultSubject: "Thank you for your enquiry — {{company_name}}",
+    defaultBody: "Dear {{customer_name}},\n\nThank you for your enquiry with {{company_name}}.\n\nWe understand this enquiry is not going ahead with us at this time, but we appreciate you getting in touch. We would be happy to help with any other work in the future.\n\nAll the best with your initial enquiry.\n\nKind regards,\n{{company_name}}",
     variables: ["{{customer_name}}", "{{company_name}}", "{{enquiry_id}}", "{{source}}", "{{priority}}", "{{description}}"],
   },
   {

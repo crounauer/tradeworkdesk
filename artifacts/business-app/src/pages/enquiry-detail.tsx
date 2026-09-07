@@ -380,6 +380,7 @@ function EnquiryDetailContent() {
   const [editing, setEditing] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [sendingNote, setSendingNote] = useState(false);
+  const [sendingNotProceedingEmail, setSendingNotProceedingEmail] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
   const createInvoiceMut = useCreateInvoice();
 
@@ -559,6 +560,39 @@ function EnquiryDetailContent() {
     }
   };
 
+  const handleSendNotProceedingEmail = async () => {
+    const email = String(enquiry?.contact_email || "").trim();
+    if (!email) {
+      toast({ title: "No email address", description: "This enquiry has no customer email address.", variant: "destructive" });
+      return;
+    }
+    if (!window.confirm(`Send a polite not-proceeding email to ${email}?`)) return;
+
+    setSendingNotProceedingEmail(true);
+    try {
+      const res = await fetch(`/api/enquiries/${id}/send-not-proceeding-email`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to send email");
+      }
+      if (enquiry?.status !== "lost" && enquiry?.status !== "converted") {
+        await fetch(`/api/enquiries/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "lost" }),
+        });
+      }
+      qc.invalidateQueries({ queryKey: ["enquiry", id] });
+      qc.invalidateQueries({ queryKey: ["enquiries"] });
+      qc.invalidateQueries({ queryKey: ["me-init"] });
+      toast({ title: "Email sent", description: "The customer has been sent the not-proceeding email." });
+    } catch (error) {
+      toast({ title: "Email failed", description: error instanceof Error ? error.message : "Failed to send email", variant: "destructive" });
+    } finally {
+      setSendingNotProceedingEmail(false);
+    }
+  };
+
   if (isLoading) return <div className="p-8">Loading enquiry...</div>;
   if (!enquiry) return <div className="p-8">Enquiry not found</div>;
 
@@ -600,6 +634,12 @@ function EnquiryDetailContent() {
           {canConvert && (
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2" onClick={() => setShowConvert(true)}>
               <Briefcase className="w-4 h-4" /> Convert to Job
+            </Button>
+          )}
+          {canEdit && enquiry.contact_email && enquiry.status !== "converted" && (
+            <Button variant="outline" size="sm" className="gap-1" onClick={handleSendNotProceedingEmail} disabled={sendingNotProceedingEmail}>
+              {sendingNotProceedingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+              Send not proceeding email
             </Button>
           )}
           {canEdit && (

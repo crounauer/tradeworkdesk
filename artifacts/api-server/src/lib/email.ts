@@ -386,6 +386,7 @@ export interface EmailCompanyDetails {
 
 type ManagedEmailTemplateKey =
   | "enquiry_acknowledgement"
+  | "enquiry_not_proceeding"
   | "job_confirmation"
   | "booking_pending_approval"
   | "portal_invite";
@@ -1385,6 +1386,90 @@ export async function sendEnquiryAcknowledgementEmail(
     await writeTenantEmailAudit({
       status: "failed",
       emailType: "enquiry_acknowledgement",
+      to,
+      subject,
+      from,
+      replyTo,
+      errorMessage: reason,
+      metadata: { enquiryId: enquiryDetails.enquiryId },
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
+  }
+}
+
+export async function sendEnquiryNotProceedingEmail(
+  to: string,
+  customerName: string,
+  companyName: string,
+  enquiryDetails: EnquiryAcknowledgementDetails,
+  companyDetails?: EmailCompanyDetails,
+): Promise<void> {
+  const defaultSubject = `Thank you for your enquiry — ${companyName}`;
+  const sourceLabel = enquiryDetails.source
+    ? String(enquiryDetails.source).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : "";
+  const templateOverride = getTemplateOverride(companyDetails, "enquiry_not_proceeding");
+  const templateVariables = {
+    customer_name: customerName,
+    company_name: companyName,
+    enquiry_id: enquiryDetails.enquiryId,
+    source: sourceLabel,
+    priority: enquiryDetails.priority ? String(enquiryDetails.priority) : "",
+    description: enquiryDetails.description || "",
+  };
+  const overriddenSubject = normalizeTemplateText(templateOverride?.subject);
+  const subject = overriddenSubject
+    ? applyTemplateVariables(overriddenSubject, templateVariables).replace(/\s+/g, " ").trim()
+    : defaultSubject;
+  const overriddenBody = normalizeTemplateText(templateOverride?.body);
+  const bodyText = overriddenBody
+    ? applyTemplateVariables(overriddenBody, templateVariables)
+    : `Dear ${customerName},\n\nThank you for your enquiry with ${companyName}.\n\nWe understand this enquiry is not going ahead with us at this time, but we appreciate you getting in touch. We would be happy to help with any other work in the future.\n\nAll the best with your initial enquiry.\n\nKind regards,\n${companyName}`;
+  const html = baseHtml(subject, `
+    <h2>Thank you for your enquiry</h2>
+    ${renderTemplateBodyHtml(bodyText)}
+    ${renderDocumentLinks(companyDetails)}
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#64748b;"><em>Sent via TradeWorkDesk</em></p>
+  `, companyDetails);
+
+  const replyTo = companyDetails?.email ?? undefined;
+  const from = buildTenantFrom(companyDetails);
+  if (!resend) {
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "enquiry_not_proceeding",
+      to,
+      subject,
+      from,
+      replyTo,
+      errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
+      failureCategory: "platform",
+      metadata: { enquiryId: enquiryDetails.enquiryId },
+    });
+    throw new Error(getTenantEmailFailureMessage());
+  }
+
+  try {
+    const sendResult = await sendResendEmailWithRetry({ from, to, subject, html, ...(replyTo ? { replyTo } : {}) } as any);
+    await writeTenantEmailAudit({
+      status: "accepted",
+      emailType: "enquiry_not_proceeding",
+      to,
+      subject,
+      from,
+      replyTo,
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+      metadata: { enquiryId: enquiryDetails.enquiryId },
+    });
+  } catch (sendErr) {
+    const reason = sanitizeErrorForEmail(sendErr);
+    console.error(`[email] Failed to send "${subject}" to ${to}:`, reason);
+    await notifyEmailDeliveryFailure({ to, subject, reason, from, replyTo });
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "enquiry_not_proceeding",
       to,
       subject,
       from,

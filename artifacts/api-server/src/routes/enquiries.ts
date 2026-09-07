@@ -4,7 +4,7 @@ import { requireAuth, requireRole, requireTenant, requirePlanFeature, type Authe
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
 import { getEffectiveLimits, getJobsThisMonth } from "../lib/tenant-limits";
 import { notifyUsersForEvent } from "../lib/push-events";
-import { sendEnquiryAcknowledgementEmail, type EmailCompanyDetails } from "../lib/email";
+import { sendEnquiryAcknowledgementEmail, sendEnquiryNotProceedingEmail, type EmailCompanyDetails } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -516,6 +516,45 @@ router.patch("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("j
   }
 
   res.json(data);
+});
+
+router.post("/enquiries/:id/send-not-proceeding-email", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const id = toSingleParam(req.params.id);
+
+  let q = supabaseAdmin.from("enquiries").select("id, contact_name, contact_email, source, priority, description, status").eq("id", id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: enquiry, error } = await q.maybeSingle();
+  if (error || !enquiry) { res.status(404).json({ error: "Enquiry not found" }); return; }
+  if (!enquiry.contact_email) { res.status(400).json({ error: "This enquiry has no customer email address." }); return; }
+  if (enquiry.status === "converted") { res.status(400).json({ error: "Converted enquiries should not receive this email." }); return; }
+
+  const { companyName, details } = await loadEnquiryEmailCompanyDetails(req.tenantId!);
+
+  await sendEnquiryNotProceedingEmail(
+    enquiry.contact_email,
+    enquiry.contact_name || "Customer",
+    companyName,
+    {
+      enquiryId: enquiry.id,
+      source: enquiry.source,
+      priority: enquiry.priority,
+      description: enquiry.description,
+    },
+    details,
+  );
+
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "enquiry_not_proceeding_email_sent",
+    entityType: "enquiry",
+    entityId: id,
+    detail: { to: enquiry.contact_email },
+  });
+
+  res.json({ ok: true });
 });
 
 router.delete("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
