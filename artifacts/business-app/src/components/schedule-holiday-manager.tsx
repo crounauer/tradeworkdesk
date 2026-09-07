@@ -60,6 +60,14 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function nextYearIso(): string {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 function normalizeTime(value: string): string {
   const trimmed = value.trim();
   const match = trimmed.match(/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
@@ -86,6 +94,9 @@ export default function ScheduleHolidayManager() {
   const [useTimeRange, setUseTimeRange] = useState(false);
   const [leaveStartTime, setLeaveStartTime] = useState("09:00");
   const [leaveEndTime, setLeaveEndTime] = useState("10:00");
+  const [recurrencePattern, setRecurrencePattern] = useState<"none" | "weekly" | "monthly_first_week">("none");
+  const [recurrenceWeekdays, setRecurrenceWeekdays] = useState<number[]>([new Date().getDay()]);
+  const [repeatUntil, setRepeatUntil] = useState(nextYearIso());
   const [publicName, setPublicName] = useState("");
   const [publicDate, setPublicDate] = useState(todayIso());
   const [bankYear, setBankYear] = useState(String(new Date().getFullYear()));
@@ -181,21 +192,26 @@ export default function ScheduleHolidayManager() {
 
     setSubmitting("leave");
     try {
-      await apiFetch("/api/calendar/holidays", {
+      const isRecurring = recurrencePattern !== "none";
+      const response = await apiFetch<{ created?: number }>(isRecurring ? "/api/calendar/holidays/recurring" : "/api/calendar/holidays", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: leaveName.trim() || selectedLeaveType.defaultName,
           technician_id: leaveTech,
           start_date: leaveStart,
-          end_date: leaveEnd,
+          ...(isRecurring ? {
+            repeat_until: repeatUntil,
+            pattern: recurrencePattern,
+            weekdays: recurrenceWeekdays,
+          } : { end_date: leaveEnd }),
           start_time: useTimeRange ? normalizedStartTime : undefined,
           end_time: useTimeRange ? normalizedEndTime : undefined,
           holiday_type: selectedLeaveType.holidayType,
         }),
       });
       await refreshAll();
-      toast({ title: "Leave block added" });
+      toast({ title: isRecurring ? "Recurring leave added" : "Leave block added", description: isRecurring ? `${response.created || 0} leave blocks created.` : undefined });
     } catch (err) {
       toast({ title: "Failed to add leave", description: (err as Error).message, variant: "destructive" });
     } finally {
@@ -319,6 +335,39 @@ export default function ScheduleHolidayManager() {
               <Input type="date" value={leaveEnd} onChange={(e) => setLeaveEnd(e.target.value)} />
             </div>
           </div>
+          <div className="space-y-1.5">
+            <Label>Repeat</Label>
+            <select
+              value={recurrencePattern}
+              onChange={(e) => setRecurrencePattern(e.target.value as "none" | "weekly" | "monthly_first_week")}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="none">Does not repeat</option>
+              <option value="weekly">Every week</option>
+              <option value="monthly_first_week">First week of every month</option>
+            </select>
+          </div>
+          {recurrencePattern !== "none" ? (
+            <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
+              <Label>{recurrencePattern === "weekly" ? "Repeat on" : "Days to block in the first week"}</Label>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {WEEKDAYS.map((weekday, index) => (
+                  <label key={weekday} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={recurrenceWeekdays.includes(index)}
+                      onChange={(e) => setRecurrenceWeekdays((days) => e.target.checked ? [...days, index] : days.filter((day) => day !== index))}
+                    />
+                    {weekday}
+                  </label>
+                ))}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Repeat until</Label>
+                <Input type="date" value={repeatUntil} min={leaveStart} onChange={(e) => setRepeatUntil(e.target.value)} />
+              </div>
+            </div>
+          ) : null}
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -339,8 +388,8 @@ export default function ScheduleHolidayManager() {
               </div>
             </div>
           ) : null}
-          <Button onClick={addTechnicianLeave} disabled={submitting !== null || leaveTypeOptions.length === 0} className="w-full">
-            {submitting === "leave" ? "Saving..." : "Add Technician Leave Block"}
+          <Button onClick={addTechnicianLeave} disabled={submitting !== null || leaveTypeOptions.length === 0 || (recurrencePattern !== "none" && recurrenceWeekdays.length === 0)} className="w-full">
+            {submitting === "leave" ? "Saving..." : recurrencePattern === "none" ? "Add Technician Leave Block" : "Add Recurring Leave"}
           </Button>
           {leaveTypeOptions.length === 0 ? (
             <p className="text-xs text-muted-foreground">

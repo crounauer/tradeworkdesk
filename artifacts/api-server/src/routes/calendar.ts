@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { randomUUID } from "crypto";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, requireRole, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 
@@ -82,6 +83,29 @@ function addDays(d: Date, days: number): Date {
   const result = new Date(d);
   result.setDate(result.getDate() + days);
   return result;
+}
+
+function recurringLeaveDates(startDate: string, endDate: string, pattern: "weekly" | "monthly_first_week", weekdays: number[]): string[] {
+  const start = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T00:00:00.000Z`);
+  const dates: string[] = [];
+
+  if (pattern === "weekly") {
+    for (let current = start; current <= end; current = addDays(current, 1)) {
+      if (weekdays.includes(current.getUTCDay())) dates.push(toDateOnly(current));
+    }
+    return dates;
+  }
+
+  for (let year = start.getUTCFullYear(), month = start.getUTCMonth(); year < end.getUTCFullYear() || (year === end.getUTCFullYear() && month <= end.getUTCMonth());) {
+    for (let day = 1; day <= 7; day += 1) {
+      const current = new Date(Date.UTC(year, month, day));
+      if (current >= start && current <= end && weekdays.includes(current.getUTCDay())) dates.push(toDateOnly(current));
+    }
+    month += 1;
+    if (month === 12) { month = 0; year += 1; }
+  }
+  return dates;
 }
 
 function nthWeekdayOfMonth(year: number, monthZeroBased: number, weekday: number, nth: number): Date {
@@ -487,6 +511,79 @@ router.post(
 
     invalidateCalendarCache(req.tenantId);
     res.status(201).json(data);
+  },
+);
+
+router.post(
+  "/calendar/holidays/recurring",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff", "super_admin"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const { name, start_date, repeat_until, start_time, end_time, technician_id, holiday_type, weekdays, pattern } = req.body as {
+      name?: string;
+      start_date?: string;
+      repeat_until?: string;
+      start_time?: string;
+      end_time?: string;
+      technician_id?: string;
+      holiday_type?: "technician_leave" | "technician_away" | "technician_sick";
+      weekdays?: unknown;
+      pattern?: "weekly" | "monthly_first_week";
+    };
+    const validWeekdays = Array.isArray(weekdays)
+      ? [...new Set(weekdays.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))]
+      : [];
+    const normalizedStartTime = normalize24HourTime(start_time);
+    const normalizedEndTime = normalize24HourTime(end_time);
+
+    if (!name?.trim() || !technician_id || !start_date || !repeat_until || !pattern || validWeekdays.length === 0) {
+      res.status(400).json({ error: "name, technician_id, start_date, repeat_until, pattern, and at least one weekday are required" });
+      return;
+    }
+    if (repeat_until < start_date) {
+      res.status(400).json({ error: "repeat_until cannot be before start_date" });
+      return;
+    }
+    if (Boolean(start_time || end_time) && (!normalizedStartTime || !normalizedEndTime || normalizedEndTime <= normalizedStartTime)) {
+      res.status(400).json({ error: "start_time and end_time must be valid HH:MM values with end_time after start_time" });
+      return;
+    }
+
+    const dates = recurringLeaveDates(start_date, repeat_until, pattern, validWeekdays);
+    if (dates.length === 0) {
+      res.status(400).json({ error: "This recurrence produces no dates in the selected range" });
+      return;
+    }
+    if (dates.length > 500) {
+      res.status(400).json({ error: "Choose a shorter repeat period or fewer days (maximum 500 occurrences)." });
+      return;
+    }
+
+    const recurrenceGroupId = randomUUID();
+    const { data, error } = await supabaseAdmin
+      .from("calendar_holidays")
+      .insert(dates.map((date) => ({
+        tenant_id: req.tenantId,
+        technician_id,
+        name: name.trim(),
+        start_date: date,
+        end_date: date,
+        start_time: normalizedStartTime,
+        end_time: normalizedEndTime,
+        holiday_type: holiday_type || "technician_leave",
+        source: "recurring",
+        recurrence_group_id: recurrenceGroupId,
+        created_by: req.userId || null,
+      })))
+      .select("id, start_date");
+
+    if (error) {
+      res.status(500).json({ error: error.message || "Failed to create recurring leave" });
+      return;
+    }
+    invalidateCalendarCache(req.tenantId);
+    res.status(201).json({ recurrence_group_id: recurrenceGroupId, created: data?.length ?? 0, holidays: data || [] });
   },
 );
 
