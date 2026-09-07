@@ -118,6 +118,8 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
       const payload: Record<string, unknown> = {
         ...form,
         contact_name: contactName,
+        description: form.description.trim(),
+        notes: undefined,
         send_acknowledgement_email: sendAcknowledgementEmail,
         linked_customer_id: selectedCustomerId || undefined,
         force_new_customer: customerMode === "new",

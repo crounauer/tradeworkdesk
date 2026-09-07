@@ -874,13 +874,16 @@ function EnquiryDetailContent() {
 function EditEnquiryForm({ enquiry, onClose }: { enquiry: Record<string, unknown>; onClose: () => void }) {
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const initialDescription = ((enquiry.description as string) || "").trim();
+  const initialNotes = ((enquiry.notes as string) || "").trim();
+  const recoverNotesAsDescription = !initialDescription && !!initialNotes;
   const [form, setForm] = useState({
     contact_name: (enquiry.contact_name as string) || "",
     contact_phone: (enquiry.contact_phone as string) || "",
     contact_email: (enquiry.contact_email as string) || "",
     source: (enquiry.source as string) || "phone",
-    description: (enquiry.description as string) || "",
-    notes: (enquiry.notes as string) || "",
+    description: recoverNotesAsDescription ? initialNotes : initialDescription,
+    notes: recoverNotesAsDescription ? "" : initialNotes,
     address: formatEnquiryAddress(enquiry),
     priority: (enquiry.priority as string) || "medium",
   });
