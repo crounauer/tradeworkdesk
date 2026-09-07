@@ -427,6 +427,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       calloutRateId: line.callout_rate_id ?? null,
       estimatedHours: line.arrival_time ? null : Number(line.quantity),
       label: line.description,
+      lineTotal: Number(line.quantity) * Number(line.unit_price),
     }));
 
   function timeLineFrom(entry: Omit<TimeLine, "key">): InvoiceLineItem {

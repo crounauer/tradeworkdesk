@@ -129,7 +129,10 @@ export function TimeSection({
   });
 
   const totalMinutes = sortedEntries.reduce((sum, e) => sum + breakdownFor(e).totalHours * 60, 0);
-  const totalLabourCost = sortedEntries.reduce((sum, e) => sum + breakdownFor(e).entryCost, 0);
+  const totalLabourCost = sortedEntries.reduce(
+    (sum, entry) => sum + (readOnly && entry.lineTotal != null ? Number(entry.lineTotal) : breakdownFor(entry).entryCost),
+    0,
+  );
 
   const resetAddForm = () => {
     setArrival("");
@@ -510,7 +513,14 @@ export function TimeSection({
                       </div>
                     )}
                   </div>
-                  {(() => {
+                  {readOnly && entry.lineTotal != null ? (
+                    <div className="border-t border-border/30 bg-slate-50/80 px-3 py-1.5">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-muted-foreground font-medium">Charged</span>
+                        <span className="font-semibold text-emerald-700">{formatMoney(Number(entry.lineTotal))}</span>
+                      </div>
+                    </div>
+                  ) : (() => {
                     const bd = breakdownFor(entry);
                     if (bd.hourlyRate <= 0 && bd.calloutCost <= 0) return null;
                     const rateName = entry.calloutRateId

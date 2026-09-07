@@ -32,6 +32,8 @@ export interface TimeLine {
   estimatedHours?: number | null;
   /** Shown in place of the date when there is no arrival time. */
   label?: string;
+  /** Persisted line amount, used when displaying a saved invoice. */
+  lineTotal?: number | null;
 }
 
 export interface CalloutRateOption {
