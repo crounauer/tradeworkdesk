@@ -155,16 +155,17 @@ export default function ScheduleHolidayManager() {
   const recurrenceNeedsWeekdays = ["weekly", "fortnightly", "monthly_first_week", "monthly_last_week"].includes(recurrencePattern);
 
   async function addTechnicianLeave() {
+    const isRecurring = recurrencePattern !== "none";
     if (!leaveTech) {
       toast({ title: "Select technician", description: "Please choose a technician for leave block.", variant: "destructive" });
       return;
     }
-    if (!leaveStart || !leaveEnd) {
+    if (!leaveStart || (!isRecurring && !leaveEnd) || (isRecurring && !repeatUntil)) {
       toast({ title: "Missing dates", description: "Please provide start and end dates.", variant: "destructive" });
       return;
     }
-    if (leaveEnd < leaveStart) {
-      toast({ title: "Invalid date range", description: "End date cannot be before start date.", variant: "destructive" });
+    if ((!isRecurring && leaveEnd < leaveStart) || (isRecurring && repeatUntil < leaveStart)) {
+      toast({ title: "Invalid date range", description: `${isRecurring ? "Repeat until" : "End date"} cannot be before start date.`, variant: "destructive" });
       return;
     }
     if (!selectedLeaveType) {
@@ -195,7 +196,6 @@ export default function ScheduleHolidayManager() {
 
     setSubmitting("leave");
     try {
-      const isRecurring = recurrencePattern !== "none";
       const response = await apiFetch<{ created?: number }>(isRecurring ? "/api/calendar/holidays/recurring" : "/api/calendar/holidays", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
