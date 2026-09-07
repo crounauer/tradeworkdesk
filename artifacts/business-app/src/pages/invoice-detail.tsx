@@ -361,9 +361,9 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const declineMut = useDeclineQuote(id);
   const convertMut = useConvertToInvoice(id);
 
-  // Live totals — parts flagged "to order" are listed but not charged, matching the job page.
+  // Only parts flagged "to order" are listed but not charged, matching the job page.
   const subtotal = lines.reduce(
-    (s, l) => (l.status === "to_order" ? s : s + Number(l.quantity) * Number(l.unit_price)),
+    (s, l) => (l.item_type === "product" && l.status === "to_order" ? s : s + Number(l.quantity) * Number(l.unit_price)),
     0,
   );
   const vr = Number(invoice.vat_rate) || 0;

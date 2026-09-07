@@ -104,9 +104,9 @@ async function getNextInvoiceNumber(tenantId: string, type: "invoice" | "quote")
 }
 
 function computeTotals(lines: LineItemInput[], vatRate: number) {
-  // Parts flagged "to_order" are listed but not charged, matching the job page.
+  // Only parts flagged "to_order" are listed but not charged, matching the job page.
   const subtotal = lines.reduce(
-    (sum, l) => (l.status === "to_order" ? sum : sum + l.quantity * l.unit_price),
+    (sum, l) => (l.item_type === "product" && l.status === "to_order" ? sum : sum + l.quantity * l.unit_price),
     0,
   );
   const vat_amount = Math.round(subtotal * vatRate) / 100;
