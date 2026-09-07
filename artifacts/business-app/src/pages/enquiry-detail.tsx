@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { useCompanySettings } from "@/hooks/use-company-settings";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { createJobType } from "@/lib/create-job-type";
 import {
@@ -381,6 +382,7 @@ function EnquiryDetailContent() {
   const [noteText, setNoteText] = useState("");
   const [sendingNote, setSendingNote] = useState(false);
   const [sendingNotProceedingEmail, setSendingNotProceedingEmail] = useState(false);
+  const [showNotProceedingEmail, setShowNotProceedingEmail] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
   const createInvoiceMut = useCreateInvoice();
 
@@ -440,6 +442,8 @@ function EnquiryDetailContent() {
     },
   });
 
+  const { data: companySettings } = useCompanySettings();
+
   const { data: notes = [], isLoading: notesLoading } = useQuery({
     queryKey: ["enquiry-notes", id],
     queryFn: async () => {
@@ -459,6 +463,10 @@ function EnquiryDetailContent() {
   });
 
   const handleStatusChange = async (newStatus: string) => {
+    if (newStatus === "lost" && enquiry?.status !== "lost" && enquiry?.contact_email) {
+      setShowNotProceedingEmail(true);
+      return;
+    }
     try {
       const res = await fetch(`/api/enquiries/${id}`, {
         method: "PATCH",
@@ -566,8 +574,6 @@ function EnquiryDetailContent() {
       toast({ title: "No email address", description: "This enquiry has no customer email address.", variant: "destructive" });
       return;
     }
-    if (!window.confirm(`Send a polite not-proceeding email to ${email}?`)) return;
-
     setSendingNotProceedingEmail(true);
     try {
       const res = await fetch(`/api/enquiries/${id}/send-not-proceeding-email`, { method: "POST" });
@@ -586,6 +592,7 @@ function EnquiryDetailContent() {
       qc.invalidateQueries({ queryKey: ["enquiries"] });
       qc.invalidateQueries({ queryKey: ["me-init"] });
       toast({ title: "Email sent", description: "The customer has been sent the not-proceeding email." });
+      setShowNotProceedingEmail(false);
     } catch (error) {
       toast({ title: "Email failed", description: error instanceof Error ? error.message : "Failed to send email", variant: "destructive" });
     } finally {
@@ -595,6 +602,26 @@ function EnquiryDetailContent() {
 
   if (isLoading) return <div className="p-8">Loading enquiry...</div>;
   if (!enquiry) return <div className="p-8">Enquiry not found</div>;
+
+  const notProceedingTemplate = companySettings?.email_templates?.enquiry_not_proceeding;
+  const templateVariables: Record<string, string> = {
+    "{{customer_name}}": String(enquiry.contact_name || "Customer"),
+    "{{company_name}}": String(companySettings?.trading_name || companySettings?.name || companySettings?.brand_name || "our company"),
+    "{{enquiry_id}}": String(enquiry.id),
+    "{{source}}": String(enquiry.source || ""),
+    "{{priority}}": String(enquiry.priority || ""),
+    "{{description}}": String(enquiry.description || ""),
+  };
+  const replaceTemplateVariables = (value: string) => Object.entries(templateVariables).reduce(
+    (text, [variable, replacement]) => text.replaceAll(variable, replacement),
+    value,
+  );
+  const notProceedingSubject = replaceTemplateVariables(
+    notProceedingTemplate?.subject || "Thank you for your enquiry - {{company_name}}",
+  );
+  const notProceedingBody = replaceTemplateVariables(
+    notProceedingTemplate?.body || "Dear {{customer_name}},\n\nThank you for your enquiry with {{company_name}}.\n\nWe understand this enquiry is not going ahead with us at this time, but we appreciate you getting in touch. We would be happy to help with any other work in the future.\n\nAll the best with your initial enquiry.\n\nKind regards,\n{{company_name}}",
+  );
 
   const statusOpt = STATUS_OPTIONS.find(s => s.value === enquiry.status);
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
@@ -636,12 +663,6 @@ function EnquiryDetailContent() {
               <Briefcase className="w-4 h-4" /> Convert to Job
             </Button>
           )}
-          {canEdit && enquiry.contact_email && enquiry.status !== "converted" && (
-            <Button variant="outline" size="sm" className="gap-1" onClick={handleSendNotProceedingEmail} disabled={sendingNotProceedingEmail}>
-              {sendingNotProceedingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-              Send not proceeding email
-            </Button>
-          )}
           {canEdit && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -668,6 +689,31 @@ function EnquiryDetailContent() {
           )}
         </div>
       </div>
+
+      <Dialog open={showNotProceedingEmail} onOpenChange={(open) => !sendingNotProceedingEmail && setShowNotProceedingEmail(open)}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Send Not Proceeding Email?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This will mark the enquiry as lost and email <strong>{enquiry.contact_name || "the customer"}</strong> at{" "}
+              <span className="text-primary">{enquiry.contact_email}</span>.
+            </p>
+            <div className="rounded-md border bg-muted/30 p-4 space-y-3 text-sm">
+              <p><span className="font-medium">Subject:</span> {notProceedingSubject}</p>
+              <div className="border-t pt-3 whitespace-pre-wrap text-muted-foreground">{notProceedingBody}</div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowNotProceedingEmail(false)} disabled={sendingNotProceedingEmail}>Cancel</Button>
+              <Button onClick={handleSendNotProceedingEmail} disabled={sendingNotProceedingEmail}>
+                {sendingNotProceedingEmail ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
+                Send Email & Mark Lost
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
