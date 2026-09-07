@@ -22,6 +22,7 @@ interface HolidayItem {
 }
 
 type TechnicianLeaveType = "technician_leave" | "technician_away" | "technician_sick";
+type RecurrencePattern = "none" | "every_weekday" | "weekly" | "fortnightly" | "monthly_date" | "monthly_first_week" | "monthly_last_week";
 
 type LeaveTypeOption = {
   id: string;
@@ -94,7 +95,7 @@ export default function ScheduleHolidayManager() {
   const [useTimeRange, setUseTimeRange] = useState(false);
   const [leaveStartTime, setLeaveStartTime] = useState("09:00");
   const [leaveEndTime, setLeaveEndTime] = useState("10:00");
-  const [recurrencePattern, setRecurrencePattern] = useState<"none" | "weekly" | "monthly_first_week">("none");
+  const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>("none");
   const [recurrenceWeekdays, setRecurrenceWeekdays] = useState<number[]>([new Date().getDay()]);
   const [repeatUntil, setRepeatUntil] = useState(nextYearIso());
   const [publicName, setPublicName] = useState("");
@@ -150,6 +151,8 @@ export default function ScheduleHolidayManager() {
       qc.refetchQueries({ queryKey: ["/api/calendar"], type: "active" }),
     ]);
   }
+
+  const recurrenceNeedsWeekdays = ["weekly", "fortnightly", "monthly_first_week", "monthly_last_week"].includes(recurrencePattern);
 
   async function addTechnicianLeave() {
     if (!leaveTech) {
@@ -339,29 +342,39 @@ export default function ScheduleHolidayManager() {
             <Label>Repeat</Label>
             <select
               value={recurrencePattern}
-              onChange={(e) => setRecurrencePattern(e.target.value as "none" | "weekly" | "monthly_first_week")}
+              onChange={(e) => setRecurrencePattern(e.target.value as RecurrencePattern)}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="none">Does not repeat</option>
-              <option value="weekly">Every week</option>
-              <option value="monthly_first_week">First week of every month</option>
+              <option value="every_weekday">Every weekday (Monday to Friday)</option>
+              <option value="weekly">Every week on selected days</option>
+              <option value="fortnightly">Every two weeks on selected days</option>
+              <option value="monthly_date">Every month on this date</option>
+              <option value="monthly_first_week">Selected days in the first week of each month</option>
+              <option value="monthly_last_week">Selected days in the last week of each month</option>
             </select>
           </div>
           {recurrencePattern !== "none" ? (
             <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
-              <Label>{recurrencePattern === "weekly" ? "Repeat on" : "Days to block in the first week"}</Label>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {WEEKDAYS.map((weekday, index) => (
-                  <label key={weekday} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={recurrenceWeekdays.includes(index)}
-                      onChange={(e) => setRecurrenceWeekdays((days) => e.target.checked ? [...days, index] : days.filter((day) => day !== index))}
-                    />
-                    {weekday}
-                  </label>
-                ))}
-              </div>
+              {recurrenceNeedsWeekdays ? (
+                <>
+                  <Label>{recurrencePattern === "monthly_first_week" ? "Days in the first week" : recurrencePattern === "monthly_last_week" ? "Days in the last week" : "Repeat on"}</Label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {WEEKDAYS.map((weekday, index) => (
+                      <label key={weekday} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={recurrenceWeekdays.includes(index)}
+                          onChange={(e) => setRecurrenceWeekdays((days) => e.target.checked ? [...days, index] : days.filter((day) => day !== index))}
+                        />
+                        {weekday}
+                      </label>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">{recurrencePattern === "every_weekday" ? "Leave will be blocked Monday to Friday." : "Leave will be blocked on the same day of each month."}</p>
+              )}
               <div className="space-y-1.5">
                 <Label>Repeat until</Label>
                 <Input type="date" value={repeatUntil} min={leaveStart} onChange={(e) => setRepeatUntil(e.target.value)} />
@@ -388,7 +401,7 @@ export default function ScheduleHolidayManager() {
               </div>
             </div>
           ) : null}
-          <Button onClick={addTechnicianLeave} disabled={submitting !== null || leaveTypeOptions.length === 0 || (recurrencePattern !== "none" && recurrenceWeekdays.length === 0)} className="w-full">
+          <Button onClick={addTechnicianLeave} disabled={submitting !== null || leaveTypeOptions.length === 0 || (recurrenceNeedsWeekdays && recurrenceWeekdays.length === 0)} className="w-full">
             {submitting === "leave" ? "Saving..." : recurrencePattern === "none" ? "Add Technician Leave Block" : "Add Recurring Leave"}
           </Button>
           {leaveTypeOptions.length === 0 ? (

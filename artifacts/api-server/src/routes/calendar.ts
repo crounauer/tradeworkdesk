@@ -85,22 +85,33 @@ function addDays(d: Date, days: number): Date {
   return result;
 }
 
-function recurringLeaveDates(startDate: string, endDate: string, pattern: "weekly" | "monthly_first_week", weekdays: number[]): string[] {
+type RecurringLeavePattern = "every_weekday" | "weekly" | "fortnightly" | "monthly_date" | "monthly_first_week" | "monthly_last_week";
+
+function recurringLeaveDates(startDate: string, endDate: string, pattern: RecurringLeavePattern, weekdays: number[]): string[] {
   const start = new Date(`${startDate}T00:00:00.000Z`);
   const end = new Date(`${endDate}T00:00:00.000Z`);
   const dates: string[] = [];
 
-  if (pattern === "weekly") {
+  if (pattern === "every_weekday" || pattern === "weekly" || pattern === "fortnightly") {
     for (let current = start; current <= end; current = addDays(current, 1)) {
-      if (weekdays.includes(current.getUTCDay())) dates.push(toDateOnly(current));
+      const isSelectedDay = pattern === "every_weekday"
+        ? current.getUTCDay() >= 1 && current.getUTCDay() <= 5
+        : weekdays.includes(current.getUTCDay());
+      const isMatchingFortnight = pattern !== "fortnightly"
+        || Math.floor((current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)) % 2 === 0;
+      if (isSelectedDay && isMatchingFortnight) dates.push(toDateOnly(current));
     }
     return dates;
   }
 
   for (let year = start.getUTCFullYear(), month = start.getUTCMonth(); year < end.getUTCFullYear() || (year === end.getUTCFullYear() && month <= end.getUTCMonth());) {
-    for (let day = 1; day <= 7; day += 1) {
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const firstDay = pattern === "monthly_last_week" ? Math.max(1, daysInMonth - 6) : 1;
+    const lastDay = pattern === "monthly_date" ? Math.min(start.getUTCDate(), daysInMonth) : pattern === "monthly_last_week" ? daysInMonth : 7;
+    for (let day = firstDay; day <= lastDay; day += 1) {
       const current = new Date(Date.UTC(year, month, day));
-      if (current >= start && current <= end && weekdays.includes(current.getUTCDay())) dates.push(toDateOnly(current));
+      const isSelectedDay = pattern === "monthly_date" || weekdays.includes(current.getUTCDay());
+      if (current >= start && current <= end && isSelectedDay) dates.push(toDateOnly(current));
     }
     month += 1;
     if (month === 12) { month = 0; year += 1; }
@@ -529,7 +540,7 @@ router.post(
       technician_id?: string;
       holiday_type?: "technician_leave" | "technician_away" | "technician_sick";
       weekdays?: unknown;
-      pattern?: "weekly" | "monthly_first_week";
+      pattern?: RecurringLeavePattern;
     };
     const validWeekdays = Array.isArray(weekdays)
       ? [...new Set(weekdays.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))]
@@ -537,8 +548,10 @@ router.post(
     const normalizedStartTime = normalize24HourTime(start_time);
     const normalizedEndTime = normalize24HourTime(end_time);
 
-    if (!name?.trim() || !technician_id || !start_date || !repeat_until || !pattern || validWeekdays.length === 0) {
-      res.status(400).json({ error: "name, technician_id, start_date, repeat_until, pattern, and at least one weekday are required" });
+    const validPatterns: RecurringLeavePattern[] = ["every_weekday", "weekly", "fortnightly", "monthly_date", "monthly_first_week", "monthly_last_week"];
+    const needsWeekdaySelection = pattern === "weekly" || pattern === "fortnightly" || pattern === "monthly_first_week" || pattern === "monthly_last_week";
+    if (!name?.trim() || !technician_id || !start_date || !repeat_until || !pattern || !validPatterns.includes(pattern) || (needsWeekdaySelection && validWeekdays.length === 0)) {
+      res.status(400).json({ error: "name, technician_id, start_date, repeat_until, pattern, and any required weekdays are needed" });
       return;
     }
     if (repeat_until < start_date) {
