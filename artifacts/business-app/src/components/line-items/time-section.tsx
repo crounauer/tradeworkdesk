@@ -130,7 +130,7 @@ export function TimeSection({
 
   const totalMinutes = sortedEntries.reduce((sum, e) => sum + breakdownFor(e).totalHours * 60, 0);
   const totalLabourCost = sortedEntries.reduce(
-    (sum, entry) => sum + (entry.lineTotal != null ? Number(entry.lineTotal) : breakdownFor(entry).entryCost),
+    (sum, entry) => sum + breakdownFor(entry).entryCost,
     0,
   );
 
