@@ -465,6 +465,24 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
     };
   }
 
+  function beginEditing() {
+    setLines((currentLines) => currentLines.map((line) => {
+      if (!line.arrival_time) return line;
+      return timeLineFrom({
+        arrival: line.arrival_time,
+        departure: line.departure_time ?? null,
+        notes: line.notes ?? null,
+        hourlyRate: line.hourly_rate != null ? Number(line.hourly_rate) : null,
+        calloutFee: line.callout_fee != null ? Number(line.callout_fee) : null,
+        calloutRateId: line.callout_rate_id ?? null,
+        estimatedHours: null,
+        label: line.description,
+        lineTotal: Number(line.quantity) * Number(line.unit_price),
+      });
+    }));
+    setEditing(true);
+  }
+
   async function saveChanges() {
     try {
       await updateMut.mutateAsync({
@@ -647,7 +665,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         </div>
         <div className="flex gap-2 flex-wrap">
           {isDraft && !editing && (
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+            <Button variant="outline" size="sm" onClick={beginEditing}>
               <Edit3 className="w-4 h-4 mr-1" /> Edit
             </Button>
           )}
