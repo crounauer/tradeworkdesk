@@ -1104,13 +1104,7 @@ export function BookJobDialog({
                   <input
                     type="checkbox"
                     className="rounded border-border"
-                    {...register("all_day", {
-                      onChange: (event) => {
-                        if ((event.target as HTMLInputElement).checked) {
-                          setValue("scheduled_time", "", { shouldDirty: true });
-                        }
-                      },
-                    })}
+                    {...register("all_day")}
                   />
                   <span className="text-muted-foreground">All day</span>
                 </label>
