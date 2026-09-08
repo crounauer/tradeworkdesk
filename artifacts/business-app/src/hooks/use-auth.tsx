@@ -171,7 +171,8 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (event === "SIGNED_IN") {
         setAdminSessionCookie(true);
-        // queryClient.removeQueries({ queryKey: ["me-init"] }); // disabled
+        queryClient.removeQueries({ queryKey: ["me-init"] });
+        queryClient.removeQueries({ queryKey: ["homepage"] });
         hasPrefetched.current = false;
         prefetchCriticalData(queryClient);
         hasPrefetched.current = true;
@@ -215,7 +216,8 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setMfaPending(false);
     hasPrefetched.current = false;
-    // queryClient.clear(); // disabled - causing refetch loop
+    queryClient.removeQueries({ queryKey: ["me-init"] });
+    queryClient.removeQueries({ queryKey: ["homepage"] });
     window.location.href = "/";
   };
 
