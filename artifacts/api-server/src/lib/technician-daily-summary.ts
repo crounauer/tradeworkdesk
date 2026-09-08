@@ -89,7 +89,7 @@ export function shouldSkipTenantSummaryDispatch(args: {
     return true;
   }
 
-  if (weekdaysOnly && isWeekend(tomorrow)) {
+  if (weekdaysOnly && isWeekend(today)) {
     return true;
   }
 
@@ -205,8 +205,7 @@ export async function sendTestTechnicianDailySummaryEmail(args: {
   companyDetails: EmailCompanyDetails;
 }): Promise<void> {
   const companyName = String(args.companyDetails.name || args.companyDetails.trading_name || "Your Service Provider");
-  const targetDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const formattedTargetDate = `${targetDate.getUTCFullYear()}-${String(targetDate.getUTCMonth() + 1).padStart(2, "0")}-${String(targetDate.getUTCDate()).padStart(2, "0")}`;
+  const { today: formattedTargetDate } = toTimeZoneDateParts(new Date());
 
   const jobSample = [{
     job_ref: "TEST-001",
@@ -225,7 +224,7 @@ export async function sendTestTechnicianDailySummaryEmail(args: {
     jobs: jobSample,
   });
 
-  await sendSimpleNotification(args.to, `Test: Tomorrow's jobs summary - ${formatHumanDate(formattedTargetDate)}`, body, {
+  await sendSimpleNotification(args.to, `Test: Today's jobs summary - ${formatHumanDate(formattedTargetDate)}`, body, {
     companyDetails: args.companyDetails,
     tenantId: args.tenantId,
     emailType: "technician_daily_summary_test",
@@ -271,7 +270,7 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
     }
 
     result.processedTenants += 1;
-    const targetDate = tomorrow;
+    const targetDate = today;
 
     const companyDetails: EmailCompanyDetails = {
       name: (row.name as string | null) || null,
@@ -359,7 +358,7 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
           }
 
           const technicianName = String(tech.full_name || "Technician");
-          const subject = `No jobs scheduled for tomorrow - ${formatHumanDate(targetDate)}`;
+          const subject = `No jobs scheduled for today - ${formatHumanDate(targetDate)}`;
           const body = buildNoJobsBody({
             technicianName,
             companyName,
@@ -376,7 +375,7 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
         }
 
         const technicianName = String(tech.full_name || "Technician");
-        const subject = `Tomorrow's jobs summary - ${formatHumanDate(targetDate)}`;
+        const subject = `Today's jobs summary - ${formatHumanDate(targetDate)}`;
         const body = buildSummaryBody({
           technicianName,
           companyName,

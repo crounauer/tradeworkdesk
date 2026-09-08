@@ -387,6 +387,7 @@ export interface EmailCompanyDetails {
 type ManagedEmailTemplateKey =
   | "enquiry_acknowledgement"
   | "enquiry_not_proceeding"
+  | "invoice_document"
   | "job_confirmation"
   | "booking_pending_approval"
   | "portal_invite";
@@ -870,7 +871,7 @@ function normalizeTemplateText(value: unknown): string | null {
   return next.length > 0 ? next : null;
 }
 
-function getTemplateOverride(
+export function getTemplateOverride(
   company: EmailCompanyDetails | undefined,
   key: ManagedEmailTemplateKey,
 ): ManagedEmailTemplateOverride | null {
@@ -881,7 +882,7 @@ function getTemplateOverride(
   return template;
 }
 
-function applyTemplateVariables(template: string, variables: Record<string, string | null | undefined>): string {
+export function applyTemplateVariables(template: string, variables: Record<string, string | null | undefined>): string {
   const normalizedVars: Record<string, string> = {};
   for (const [key, value] of Object.entries(variables)) {
     normalizedVars[key.toLowerCase()] = value == null ? "" : String(value);
@@ -893,7 +894,7 @@ function applyTemplateVariables(template: string, variables: Record<string, stri
   });
 }
 
-function renderTemplateBodyHtml(bodyText: string): string {
+export function renderTemplateBodyHtml(bodyText: string): string {
   const paragraphs = bodyText
     .split(/\n{2,}/)
     .map((part) => part.trim())

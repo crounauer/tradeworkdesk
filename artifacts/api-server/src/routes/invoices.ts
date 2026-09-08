@@ -853,7 +853,6 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
   // Resolve email recipient
   const recipientEmailRaw: string | undefined = req.body.override_email || undefined;
   const recipientEmail: string | undefined = recipientEmailRaw ? String(recipientEmailRaw).trim().toLowerCase() : undefined;
-  const sendNote: string | undefined = req.body.send_note || undefined;
   const { data: customer } = await supabaseAdmin
     .from("customers")
     .select("business_name, first_name, last_name, email")
@@ -971,7 +970,6 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       additionalText: isQuote
         ? ((settings?.quote_additional_text as string | null) || null)
         : ((settings?.invoice_additional_text as string | null) || null),
-      customerMessage: sendNote,
       worksOrder: invoice.works_order as string | null,
       bankDetails: showBankDetails ? ((settings?.invoice_bank_details as string | null) || null) : null,
       pdfBuffer,
@@ -1299,9 +1297,6 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
     `Please find your ${invoice.type === "quote" ? "quotation" : "invoice"} attached.`,
     `${docLabel}`,
     `Amount: ${(invoice.currency as string || "GBP").toUpperCase()} ${Number(invoice.total || 0).toFixed(2)}`,
-    sendNote && sendNote.trim().length > 0 ? "" : null,
-    sendNote && sendNote.trim().length > 0 ? "Message:" : null,
-    sendNote && sendNote.trim().length > 0 ? sendNote.trim() : null,
     "",
     "Kind regards,",
     ((invoice as Record<string, unknown>).company_name as string) || "Your Service Provider",

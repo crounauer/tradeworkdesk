@@ -316,7 +316,6 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [deletingPayment, setDeletingPayment] = useState<InvoicePayment | null>(null);
   const [sendReceiptOnPayment, setSendReceiptOnPayment] = useState(false);
   const [sendEmail, setSendEmail] = useState(invoice.customer?.email || "");
-  const [sendNote, setSendNote] = useState("");
   const [showBookJob, setShowBookJob] = useState(false);
   const [showCreateJob, setShowCreateJob] = useState(false);
 
@@ -374,6 +373,32 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const canEditCatalogue = ["admin", "office_staff", "super_admin"].includes(profile?.role ?? "");
   const defaultHourlyRate = Number(settings?.default_hourly_rate) || 0;
   const defaultCalloutFee = Number(settings?.call_out_fee) || 0;
+  const documentLabel = isInvoice ? "Invoice" : "Quotation";
+  const invoiceEmailCustomerName = invoice.customer
+    ? (invoice.customer.business_name || `${invoice.customer.first_name} ${invoice.customer.last_name}`)
+    : "Customer";
+  const companyName = settings?.trading_name || settings?.name || settings?.brand_name || "Your Service Provider";
+  const formattedBalanceDue = money(balanceDue);
+  const invoiceTemplate = settings?.email_templates?.invoice_document;
+  const invoiceTemplateVariables: Record<string, string> = {
+    "{{customer_name}}": invoiceEmailCustomerName,
+    "{{company_name}}": companyName,
+    "{{document_type}}": documentLabel,
+    "{{document_number}}": invoice.invoice_number,
+    "{{total}}": money(Number(invoice.total)),
+    "{{balance_due}}": formattedBalanceDue,
+    "{{due_date}}": invoice.due_date ? formatDate(invoice.due_date) : "Due on receipt",
+  };
+  const replaceInvoiceTemplateVariables = (value: string) => Object.entries(invoiceTemplateVariables).reduce(
+    (text, [variable, replacement]) => text.replaceAll(variable, replacement),
+    value,
+  );
+  const invoiceEmailSubject = replaceInvoiceTemplateVariables(
+    invoiceTemplate?.subject || `${documentLabel} {{document_number}} from {{company_name}} - {{balance_due}}`,
+  );
+  const invoiceEmailBody = replaceInvoiceTemplateVariables(
+    invoiceTemplate?.body || "Dear {{customer_name}},\n\nPlease find your {{document_type}} {{document_number}} attached.\n\nAmount due: {{balance_due}}\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\n{{company_name}}",
+  );
 
   function patchLine(key: string, patch: Partial<InvoiceLineItem>) {
     const idx = Number(key);
@@ -505,7 +530,6 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
     try {
       const result = await sendMut.mutateAsync({
         override_email: sendEmail !== invoice.customer?.email ? sendEmail : undefined,
-        send_note: sendNote.trim() ? sendNote.trim() : undefined,
       });
       toast({ title: `${isInvoice ? "Invoice" : "Quote"} sent`, description: `Sent to ${result.sent_to}` });
       setSendOpen(false);
@@ -1170,7 +1194,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           <DialogHeader>
             <DialogTitle>Send {isInvoice ? "Invoice" : "Quote"}</DialogTitle>
             <DialogDescription>
-              A PDF will be generated and emailed to the customer. You can add a short note to include in the email.
+              The configured email template and PDF will be sent to the customer.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -1189,15 +1213,10 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
                 </p>
               )}
             </div>
-              <div>
-                <Label>Note to customer (optional)</Label>
-                <Textarea
-                  value={sendNote}
-                  onChange={(e) => setSendNote(e.target.value)}
-                  placeholder="Add a short note to the email..."
-                  className="mt-1 min-h-[90px]"
-                />
-              </div>
+            <div className="rounded-md border bg-muted/30 p-4 space-y-3 text-sm">
+              <p><span className="font-medium">Subject:</span> {invoiceEmailSubject}</p>
+              <div className="border-t pt-3 whitespace-pre-wrap text-muted-foreground">{invoiceEmailBody}</div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSendOpen(false)}>Cancel</Button>

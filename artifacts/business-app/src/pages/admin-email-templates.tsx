@@ -11,7 +11,7 @@ import { Loader2, Mail, Save, ExternalLink } from "lucide-react";
 import { useCompanySettings, useUpdateCompanySettings, type CompanySettings } from "@/hooks/use-company-settings";
 import { useToast } from "@/hooks/use-toast";
 
-type EditableTemplateKey = "enquiry_acknowledgement" | "enquiry_not_proceeding" | "job_confirmation" | "portal_invite" | "booking_pending_approval";
+type EditableTemplateKey = "enquiry_acknowledgement" | "enquiry_not_proceeding" | "invoice_document" | "job_confirmation" | "portal_invite" | "booking_pending_approval";
 
 interface EditableTemplateDef {
   key: EditableTemplateKey;
@@ -38,6 +38,14 @@ const TEMPLATE_DEFS: EditableTemplateDef[] = [
     defaultSubject: "Thank you for your enquiry — {{company_name}}",
     defaultBody: "Dear {{customer_name}},\n\nThank you for your enquiry with {{company_name}}.\n\nWe understand this enquiry is not going ahead with us at this time, but we appreciate you getting in touch. We would be happy to help with any other work in the future.\n\nAll the best with your initial enquiry.\n\nKind regards,\n{{company_name}}",
     variables: ["{{customer_name}}", "{{company_name}}", "{{enquiry_id}}", "{{source}}", "{{priority}}", "{{description}}"],
+  },
+  {
+    key: "invoice_document",
+    label: "Invoice / Quote Email",
+    description: "Sent with an invoice or quote PDF when it is emailed to a customer.",
+    defaultSubject: "{{document_type}} {{document_number}} from {{company_name}} - {{balance_due}}",
+    defaultBody: "Dear {{customer_name}},\n\nPlease find your {{document_type}} {{document_number}} attached.\n\nAmount due: {{balance_due}}\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\n{{company_name}}",
+    variables: ["{{customer_name}}", "{{company_name}}", "{{document_type}}", "{{document_number}}", "{{total}}", "{{balance_due}}", "{{due_date}}"],
   },
   {
     key: "job_confirmation",

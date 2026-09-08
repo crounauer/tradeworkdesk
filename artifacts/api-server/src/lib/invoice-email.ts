@@ -3,7 +3,7 @@
  * Send invoice / quote PDFs to customers via email, following the same
  * pattern used by sendJobFormsEmail() in email.ts.
  */
-import { getTenantEmailFailureMessage, notifyEmailDeliveryFailure, sendResendEmailWithRetry, writeTenantEmailAudit, type EmailCompanyDetails } from "./email";
+import { applyTemplateVariables, getTemplateOverride, getTenantEmailFailureMessage, notifyEmailDeliveryFailure, renderTemplateBodyHtml, sendResendEmailWithRetry, writeTenantEmailAudit, type EmailCompanyDetails } from "./email";
 const DEFAULT_FROM_NAME = "TradeWorkDesk";
 const PLATFORM_INVOICE_FROM_EMAIL = (process.env.INVOICE_FROM_EMAIL || "invoices@mail.tradeworkdesk.co.uk").trim().toLowerCase();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -59,7 +59,6 @@ export async function sendInvoiceDocumentEmail(opts: {
   expiryDate?: string | null;
   worksOrder?: string | null;
   customerNotes?: string | null;
-  customerMessage?: string | null;
   additionalText?: string | null;
   bankDetails?: string | null;
   pdfBuffer: Buffer;
@@ -94,6 +93,16 @@ export async function sendInvoiceDocumentEmail(opts: {
   const FROM = buildPlatformInvoiceFrom(opts.company);
   const balanceDue = opts.balanceDue != null ? Math.max(0, Number(opts.balanceDue)) : total;
   const formattedTotal = formatCurrency(currency, balanceDue);
+  const templateOverride = getTemplateOverride(opts.company, "invoice_document");
+  const templateVariables = {
+    customer_name: customerName,
+    company_name: companyName,
+    document_type: label,
+    document_number: invoiceNumber,
+    total: formattedTotal,
+    balance_due: formattedTotal,
+    due_date: opts.dueDate || "Due on receipt",
+  };
 
   let dateInfo = "";
   if (!isQuote) {
@@ -121,13 +130,6 @@ export async function sendInvoiceDocumentEmail(opts: {
   const customerNotesHtml = opts.customerNotes
     ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:16px 0;">
         <p style="margin:0;font-size:14px;color:#334155;">${escHtml(opts.customerNotes).replace(/\n/g, "<br/>")}</p>
-       </div>`
-    : "";
-
-  const customerMessageHtml = opts.customerMessage && opts.customerMessage.trim().length > 0
-    ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin:16px 0;">
-        <p style="margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#1d4ed8;">Message with this email</p>
-        <p style="margin:0;font-size:14px;color:#1e3a8a;">${escHtml(opts.customerMessage.trim()).replace(/\n/g, "<br/>")}</p>
        </div>`
     : "";
 
@@ -163,9 +165,12 @@ export async function sendInvoiceDocumentEmail(opts: {
     return links.length ? `<p style="margin:0 0 8px;">${links.join('<span style="margin:0 8px;color:#cbd5e1;">|</span>')}</p>` : "";
   })();
 
-  const subject = isQuote
-    ? `${label} ${invoiceNumber} from ${companyName} — ${formattedTotal}`
-    : `${label} ${invoiceNumber} from ${companyName} — ${formattedTotal}`;
+  const defaultSubject = `${label} ${invoiceNumber} from ${companyName} — ${formattedTotal}`;
+  const subject = templateOverride?.subject?.trim()
+    ? applyTemplateVariables(templateOverride.subject, templateVariables).replace(/\s+/g, " ").trim()
+    : defaultSubject;
+  const defaultIntro = `Dear ${customerName},\n\nPlease find your ${isQuote ? "quotation" : "invoice"} attached. ${isQuote ? "We hope this quote meets your requirements." : opts.hasPaymentProvider ? "You can pay online or by bank transfer - whichever is easiest for you." : "Please review the attached invoice and use the bank transfer details below to make payment."}`;
+  const templateIntroHtml = renderTemplateBodyHtml(applyTemplateVariables(templateOverride?.body?.trim() || defaultIntro, templateVariables));
 
   const logoHtml = opts.company?.logo_url
     ? `<div style="background:#fff;display:inline-block;padding:8px 14px;border-radius:6px;margin-bottom:12px;">
@@ -197,8 +202,7 @@ export async function sendInvoiceDocumentEmail(opts: {
     </div>
     <div class="body">
       <h2 style="margin-top:0;">${escHtml(label)} ${escHtml(invoiceNumber)}</h2>
-      <p>Dear ${escHtml(customerName)},</p>
-      <p>Please find your ${isQuote ? "quotation" : "invoice"} attached. ${isQuote ? "We hope this quote meets your requirements." : opts.hasPaymentProvider ? "You can pay online or by bank transfer — whichever is easiest for you." : "Please review the attached invoice and use the bank transfer details below to make payment."}</p>
+      ${templateIntroHtml}
       <div class="info-box">
         <p style="margin:0 0 4px;"><strong>${label} number:</strong> ${escHtml(invoiceNumber)}</p>
         <p style="margin:0 0 4px;"><strong>${isQuote ? "Amount" : "Balance due"}:</strong> ${escHtml(formattedTotal)}</p>
@@ -206,7 +210,6 @@ export async function sendInvoiceDocumentEmail(opts: {
         ${dateInfo}
       </div>
       ${worksOrderHtml}
-      ${customerMessageHtml}
       ${additionalTextHtml}
       ${customerNotesHtml}
       ${!isQuote && opts.portalUrl ? opts.hasPaymentProvider ? `
