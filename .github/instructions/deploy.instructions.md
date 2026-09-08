@@ -10,7 +10,7 @@ Two independent deploy targets. Know which one your change needs.
 |-----------|-----------|-----|
 | `artifacts/api-server/`, `lib/`, `scripts/` | Fly `tradeworkdesk-api` | manual `fly deploy` |
 | `artifacts/business-app/` | Vercel `tradeworkdesk-boiler-app` | automatic on push to `main` |
-| `artifacts/website-renderer/` | Fly `tradeworkdesk-renderer` | manual `fly deploy` |
+| `artifacts/website-renderer/` | Fly `tradeworkdesk-renderer` | `fly deploy -c artifacts/website-renderer/fly.toml --no-cache` |
 
 ## Frontend (business-app)
 
@@ -23,6 +23,19 @@ to run. `vercel ls` from `artifacts/business-app` shows recent deployments.
 
 Vercel rewrites `/api/*` to `https://tradeworkdesk-api.fly.dev/api/*`, so a
 frontend change that depends on new API behaviour needs the Fly deploy too.
+
+## Website Renderer (Fly)
+
+Always deploy the renderer from the monorepo root with its dedicated config:
+
+  fly deploy -c artifacts/website-renderer/fly.toml --no-cache
+
+Do not deploy it with `fly deploy --app tradeworkdesk-renderer` from the root.
+That can combine the renderer app name with the root API Dockerfile and serve
+the API image on tenant domains. Verify both endpoints after each deploy:
+
+  https://tradeworkdesk-renderer.fly.dev/api/health
+  https://<tenant-domain>/
 
 ## API (Fly)
 

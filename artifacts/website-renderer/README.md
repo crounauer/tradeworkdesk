@@ -145,7 +145,17 @@ artifacts/website-renderer/
 
 ## Deployment (Fly)
 
-Deploy the renderer with the Fly config in `artifacts/website-renderer/fly.toml`.
+Deploy from the monorepo root using the renderer config explicitly:
+
+```bash
+fly deploy -c artifacts/website-renderer/fly.toml --no-cache
+```
+
+Do not use `fly deploy --app tradeworkdesk-renderer` from the monorepo root: it
+can use the root API Dockerfile while targeting the renderer app. The renderer
+config includes a `/api/health` check that rejects the API image. After deploying,
+verify `https://tradeworkdesk-renderer.fly.dev/api/health` returns `200` and load
+a tenant domain.
 
 - **App name**: `tradeworkdesk-renderer`
 - **Base URL**: `https://tradeworkdesk-renderer.fly.dev`

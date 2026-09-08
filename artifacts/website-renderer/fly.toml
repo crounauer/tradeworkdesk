@@ -27,6 +27,15 @@ primary_region = "lhr"
     soft_limit = 60
     hard_limit = 90
 
+  # The API server does not provide this route. This prevents its image being
+  # considered healthy if it is accidentally deployed to the renderer app.
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "30s"
+    method = "GET"
+    path = "/api/health"
+
 [[vm]]
   memory = "512mb"
   cpu_kind = "shared"

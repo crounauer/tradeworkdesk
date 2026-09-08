@@ -422,14 +422,14 @@ async function timedSupabaseCheck(fn: () => Promise<unknown>): Promise<TimedChec
 }
 
 function resolveRendererHealthUrl(rawValue: string | undefined): string {
-  const fallback = "https://tradeworkdesk-renderer.fly.dev/api/health";
+  const fallback = "https://tradeworkdesk-renderer.fly.dev/health";
   const input = String(rawValue || "").trim();
   if (!input) return fallback;
 
   try {
     const url = new URL(input.startsWith("http") ? input : `https://${input}`);
     if (!url.pathname || url.pathname === "/") {
-      url.pathname = "/api/health";
+      url.pathname = "/health";
     }
     return url.toString();
   } catch {
