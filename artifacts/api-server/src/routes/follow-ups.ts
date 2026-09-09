@@ -357,7 +357,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     try {
       if (copyParts) {
         copyStage = "parts";
-        let partsQ = supabaseAdmin.from("job_parts").select("part_name, quantity").eq("job_id", followUp.original_job_id);
+        let partsQ = supabaseAdmin.from("job_parts").select("part_name, quantity, status").eq("job_id", followUp.original_job_id);
         if (tenantId) partsQ = partsQ.eq("tenant_id", tenantId);
         const { data: sourceParts, error: sourcePartsErr } = await partsQ;
         if (sourcePartsErr) throw sourcePartsErr;
@@ -369,7 +369,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
             tenant_id: tenantId,
             part_name: p.part_name,
             quantity: p.quantity,
-            status: "fitted",
+            status: p.status === "to_order" ? "to_order" : "fitted",
           })));
         }
 
