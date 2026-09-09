@@ -300,6 +300,9 @@ export default function JobDetail() {
     }
   };
   const jobRecord = (job ?? {}) as unknown as Record<string, unknown>;
+  const originalJobId = typeof jobRecord.description === "string"
+    ? jobRecord.description.match(/original job ID:\s*([0-9a-f]{8}-[0-9a-f-]{27})/i)?.[1] || null
+    : null;
   const { data: jobTypesData } = useQuery<Array<{ id: string; name: string; is_active: boolean }>>({
     queryKey: ["job-types"],
     queryFn: async () => {
@@ -1037,6 +1040,11 @@ export default function JobDetail() {
                 <div className="sm:col-span-2 pt-4 border-t border-border/50">
                   <p className="text-sm text-muted-foreground mb-1">Description</p>
                   <p className="text-foreground whitespace-pre-wrap">{job.description || 'No description provided.'}</p>
+                  {originalJobId && (
+                    <Link href={`/jobs/${originalJobId}`} className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+                      <ExternalLink className="h-3.5 w-3.5" /> View Original Job
+                    </Link>
+                  )}
                 </div>
               </div>
               <div className="mt-4 pt-4 border-t border-border/50 flex flex-wrap gap-2">
