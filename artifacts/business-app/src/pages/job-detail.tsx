@@ -709,6 +709,11 @@ export default function JobDetail() {
             {hasFollowUpScheduled && (
               <span className="inline-flex items-center rounded-md border border-teal-200 bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800">Follow-up Scheduled</span>
             )}
+            {hasFollowUpScheduled && followUpJobId && (
+              <Link href={`/jobs/${followUpJobId}`} className="inline-flex items-center gap-1 text-sm font-medium text-teal-700 hover:underline">
+                <ExternalLink className="h-3.5 w-3.5" /> View Follow-up Job
+              </Link>
+            )}
             {followUpNeedsParts && (
               <span className="inline-flex items-center rounded-md border border-orange-200 bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800">Waiting for Parts</span>
             )}
@@ -792,13 +797,6 @@ export default function JobDetail() {
             <Link href={`/follow-ups?open=${encodeURIComponent(followUpSummary.id)}`}>
               <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
                 <ClipboardList className="w-4 h-4 mr-2" /> Open Follow-Up
-              </Button>
-            </Link>
-          )}
-          {hasFollowUpScheduled && followUpJobId && (
-            <Link href={`/jobs/${followUpJobId}`}>
-              <Button size="sm" variant="outline" className="border-teal-300 text-teal-800 hover:bg-teal-50">
-                <ExternalLink className="w-4 h-4 mr-2" /> View Follow-up Job
               </Button>
             </Link>
           )}
