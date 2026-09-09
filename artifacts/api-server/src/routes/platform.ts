@@ -1976,7 +1976,7 @@ router.get("/me/init", requireAuth, async (req: AuthenticatedRequest, res): Prom
       supabaseAdmin
         .from("follow_ups")
         .select("id", { count: "exact", head: true })
-        .in("status", ["awaiting_parts", "parts_arrived", "booked"])
+        .in("status", ["awaiting_parts", "parts_arrived"])
         .eq("tenant_id", req.tenantId),
       supabaseAdmin
         .from("user_todos")
