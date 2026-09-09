@@ -293,6 +293,12 @@ export default function JobDetail() {
   );
 
   const customerEmail = (job?.customer as unknown as Record<string, unknown> | undefined)?.email as string || "";
+  const refreshEmailLogs = () => {
+    setEmailLogRefresh(k => k + 1);
+    if (job?.customer_id) {
+      void qc.invalidateQueries({ queryKey: ["customer-email-log", job.customer_id] });
+    }
+  };
   const jobRecord = (job ?? {}) as unknown as Record<string, unknown>;
   const { data: jobTypesData } = useQuery<Array<{ id: string; name: string; is_active: boolean }>>({
     queryKey: ["job-types"],
@@ -418,7 +424,7 @@ export default function JobDetail() {
       toast({ title: "Email sent", description: `Appointment confirmation sent to ${body.sent_to || confirmationEmail}` });
       setConfirmationOpen(false);
       setConfirmationMessage("");
-      setEmailLogRefresh(k => k + 1);
+      refreshEmailLogs();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to send email";
       toast({ title: "Email error", description: message, variant: "destructive" });
@@ -470,7 +476,7 @@ export default function JobDetail() {
     try {
       const res = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job!.id}/email-certificate`, { method: "POST" }) as { success: boolean; message: string; forms_sent: string[] };
       toast({ title: "Certificate sent", description: res.message || "Certificate emailed to customer." });
-      setEmailLogRefresh(k => k + 1);
+      refreshEmailLogs();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to send certificate";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -674,6 +680,9 @@ export default function JobDetail() {
             {isAllDayJob && (
               <span className="inline-flex items-center rounded-md border border-cyan-200 bg-cyan-100 px-2.5 py-1 text-xs font-semibold text-cyan-800">All Day</span>
             )}
+            {job.status === "completed" && (
+              <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">Completed</span>
+            )}
           </div>
           <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             <span>{displayScheduledSummary}</span>
@@ -861,7 +870,7 @@ export default function JobDetail() {
         <EditJobForm
           job={job as unknown as JobLike}
           onClose={() => setEditing(false)}
-          onEmailSent={() => setEmailLogRefresh(k => k + 1)}
+          onEmailSent={refreshEmailLogs}
           onFollowUpRequested={() => {
             setEditing(false);
             setShowFollowUpForm(true);
@@ -1650,7 +1659,7 @@ export default function JobDetail() {
           customerEmail={(job.customer as unknown as Record<string, unknown>)?.email as string || ""}
           customerName={`${job.customer?.first_name || ""} ${job.customer?.last_name || ""}`.trim()}
           onClose={() => setEmailModalOpen(false)}
-          onSent={() => setEmailLogRefresh(k => k + 1)}
+          onSent={refreshEmailLogs}
         />
       )}
     </div>

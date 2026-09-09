@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt, ChevronRight, LogIn, FileText, Navigation } from "lucide-react";
+import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt, ChevronRight, LogIn, FileText, Navigation, Camera } from "lucide-react";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -248,8 +248,8 @@ export default function CustomerDetail() {
       {editing ? (
         <EditCustomerForm customer={customer} onClose={() => setEditing(false)} />
       ) : (
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 space-y-6">
+        <div className="grid lg:grid-cols-3 gap-6 min-w-0">
+          <div className="lg:col-span-1 space-y-6 min-w-0">
             <Card className="p-6 border border-border/50 shadow-sm space-y-4">
               <h3 className="font-bold text-lg border-b border-border/50 pb-2">Contact Info</h3>
               {customer.phone && (
@@ -341,7 +341,7 @@ export default function CustomerDetail() {
             <PortalAccessSection customerId={customer.id} customerEmail={customer.email} />
           </div>
 
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6 min-w-0">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
               <h2 className="text-xl font-display font-bold">Properties</h2>
               <Button size="sm" className="w-full md:w-auto" variant="secondary" onClick={() => setShowPropertyForm(!showPropertyForm)}>
@@ -359,10 +359,10 @@ export default function CustomerDetail() {
                 <p className="text-muted-foreground">No properties linked to this customer.</p>
               </Card>
             ) : (
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid sm:grid-cols-2 gap-4 min-w-0">
                 {customer.properties?.map(prop => (
-                  <Link key={prop.id} href={`/properties/${prop.id}`}>
-                    <Card className="p-5 border border-border/50 hover:border-primary/50 transition-colors cursor-pointer">
+                  <Link key={prop.id} href={`/properties/${prop.id}`} className="block min-w-0">
+                    <Card className="p-5 border border-border/50 hover:border-primary/50 transition-colors cursor-pointer overflow-hidden">
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-slate-100 rounded-lg text-slate-600">
                           <Home className="w-5 h-5" />
@@ -590,12 +590,12 @@ function JobGroup({
         {title}
         <span className="font-normal">({jobs.length})</span>
       </h3>
-      <div className="space-y-2">
+      <div className="space-y-2 min-w-0">
         {jobs.map(job => (
-          <Link key={job.id} href={`/jobs/${job.id}`}>
-            <Card className={`p-4 transition-all cursor-pointer ${completed ? "border-emerald-200/80 bg-emerald-50/30 hover:border-emerald-300" : "border-blue-200/80 bg-blue-50/20 hover:border-blue-300"} hover:shadow-md`}>
+          <Link key={job.id} href={`/jobs/${job.id}`} className="block min-w-0">
+            <Card className={`p-4 transition-all cursor-pointer overflow-hidden ${completed ? "border-emerald-200/80 bg-emerald-50/30 hover:border-emerald-300" : "border-blue-200/80 bg-blue-50/20 hover:border-blue-300"} hover:shadow-md`}>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[job.status] || "bg-slate-100 text-slate-600"}`}>
                     {statusLabels[job.status] || job.status}
                   </span>
@@ -677,15 +677,15 @@ function CustomerInvoicesSection({ customerId, customerName, canCreate }: { cust
           </p>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 min-w-0">
           {docs.map((doc) => (
             <Card
               key={doc.id}
-              className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
+              className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer overflow-hidden"
               onClick={() => navigate(`/invoices/${doc.id}`)}
             >
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[doc.status] || "bg-slate-100 text-slate-600"}`}>
                     {statusLabels[doc.status] || doc.status}
                   </span>
@@ -773,12 +773,12 @@ function CustomerEnquiriesSection({ customerId, onNewEnquiry }: { customerId: st
           </Button>
         )}
       </div>
-      <div className="space-y-2">
+      <div className="space-y-2 min-w-0">
         {enquiries.map((enquiry) => (
-          <Link key={enquiry.id} href={`/enquiries/${enquiry.id}`}>
-            <Card className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
+          <Link key={enquiry.id} href={`/enquiries/${enquiry.id}`} className="block min-w-0">
+            <Card className="p-4 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer overflow-hidden">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[String(enquiry.status || "")] || "bg-slate-100 text-slate-600"}`}>
                     {String(enquiry.status || "new").replace(/_/g, " ")}
                   </span>
@@ -820,9 +820,28 @@ interface EmailLogEntry {
   sent_to: string;
   subject: string;
   forms_included: { form_type: string; form_label: string; form_id: string }[];
+  photos_included?: EmailLogAttachment[] | null;
   body_text?: string | null;
   sent_by_name: string | null;
   created_at: string;
+}
+
+interface EmailLogAttachment {
+  photo_id?: string;
+  file_name?: string;
+  file_type?: string | null;
+  signed_url?: string | null;
+  thumbnail_signed_url?: string | null;
+}
+
+function getEmailLogAttachmentName(attachment: EmailLogAttachment): string {
+  return attachment.file_name || "Attachment";
+}
+
+function isEmailLogImageAttachment(attachment: EmailLogAttachment): boolean {
+  const fileType = attachment.file_type || "";
+  const fileName = getEmailLogAttachmentName(attachment).toLowerCase();
+  return fileType.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|heic|heif)$/i.test(fileName);
 }
 
 function getCustomerEmailLogBodyText(log: EmailLogEntry): string {
@@ -839,6 +858,14 @@ function getCustomerEmailLogBodyText(log: EmailLogEntry): string {
     lines.push("", "Attachments:");
     for (const form of log.forms_included) {
       lines.push(`- ${form.form_label}`);
+    }
+  }
+
+  const loggedAttachments = log.photos_included || [];
+  if (loggedAttachments.length > 0) {
+    if (!log.forms_included?.length) lines.push("", "Attachments:");
+    for (const attachment of loggedAttachments) {
+      lines.push(`- ${getEmailLogAttachmentName(attachment)}`);
     }
   }
 
@@ -870,16 +897,24 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
         <Mail className="w-5 h-5" /> Email History
         <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{logs.length}</span>
       </h2>
-      <div className="space-y-2">
+      <div className="space-y-2 min-w-0">
         {logs.map(log => {
           const isOpen = openEntries.has(log.id);
           const emailBody = getCustomerEmailLogBodyText(log);
+          const loggedAttachments = log.photos_included || [];
+          const imageAttachments = loggedAttachments.filter(isEmailLogImageAttachment);
+          const fileAttachments = loggedAttachments.filter((attachment) => !isEmailLogImageAttachment(attachment));
+          const attachmentSummary = [
+            ...(log.forms_included?.length > 0 ? [log.forms_included.map(f => f.form_label).join(', ')] : []),
+            ...(imageAttachments.length > 0 ? [`${imageAttachments.length} image${imageAttachments.length !== 1 ? "s" : ""}`] : []),
+            ...(fileAttachments.length > 0 ? [`${fileAttachments.length} file${fileAttachments.length !== 1 ? "s" : ""}`] : []),
+          ];
           const enquiryAttachment = (log.forms_included || []).find(
             (entry) => entry.form_type === "enquiry_acknowledgement" || entry.form_type === "enquiry_not_proceeding",
           );
           const enquiryId = enquiryAttachment?.form_id || null;
           const card = (
-            <Card className={`p-4 border border-border/50 transition-all ${log.job_id ? "hover:border-primary/50 hover:shadow-md" : ""}`}>
+            <Card className={`p-4 border border-border/50 transition-all overflow-hidden ${log.job_id ? "hover:border-primary/50 hover:shadow-md" : ""}`}>
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -893,9 +928,9 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
                     {log.sent_by_name && (
                       <p className="text-xs text-muted-foreground">By: {log.sent_by_name}</p>
                     )}
-                    {log.forms_included?.length > 0 && (
+                    {attachmentSummary.length > 0 && (
                       <p className="text-xs text-muted-foreground">
-                        {log.forms_included.map(f => f.form_label).join(', ')}
+                        {attachmentSummary.join(', ')}
                       </p>
                     )}
                   </div>
@@ -940,6 +975,61 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
                   <pre className="mt-2 whitespace-pre-wrap text-xs text-foreground font-sans leading-relaxed">
                     {emailBody}
                   </pre>
+                  {(log.forms_included?.length > 0 || loggedAttachments.length > 0) && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">Attachments</p>
+                      {log.forms_included?.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {log.forms_included.map((form) => (
+                            <span key={`${log.id}-${form.form_type}-${form.form_id}`} className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                              <FileText className="w-3 h-3" /> {form.form_label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {imageAttachments.length > 0 && (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                          {imageAttachments.map((attachment, index) => {
+                            const previewUrl = attachment.thumbnail_signed_url || attachment.signed_url || "";
+                            const image = previewUrl ? (
+                              <img src={previewUrl} alt={getEmailLogAttachmentName(attachment)} className="w-full aspect-square object-cover" />
+                            ) : (
+                              <div className="w-full aspect-square bg-muted flex items-center justify-center">
+                                <Camera className="w-5 h-5 text-muted-foreground" />
+                              </div>
+                            );
+
+                            return attachment.signed_url ? (
+                              <a key={attachment.photo_id || `${log.id}-image-${index}`} href={attachment.signed_url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md border border-border/60" title={getEmailLogAttachmentName(attachment)}>
+                                {image}
+                              </a>
+                            ) : (
+                              <div key={attachment.photo_id || `${log.id}-image-${index}`} className="overflow-hidden rounded-md border border-border/60" title={getEmailLogAttachmentName(attachment)}>
+                                {image}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {fileAttachments.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {fileAttachments.map((attachment, index) => {
+                            const label = getEmailLogAttachmentName(attachment);
+                            const className = "inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full max-w-full";
+                            return attachment.signed_url ? (
+                              <a key={attachment.photo_id || `${log.id}-file-${index}`} href={attachment.signed_url} target="_blank" rel="noopener noreferrer" className={className}>
+                                <FileText className="w-3 h-3 shrink-0" /> <span className="truncate">{label}</span>
+                              </a>
+                            ) : (
+                              <span key={attachment.photo_id || `${log.id}-file-${index}`} className={className}>
+                                <FileText className="w-3 h-3 shrink-0" /> <span className="truncate">{label}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </Card>

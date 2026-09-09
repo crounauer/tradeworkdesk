@@ -1141,11 +1141,108 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     jobRefMap[j.id] = j.job_ref;
   }
 
+  type EmailLogAttachment = {
+    photo_id?: string;
+    file_name?: string;
+    file_type?: string | null;
+    signed_url?: string | null;
+    thumbnail_signed_url?: string | null;
+  };
+  type CustomerEmailLogResponseEntry = {
+    id: unknown;
+    job_id: unknown;
+    job_ref: unknown;
+    sent_to: unknown;
+    subject: unknown;
+    forms_included: unknown;
+    photos_included: unknown;
+    body_text: unknown;
+    sent_by_name: unknown;
+    created_at: unknown;
+  };
+
+  const getLoggedAttachmentIds = (emailLogs: Array<Record<string, unknown>>): string[] => {
+    const ids = new Set<string>();
+    for (const log of emailLogs) {
+      const attachments = Array.isArray(log.photos_included) ? log.photos_included as Array<Record<string, unknown>> : [];
+      for (const attachment of attachments) {
+        const id = String(attachment.photo_id || attachment.id || "").trim();
+        if (id) ids.add(id);
+      }
+    }
+    return Array.from(ids);
+  };
+
+  const buildLoggedAttachmentsById = async (emailLogs: Array<Record<string, unknown>>): Promise<Map<string, EmailLogAttachment[] | null>> => {
+    const attachmentIds = getLoggedAttachmentIds(emailLogs);
+    const fileRowsById = new Map<string, Record<string, unknown>>();
+
+    if (attachmentIds.length > 0) {
+      const { data: fileRows, error: fileRowsError } = await supabaseAdmin
+        .from("file_attachments")
+        .select("id, file_name, file_type, storage_path, thumbnail_storage_path")
+        .eq("tenant_id", req.tenantId!)
+        .in("id", attachmentIds);
+
+      if (fileRowsError) throw fileRowsError;
+      for (const fileRow of fileRows || []) {
+        fileRowsById.set(String((fileRow as Record<string, unknown>).id), fileRow as Record<string, unknown>);
+      }
+    }
+
+    const signedAttachmentById = new Map<string, EmailLogAttachment>();
+    await Promise.all(attachmentIds.map(async (attachmentId) => {
+      const fileRow = fileRowsById.get(attachmentId);
+      if (!fileRow) return;
+
+      const fileType = String(fileRow.file_type || "");
+      const bucket = fileType.startsWith("image/") ? "service-photos" : "service-documents";
+      const storagePath = String(fileRow.storage_path || "");
+      const thumbnailStoragePath = String(fileRow.thumbnail_storage_path || "");
+      const [{ data: signedUrlData }, { data: thumbnailUrlData }] = await Promise.all([
+        storagePath ? supabaseAdmin.storage.from(bucket).createSignedUrl(storagePath, 3600) : Promise.resolve({ data: null }),
+        fileType.startsWith("image/") && thumbnailStoragePath
+          ? supabaseAdmin.storage.from("service-photos").createSignedUrl(thumbnailStoragePath, 3600)
+          : Promise.resolve({ data: null }),
+      ]);
+
+      signedAttachmentById.set(attachmentId, {
+        photo_id: attachmentId,
+        file_name: String(fileRow.file_name || "Attachment"),
+        file_type: fileType || null,
+        signed_url: signedUrlData?.signedUrl || null,
+        thumbnail_signed_url: thumbnailUrlData?.signedUrl || null,
+      });
+    }));
+
+    const attachmentsByLogId = new Map<string, EmailLogAttachment[] | null>();
+    for (const log of emailLogs) {
+      const rawAttachments = Array.isArray(log.photos_included) ? log.photos_included as Array<Record<string, unknown>> : [];
+      if (rawAttachments.length === 0) {
+        attachmentsByLogId.set(String(log.id), null);
+        continue;
+      }
+
+      attachmentsByLogId.set(String(log.id), rawAttachments.map((attachment) => {
+        const attachmentId = String(attachment.photo_id || attachment.id || "").trim();
+        return signedAttachmentById.get(attachmentId) || {
+          photo_id: attachmentId || undefined,
+          file_name: String(attachment.file_name || attachment.name || "Attachment"),
+          file_type: null,
+          signed_url: null,
+          thumbnail_signed_url: null,
+        };
+      }));
+    }
+
+    return attachmentsByLogId;
+  };
+
   // Step 2: email logs for those jobs
   const { data: logs, error } = jobIds.length > 0
     ? await supabaseAdmin
         .from("job_email_logs")
-        .select("id, job_id, sent_to, subject, forms_included, body_text, created_at, profiles!sent_by(full_name)")
+        .select("id, job_id, sent_to, subject, forms_included, photos_included, body_text, created_at, profiles!sent_by(full_name)")
         .in("job_id", jobIds)
         .eq("tenant_id", req.tenantId!)
         .order("created_at", { ascending: false })
@@ -1154,28 +1251,38 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const mappedJobEmails = (logs || []).map((log: Record<string, unknown>) => ({
+  let mappedJobEmails: CustomerEmailLogResponseEntry[] = [];
+
+  // Step 2b: invoice/quote emails can exist with no job_id; include them by matching
+  // the logged form_id against invoices/quotes owned by this customer.
+  const { data: docLogs, error: docLogsError } = await supabaseAdmin
+    .from("job_email_logs")
+    .select("id, job_id, sent_to, subject, forms_included, photos_included, body_text, created_at, profiles!sent_by(full_name)")
+    .eq("tenant_id", req.tenantId!)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (docLogsError) { res.status(500).json({ error: docLogsError.message }); return; }
+
+  let attachmentsByLogId: Map<string, EmailLogAttachment[] | null>;
+  try {
+    attachmentsByLogId = await buildLoggedAttachmentsById([...(logs || []) as Array<Record<string, unknown>>, ...(docLogs || []) as Array<Record<string, unknown>>]);
+  } catch (attachmentError) {
+    res.status(500).json({ error: attachmentError instanceof Error ? attachmentError.message : "Failed to load email attachments" }); return;
+  }
+
+  mappedJobEmails = (logs || []).map((log: Record<string, unknown>) => ({
     id: log.id,
     job_id: log.job_id,
     job_ref: jobRefMap[log.job_id as string] ?? null,
     sent_to: log.sent_to,
     subject: log.subject,
     forms_included: log.forms_included,
+    photos_included: attachmentsByLogId.get(String(log.id)) ?? null,
     body_text: log.body_text,
     sent_by_name: (log.profiles as Record<string, unknown> | null)?.full_name ?? null,
     created_at: log.created_at,
   }));
-
-  // Step 2b: invoice/quote emails can exist with no job_id; include them by matching
-  // the logged form_id against invoices/quotes owned by this customer.
-  const { data: docLogs, error: docLogsError } = await supabaseAdmin
-    .from("job_email_logs")
-    .select("id, job_id, sent_to, subject, forms_included, body_text, created_at, profiles!sent_by(full_name)")
-    .eq("tenant_id", req.tenantId!)
-    .order("created_at", { ascending: false })
-    .limit(500);
-
-  if (docLogsError) { res.status(500).json({ error: docLogsError.message }); return; }
 
   const mappedDocEmails = (docLogs || [])
     .filter((log: Record<string, unknown>) => {
@@ -1193,6 +1300,7 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
       sent_to: log.sent_to,
       subject: log.subject,
       forms_included: log.forms_included,
+      photos_included: attachmentsByLogId.get(String(log.id)) ?? null,
       body_text: log.body_text,
       sent_by_name: (log.profiles as Record<string, unknown> | null)?.full_name ?? null,
       created_at: log.created_at,
@@ -1224,23 +1332,14 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
         sent_to: customerEmail || "",
         subject: `${docType} ${docNumber}`,
         forms_included: [{ form_type: String(doc.type || "invoice"), form_label: `${docType} ${docNumber}`, form_id: String(doc.id) }],
+        photos_included: null,
         body_text: null,
         sent_by_name: null,
         created_at: String(doc.sent_at),
       };
     });
 
-  const emailById = new Map<string, {
-    id: unknown;
-    job_id: unknown;
-    job_ref: unknown;
-    sent_to: unknown;
-    subject: unknown;
-    forms_included: unknown;
-    body_text: unknown;
-    sent_by_name: unknown;
-    created_at: unknown;
-  }>();
+  const emailById = new Map<string, CustomerEmailLogResponseEntry>();
   for (const entry of [...mappedJobEmails, ...mappedDocEmails, ...mappedDocFallbackEmails]) {
     emailById.set(String(entry.id), entry);
   }
@@ -1289,6 +1388,7 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     sent_to: request.customer_email,
     subject: "Review request email",
     forms_included: [],
+    photos_included: null,
     body_text: null,
     sent_by_name: null,
     created_at: request.sent_at || request.created_at,
@@ -1301,6 +1401,7 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
     sent_to: string;
     subject: string;
     forms_included: Array<{ form_type: string; form_label: string; form_id: string }>;
+    photos_included: null;
     body_text: string | null;
     sent_by_name: null;
     created_at: string;
@@ -1337,6 +1438,7 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
           form_label: isInvoiceReceipt ? "Payment Receipt" : isNotProceeding ? "Enquiry Not Proceeding" : "Enquiry Acknowledgement",
           form_id: emailId,
         }],
+        photos_included: null,
         body_text: null,
         sent_by_name: null,
         created_at: String(row.created_at),
