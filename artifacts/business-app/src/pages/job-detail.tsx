@@ -786,7 +786,7 @@ export default function JobDetail() {
               <CalendarPlus className="w-4 h-4 mr-2" /> Needs Another Visit
             </Button>
           )}
-          {(job.status === "completed" || job.status === "awaiting_parts" || job.status === "requires_follow_up" || job.status === "follow_up_scheduled" || (job.status === "cancelled" && isOfficeOrAdmin)) && !hasFollowUpLabel && (
+          {(job.status === "awaiting_parts" || job.status === "requires_follow_up" || job.status === "follow_up_scheduled" || (job.status === "cancelled" && isOfficeOrAdmin)) && !hasFollowUpLabel && (
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowReturnVisit(!showReturnVisit)} disabled={updateJob.isPending}>
               <CalendarPlus className="w-4 h-4 mr-2" /> {job.status === "cancelled" ? "Reschedule Job" : "Schedule Return Visit"}
             </Button>
@@ -861,11 +861,6 @@ export default function JobDetail() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          )}
-          {canCreateFollowUp && !hasFollowUpLabel && !showFollowUpForm && (
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setShowFollowUpForm(true)}>
-              <ClipboardList className="w-4 h-4 mr-2" /> Create Follow-Up
-            </Button>
           )}
           {completedForms && completedForms.length > 0 && (
             <Button variant="outline" size="sm" onClick={handleEmailCertificate} disabled={sendingCertificate || !isOnline}>
