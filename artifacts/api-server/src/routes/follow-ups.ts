@@ -370,7 +370,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
             serial_number: p.serial_number,
             unit_price: p.unit_price,
             catalogue_item_id: p.catalogue_item_id,
-            status: p.status || "fitted",
+            status: p.status === "to_order" ? "to_order" : "fitted",
           })));
         }
 
@@ -444,6 +444,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     } catch (copyErr) {
       await supabaseAdmin.from("jobs").delete().eq("id", newJob.id);
       const msg = copyErr instanceof Error ? copyErr.message : "Failed to carry forward job data";
+      console.error(`[follow-ups] Failed to carry forward data for follow-up ${id}:`, msg);
       res.status(500).json({ error: msg });
       return;
     }

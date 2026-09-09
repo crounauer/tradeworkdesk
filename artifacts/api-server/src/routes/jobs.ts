@@ -1876,7 +1876,7 @@ router.get("/jobs/:id/schedule-history", requireAuth, requireTenant, requirePlan
   }
   let q = supabaseAdmin
     .from("job_schedule_history")
-    .select("id, job_id, previous_date, previous_time, new_date, new_time, reason, created_at, changed_by, profiles:changed_by(full_name)")
+    .select("id, job_id, previous_date, previous_time, new_date, new_time, reason, created_at, changed_by")
     .eq("job_id", jobId);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   q = q.order("created_at", { ascending: false });
@@ -1891,7 +1891,7 @@ router.get("/jobs/:id/schedule-history", requireAuth, requireTenant, requirePlan
     new_time: e.new_time,
     reason: e.reason,
     created_at: e.created_at,
-    changed_by_name: (e.profiles as { full_name: string } | null)?.full_name || "Unknown",
+    changed_by_name: "Unknown",
   }));
   res.json(entries);
 });
