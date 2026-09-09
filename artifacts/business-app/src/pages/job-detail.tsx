@@ -594,6 +594,7 @@ export default function JobDetail() {
       await qc.invalidateQueries({ queryKey: ["job-follow-up-summary", job?.id ?? id ?? ""] });
       await qc.invalidateQueries({ queryKey: ["follow-ups"] });
       toast({ title: "Parts marked as arrived", description: "The follow-up can now be booked." });
+      navigate(`/follow-ups?open=${encodeURIComponent(followUpSummary.id)}`);
     } catch (error) {
       toast({ title: "Unable to update parts status", description: error instanceof Error ? error.message : "Failed to update follow-up", variant: "destructive" });
     }
@@ -760,7 +761,7 @@ export default function JobDetail() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {canComplete && (
+          {canComplete && !hasFollowUpLabel && (
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleStatusChange("completed", "Complete")} disabled={updateJob.isPending}>
               <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
             </Button>
