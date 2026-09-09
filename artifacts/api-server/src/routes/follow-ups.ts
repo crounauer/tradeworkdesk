@@ -353,8 +353,10 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
   if (jobErr) { res.status(500).json({ error: jobErr.message }); return; }
 
   if (copyParts || copyServices || copyTimeEntries) {
+    let copyStage = "starting";
     try {
       if (copyParts) {
+        copyStage = "parts";
         let partsQ = supabaseAdmin.from("job_parts").select("part_name, quantity, serial_number, unit_price, catalogue_item_id, status").eq("job_id", followUp.original_job_id);
         if (tenantId) partsQ = partsQ.eq("tenant_id", tenantId);
         const { data: sourceParts, error: sourcePartsErr } = await partsQ;
@@ -401,6 +403,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
       }
 
       if (copyServices) {
+        copyStage = "services";
         let servicesQ = supabaseAdmin.from("job_services").select("service_name, quantity, unit_price, catalogue_item_id").eq("job_id", followUp.original_job_id);
         if (tenantId) servicesQ = servicesQ.eq("tenant_id", tenantId);
         const { data: sourceServices, error: sourceServicesErr } = await servicesQ;
@@ -421,6 +424,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
       }
 
       if (copyTimeEntries) {
+        copyStage = "time entries";
         let timeQ = supabaseAdmin.from("job_time_entries").select("arrival_time, departure_time, notes, hourly_rate, callout_fee, created_by").eq("job_id", followUp.original_job_id);
         if (tenantId) timeQ = timeQ.eq("tenant_id", tenantId);
         const { data: sourceEntries, error: sourceEntriesErr } = await timeQ;
@@ -443,9 +447,13 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
       }
     } catch (copyErr) {
       await supabaseAdmin.from("jobs").delete().eq("id", newJob.id);
-      const msg = copyErr instanceof Error ? copyErr.message : "Failed to carry forward job data";
-      console.error(`[follow-ups] Failed to carry forward data for follow-up ${id}:`, msg);
-      res.status(500).json({ error: msg });
+      const dbError = copyErr as { message?: string; details?: string; hint?: string; code?: string };
+      const msg = [dbError.code ? `[${dbError.code}]` : null, dbError.message, dbError.details, dbError.hint]
+        .filter(Boolean)
+        .join(" ") || (copyErr instanceof Error ? copyErr.message : String(copyErr));
+      const errorMessage = `Failed to carry forward ${copyStage}: ${msg}`;
+      console.error(`[follow-ups] ${errorMessage} (follow-up ${id})`);
+      res.status(500).json({ error: errorMessage });
       return;
     }
   }
