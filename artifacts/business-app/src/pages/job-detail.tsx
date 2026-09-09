@@ -862,7 +862,7 @@ export default function JobDetail() {
               </AlertDialogContent>
             </AlertDialog>
           )}
-          {canCreateFollowUp && !hasFollowUpLabel && (
+          {canCreateFollowUp && !hasFollowUpLabel && !showFollowUpForm && (
             <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setShowFollowUpForm(true)}>
               <ClipboardList className="w-4 h-4 mr-2" /> Create Follow-Up
             </Button>
