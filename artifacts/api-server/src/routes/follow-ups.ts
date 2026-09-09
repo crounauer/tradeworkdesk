@@ -389,6 +389,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
               tenant_id: tenantId,
               part_name: part.part_name,
               quantity: part.quantity,
+              status: "fitted",
             });
           }
         }
