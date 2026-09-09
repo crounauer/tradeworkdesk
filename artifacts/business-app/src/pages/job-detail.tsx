@@ -564,6 +564,7 @@ export default function JobDetail() {
     count?: number;
     id?: string | null;
     status?: string | null;
+    new_job_id?: string | null;
     parts_required?: boolean;
   }>({
     queryKey: ["job-follow-up-summary", job?.id ?? id ?? ""],
@@ -574,6 +575,7 @@ export default function JobDetail() {
         count?: number;
         id?: string | null;
         status?: string | null;
+        new_job_id?: string | null;
         parts_required?: boolean;
       };
       return response;
@@ -582,6 +584,7 @@ export default function JobDetail() {
   });
   const hasFollowUpLabel = Boolean(followUpSummary?.has_follow_up) || Number(followUpSummary?.count || 0) > 0;
   const hasFollowUpScheduled = followUpSummary?.status === "booked";
+  const followUpJobId = followUpSummary?.new_job_id;
   const followUpNeedsParts = followUpSummary?.status === "awaiting_parts" && followUpSummary.parts_required;
   const followUpWaitingToBeScheduled = followUpSummary?.status === "parts_arrived";
   const followUpCanBeBooked = hasFollowUpLabel && !followUpNeedsParts && followUpSummary?.status !== "booked";
@@ -792,7 +795,14 @@ export default function JobDetail() {
               </Button>
             </Link>
           )}
-          {job.status === "completed" && (
+          {hasFollowUpScheduled && followUpJobId && (
+            <Link href={`/jobs/${followUpJobId}`}>
+              <Button size="sm" variant="outline" className="border-teal-300 text-teal-800 hover:bg-teal-50">
+                <ExternalLink className="w-4 h-4 mr-2" /> View Follow-up Job
+              </Button>
+            </Link>
+          )}
+          {job.status === "completed" && !hasFollowUpLabel && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white" disabled={updateJob.isPending}>
@@ -819,7 +829,7 @@ export default function JobDetail() {
               </AlertDialogContent>
             </AlertDialog>
           )}
-          {canInvoice && isAdmin && (
+          {canInvoice && isAdmin && !hasFollowUpLabel && (
             <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white" onClick={() => handleStatusChange("invoiced", "Invoiced")} disabled={updateJob.isPending}>
               <FileText className="w-4 h-4 mr-2" /> Mark as Invoiced
             </Button>

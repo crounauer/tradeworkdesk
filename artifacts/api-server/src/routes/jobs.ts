@@ -1423,7 +1423,7 @@ router.get("/jobs/:id/follow-ups/count", requireAuth, requireTenant, requirePlan
 
   let q = supabaseAdmin
     .from("follow_ups")
-    .select("id, status, parts_description, created_at", { count: "exact" })
+    .select("id, status, parts_description, new_job_id, created_at", { count: "exact" })
     .eq("original_job_id", params.data.id)
     .order("created_at", { ascending: false });
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
@@ -1431,12 +1431,13 @@ router.get("/jobs/:id/follow-ups/count", requireAuth, requireTenant, requirePlan
   const { data: followUps, count, error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const latestFollowUp = (followUps?.[0] as { id?: string; status?: string | null; parts_description?: string | null } | undefined) ?? null;
+  const latestFollowUp = (followUps?.[0] as { id?: string; status?: string | null; parts_description?: string | null; new_job_id?: string | null } | undefined) ?? null;
   res.json({
     count: count ?? 0,
     has_follow_up: (count ?? 0) > 0,
     id: latestFollowUp?.id ?? null,
     status: latestFollowUp?.status ?? null,
+    new_job_id: latestFollowUp?.new_job_id ?? null,
     parts_required: Boolean(latestFollowUp?.parts_description?.trim()),
   });
 });
@@ -1510,6 +1511,25 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     const isAdmin = req.userRole === "admin" || req.userRole === "super_admin";
     if (!isAdmin) {
       res.status(403).json({ error: "Only admins can undo invoiced status" });
+      return;
+    }
+  }
+
+  if (body.data.status === "invoiced") {
+    let followUpQ = supabaseAdmin
+      .from("follow_ups")
+      .select("id")
+      .eq("original_job_id", params.data.id)
+      .in("status", ["awaiting_parts", "parts_arrived", "booked"])
+      .limit(1);
+    if (req.tenantId) followUpQ = followUpQ.eq("tenant_id", req.tenantId);
+    const { data: bookedFollowUp, error: bookedFollowUpErr } = await followUpQ.maybeSingle();
+    if (bookedFollowUpErr) {
+      res.status(500).json({ error: bookedFollowUpErr.message });
+      return;
+    }
+    if (bookedFollowUp) {
+      res.status(409).json({ error: "This job has a booked follow-up. Invoice the follow-up job instead." });
       return;
     }
   }
