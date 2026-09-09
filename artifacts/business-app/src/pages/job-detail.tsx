@@ -457,9 +457,9 @@ export default function JobDetail() {
     }
   };
 
-  // Records the unfinished visit, then offers to raise the follow-up in one go.
+  // Complete the visit, then record the required return work separately.
   const handleVisitOutcome = async () => {
-    const ok = await handleStatusChange("requires_follow_up", "Requires Follow-up");
+    const ok = await handleStatusChange("completed", "Complete");
     if (!ok) return;
     if (isOfficeOrAdmin && !hasFollowUpLabel) {
       setFollowUpPartsDefault(false);
@@ -559,12 +559,13 @@ export default function JobDetail() {
     queryKey: ["job-follow-up-summary", job?.id ?? id ?? ""],
     enabled: !!job?.id,
     queryFn: async () => {
-      const response = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job!.id}/follow-ups/count`) as { has_follow_up?: boolean; count?: number };
+      const response = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job!.id}/follow-ups/count`) as { has_follow_up?: boolean; count?: number; status?: string | null };
       return response;
     },
     staleTime: 60_000,
   });
   const hasFollowUpLabel = Boolean(followUpSummary?.has_follow_up) || Number(followUpSummary?.count || 0) > 0;
+  const hasFollowUpScheduled = followUpSummary?.status === "booked";
 
   if (isLoading || loadingCache) return <div className="p-8">Loading job details...</div>;
 
@@ -665,6 +666,9 @@ export default function JobDetail() {
             {hasFollowUpLabel && (
               <span className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">Follow-Up</span>
             )}
+            {hasFollowUpScheduled && (
+              <span className="inline-flex items-center rounded-md border border-teal-200 bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800">Follow-up Scheduled</span>
+            )}
             {isOperationalInProgress && (
               <span className="inline-flex items-center rounded-md border border-blue-200 bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">In Progress</span>
             )}
@@ -674,7 +678,7 @@ export default function JobDetail() {
             {job.status === "requires_follow_up" && (
               <span className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">Return Visit Required</span>
             )}
-            {job.status === "follow_up_scheduled" && (
+            {job.status === "follow_up_scheduled" && !hasFollowUpScheduled && (
               <span className="inline-flex items-center rounded-md border border-teal-200 bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800">Return Visit Scheduled</span>
             )}
             {isAllDayJob && (

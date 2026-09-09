@@ -93,6 +93,8 @@ export default function FollowUps() {
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FollowUp | null>(null);
+  const [reopenedJobId, setReopenedJobId] = useState<string | null>(null);
   const { toast } = useToast();
   const { profile } = useAuth();
   const qc = useQueryClient();
@@ -174,12 +176,14 @@ export default function FollowUps() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (result: { original_job_id?: string }) => {
       qc.invalidateQueries({ queryKey: ["follow-ups"] });
       qc.invalidateQueries({ queryKey: ["homepage"] });
       qc.invalidateQueries({ queryKey: ["me-init"] });
       qc.invalidateQueries({ queryKey: ["job-follow-up-summary"] });
-      toast({ title: "Follow-up deleted" });
+      setDeleteTarget(null);
+      if (result.original_job_id) setReopenedJobId(result.original_job_id);
+      toast({ title: "Follow-up deleted", description: "The original job has been reopened." });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -240,12 +244,7 @@ export default function FollowUps() {
               onEdit={() => setEditingId(fu.id)}
               onBookJob={() => setBookingId(fu.id)}
               onStatusChange={(updates) => updateMutation.mutate({ id: fu.id, ...updates })}
-              onDelete={() => {
-                const displayRef = fu.original_job_ref || `Job #${fu.original_job_id.slice(0, 8)}`;
-                const confirmed = window.confirm(`Delete follow-up for ${displayRef}? This cannot be undone.`);
-                if (!confirmed) return;
-                deleteMutation.mutate({ id: fu.id });
-              }}
+              onDelete={() => setDeleteTarget(fu)}
               updating={updateMutation.isPending || deleteMutation.isPending}
             />
           ))}
@@ -297,6 +296,53 @@ export default function FollowUps() {
           }}
         />
       )}
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !deleteMutation.isPending) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle>Delete follow-up?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Deleting this follow-up will reopen the original job so it can be scheduled again.
+              {deleteTarget?.new_job_id ? " The booked follow-up job will remain available in your job history." : ""}
+            </p>
+            <p className="text-sm font-medium">
+              Original job: {deleteTarget?.original_job_ref || `Job #${deleteTarget?.original_job_id.slice(0, 8)}`}
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>Keep Follow-up</Button>
+              <Button variant="destructive" onClick={() => {
+                if (!deleteTarget) return;
+                deleteMutation.mutate({ id: deleteTarget.id });
+              }} disabled={deleteMutation.isPending}>
+                {deleteMutation.isPending ? "Deleting..." : "Delete Follow-up"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!reopenedJobId} onOpenChange={(open) => { if (!open) setReopenedJobId(null); }}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle>Original job reopened</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">The follow-up was deleted and the original job is ready to be scheduled again.</p>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setReopenedJobId(null)}>Close</Button>
+              <Button onClick={() => {
+                const jobId = reopenedJobId;
+                setReopenedJobId(null);
+                navigate(`/jobs/${jobId}`);
+              }}>
+                Open Original Job
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -432,18 +478,16 @@ function FollowUpCard({
         )}
         {isAdmin && effectiveStatus === "booked" && (
           <div className="flex gap-2 flex-wrap sm:flex-nowrap shrink-0">
-            <Button size="sm" variant="secondary" className="gap-1.5" disabled>
-              <Briefcase className="w-4 h-4" /> Booked
-            </Button>
             {fu.new_job_id && (
               <Link href={`/jobs/${fu.new_job_id}`}>
-                <Button size="sm" variant="outline" className="gap-1.5">
-                  <ArrowRight className="w-4 h-4" /> View Booked Job
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
+                  <Briefcase className="w-4 h-4" /> Book Job
                 </Button>
               </Link>
             )}
-            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white gap-1.5" onClick={() => onStatusChange({ status: "completed" })} disabled={updating}>
-              <CheckCheck className="w-4 h-4" /> Mark Complete
+            <Button size="sm" variant="outline" onClick={onEdit} disabled={updating}>Edit</Button>
+            <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={onDelete} disabled={updating}>
+              <Trash2 className="w-4 h-4 mr-1" /> Delete
             </Button>
           </div>
         )}

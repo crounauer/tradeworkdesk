@@ -461,14 +461,6 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     res.status(500).json({ error: "Failed to link follow-up to new job" }); return;
   }
 
-  // Close out the original job now that its follow-up work has an actual booked visit.
-  let closeOriginalQ = supabaseAdmin.from("jobs").update({ status: "follow_up_scheduled" }).eq("id", followUp.original_job_id);
-  if (req.tenantId) closeOriginalQ = closeOriginalQ.eq("tenant_id", req.tenantId);
-  const { error: closeOriginalErr } = await closeOriginalQ;
-  if (closeOriginalErr) {
-    console.error("[follow-ups] failed to close original job after booking follow-up:", closeOriginalErr.message);
-  }
-
   if (assigned_technician_id) {
     void notifyUsersForEvent({
       tenantId,
@@ -515,11 +507,6 @@ router.delete("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin"
     return;
   }
 
-  if (existingFollowUp.status === "booked" && existingFollowUp.new_job_id) {
-    res.status(400).json({ error: "Delete the booked follow-up job to reset this follow-up." });
-    return;
-  }
-
   let q = supabaseAdmin.from("follow_ups").delete().eq("id", id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
 
@@ -529,15 +516,14 @@ router.delete("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin"
   let restoreJobQ = supabaseAdmin
     .from("jobs")
     .update({ status: "scheduled", updated_at: new Date().toISOString() })
-    .eq("id", existingFollowUp.original_job_id)
-    .eq("status", "requires_follow_up");
+    .eq("id", existingFollowUp.original_job_id);
   if (req.tenantId) restoreJobQ = restoreJobQ.eq("tenant_id", req.tenantId);
 
   const { error: restoreJobErr } = await restoreJobQ;
   if (restoreJobErr) { res.status(500).json({ error: restoreJobErr.message }); return; }
 
   invalidateHomepageCache(req.tenantId);
-  res.json({ success: true });
+  res.json({ success: true, original_job_id: existingFollowUp.original_job_id });
 });
 
 export default router;

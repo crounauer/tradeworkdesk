@@ -1423,14 +1423,16 @@ router.get("/jobs/:id/follow-ups/count", requireAuth, requireTenant, requirePlan
 
   let q = supabaseAdmin
     .from("follow_ups")
-    .select("id", { count: "exact", head: true })
-    .eq("original_job_id", params.data.id);
+    .select("id, status, created_at", { count: "exact" })
+    .eq("original_job_id", params.data.id)
+    .order("created_at", { ascending: false });
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
 
-  const { count, error } = await q;
+  const { data: followUps, count, error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  res.json({ count: count ?? 0, has_follow_up: (count ?? 0) > 0 });
+  const latestFollowUp = (followUps?.[0] as { status?: string | null } | undefined) ?? null;
+  res.json({ count: count ?? 0, has_follow_up: (count ?? 0) > 0, status: latestFollowUp?.status ?? null });
 });
 
 router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
