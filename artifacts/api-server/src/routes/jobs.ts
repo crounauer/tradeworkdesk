@@ -27,7 +27,7 @@ import {
   type InvoiceData,
   type InvoiceLineItem,
 } from "../lib/invoice-export";
-import { sendJobFormsEmail, sendJobConfirmationEmail, type EmailAttachment, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
+import { sendJobFormsEmail, sendJobConfirmationEmail, sendSimpleNotification, type EmailAttachment, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
 import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 import { invalidateCalendarCache } from "./calendar";
 import { invalidateHomepageCache } from "./homepage";
@@ -468,8 +468,56 @@ router.get("/jobs/confirmation/respond", async (req, res): Promise<void> => {
   }
 
   const jobRef = (responseRow as { jobs?: { job_ref?: string | null } | null }).jobs?.job_ref || jobId.slice(0, 8).toUpperCase();
+  const tenantId = (responseRow as { tenant_id: string }).tenant_id;
+  if (nextStatus === "confirmed") {
+    const [{ data: companySettings }, { data: adminProfiles }] = await Promise.all([
+      supabaseAdmin
+        .from("company_settings")
+        .select("name, trading_name, email, email_reply_to, email_from_name, notification_emails")
+        .eq("tenant_id", tenantId)
+        .eq("singleton_id", "default")
+        .maybeSingle(),
+      supabaseAdmin
+        .from("profiles")
+        .select("email, role, is_active")
+        .eq("tenant_id", tenantId)
+        .in("role", ["admin", "office_staff"]),
+    ]);
+    const settings = companySettings as Record<string, unknown> | null;
+    const configuredRecipients = Array.isArray(settings?.notification_emails)
+      ? settings.notification_emails.filter((email): email is string => typeof email === "string")
+      : [];
+    const profileRecipients = (adminProfiles ?? [])
+      .filter((profile) => profile.is_active !== false && typeof profile.email === "string")
+      .map((profile) => profile.email as string);
+    const adminRecipients = Array.from(new Set([...configuredRecipients, ...profileRecipients].map((email) => email.trim().toLowerCase()).filter(Boolean)));
+    const companyName = String(settings?.name || settings?.trading_name || tenantName || "Your Service Provider");
+    const notificationBody = [
+      `Customer confirmed appointment ${jobRef}.`,
+      "",
+      `Confirmed at: ${new Date(nowIso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`,
+      "",
+      `View appointment: ${(process.env.APP_URL || "https://www.tradeworkdesk.co.uk").replace(/\/+$/, "")}/jobs/${jobId}`,
+    ].join("\n");
+    await Promise.allSettled(adminRecipients.map((recipient) => sendSimpleNotification(
+      recipient,
+      `${companyName} — Appointment confirmed (${jobRef})`,
+      notificationBody,
+      {
+        tenantId,
+        emailType: "job_confirmation_response",
+        companyDetails: {
+          name: (settings?.name as string | null) || null,
+          trading_name: (settings?.trading_name as string | null) || null,
+          email: (settings?.email as string | null) || null,
+          email_reply_to: (settings?.email_reply_to as string | null) || null,
+          email_from_name: (settings?.email_from_name as string | null) || null,
+        },
+      },
+    ).catch((err) => console.error(`[jobs] confirmation email notification failed for ${recipient}:`, err))));
+  }
   void notifyUsersForEvent({
-    tenantId: (responseRow as { tenant_id: string }).tenant_id,
+    tenantId,
     eventType: "customer_communications",
     title: nextStatus === "confirmed" ? "Customer confirmed appointment" : "Customer requested appointment change",
     body: nextStatus === "confirmed"
