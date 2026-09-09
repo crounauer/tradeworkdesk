@@ -555,17 +555,49 @@ export default function JobDetail() {
   });
   const hasRebookBeenUsed = hasYearRebookScheduled || hasRebookBeenUsedLocal;
 
-  const { data: followUpSummary } = useQuery({
+  const { data: followUpSummary } = useQuery<{
+    has_follow_up?: boolean;
+    count?: number;
+    id?: string | null;
+    status?: string | null;
+    parts_required?: boolean;
+  }>({
     queryKey: ["job-follow-up-summary", job?.id ?? id ?? ""],
     enabled: !!job?.id,
     queryFn: async () => {
-      const response = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job!.id}/follow-ups/count`) as { has_follow_up?: boolean; count?: number; status?: string | null };
+      const response = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job!.id}/follow-ups/count`) as {
+        has_follow_up?: boolean;
+        count?: number;
+        id?: string | null;
+        status?: string | null;
+        parts_required?: boolean;
+      };
       return response;
     },
     staleTime: 60_000,
   });
   const hasFollowUpLabel = Boolean(followUpSummary?.has_follow_up) || Number(followUpSummary?.count || 0) > 0;
   const hasFollowUpScheduled = followUpSummary?.status === "booked";
+  const followUpNeedsParts = followUpSummary?.status === "awaiting_parts" && followUpSummary.parts_required;
+  const followUpWaitingToBeScheduled = followUpSummary?.status === "parts_arrived";
+  const followUpCanBeBooked = hasFollowUpLabel && !followUpNeedsParts && followUpSummary?.status !== "booked";
+
+  const handlePartsArrived = async () => {
+    if (!followUpSummary?.id) return;
+    try {
+      const response = await customFetch(`${import.meta.env.BASE_URL}api/follow-ups/${followUpSummary.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "parts_arrived" }),
+      });
+      if (!response) throw new Error("Failed to update follow-up");
+      await qc.invalidateQueries({ queryKey: ["job-follow-up-summary", job?.id ?? id ?? ""] });
+      await qc.invalidateQueries({ queryKey: ["follow-ups"] });
+      toast({ title: "Parts marked as arrived", description: "The follow-up can now be booked." });
+    } catch (error) {
+      toast({ title: "Unable to update parts status", description: error instanceof Error ? error.message : "Failed to update follow-up", variant: "destructive" });
+    }
+  };
 
   if (isLoading || loadingCache) return <div className="p-8">Loading job details...</div>;
 
@@ -669,6 +701,12 @@ export default function JobDetail() {
             {hasFollowUpScheduled && (
               <span className="inline-flex items-center rounded-md border border-teal-200 bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800">Follow-up Scheduled</span>
             )}
+            {followUpNeedsParts && (
+              <span className="inline-flex items-center rounded-md border border-orange-200 bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800">Waiting for Parts</span>
+            )}
+            {followUpWaitingToBeScheduled && (
+              <span className="inline-flex items-center rounded-md border border-blue-200 bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">Follow-up Ready to Schedule</span>
+            )}
             {isOperationalInProgress && (
               <span className="inline-flex items-center rounded-md border border-blue-200 bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">In Progress</span>
             )}
@@ -732,10 +770,22 @@ export default function JobDetail() {
               <CalendarPlus className="w-4 h-4 mr-2" /> Needs Another Visit
             </Button>
           )}
-          {(job.status === "completed" || job.status === "awaiting_parts" || job.status === "requires_follow_up" || job.status === "follow_up_scheduled" || (job.status === "cancelled" && isOfficeOrAdmin)) && (
+          {(job.status === "completed" || job.status === "awaiting_parts" || job.status === "requires_follow_up" || job.status === "follow_up_scheduled" || (job.status === "cancelled" && isOfficeOrAdmin)) && !hasFollowUpLabel && (
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowReturnVisit(!showReturnVisit)} disabled={updateJob.isPending}>
               <CalendarPlus className="w-4 h-4 mr-2" /> {job.status === "cancelled" ? "Reschedule Job" : "Schedule Return Visit"}
             </Button>
+          )}
+          {followUpNeedsParts && isOfficeOrAdmin && (
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handlePartsArrived}>
+              <CheckCircle2 className="w-4 h-4 mr-2" /> Parts Arrived
+            </Button>
+          )}
+          {followUpCanBeBooked && followUpSummary?.id && isOfficeOrAdmin && (
+            <Link href={`/follow-ups?open=${encodeURIComponent(followUpSummary.id)}`}>
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+                <ClipboardList className="w-4 h-4 mr-2" /> Open Follow-Up
+              </Button>
+            </Link>
           )}
           {job.status === "completed" && (
             <AlertDialog>

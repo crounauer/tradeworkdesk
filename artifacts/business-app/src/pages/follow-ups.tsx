@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -114,6 +114,15 @@ export default function FollowUps() {
       return res.json();
     },
   });
+
+  useEffect(() => {
+    const requestedId = new URLSearchParams(window.location.search).get("open");
+    if (!requestedId || !data?.follow_ups) return;
+    const requestedFollowUp = data.follow_ups.find((followUp) => followUp.id === requestedId);
+    if (requestedFollowUp && requestedFollowUp.status !== "booked" && requestedFollowUp.status !== "cancelled" && requestedFollowUp.status !== "completed") {
+      setBookingId(requestedId);
+    }
+  }, [data?.follow_ups]);
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...body }: { id: string; status?: string; notes?: string; work_description?: string; parts_description?: string; expected_parts_date?: string | null }) => {
