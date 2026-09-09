@@ -3602,6 +3602,26 @@ router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), req
   const params = DeleteJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
+  let activeFollowUpQ = supabaseAdmin
+    .from("follow_ups")
+    .select("id, status, new_job_id")
+    .eq("original_job_id", params.data.id)
+    .in("status", ["awaiting_parts", "parts_arrived", "booked"])
+    .limit(1);
+  if (req.tenantId) activeFollowUpQ = activeFollowUpQ.eq("tenant_id", req.tenantId);
+  const { data: activeFollowUp, error: activeFollowUpErr } = await activeFollowUpQ.maybeSingle();
+  if (activeFollowUpErr) { res.status(500).json({ error: activeFollowUpErr.message }); return; }
+  if (activeFollowUp) {
+    res.status(409).json({
+      error: activeFollowUp.new_job_id
+        ? "Delete the follow-up job before deleting the original job."
+        : "Delete or cancel the active follow-up before deleting the original job.",
+      follow_up_id: activeFollowUp.id,
+      new_job_id: activeFollowUp.new_job_id || null,
+    });
+    return;
+  }
+
   let q = supabaseAdmin.from("jobs").update({ is_active: false }).eq("id", params.data.id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
 

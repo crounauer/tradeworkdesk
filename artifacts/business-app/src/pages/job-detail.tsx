@@ -709,11 +709,6 @@ export default function JobDetail() {
             {hasFollowUpScheduled && (
               <span className="inline-flex items-center rounded-md border border-teal-200 bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800">Follow-up Scheduled</span>
             )}
-            {hasFollowUpScheduled && followUpJobId && (
-              <Link href={`/jobs/${followUpJobId}`} className="inline-flex items-center gap-1 text-sm font-medium text-teal-700 hover:underline">
-                <ExternalLink className="h-3.5 w-3.5" /> View Follow-up Job
-              </Link>
-            )}
             {followUpNeedsParts && (
               <span className="inline-flex items-center rounded-md border border-orange-200 bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800">Waiting for Parts</span>
             )}
@@ -773,6 +768,14 @@ export default function JobDetail() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {hasFollowUpScheduled && followUpJobId ? (
+            <Link href={`/jobs/${followUpJobId}`}>
+              <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white">
+                <ExternalLink className="w-4 h-4 mr-2" /> View Follow-up Job
+              </Button>
+            </Link>
+          ) : (
+            <>
           {canComplete && !hasFollowUpLabel && (
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleStatusChange("completed", "Complete")} disabled={updateJob.isPending}>
               <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
@@ -876,7 +879,7 @@ export default function JobDetail() {
               {(job as unknown as { fuel_category?: string | null }).fuel_category === "gas" ? "CP12 PDF" : "Service Record PDF"}
             </Button>
           )}
-          {isAdmin && !isReturnVisitPending && (
+          {isAdmin && !isReturnVisitPending && !hasFollowUpLabel && (
             <Button
               size="sm"
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -887,7 +890,7 @@ export default function JobDetail() {
               {hasRebookBeenUsed ? "Rebooked (1yr)" : "Rebook (1yr)"}
             </Button>
           )}
-          {isAdmin && !isReturnVisitPending && (
+          {isAdmin && !isReturnVisitPending && !hasFollowUpLabel && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm">
@@ -924,6 +927,8 @@ export default function JobDetail() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          )}
+            </>
           )}
         </div>
       </div>
