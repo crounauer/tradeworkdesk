@@ -1425,6 +1425,7 @@ router.get("/jobs/:id/follow-ups/count", requireAuth, requireTenant, requirePlan
     .from("follow_ups")
     .select("id, status, parts_description, new_job_id, created_at", { count: "exact" })
     .eq("original_job_id", params.data.id)
+    .in("status", ["awaiting_parts", "parts_arrived", "booked"])
     .order("created_at", { ascending: false });
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
 
@@ -3631,7 +3632,7 @@ router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), req
   // If this job was created from a follow-up, reset the follow-up back to pre-booked state.
   let linkedFollowUpQ = supabaseAdmin
     .from("follow_ups")
-    .select("id")
+    .select("id, original_job_id")
     .eq("new_job_id", params.data.id)
     .eq("status", "booked")
     .limit(1);
@@ -3641,11 +3642,11 @@ router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), req
   if (linkedFollowUpErr) { res.status(500).json({ error: linkedFollowUpErr.message }); return; }
 
   if (linkedFollowUps && linkedFollowUps.length > 0) {
-    const linkedFollowUp = linkedFollowUps[0] as { id: string };
+    const linkedFollowUp = linkedFollowUps[0] as { id: string; original_job_id: string };
     let resetQ = supabaseAdmin
       .from("follow_ups")
       .update({
-        status: "parts_arrived",
+        status: "cancelled",
         new_job_id: null,
         updated_at: new Date().toISOString(),
       })
@@ -3673,7 +3674,7 @@ router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), req
 
   invalidateJobsCache(req.tenantId);
   invalidateHomepageCache(req.tenantId);
-  res.sendStatus(204);
+  res.json({ success: true, original_job_id: linkedFollowUps?.[0]?.original_job_id ?? null });
 });
 
 /**

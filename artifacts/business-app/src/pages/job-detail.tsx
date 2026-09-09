@@ -914,8 +914,13 @@ export default function JobDetail() {
                         await deleteJob.mutateAsync({ id: job.id });
                         qc.invalidateQueries({ queryKey: ["/api/jobs"] });
                         qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
-                        toast({ title: "Job deleted", description: "The job has been removed." });
-                        navigate("/jobs");
+                        if (originalJobId) {
+                          toast({ title: "Follow-up job deleted", description: "The follow-up has been removed and the original job is available again." });
+                          navigate("/follow-ups");
+                        } else {
+                          toast({ title: "Job deleted", description: "The job has been removed." });
+                          navigate("/jobs");
+                        }
                       } catch (e: unknown) {
                         const msg = e instanceof Error ? e.message : "Failed to delete job";
                         toast({ title: "Delete failed", description: msg, variant: "destructive" });
