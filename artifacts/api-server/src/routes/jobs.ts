@@ -1506,6 +1506,14 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     previousJobMeta = (prevJob as { status: string | null; customer_id: string | null; assigned_technician_id: string | null; job_ref: string | null } | null) ?? null;
   }
 
+  if (body.data.status === "completed" && previousJobMeta?.status === "invoiced") {
+    const isAdmin = req.userRole === "admin" || req.userRole === "super_admin";
+    if (!isAdmin) {
+      res.status(403).json({ error: "Only admins can undo invoiced status" });
+      return;
+    }
+  }
+
   if (updateCoreData.scheduled_end_date != null) {
     let effectiveStartDate: string;
     if (updateCoreData.scheduled_date) {

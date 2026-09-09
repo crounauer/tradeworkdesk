@@ -514,6 +514,7 @@ export default function JobDetail() {
   const isReturnVisitPending = job?.status === "follow_up_scheduled";
   const canComplete = job ? job.status !== "completed" && job.status !== "invoiced" && job.status !== "cancelled" && !isReturnVisitPending : false;
   const canInvoice = job?.status === "completed";
+  const canUndoInvoiced = job?.status === "invoiced" && isAdmin;
   const canCreateFollowUp = !!job && isOfficeOrAdmin && (job.status === "completed" || job.status === "invoiced" || job.status === "awaiting_parts" || job.status === "requires_follow_up");
 
   const expectedRebookDate = (() => {
@@ -819,6 +820,33 @@ export default function JobDetail() {
             <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white" onClick={() => handleStatusChange("invoiced", "Invoiced")} disabled={updateJob.isPending}>
               <FileText className="w-4 h-4 mr-2" /> Mark as Invoiced
             </Button>
+          )}
+          {canUndoInvoiced && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="outline" className="border-violet-300 text-violet-800 hover:bg-violet-50" disabled={updateJob.isPending}>
+                  <RotateCcw className="w-4 h-4 mr-2" /> Undo Invoiced
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Undo invoiced status?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will return the job to Completed so it can be edited or invoiced again. Any invoice records already created will not be deleted.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep Invoiced</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-violet-600 text-white hover:bg-violet-700"
+                    disabled={updateJob.isPending}
+                    onClick={() => handleStatusChange("completed", "Completed")}
+                  >
+                    {updateJob.isPending ? "Undoing..." : "Undo Invoiced"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
           {canCreateFollowUp && !hasFollowUpLabel && (
             <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setShowFollowUpForm(true)}>
