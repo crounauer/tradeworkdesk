@@ -3425,6 +3425,17 @@ router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdm
   if (keys.length === 0) { res.status(404).json({ error: "No media-inclusive tenant snapshot found" }); return; }
   keys.sort();
   const key = keys[keys.length - 1];
+  const { data: previousRestores, error: previousRestoreError } = await supabaseAdmin
+    .from("platform_audit_log")
+    .select("entity_id, detail, created_at")
+    .eq("event_type", "tenant_backup_restored_to_new_tenant")
+    .contains("detail", { source_tenant_id: sourceTenantId, source_backup_key: key })
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (!previousRestoreError && previousRestores?.[0]?.entity_id) {
+    res.status(409).json({ error: "This snapshot has already been restored.", restoredTenantId: previousRestores[0].entity_id, sourceBackupKey: key });
+    return;
+  }
   const archiveUrl = presignR2Get({ host, bucket, key, accessKeyId: cfg.backup_r2_access_key_id!, secretAccessKey: cfg.backup_r2_secret_access_key!, expiresSeconds: 600 });
   const archiveResponse = await fetch(archiveUrl, { signal: AbortSignal.timeout(120000) });
   if (!archiveResponse.ok) { res.status(502).json({ error: `Backup download failed: ${archiveResponse.status}` }); return; }
@@ -3482,7 +3493,7 @@ router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdm
   const restoreOrder = [
     "company_settings", "customers", "properties", "appliances", "jobs", "job_parts", "job_services",
     "job_time_entries", "invoices", "invoice_line_items", "quotes", "quote_line_items", "enquiries",
-    "enquiry_messages", "follow_ups", "websites", "website_pages", "website_blocks", "website_forms",
+    "enquiry_messages", "follow_ups", "tenant_addons", "tenant_user_push_preferences", "websites", "website_pages", "website_blocks", "website_forms",
     "website_form_submissions",
   ];
   const profileDependentFields = ["assigned_technician_id", "author_id", "created_by", "uploaded_by", "changed_by", "user_id"];
