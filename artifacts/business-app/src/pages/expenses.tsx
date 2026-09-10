@@ -11,19 +11,33 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Receipt, Upload, Plus, Trash2, Loader2, Download, Paperclip, Eye, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
+import { Receipt, Upload, Plus, Trash2, Loader2, Download, Paperclip, Eye, ChevronLeft, ChevronRight, Pencil, Settings2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
-  useListExpenses, useExpenseCategories, useCreateExpense, useUpdateExpense,
+  useListExpenses, useExpenseCategories, useExpenseDateRange, useCreateExpense, useUpdateExpense,
   useDeleteExpense, useImportExpensesCsv, type Expense,
 } from "@/hooks/use-expenses";
+import { useCompanySettings, useUpdateCompanySettings } from "@/hooks/use-company-settings";
 import { customFetch } from "@workspace/api-client-react";
 
-// UK tax year runs 6 Apr → 5 Apr.
-function currentTaxYearRange(): { from: string; to: string; label: string } {
-  const now = new Date();
-  const year = now.getMonth() > 2 || (now.getMonth() === 2 && now.getDate() >= 6) ? now.getFullYear() : now.getFullYear() - 1;
-  return { from: `${year}-04-06`, to: `${year + 1}-04-05`, label: `${year}/${String(year + 1).slice(2)} tax year` };
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+// Which financial year (identified by its start calendar year) a date falls into.
+function fyStartYearForDate(date: Date, month: number, day: number): number {
+  const y = date.getFullYear();
+  const fyStart = new Date(y, month - 1, day);
+  return date >= fyStart ? y : y - 1;
+}
+
+function financialYearRange(startYear: number, month: number, day: number): { from: string; to: string; label: string } {
+  const from = new Date(startYear, month - 1, day);
+  const to = new Date(startYear + 1, month - 1, day);
+  to.setDate(to.getDate() - 1);
+  return { from: isoDate(from), to: isoDate(to), label: `${startYear}/${String(startYear + 1).slice(2)}` };
 }
 
 function formatCurrency(amount: number, currency = "GBP") {
@@ -36,13 +50,37 @@ export default function Expenses() {
   const receiptInputRef = useRef<HTMLInputElement>(null);
   const [receiptTargetId, setReceiptTargetId] = useState<string | null>(null);
 
-  const taxYear = useMemo(() => currentTaxYearRange(), []);
-  const [dateFrom, setDateFrom] = useState(taxYear.from);
-  const [dateTo, setDateTo] = useState(taxYear.to);
+  const { data: settings } = useCompanySettings();
+  const updateSettingsMut = useUpdateCompanySettings();
+  const { data: dateRangeData } = useExpenseDateRange();
+  const fyMonth = settings?.financial_year_start_month ?? 4;
+  const fyDay = settings?.financial_year_start_day ?? 6;
+
+  const currentFY = useMemo(() => {
+    const startYear = fyStartYearForDate(new Date(), fyMonth, fyDay);
+    return financialYearRange(startYear, fyMonth, fyDay);
+  }, [fyMonth, fyDay]);
+
+  const fyOptions = useMemo(() => {
+    const now = new Date();
+    const latestRelevantDate = dateRangeData?.latest ? new Date(dateRangeData.latest) : now;
+    const earliestRelevantDate = dateRangeData?.earliest ? new Date(dateRangeData.earliest) : now;
+    const latestStartYear = Math.max(fyStartYearForDate(now, fyMonth, fyDay), fyStartYearForDate(latestRelevantDate, fyMonth, fyDay));
+    const earliestStartYear = fyStartYearForDate(earliestRelevantDate, fyMonth, fyDay);
+    const years: number[] = [];
+    for (let y = latestStartYear; y >= earliestStartYear; y--) years.push(y);
+    return years.map((y) => financialYearRange(y, fyMonth, fyDay));
+  }, [dateRangeData, fyMonth, fyDay]);
+
+  const [dateFrom, setDateFrom] = useState(currentFY.from);
+  const [dateTo, setDateTo] = useState(currentFY.to);
   const [category, setCategory] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
+  const [fySettingsOpen, setFySettingsOpen] = useState(false);
+  const [fySettingsMonth, setFySettingsMonth] = useState(fyMonth);
+  const [fySettingsDay, setFySettingsDay] = useState(fyDay);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [viewingReceiptId, setViewingReceiptId] = useState<string | null>(null);
   const [editingDescriptionId, setEditingDescriptionId] = useState<string | null>(null);
@@ -83,6 +121,24 @@ export default function Expenses() {
       toast({ title: "Import failed", description: (err as Error).message, variant: "destructive" });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleSaveFySettings() {
+    try {
+      await updateSettingsMut.mutateAsync({
+        financial_year_start_month: fySettingsMonth,
+        financial_year_start_day: fySettingsDay,
+      });
+      const startYear = fyStartYearForDate(new Date(), fySettingsMonth, fySettingsDay);
+      const newRange = financialYearRange(startYear, fySettingsMonth, fySettingsDay);
+      setDateFrom(newRange.from);
+      setDateTo(newRange.to);
+      setPage(1);
+      setFySettingsOpen(false);
+      toast({ title: "Financial year updated" });
+    } catch (err) {
+      toast({ title: "Save failed", description: (err as Error).message, variant: "destructive" });
     }
   }
 
@@ -195,6 +251,9 @@ export default function Expenses() {
         </div>
         <div className="flex flex-wrap gap-2">
           <input ref={fileInputRef} type="file" accept=".csv,.pdf" className="hidden" onChange={handleImport} />
+          <Button variant="outline" size="icon" onClick={() => { setFySettingsMonth(fyMonth); setFySettingsDay(fyDay); setFySettingsOpen(true); }} title="Financial year settings">
+            <Settings2 className="w-4 h-4" />
+          </Button>
           <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importMut.isPending}>
             {importMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
             Import Bank Statement
@@ -208,11 +267,27 @@ export default function Expenses() {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        {fyOptions.map((opt) => {
+          const isActive = dateFrom === opt.from && dateTo === opt.to;
+          return (
+            <Button
+              key={opt.from}
+              size="sm"
+              variant={isActive ? "default" : "outline"}
+              onClick={() => { setDateFrom(opt.from); setDateTo(opt.to); setPage(1); }}
+            >
+              {opt.label}
+            </Button>
+          );
+        })}
+      </div>
+
       <input ref={receiptInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleReceiptUpload} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card className="p-4 border border-border/50">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Total expenses ({taxYear.label})</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Total expenses ({currentFY.label})</p>
           <p className="text-2xl font-bold mt-1">{formatCurrency(data?.totals.amount ?? 0)}</p>
         </Card>
         <Card className="p-4 border border-border/50">
@@ -244,8 +319,8 @@ export default function Expenses() {
           <Label className="text-xs">Search</Label>
           <Input placeholder="Search description..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <Button variant="ghost" onClick={() => { setDateFrom(taxYear.from); setDateTo(taxYear.to); setCategory(""); setSearch(""); setPage(1); }}>
-          Reset to {taxYear.label}
+        <Button variant="ghost" onClick={() => { setDateFrom(currentFY.from); setDateTo(currentFY.to); setCategory(""); setSearch(""); setPage(1); }}>
+          Reset to {currentFY.label}
         </Button>
       </Card>
 
@@ -391,6 +466,38 @@ export default function Expenses() {
             <Button onClick={handleAddExpense} disabled={createMut.isPending}>
               {createMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Add Expense
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={fySettingsOpen} onOpenChange={setFySettingsOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Financial Year Settings</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Set when your financial year starts. This controls the year presets and totals shown above.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Start month</Label>
+                <Select value={String(fySettingsMonth)} onValueChange={(v) => setFySettingsMonth(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MONTH_NAMES.map((name, i) => <SelectItem key={name} value={String(i + 1)}>{name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Start day</Label>
+                <Input type="number" min={1} max={31} value={fySettingsDay} onChange={(e) => setFySettingsDay(Math.min(31, Math.max(1, Number(e.target.value) || 1)))} />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">Default is 6 April, matching the UK tax year. Change this if your business uses a different financial year (e.g. 1 January).</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFySettingsOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveFySettings} disabled={updateSettingsMut.isPending}>
+              {updateSettingsMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>

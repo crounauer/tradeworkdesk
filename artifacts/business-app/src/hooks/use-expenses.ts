@@ -57,6 +57,14 @@ export function useListExpenses(filters: ExpenseFilters) {
   });
 }
 
+export function useExpenseDateRange() {
+  return useQuery<{ earliest: string | null; latest: string | null }>({
+    queryKey: ["expenses", "date-range"],
+    queryFn: () => apiFetch(`${import.meta.env.BASE_URL}api/expenses/date-range`),
+    staleTime: 60_000,
+  });
+}
+
 export function useExpenseCategories() {
   return useQuery<{ categories: string[] }>({
     queryKey: ["expenses", "categories"],
