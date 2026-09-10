@@ -490,7 +490,7 @@ function FollowUpCard({
             {fu.new_job_id && (
               <Link href={`/jobs/${fu.new_job_id}`}>
                 <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
-                  <Briefcase className="w-4 h-4" /> Book Job
+                  <Briefcase className="w-4 h-4" /> View Job
                 </Button>
               </Link>
             )}
