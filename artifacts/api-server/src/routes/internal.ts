@@ -4,6 +4,7 @@ import { stripe } from "../lib/stripe";
 import { promisify } from "util";
 import { gzip } from "zlib";
 import crypto from "crypto";
+import JSZip from "jszip";
 import {
   sendTrialExpiryReminder,
   sendRenewalReminder,
@@ -149,7 +150,19 @@ const TENANT_BACKUP_TABLES = [
   "quotes", "quote_line_items", "enquiries", "enquiry_messages", "tenant_addons",
   "tenant_user_push_preferences", "web_push_subscriptions", "website_domains",
   "websites", "website_pages", "website_blocks", "website_forms", "website_form_submissions",
+  "file_attachments", "signatures", "website_media",
 ] as const;
+
+function storageBucketForTenantObject(table: string, row: Record<string, unknown>): string | null {
+  if (table === "website_media") return "website-images";
+  if (table === "signatures") return "signatures";
+  if (table === "file_attachments") {
+    const storagePath = String(row.storage_path || "");
+    if (storagePath.startsWith("form-submissions/")) return "public-uploads";
+    return String(row.file_type || "").startsWith("image/") ? "service-photos" : "service-documents";
+  }
+  return null;
+}
 
 async function runTenantRestBackup(tenantId: string, tenant: Record<string, unknown>): Promise<{ buffer: Buffer; counts: Record<string, number>; skippedTables: Array<{ table: string; reason: string }> }> {
   const data: Record<string, unknown[]> = {};
@@ -178,9 +191,29 @@ async function runTenantRestBackup(tenantId: string, tenant: Record<string, unkn
     }
   }
 
+  const mediaObjects: Array<{ table: string; rowId: string; bucket: string; storagePath: string; archivePath: string; sizeBytes: number }> = [];
+  const zip = new JSZip();
+  for (const table of ["file_attachments", "signatures", "website_media"]) {
+    for (const row of (data[table] ?? []) as Array<Record<string, unknown>>) {
+      const bucket = storageBucketForTenantObject(table, row);
+      const storagePath = String(row.storage_path || "");
+      if (!bucket || !storagePath) continue;
+      const { data: file, error } = await supabaseAdmin.storage.from(bucket).download(storagePath);
+      if (error || !file) {
+        skippedTables.push({ table: `${bucket}:${storagePath}`, reason: error?.message || "Storage object not found" });
+        continue;
+      }
+      const rowId = String(row.id || crypto.randomUUID());
+      const archivePath = `media/${bucket}/${rowId}-${storagePath.split("/").pop() || "object"}`;
+      const bytes = Buffer.from(await file.arrayBuffer());
+      zip.file(archivePath, bytes);
+      mediaObjects.push({ table, rowId, bucket, storagePath, archivePath, sizeBytes: bytes.length });
+    }
+  }
+
   const createdAt = new Date().toISOString();
   const manifest = {
-    format: "tradeworkdesk-tenant-snapshot-v1",
+    format: "tradeworkdesk-tenant-snapshot-v2",
     createdAt,
     tenantId,
     tenant: { companyName: tenant.company_name, contactEmail: tenant.contact_email, status: tenant.status },
@@ -188,10 +221,12 @@ async function runTenantRestBackup(tenantId: string, tenant: Record<string, unkn
     counts,
     skippedTables,
     auth: { included: false },
-    media: { included: false },
+    media: { included: true, objectCount: mediaObjects.length, objects: mediaObjects },
   };
+  zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+  zip.file("data.json", JSON.stringify(data));
   return {
-    buffer: await gzipAsync(Buffer.from(JSON.stringify({ manifest, data }))),
+    buffer: await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }),
     counts,
     skippedTables,
   };
@@ -225,7 +260,7 @@ async function r2Prune(cfg: R2Cfg, keepCount: number, prefix = "backup_"): Promi
   const xml = await listRes.text();
   const keys: string[] = [];
   for (const m of xml.matchAll(/<Key>(.*?)<\/Key>/g)) {
-    if (m[1].endsWith(".json.gz") || m[1].endsWith(".dump")) keys.push(m[1]);
+    if (m[1].endsWith(".json.gz") || m[1].endsWith(".zip") || m[1].endsWith(".dump")) keys.push(m[1]);
   }
   keys.sort();
   const toDelete = keys.slice(0, Math.max(0, keys.length - keepCount));
@@ -623,7 +658,7 @@ router.post("/internal/run-tenant-backups", async (req: Request, res: Response):
     try {
       const snapshot = await runTenantRestBackup(tenantId, tenant as Record<string, unknown>);
       const timestamp = new Date().toISOString().replace(/[:-]/g, "").replace(/\.\d{3}Z$/, "").replace("T", "_");
-      const key = `${prefix}${timestamp}.json.gz`;
+      const key = `${prefix}${timestamp}.zip`;
       await r2Upload(cfg, key, snapshot.buffer);
       const pruned = await r2Prune(cfg, 30, prefix);
       results.push({ tenantId, status: "success", key, sizeBytes: snapshot.buffer.length, counts: snapshot.counts, skippedTables: snapshot.skippedTables, pruned });
