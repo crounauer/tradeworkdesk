@@ -1410,6 +1410,7 @@ interface InvoiceEmailLogEntry {
   sent_by_name: string | null;
   sent_to: string;
   created_at: string;
+  is_reminder?: boolean;
 }
 
 function InvoiceEmailLogSection({ invoiceId, refreshKey }: { invoiceId: string; refreshKey: number }) {
@@ -1451,6 +1452,9 @@ function InvoiceEmailLogSection({ invoiceId, refreshKey }: { invoiceId: string; 
                 <div className="flex items-center gap-2 min-w-0">
                   <Mail className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                   <span className="truncate text-foreground">{entry.sent_to}</span>
+                  {entry.is_reminder && (
+                    <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full shrink-0">Reminder</span>
+                  )}
                   {entry.sent_by_name && (
                     <span className="text-xs text-muted-foreground shrink-0">by {entry.sent_by_name}</span>
                   )}

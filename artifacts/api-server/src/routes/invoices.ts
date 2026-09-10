@@ -1404,6 +1404,19 @@ router.post("/invoices/:id/send-reminder", ...protect, async (req: Authenticated
     .eq("tenant_id", req.tenantId!)
     .then(() => {}, () => {});
 
+  if (invoice.job_id) {
+    const { error: logErr } = await supabaseAdmin.from("job_email_logs").insert({
+      job_id: invoice.job_id,
+      tenant_id: req.tenantId,
+      sent_by: req.userId,
+      sent_to: toEmail,
+      subject: `Payment reminder — Invoice ${invoice.invoice_number} — ${customerDisplayName}`,
+      forms_included: [{ form_type: "invoice_reminder", form_label: `Reminder — Invoice ${invoice.invoice_number}`, form_id: req.params.id }],
+      body_text: `Payment reminder sent for Invoice ${invoice.invoice_number}. Balance due: ${(invoice.currency as string || "GBP").toUpperCase()} ${balanceDue.toFixed(2)}.`,
+    });
+    if (logErr) console.error("[invoices] Failed to log reminder email:", logErr.message);
+  }
+
   res.json({ sent_to: toEmail, sent_at: nowIso });
 });
 
@@ -1740,12 +1753,17 @@ router.get("/invoices/:id/email-log", ...protect, async (req: AuthenticatedReque
   const { data, error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  const mapped = (data || []).map((entry: Record<string, unknown>) => ({
-    id: entry.id,
-    sent_by_name: (entry.profiles as Record<string, unknown>)?.full_name || null,
-    sent_to: entry.sent_to,
-    created_at: entry.created_at,
-  }));
+  const mapped = (data || []).map((entry: Record<string, unknown>) => {
+    const forms = Array.isArray(entry.forms_included) ? entry.forms_included as Array<Record<string, unknown>> : [];
+    const isReminder = forms.some((f) => String(f.form_type || "") === "invoice_reminder");
+    return {
+      id: entry.id,
+      sent_by_name: (entry.profiles as Record<string, unknown>)?.full_name || null,
+      sent_to: entry.sent_to,
+      created_at: entry.created_at,
+      is_reminder: isReminder,
+    };
+  });
 
   res.json(mapped);
 });
