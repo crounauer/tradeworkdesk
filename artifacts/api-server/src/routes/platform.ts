@@ -3446,14 +3446,45 @@ router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdm
   }).select("id, company_name, status").single();
   if (tenantError || !restoredTenant) { res.status(500).json({ error: tenantError?.message || "Failed to create restored tenant" }); return; }
 
+  const skipped: Array<{ table: string; reason: string; count?: number }> = [];
+  const restoredCounts: Record<string, number> = {};
+  const profileIdMap = new Map<string, string>();
+  for (const sourceProfile of data.profiles || []) {
+    const email = typeof sourceProfile.email === "string" ? sourceProfile.email.trim().toLowerCase() : "";
+    if (!email) {
+      skipped.push({ table: "profiles", reason: "Profile has no email address", count: 1 });
+      continue;
+    }
+    const { data: invited, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      data: { restored_from_tenant_id: sourceTenantId },
+    });
+    if (inviteError || !invited.user) {
+      skipped.push({ table: "profiles", reason: inviteError?.message || `Unable to invite ${email}`, count: 1 });
+      continue;
+    }
+    const profileRow: Record<string, unknown> = {
+      ...sourceProfile,
+      id: invited.user.id,
+      tenant_id: restoredTenant.id,
+      role: sourceProfile.role === "super_admin" ? "office_staff" : sourceProfile.role,
+      is_active: sourceProfile.is_active !== false,
+    };
+    delete profileRow.created_at;
+    const { error: profileError } = await supabaseAdmin.from("profiles").insert(profileRow);
+    if (profileError) {
+      skipped.push({ table: "profiles", reason: profileError.message, count: 1 });
+      continue;
+    }
+    profileIdMap.set(String(sourceProfile.id), invited.user.id);
+    restoredCounts.profiles = (restoredCounts.profiles || 0) + 1;
+  }
+
   const restoreOrder = [
     "company_settings", "customers", "properties", "appliances", "jobs", "job_parts", "job_services",
     "job_time_entries", "invoices", "invoice_line_items", "quotes", "quote_line_items", "enquiries",
     "enquiry_messages", "follow_ups", "websites", "website_pages", "website_blocks", "website_forms",
     "website_form_submissions",
   ];
-  const skipped: Array<{ table: string; reason: string; count?: number }> = [];
-  const restoredCounts: Record<string, number> = {};
   const profileDependentFields = ["assigned_technician_id", "author_id", "created_by", "uploaded_by", "changed_by", "user_id"];
 
   for (const table of restoreOrder) {
@@ -3462,7 +3493,7 @@ router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdm
     const sanitizedRows = rows.map((sourceRow) => {
       const row: Record<string, unknown> = { ...sourceRow, tenant_id: restoredTenant.id };
       for (const field of profileDependentFields) {
-        if (field in row) row[field] = null;
+        if (field in row) row[field] = row[field] ? (profileIdMap.get(String(row[field])) ?? null) : null;
       }
       if (table === "company_settings") row.singleton_id = "default";
       return row;
@@ -3482,7 +3513,46 @@ router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdm
     if (restored > 0) restoredCounts[table] = restored;
   }
 
-  const excluded = ["profiles", "tenant_user_push_preferences", "web_push_subscriptions", "file_attachments", "signatures", "website_media"];
+  const mediaObjects = (manifest as { media?: { objects?: Array<{ table: string; rowId: string; bucket: string; storagePath: string; archivePath: string }> } }).media?.objects ?? [];
+  const restoredMediaRows: Record<string, Record<string, unknown>[]> = { file_attachments: [], signatures: [], website_media: [] };
+  for (const mediaObject of mediaObjects) {
+    const archiveFile = zip.file(mediaObject.archivePath);
+    if (!archiveFile) {
+      skipped.push({ table: mediaObject.table, reason: `Missing archive object ${mediaObject.archivePath}`, count: 1 });
+      continue;
+    }
+    const sourceRow = (data[mediaObject.table] || []).find((row) => String(row.id) === mediaObject.rowId);
+    if (!sourceRow) {
+      skipped.push({ table: mediaObject.table, reason: `Metadata row ${mediaObject.rowId} is missing`, count: 1 });
+      continue;
+    }
+    const fileBytes = await archiveFile.async("nodebuffer");
+    const fileName = mediaObject.storagePath.split("/").pop() || mediaObject.rowId;
+    const newPath = `tenant-restores/${restoredTenant.id}/${mediaObject.rowId}/${fileName}`;
+    const contentType = typeof sourceRow.file_type === "string" ? sourceRow.file_type : typeof sourceRow.mime_type === "string" ? sourceRow.mime_type : "application/octet-stream";
+    const { error: uploadError } = await supabaseAdmin.storage.from(mediaObject.bucket).upload(newPath, fileBytes, { upsert: true, contentType });
+    if (uploadError) {
+      skipped.push({ table: mediaObject.table, reason: uploadError.message, count: 1 });
+      continue;
+    }
+    const restoredRow: Record<string, unknown> = { ...sourceRow, tenant_id: restoredTenant.id, storage_path: newPath };
+    if (mediaObject.table === "file_attachments" && "thumbnail_storage_path" in restoredRow) restoredRow.thumbnail_storage_path = null;
+    for (const field of profileDependentFields) {
+      if (field in restoredRow) restoredRow[field] = restoredRow[field] ? (profileIdMap.get(String(restoredRow[field])) ?? null) : null;
+    }
+    if (mediaObject.table === "website_media") {
+      restoredRow.public_url = supabaseAdmin.storage.from(mediaObject.bucket).getPublicUrl(newPath).data.publicUrl;
+    }
+    restoredMediaRows[mediaObject.table].push(restoredRow);
+  }
+  for (const [table, rows] of Object.entries(restoredMediaRows)) {
+    if (rows.length === 0) continue;
+    const { error } = await supabaseAdmin.from(table).insert(rows);
+    if (error) skipped.push({ table, reason: error.message, count: rows.length });
+    else restoredCounts[table] = rows.length;
+  }
+
+  const excluded = ["tenant_user_push_preferences", "web_push_subscriptions"];
   await supabaseAdmin.from("platform_audit_log").insert({
     actor_id: req.userId,
     actor_email: req.userEmail,
