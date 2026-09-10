@@ -170,7 +170,7 @@ async function r2Prune(cfg: R2Cfg, keepCount: number): Promise<number> {
   const xml = await listRes.text();
   const keys: string[] = [];
   for (const m of xml.matchAll(/<Key>(.*?)<\/Key>/g)) {
-    if (m[1].endsWith(".dump")) keys.push(m[1]);
+    if (m[1].endsWith(".json.gz") || m[1].endsWith(".dump")) keys.push(m[1]);
   }
   keys.sort();
   const toDelete = keys.slice(0, Math.max(0, keys.length - keepCount));
