@@ -651,6 +651,8 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     // Leave scheduling
     "custom_leave_types",
     "technicians_can_update_shopping_list_items",
+    // Financial year (used by Expenses reporting)
+    "financial_year_start_month", "financial_year_start_day",
   ];
 
   const updates: Record<string, unknown> = { singleton_id: SINGLETON_ID, tenant_id: req.tenantId };

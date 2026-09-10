@@ -86,6 +86,9 @@ export interface CompanySettings {
   website_closure_notice_end_date?: string | null;
   website_closure_notice_auto_from_holidays?: boolean | null;
   custom_leave_types?: string[] | null;
+  // Financial year (used by Expenses reporting)
+  financial_year_start_month?: number | null;
+  financial_year_start_day?: number | null;
   created_at?: string;
   updated_at?: string;
 }

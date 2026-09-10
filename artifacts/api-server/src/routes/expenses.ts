@@ -61,6 +61,19 @@ router.get("/expenses/categories", requireAuth, requireTenant, async (_req: Auth
   res.json({ categories: SUGGESTED_EXPENSE_CATEGORIES });
 });
 
+// ─── DATE RANGE (drives financial-year quick-filter buttons in the UI) ─────
+router.get("/expenses/date-range", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const [{ data: earliestRow }, { data: latestRow }] = await Promise.all([
+    supabaseAdmin.from("expenses").select("expense_date").eq("tenant_id", req.tenantId!).order("expense_date", { ascending: true }).limit(1).maybeSingle(),
+    supabaseAdmin.from("expenses").select("expense_date").eq("tenant_id", req.tenantId!).order("expense_date", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+
+  res.json({
+    earliest: (earliestRow as { expense_date?: string } | null)?.expense_date || null,
+    latest: (latestRow as { expense_date?: string } | null)?.expense_date || null,
+  });
+});
+
 // ─── CREATE (manual entry) ──────────────────────────────────────────────────
 router.post("/expenses", ...canManage, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { expense_date, description, amount, category, vat_reclaimable, vat_amount, notes, receipt_file_id } = req.body || {};
