@@ -3457,6 +3457,9 @@ router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdm
   }).select("id, company_name, status").single();
   if (tenantError || !restoredTenant) { res.status(500).json({ error: tenantError?.message || "Failed to create restored tenant" }); return; }
 
+  const createdAuthUserIds: string[] = [];
+  const createdStoragePaths: Array<{ bucket: string; path: string }> = [];
+  try {
   const skipped: Array<{ table: string; reason: string; count?: number }> = [];
   const restoredCounts: Record<string, number> = {};
   const profileIdMap = new Map<string, string>();
@@ -3473,6 +3476,7 @@ router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdm
       skipped.push({ table: "profiles", reason: inviteError?.message || `Unable to invite ${email}`, count: 1 });
       continue;
     }
+    createdAuthUserIds.push(invited.user.id);
     const profileRow: Record<string, unknown> = {
       ...sourceProfile,
       id: invited.user.id,
@@ -3546,6 +3550,7 @@ router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdm
       skipped.push({ table: mediaObject.table, reason: uploadError.message, count: 1 });
       continue;
     }
+    createdStoragePaths.push({ bucket: mediaObject.bucket, path: newPath });
     const restoredRow: Record<string, unknown> = { ...sourceRow, tenant_id: restoredTenant.id, storage_path: newPath };
     if (mediaObject.table === "file_attachments" && "thumbnail_storage_path" in restoredRow) restoredRow.thumbnail_storage_path = null;
     for (const field of profileDependentFields) {
@@ -3573,6 +3578,20 @@ router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdm
     detail: { source_tenant_id: sourceTenantId, source_backup_key: key, restored_counts: restoredCounts, skipped, excluded },
   });
   res.status(201).json({ restoredTenant, sourceTenantId, sourceBackupKey: key, restoredCounts, skipped, excluded });
+  } catch (error) {
+    for (const object of createdStoragePaths) {
+      await supabaseAdmin.storage.from(object.bucket).remove([object.path]).catch(() => undefined);
+    }
+    for (const userId of createdAuthUserIds) {
+      await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => undefined);
+    }
+    const { error: cleanupError } = await supabaseAdmin.from("tenants").delete().eq("id", restoredTenant.id);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+      restoredTenantId: restoredTenant.id,
+      cleanupError: cleanupError?.message || null,
+    });
+  }
 });
 
 router.get("/platform/backup-logs", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
