@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { getAddonDisplayName } from "@/lib/addon-display";
-import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck, Zap, Plus, Check, Globe, RefreshCw, Eye, MessageSquare } from "lucide-react";
+import { ArrowLeft, Building2, Users, Briefcase, Save, Ban, Play, XCircle, Trash2, ExternalLink, Package, AlertTriangle, MoreVertical, KeyRound, ShieldCheck, UserX, UserCheck, Zap, Plus, Check, Globe, RefreshCw, Eye, MessageSquare, Download } from "lucide-react";
 import { Link } from "wouter";
 
 const STATUS_OPTIONS = ["trial", "active", "payment_overdue", "suspended", "cancelled"];
@@ -342,6 +342,21 @@ export default function PlatformTenantDetail() {
     },
   });
 
+  const tenantBackupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/backup`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Tenant backup failed");
+      return body as { downloadUrl: string; sizeBytes: number; skippedTables?: Array<{ table: string }> };
+    },
+    onSuccess: (result) => {
+      window.open(result.downloadUrl, "_blank", "noopener,noreferrer");
+      const skipped = result.skippedTables?.length ? ` ${result.skippedTables.length} table(s) were skipped.` : "";
+      toast({ title: "Tenant backup created", description: `${Math.round(result.sizeBytes / 1024)} KB export downloaded.${skipped}` });
+    },
+    onError: (e) => toast({ title: "Backup failed", description: e.message, variant: "destructive" }),
+  });
+
   if (isLoading) {
     return <div className="animate-pulse space-y-4"><div className="h-8 w-64 bg-slate-100 rounded" /><div className="h-48 bg-slate-100 rounded" /></div>;
   }
@@ -449,6 +464,15 @@ export default function PlatformTenantDetail() {
         <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3">
+            <Button
+              variant="outline"
+              className="text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+              onClick={() => tenantBackupMutation.mutate()}
+              disabled={tenantBackupMutation.isPending}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {tenantBackupMutation.isPending ? "Creating Backup…" : "Export Tenant Backup"}
+            </Button>
             {hasFreeAccessOverride(tenant.notes) ? (
               <Button
                 variant="outline"
