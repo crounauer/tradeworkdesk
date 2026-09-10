@@ -142,6 +142,61 @@ async function runRestBackup(): Promise<Buffer> {
   return gzipAsync(Buffer.from(json));
 }
 
+const TENANT_BACKUP_TABLES = [
+  "company_settings", "profiles", "customers", "properties", "appliances", "jobs",
+  "job_parts", "job_services", "job_time_entries", "job_notes", "job_email_logs",
+  "job_confirmation_responses", "follow_ups", "invoices", "invoice_line_items",
+  "quotes", "quote_line_items", "enquiries", "enquiry_messages", "tenant_addons",
+  "tenant_user_push_preferences", "web_push_subscriptions", "website_domains",
+  "websites", "website_pages", "website_blocks", "website_forms", "website_form_submissions",
+] as const;
+
+async function runTenantRestBackup(tenantId: string, tenant: Record<string, unknown>): Promise<{ buffer: Buffer; counts: Record<string, number>; skippedTables: Array<{ table: string; reason: string }> }> {
+  const data: Record<string, unknown[]> = {};
+  const counts: Record<string, number> = {};
+  const skippedTables: Array<{ table: string; reason: string }> = [];
+
+  for (const table of TENANT_BACKUP_TABLES) {
+    const rows: unknown[] = [];
+    let offset = 0;
+    try {
+      while (true) {
+        const { data: page, error } = await supabaseAdmin
+          .from(table)
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .range(offset, offset + 999);
+        if (error) throw new Error(error.message);
+        rows.push(...(page ?? []));
+        if (!page || page.length < 1000) break;
+        offset += 1000;
+      }
+      data[table] = rows;
+      counts[table] = rows.length;
+    } catch (error) {
+      skippedTables.push({ table, reason: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  const createdAt = new Date().toISOString();
+  const manifest = {
+    format: "tradeworkdesk-tenant-snapshot-v1",
+    createdAt,
+    tenantId,
+    tenant: { companyName: tenant.company_name, contactEmail: tenant.contact_email, status: tenant.status },
+    tables: Object.keys(data),
+    counts,
+    skippedTables,
+    auth: { included: false },
+    media: { included: false },
+  };
+  return {
+    buffer: await gzipAsync(Buffer.from(JSON.stringify({ manifest, data }))),
+    counts,
+    skippedTables,
+  };
+}
+
 type R2Cfg = {
   backup_r2_account_id: string;
   backup_r2_access_key_id: string;
@@ -160,10 +215,10 @@ async function r2Upload(cfg: R2Cfg, filename: string, buf: Buffer): Promise<void
   }
 }
 
-async function r2Prune(cfg: R2Cfg, keepCount: number): Promise<number> {
+async function r2Prune(cfg: R2Cfg, keepCount: number, prefix = "backup_"): Promise<number> {
   const host = `${cfg.backup_r2_account_id}.r2.cloudflarestorage.com`;
   const bucketPath = `/${cfg.backup_r2_bucket_name}`;
-  const query = "list-type=2&max-keys=200&prefix=backup_";
+  const query = `list-type=2&max-keys=200&prefix=${encodeURIComponent(prefix)}`;
   const listHeaders = signR2Get({ host, path: bucketPath, query, accessKeyId: cfg.backup_r2_access_key_id, secretAccessKey: cfg.backup_r2_secret_access_key });
   const listRes = await fetch(`https://${host}${bucketPath}?${query}`, { method: "GET", headers: listHeaders, signal: AbortSignal.timeout(15000) });
   if (!listRes.ok) return 0;
@@ -530,6 +585,55 @@ router.post("/internal/run-backup", async (req: Request, res: Response): Promise
     console.error("[run-backup] error:", err);
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
+});
+
+router.post("/internal/run-tenant-backups", async (req: Request, res: Response): Promise<void> => {
+  if (!requireCronSecret(req, res)) return;
+
+  const { data: settings, error: settingsError } = await supabaseAdmin
+    .from("platform_settings")
+    .select("key, value")
+    .in("key", ["backup_r2_account_id", "backup_r2_access_key_id", "backup_r2_secret_access_key", "backup_r2_bucket_name"]);
+  if (settingsError) { res.status(500).json({ error: settingsError.message }); return; }
+
+  const config: Record<string, string | null> = {};
+  for (const key of ["backup_r2_account_id", "backup_r2_access_key_id", "backup_r2_secret_access_key", "backup_r2_bucket_name"]) {
+    config[key] = settings?.find((row) => row.key === key)?.value ?? null;
+  }
+  const missing = Object.keys(config).filter((key) => !config[key]);
+  if (missing.length > 0) { res.status(422).json({ error: "Missing backup credentials", missing }); return; }
+
+  const { data: tenants, error: tenantError } = await supabaseAdmin
+    .from("tenants")
+    .select("id, company_name, contact_email, status")
+    .not("status", "eq", "cancelled")
+    .order("created_at", { ascending: true });
+  if (tenantError) { res.status(500).json({ error: tenantError.message }); return; }
+
+  const cfg: R2Cfg = {
+    backup_r2_account_id: config.backup_r2_account_id!,
+    backup_r2_access_key_id: config.backup_r2_access_key_id!,
+    backup_r2_secret_access_key: config.backup_r2_secret_access_key!,
+    backup_r2_bucket_name: config.backup_r2_bucket_name!,
+  };
+  const results: Array<Record<string, unknown>> = [];
+  for (const tenant of tenants ?? []) {
+    const tenantId = String(tenant.id);
+    const prefix = `tenant-backups/${tenantId}/backup_`;
+    try {
+      const snapshot = await runTenantRestBackup(tenantId, tenant as Record<string, unknown>);
+      const timestamp = new Date().toISOString().replace(/[:-]/g, "").replace(/\.\d{3}Z$/, "").replace("T", "_");
+      const key = `${prefix}${timestamp}.json.gz`;
+      await r2Upload(cfg, key, snapshot.buffer);
+      const pruned = await r2Prune(cfg, 30, prefix);
+      results.push({ tenantId, status: "success", key, sizeBytes: snapshot.buffer.length, counts: snapshot.counts, skippedTables: snapshot.skippedTables, pruned });
+    } catch (error) {
+      results.push({ tenantId, status: "failed", error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  const failed = results.filter((result) => result.status === "failed");
+  res.status(failed.length > 0 ? 207 : 200).json({ status: failed.length > 0 ? "partial" : "success", tenants: results, total: results.length, failed: failed.length });
 });
 
 export default router;

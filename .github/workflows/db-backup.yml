@@ -44,3 +44,30 @@ jobs:
           SIZE_BYTES=$(echo "$RESPONSE_BODY" | jq -r '.sizeBytes')
           PRUNED=$(echo "$RESPONSE_BODY" | jq -r '.pruned')
           echo "Backup complete: $FILENAME ($SIZE_BYTES bytes), pruned $PRUNED old file(s)"
+
+      - name: Trigger per-tenant snapshots on Railway API
+        run: |
+          set -o pipefail
+          BASE_URL=$(echo "${{ secrets.PLATFORM_API_URL }}" | tr -d '[:space:]')
+          HTTP_BODY=$(curl --silent --show-error --location --max-time 900 \
+            -w "\nHTTP_STATUS=%{http_code}" \
+            -X POST \
+            -H "x-cron-secret: ${{ secrets.INTERNAL_CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            "${BASE_URL}/api/internal/run-tenant-backups")
+
+          echo "Tenant snapshot response: $HTTP_BODY"
+          STATUS_LINE=$(printf '%s\n' "$HTTP_BODY" | tail -n 1)
+          HTTP_STATUS=${STATUS_LINE#HTTP_STATUS=}
+          RESPONSE=$(printf '%s\n' "$HTTP_BODY" | sed '$d')
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Tenant snapshot request failed with HTTP $HTTP_STATUS"
+            echo "$RESPONSE"
+            exit 1
+          fi
+          STATUS=$(echo "$RESPONSE" | jq -r '.status // "error"')
+          if [ "$STATUS" != "success" ]; then
+            echo "Tenant snapshots failed: $RESPONSE"
+            exit 1
+          fi
+          echo "Tenant snapshots complete: $(echo "$RESPONSE" | jq -r '.total') tenant(s)"
