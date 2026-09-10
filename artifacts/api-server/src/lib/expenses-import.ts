@@ -13,6 +13,8 @@ const HEADER_ALIASES: Record<string, string[]> = {
   amount: ["amount", "value"],
   debit: ["debit", "moneyout", "paidout", "withdrawal", "outflow"],
   credit: ["credit", "moneyin", "paidin", "deposit", "inflow"],
+  balance: ["balance", "runningbalance", "closingbalance", "balanceafter"],
+  reference: ["reference", "transactionid", "transactionreference", "refnumber", "chequenumber", "id"],
 };
 
 function normalizeHeader(header: string): string {
@@ -86,10 +88,34 @@ function parseDate(raw: string): string | null {
   return null;
 }
 
-export function buildDedupeHash(tenantId: string, date: string, description: string, amount: number): string {
-  return createHash("sha256")
-    .update(`${tenantId}|${date}|${description.trim().toLowerCase()}|${amount.toFixed(2)}`)
-    .digest("hex");
+export function buildDedupeHash(
+  tenantId: string,
+  date: string,
+  description: string,
+  amount: number,
+  extra?: { balance?: number | null; reference?: string | null; occurrence?: number },
+): string {
+  const parts = [tenantId, date, description.trim().toLowerCase(), amount.toFixed(2)];
+  if (extra?.balance != null) parts.push(`bal:${extra.balance.toFixed(2)}`);
+  if (extra?.reference) parts.push(`ref:${extra.reference.trim().toLowerCase()}`);
+  if (extra?.occurrence) parts.push(`occ:${extra.occurrence}`);
+  return createHash("sha256").update(parts.join("|")).digest("hex");
+}
+
+// Tracks how many times an identical (date, description, amount) signature has
+// been seen so far *within one file*, so genuinely repeated transactions (e.g.
+// several identical bank fees on the same day) get distinct dedupe hashes from
+// each other, while re-uploading the same file still produces the same hash
+// sequence and is correctly recognised as duplicates.
+class OccurrenceTracker {
+  private seen = new Map<string, number>();
+
+  next(date: string, description: string, amount: number): number {
+    const key = `${date}|${description.trim().toLowerCase()}|${amount.toFixed(2)}`;
+    const count = (this.seen.get(key) ?? 0) + 1;
+    this.seen.set(key, count);
+    return count - 1; // 0 for the first occurrence, so its hash matches the old (pre-occurrence) format
+  }
 }
 
 export interface CsvParseResult {
@@ -109,6 +135,8 @@ export function parseExpenseCsv(content: string, tenantId: string): CsvParseResu
   const amountCol = detectColumn(headers, "amount");
   const debitCol = detectColumn(headers, "debit");
   const creditCol = detectColumn(headers, "credit");
+  const balanceCol = detectColumn(headers, "balance");
+  const referenceCol = detectColumn(headers, "reference");
 
   if (dateCol === -1 || descCol === -1 || (amountCol === -1 && debitCol === -1)) {
     throw new Error("Could not detect Date, Description and Amount/Debit columns in this CSV. Please check the file has a header row.");
@@ -117,6 +145,7 @@ export function parseExpenseCsv(content: string, tenantId: string): CsvParseResu
   const rows: ParsedExpenseRow[] = [];
   let skippedCredits = 0;
   let skippedUnparseable = 0;
+  const occurrences = new OccurrenceTracker();
 
   for (const line of lines.slice(1)) {
     const rawDate = line[dateCol] ?? "";
@@ -138,7 +167,16 @@ export function parseExpenseCsv(content: string, tenantId: string): CsvParseResu
 
     if (!date || !description || amount == null) { skippedUnparseable++; continue; }
 
-    rows.push({ date, description, amount, dedupeHash: buildDedupeHash(tenantId, date, description, amount) });
+    const balance = balanceCol !== -1 ? parseAmount(line[balanceCol] ?? "") : null;
+    const reference = referenceCol !== -1 ? (line[referenceCol] ?? "").trim() : null;
+    const occurrence = occurrences.next(date, description, amount);
+
+    rows.push({
+      date,
+      description,
+      amount,
+      dedupeHash: buildDedupeHash(tenantId, date, description, amount, { balance, reference, occurrence }),
+    });
   }
 
   return { rows, skippedCredits, skippedUnparseable };
@@ -186,6 +224,7 @@ export function parseExpensePdfText(text: string, tenantId: string): CsvParseRes
   let skippedCredits = 0;
   let skippedUnparseable = 0;
   let previousBalance: number | null = null;
+  const occurrences = new OccurrenceTracker();
 
   for (const line of lines) {
     const dateMatch = line.match(PDF_DATE_LINE_RE);
@@ -216,7 +255,13 @@ export function parseExpensePdfText(text: string, tenantId: string): CsvParseRes
     if (!description) { skippedUnparseable++; continue; }
 
     const amount = Math.abs(delta);
-    rows.push({ date, description, amount, dedupeHash: buildDedupeHash(tenantId, date, description, amount) });
+    const occurrence = occurrences.next(date, description, amount);
+    rows.push({
+      date,
+      description,
+      amount,
+      dedupeHash: buildDedupeHash(tenantId, date, description, amount, { balance, occurrence }),
+    });
   }
 
   return { rows, skippedCredits, skippedUnparseable };
