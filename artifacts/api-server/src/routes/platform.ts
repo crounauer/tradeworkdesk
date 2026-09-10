@@ -426,14 +426,14 @@ async function timedSupabaseCheck(fn: () => Promise<unknown>): Promise<TimedChec
 }
 
 function resolveRendererHealthUrl(rawValue: string | undefined): string {
-  const fallback = "https://tradeworkdesk-renderer.fly.dev/health";
+  const fallback = "https://tradeworkdesk-renderer.fly.dev/api/health";
   const input = String(rawValue || "").trim();
   if (!input) return fallback;
 
   try {
     const url = new URL(input.startsWith("http") ? input : `https://${input}`);
     if (!url.pathname || url.pathname === "/") {
-      url.pathname = "/health";
+      url.pathname = "/api/health";
     }
     return url.toString();
   } catch {
@@ -3363,6 +3363,17 @@ router.post("/platform/tenants/:id/backup/validate", requireAuth, requireSuperAd
     if (!object.archivePath || !zip.file(object.archivePath)) missingMedia.push(object.archivePath || "unknown");
   }
   const valid = violations.length === 0 && missingMedia.length === 0;
+  const restoreOrder = [
+    "tenants", "company_settings", "customers", "properties", "appliances", "jobs",
+    "job_parts", "job_services", "job_time_entries", "invoices", "invoice_line_items",
+    "quotes", "quote_line_items", "enquiries", "follow_ups", "websites", "website_pages",
+    "website_blocks", "website_forms", "website_form_submissions", "file_attachments", "signatures",
+  ];
+  const restoreBlockers = [
+    "Supabase Auth users are not included and must be mapped or invited separately.",
+    "A live restore must run into a new tenant and must not overwrite the source tenant.",
+    ...(missingMedia.length > 0 ? ["One or more media objects are missing from the snapshot."] : []),
+  ];
   await supabaseAdmin.from("platform_audit_log").insert({
     actor_id: req.userId,
     actor_email: req.userEmail,
@@ -3371,7 +3382,19 @@ router.post("/platform/tenants/:id/backup/validate", requireAuth, requireSuperAd
     entity_id: tenantId,
     detail: { key, valid, violations, missing_media: missingMedia },
   });
-  res.json({ valid, key, format: manifest.format, createdAt: manifest.createdAt, counts: manifest.counts ?? {}, mediaObjects: media.length, violations, missingMedia });
+  res.json({
+    valid,
+    restoreReady: valid,
+    key,
+    format: manifest.format,
+    createdAt: manifest.createdAt,
+    counts: manifest.counts ?? {},
+    mediaObjects: media.length,
+    restoreOrder,
+    restoreBlockers,
+    violations,
+    missingMedia,
+  });
 });
 
 router.get("/platform/backup-logs", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {

@@ -366,7 +366,7 @@ export default function PlatformTenantDetail() {
     },
     onSuccess: (result) => {
       if (result.valid) {
-        toast({ title: "Backup validated", description: "The latest tenant snapshot is structurally restorable." });
+        toast({ title: "Restore readiness confirmed", description: "The latest snapshot passed validation. Auth-user mapping and new-tenant staging are still required before restore." });
       } else {
         const issues = [...(result.violations ?? []), ...(result.missingMedia ?? []).map((path) => `Missing media: ${path}`)];
         toast({ title: "Backup validation failed", description: issues.join("; ") || "The snapshot is not restorable.", variant: "destructive" });
