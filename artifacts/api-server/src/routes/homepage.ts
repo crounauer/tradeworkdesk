@@ -159,7 +159,7 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
       let q = supabaseAdmin
         .from("follow_ups")
         .select("id, original_job_id, new_job_id, customer_id, property_id, status, expected_parts_date, created_at, customers(first_name, last_name), properties(address_line1), original_job:jobs!follow_ups_original_job_id_fkey(job_type, assigned_technician_id)")
-        .in("status", ["awaiting_parts", "parts_arrived", "booked"])
+        .in("status", ["awaiting_parts", "parts_arrived"])
         .order("created_at", { ascending: false })
         .limit(10);
       if (tenantId) q = q.eq("tenant_id", tenantId);
