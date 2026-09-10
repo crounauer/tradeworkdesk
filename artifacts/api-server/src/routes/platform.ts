@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import crypto from "crypto";
 import { gzip } from "zlib";
 import { promisify } from "util";
+import JSZip from "jszip";
 import multer from "multer";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import path from "path";
@@ -3309,6 +3310,68 @@ router.post("/platform/tenants/:id/backup", requireAuth, requireSuperAdmin, asyn
     detail: { key, size_bytes: compressed.length, counts, skipped_tables: skippedTables },
   });
   res.json({ tenantId, key, sizeBytes: compressed.length, counts, skippedTables, downloadUrl });
+});
+
+router.post("/platform/tenants/:id/backup/validate", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const tenantId = String(req.params.id || "").trim();
+  const { data: settings, error: settingsError } = await supabaseAdmin
+    .from("platform_settings").select("key, value").in("key", [...R2_KEYS]);
+  if (settingsError) { res.status(500).json({ error: settingsError.message }); return; }
+  const cfg: Record<string, string | null> = {};
+  for (const key of R2_KEYS) cfg[key] = settings?.find((row) => row.key === key)?.value ?? null;
+  const missing = R2_KEYS.filter((key) => !cfg[key]);
+  if (missing.length > 0) { res.status(422).json({ error: "R2 backup credentials are not configured", missing }); return; }
+
+  const host = `${cfg.backup_r2_account_id!}.r2.cloudflarestorage.com`;
+  const prefix = `tenant-backups/${tenantId}/`;
+  const path = `/${cfg.backup_r2_bucket_name!}`;
+  const query = `list-type=2&max-keys=100&prefix=${encodeURIComponent(prefix)}`;
+  const listHeaders = signR2Headers({ method: "GET", host, path, query, accessKeyId: cfg.backup_r2_access_key_id!, secretAccessKey: cfg.backup_r2_secret_access_key! });
+  const listResponse = await fetch(`https://${host}${path}?${query}`, { headers: listHeaders, signal: AbortSignal.timeout(15000) });
+  if (!listResponse.ok) { res.status(502).json({ error: `R2 listing failed: ${listResponse.status}` }); return; }
+  const xml = await listResponse.text();
+  const keys = Array.from(xml.matchAll(/<Key>(.*?)<\/Key>/g)).map((match) => match[1]).filter((key) => key.endsWith(".zip"));
+  if (keys.length === 0) { res.status(404).json({ error: "No media-inclusive tenant snapshot found" }); return; }
+  keys.sort();
+  const key = keys[keys.length - 1];
+  const downloadUrl = presignR2Get({ host, bucket: cfg.backup_r2_bucket_name!, key, accessKeyId: cfg.backup_r2_access_key_id!, secretAccessKey: cfg.backup_r2_secret_access_key!, expiresSeconds: 600 });
+  const archiveResponse = await fetch(downloadUrl, { signal: AbortSignal.timeout(120000) });
+  if (!archiveResponse.ok) { res.status(502).json({ error: `Backup download failed: ${archiveResponse.status}` }); return; }
+  const zip = await JSZip.loadAsync(Buffer.from(await archiveResponse.arrayBuffer()));
+  const violations: string[] = [];
+  const missingMedia: string[] = [];
+  let manifest: Record<string, unknown>;
+  let data: Record<string, unknown[]>;
+  try {
+    manifest = JSON.parse(await zip.file("manifest.json")!.async("text")) as Record<string, unknown>;
+    data = JSON.parse(await zip.file("data.json")!.async("text")) as Record<string, unknown[]>;
+  } catch {
+    res.status(422).json({ valid: false, key, error: "Snapshot is missing valid manifest.json or data.json" }); return;
+  }
+  if (manifest.tenantId !== tenantId) violations.push("Manifest tenant ID does not match the requested tenant");
+  if (manifest.format !== "tradeworkdesk-tenant-snapshot-v2") violations.push(`Unsupported snapshot format: ${String(manifest.format || "missing")}`);
+  for (const [table, rows] of Object.entries(data)) {
+    for (const row of rows ?? []) {
+      if (row && typeof row === "object" && "tenant_id" in row && String((row as Record<string, unknown>).tenant_id) !== tenantId) {
+        violations.push(`${table} contains a row from another tenant`);
+        break;
+      }
+    }
+  }
+  const media = (manifest.media as { objects?: Array<{ archivePath?: string }> } | undefined)?.objects ?? [];
+  for (const object of media) {
+    if (!object.archivePath || !zip.file(object.archivePath)) missingMedia.push(object.archivePath || "unknown");
+  }
+  const valid = violations.length === 0 && missingMedia.length === 0;
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "tenant_backup_validated",
+    entity_type: "tenant",
+    entity_id: tenantId,
+    detail: { key, valid, violations, missing_media: missingMedia },
+  });
+  res.json({ valid, key, format: manifest.format, createdAt: manifest.createdAt, counts: manifest.counts ?? {}, mediaObjects: media.length, violations, missingMedia });
 });
 
 router.get("/platform/backup-logs", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {

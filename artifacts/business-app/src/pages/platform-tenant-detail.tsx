@@ -357,6 +357,24 @@ export default function PlatformTenantDetail() {
     onError: (e) => toast({ title: "Backup failed", description: e.message, variant: "destructive" }),
   });
 
+  const validateTenantBackupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/backup/validate`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Backup validation failed");
+      return body as { valid: boolean; key: string; violations?: string[]; missingMedia?: string[] };
+    },
+    onSuccess: (result) => {
+      if (result.valid) {
+        toast({ title: "Backup validated", description: "The latest tenant snapshot is structurally restorable." });
+      } else {
+        const issues = [...(result.violations ?? []), ...(result.missingMedia ?? []).map((path) => `Missing media: ${path}`)];
+        toast({ title: "Backup validation failed", description: issues.join("; ") || "The snapshot is not restorable.", variant: "destructive" });
+      }
+    },
+    onError: (e) => toast({ title: "Validation failed", description: e.message, variant: "destructive" }),
+  });
+
   if (isLoading) {
     return <div className="animate-pulse space-y-4"><div className="h-8 w-64 bg-slate-100 rounded" /><div className="h-48 bg-slate-100 rounded" /></div>;
   }
@@ -472,6 +490,15 @@ export default function PlatformTenantDetail() {
             >
               <Download className="w-4 h-4 mr-2" />
               {tenantBackupMutation.isPending ? "Creating Backup…" : "Export Tenant Backup"}
+            </Button>
+            <Button
+              variant="outline"
+              className="text-blue-700 border-blue-200 hover:bg-blue-50"
+              onClick={() => validateTenantBackupMutation.mutate()}
+              disabled={validateTenantBackupMutation.isPending}
+            >
+              <ShieldCheck className="w-4 h-4 mr-2" />
+              {validateTenantBackupMutation.isPending ? "Validating…" : "Validate Latest Backup"}
             </Button>
             {hasFreeAccessOverride(tenant.notes) ? (
               <Button
