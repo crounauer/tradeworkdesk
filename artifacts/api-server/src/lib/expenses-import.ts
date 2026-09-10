@@ -10,7 +10,7 @@ export interface ParsedExpenseRow {
 
 const HEADER_ALIASES: Record<string, string[]> = {
   date: ["date", "transactiondate", "postingdate", "postdate"],
-  description: ["description", "details", "narrative", "memo", "transaction"],
+  description: ["description", "details", "narrative", "memo"],
   amount: ["amount", "value"],
   debit: ["debit", "moneyout", "paidout", "withdrawal", "outflow"],
   credit: ["credit", "moneyin", "paidin", "deposit", "inflow"],
@@ -25,9 +25,15 @@ function normalizeHeader(header: string): string {
   return header.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+// Exact match first (e.g. "Date" == "date"), then fall back to substring
+// matching so compound headers like "Transaction description" or "Category
+// name" — common on real bank exports — still match "description"/"category".
 function detectColumn(headers: string[], field: keyof typeof HEADER_ALIASES): number {
   const aliases = HEADER_ALIASES[field];
-  return headers.findIndex((h) => aliases.includes(normalizeHeader(h)));
+  const normalized = headers.map(normalizeHeader);
+  const exactIndex = normalized.findIndex((h) => aliases.includes(h));
+  if (exactIndex !== -1) return exactIndex;
+  return normalized.findIndex((h) => aliases.some((alias) => h.includes(alias)));
 }
 
 // Minimal RFC4180-ish CSV parser: handles quoted fields, escaped quotes, and CRLF/LF.

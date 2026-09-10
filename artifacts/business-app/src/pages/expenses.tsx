@@ -561,15 +561,15 @@ export default function Expenses() {
       </Dialog>
 
       <Dialog open={csvMappingOpen} onOpenChange={(open) => { setCsvMappingOpen(open); if (!open) { setPendingCsvFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; } }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Confirm Column Mapping</DialogTitle></DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             <p className="text-sm text-muted-foreground">
               We've guessed which columns to use from your file's headers. Bank export formats vary, so please check these are correct before importing.
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {MAPPING_FIELD_DEFS.map((field) => (
-                <div key={field.key} className="space-y-1">
+                <div key={field.key} className="space-y-1 min-w-0">
                   <Label className="text-xs">{field.label}{field.required && " *"}</Label>
                   <Select
                     value={String(csvMapping?.[field.key] ?? -1)}
@@ -586,10 +586,10 @@ export default function Expenses() {
             </div>
 
             {csvSampleRows.length > 0 && (
-              <div className="space-y-1">
+              <div className="space-y-1 min-w-0">
                 <Label className="text-xs">Preview (first {csvSampleRows.length} rows)</Label>
-                <div className="overflow-x-auto border border-border/50 rounded-md">
-                  <table className="text-xs w-full">
+                <div className="overflow-x-auto border border-border/50 rounded-md max-w-full">
+                  <table className="text-xs w-max">
                     <thead>
                       <tr className="bg-muted/40">
                         {csvHeaders.map((h, i) => <th key={i} className="px-2 py-1 text-left font-medium whitespace-nowrap">{h || `Column ${i + 1}`}</th>)}
