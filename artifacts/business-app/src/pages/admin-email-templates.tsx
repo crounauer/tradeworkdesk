@@ -11,7 +11,7 @@ import { Loader2, Mail, Save, ExternalLink } from "lucide-react";
 import { useCompanySettings, useUpdateCompanySettings, type CompanySettings } from "@/hooks/use-company-settings";
 import { useToast } from "@/hooks/use-toast";
 
-type EditableTemplateKey = "enquiry_acknowledgement" | "enquiry_not_proceeding" | "invoice_document" | "job_confirmation" | "portal_invite" | "booking_pending_approval";
+type EditableTemplateKey = "enquiry_acknowledgement" | "enquiry_not_proceeding" | "invoice_document" | "invoice_reminder" | "job_confirmation" | "portal_invite" | "booking_pending_approval";
 
 interface EditableTemplateDef {
   key: EditableTemplateKey;
@@ -46,6 +46,14 @@ const TEMPLATE_DEFS: EditableTemplateDef[] = [
     defaultSubject: "{{document_type}} {{document_number}} from {{company_name}} - {{balance_due}}",
     defaultBody: "Dear {{customer_name}},\n\nPlease find your {{document_type}} {{document_number}} attached.\n\nAmount due: {{balance_due}}\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\n{{company_name}}",
     variables: ["{{customer_name}}", "{{company_name}}", "{{document_type}}", "{{document_number}}", "{{total}}", "{{balance_due}}", "{{due_date}}"],
+  },
+  {
+    key: "invoice_reminder",
+    label: "Invoice Payment Reminder",
+    description: "Sent when manually reminding a customer about an unpaid invoice.",
+    defaultSubject: "Payment reminder — Invoice {{document_number}} ({{balance_due}})",
+    defaultBody: "Dear {{customer_name}},\n\nThis is a friendly reminder that Invoice {{document_number}} for {{balance_due}} remains unpaid.\n\nPlease arrange payment at your earliest convenience.",
+    variables: ["{{customer_name}}", "{{company_name}}", "{{document_number}}", "{{balance_due}}", "{{due_date}}"],
   },
   {
     key: "job_confirmation",

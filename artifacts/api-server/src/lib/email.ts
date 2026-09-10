@@ -388,6 +388,7 @@ type ManagedEmailTemplateKey =
   | "enquiry_acknowledgement"
   | "enquiry_not_proceeding"
   | "invoice_document"
+  | "invoice_reminder"
   | "job_confirmation"
   | "booking_pending_approval"
   | "portal_invite";

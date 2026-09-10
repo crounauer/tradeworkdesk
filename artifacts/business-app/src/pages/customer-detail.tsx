@@ -415,6 +415,8 @@ export default function CustomerDetail() {
             />
 
             <CustomerCommsSection customerId={customer.id} />
+
+            <CustomerEmailAuditSection customerEmail={customer.email} />
           </div>
         </div>
       )}
@@ -1037,6 +1039,92 @@ function CustomerCommsSection({ customerId }: { customerId: string }) {
 
           return <div key={log.id}>{card}</div>;
         })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Email Audit — delivery status of transactional emails (incl. reminders)
+// ---------------------------------------------------------------------------
+type EmailAuditRow = {
+  id: string;
+  status: string;
+  email_type: string | null;
+  to_email: string;
+  subject: string;
+  error_message: string | null;
+  created_at: string;
+};
+
+const EMAIL_AUDIT_STATUS_STYLES: Record<string, string> = {
+  delivered: "bg-green-100 text-green-700",
+  accepted: "bg-blue-100 text-blue-700",
+  sent: "bg-blue-100 text-blue-700",
+  queued: "bg-slate-100 text-slate-600",
+  deferred: "bg-amber-100 text-amber-700",
+  bounced: "bg-red-100 text-red-700",
+  complained: "bg-red-100 text-red-700",
+  suppressed: "bg-red-100 text-red-700",
+  failed: "bg-red-100 text-red-700",
+};
+
+function formatEmailAuditType(type: string | null): string {
+  switch (type) {
+    case "invoice_reminder": return "Invoice reminder";
+    case "invoice": return "Invoice";
+    case "quote": return "Quote";
+    case "invoice_receipt": return "Payment receipt";
+    case "enquiry_acknowledgement": return "Enquiry acknowledgement";
+    case "enquiry_not_proceeding": return "Enquiry not proceeding";
+    default: return type || "Email";
+  }
+}
+
+function CustomerEmailAuditSection({ customerEmail }: { customerEmail?: string | null }) {
+  const email = (customerEmail || "").trim().toLowerCase();
+  const { data, isLoading, isError } = useQuery<{ items: EmailAuditRow[] }>({
+    queryKey: ["customer-email-audit", email],
+    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/email-audit?q=${encodeURIComponent(email)}&limit=100`) as Promise<{ items: EmailAuditRow[] }>,
+    enabled: !!email,
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  if (!email || isLoading || isError) return null;
+
+  const rows = (data?.items || []).filter((row) => row.to_email?.trim().toLowerCase() === email);
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <h2 className="text-xl font-display font-bold flex items-center gap-2">
+        <Mail className="w-5 h-5" /> Email Audit
+        <span className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{rows.length}</span>
+      </h2>
+      <div className="space-y-2 min-w-0">
+        {rows.map((row) => (
+          <Card key={row.id} className="p-4 border border-border/50">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold text-foreground truncate">{row.subject}</p>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${EMAIL_AUDIT_STATUS_STYLES[row.status] || "bg-slate-100 text-slate-600"}`}>
+                    {row.status}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 mt-1 flex-wrap text-xs text-muted-foreground">
+                  <span>{formatEmailAuditType(row.email_type)}</span>
+                  <span>To: {row.to_email}</span>
+                  <span>{new Date(row.created_at).toLocaleString("en-GB")}</span>
+                </div>
+                {row.error_message && (
+                  <p className="text-xs text-red-600 mt-1">{row.error_message}</p>
+                )}
+              </div>
+            </div>
+          </Card>
+        ))}
       </div>
     </div>
   );

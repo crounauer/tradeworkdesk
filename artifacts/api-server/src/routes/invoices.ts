@@ -3,7 +3,7 @@ import { requireAuth, requireRole, requireTenant, requirePlanFeature, type Authe
 import { requireTenantInvoicing, bustInvoicingCache } from "../middlewares/require-tenant-invoicing";
 import { supabaseAdmin } from "../lib/supabase";
 import { generateInvoicePdf, type InvoicePdfData } from "../lib/invoice-pdf";
-import { sendInvoiceDocumentEmail, sendPaymentReceiptEmail } from "../lib/invoice-email";
+import { sendInvoiceDocumentEmail, sendInvoiceReminderEmail, sendPaymentReceiptEmail } from "../lib/invoice-email";
 import { buildInvoiceData } from "./jobs";
 import { requireStripe } from "../lib/stripe";
 import { gcRequest, GC_API_BASE } from "./gocardless";
@@ -1315,6 +1315,96 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
   }
 
   res.json({ ...updated, sent_to: toEmail });
+});
+
+// ─── SEND REMINDER ─────────────────────────────────────────────────────────
+// POST /invoices/:id/send-reminder
+router.post("/invoices/:id/send-reminder", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: invoice, error: lookupErr } = await verifyInvoiceOwnership(req.params.id, req.tenantId!);
+  if (lookupErr || !invoice) { res.status(404).json({ error: lookupErr || "Invoice not found" }); return; }
+
+  if (invoice.type !== "invoice") {
+    res.status(400).json({ error: "Reminders can only be sent for invoices" });
+    return;
+  }
+  if (!["sent", "overdue"].includes(invoice.status as string)) {
+    res.status(400).json({ error: "Reminders can only be sent for unpaid invoices that have been sent" });
+    return;
+  }
+
+  const recipientEmailRaw: string | undefined = req.body?.override_email || undefined;
+  const recipientEmail: string | undefined = recipientEmailRaw ? String(recipientEmailRaw).trim().toLowerCase() : undefined;
+  const { data: customer } = await supabaseAdmin
+    .from("customers")
+    .select("business_name, first_name, last_name, email")
+    .eq("id", invoice.customer_id as string)
+    .maybeSingle();
+
+  const toEmail = (recipientEmail || customer?.email || "").trim().toLowerCase();
+  if (!toEmail) {
+    res.status(400).json({ error: "No email address found for this customer. Add one or provide override_email in the request body." });
+    return;
+  }
+
+  const customerDisplayName = getCustomerDisplayName(customer, "Customer");
+  const settings = await getCompanySettings(req.tenantId!);
+  const amountPaid = Math.round(Number(invoice.paid_amount ?? 0) * 100) / 100;
+  const balanceDue = Math.max(0, Math.round((Number(invoice.total ?? 0) - amountPaid) * 100) / 100);
+
+  let hasRegisteredPortalAccess = false;
+  try {
+    const { data: portalUser } = await supabaseAdmin
+      .from("customer_portal_users")
+      .select("id")
+      .eq("tenant_id", req.tenantId!)
+      .eq("customer_id", invoice.customer_id as string)
+      .eq("is_active", true)
+      .not("auth_user_id", "is", null)
+      .maybeSingle();
+    hasRegisteredPortalAccess = !!portalUser;
+  } catch {
+    hasRegisteredPortalAccess = false;
+  }
+
+  try {
+    await sendInvoiceReminderEmail({
+      tenantId: req.tenantId!,
+      to: toEmail,
+      invoiceNumber: invoice.invoice_number as string,
+      customerName: customerDisplayName,
+      balanceDue,
+      currency: (invoice.currency as string) || settings?.currency || "GBP",
+      dueDate: invoice.due_date ? String(invoice.due_date) : null,
+      portalUrl: hasRegisteredPortalAccess
+        ? `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`
+        : null,
+      company: settings ? {
+        name: settings.name,
+        trading_name: settings.trading_name,
+        logo_url: settings.logo_url,
+        email: settings.email,
+        notification_emails: settings.notification_emails as string[] | null,
+        phone: settings.phone,
+        website: settings.website,
+        email_from_name: settings.email_from_name as string | null,
+        email_reply_to: settings.email_reply_to as string | null,
+        email_templates: settings.email_templates as any,
+      } : undefined,
+    });
+  } catch (e) {
+    res.status(500).json({ error: `Reminder email failed: ${(e as Error).message}` });
+    return;
+  }
+
+  const nowIso = new Date().toISOString();
+  await supabaseAdmin
+    .from("invoices")
+    .update({ last_reminder_sent_at: nowIso, updated_at: nowIso })
+    .eq("id", req.params.id)
+    .eq("tenant_id", req.tenantId!)
+    .then(() => {}, () => {});
+
+  res.json({ sent_to: toEmail, sent_at: nowIso });
 });
 
 // ─── GET PDF ───────────────────────────────────────────────────────────────

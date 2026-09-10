@@ -415,3 +415,158 @@ export async function sendPaymentReceiptEmail(opts: {
     throw new Error(getTenantEmailFailureMessage(reason));
   }
 }
+
+export async function sendInvoiceReminderEmail(opts: {
+  tenantId?: string;
+  to: string;
+  invoiceNumber: string;
+  customerName: string;
+  balanceDue: number;
+  currency: string;
+  dueDate?: string | null;
+  pdfBuffer?: Buffer | null;
+  company?: EmailCompanyDetails;
+  portalUrl?: string | null;
+}): Promise<void> {
+  const toEmail = String(opts.to || "").trim().toLowerCase();
+  if (!EMAIL_RE.test(toEmail)) {
+    await notifyEmailDeliveryFailure({
+      to: toEmail || String(opts.to || ""),
+      subject: `Payment reminder — Invoice ${opts.invoiceNumber}`,
+      reason: "invalid recipient email format",
+    });
+    await writeTenantEmailAudit({
+      tenantId: opts.tenantId,
+      status: "failed",
+      emailType: "invoice_reminder",
+      to: toEmail || String(opts.to || ""),
+      subject: `Payment reminder — Invoice ${opts.invoiceNumber}`,
+      errorMessage: "invalid recipient email format",
+      failureCategory: "recipient",
+    });
+    throw new Error(getTenantEmailFailureMessage("invalid recipient email format"));
+  }
+
+  const companyName = opts.company?.name || opts.company?.trading_name || "Your Service Provider";
+  const FROM = buildPlatformInvoiceFrom(opts.company);
+  const formattedBalance = formatCurrency(opts.currency, opts.balanceDue);
+  const templateOverride = getTemplateOverride(opts.company, "invoice_reminder");
+  const templateVariables = {
+    customer_name: opts.customerName,
+    company_name: companyName,
+    document_number: opts.invoiceNumber,
+    balance_due: formattedBalance,
+    due_date: opts.dueDate || "Due on receipt",
+  };
+
+  const defaultSubject = `Payment reminder — Invoice ${opts.invoiceNumber} (${formattedBalance})`;
+  const subject = templateOverride?.subject?.trim()
+    ? applyTemplateVariables(templateOverride.subject, templateVariables).replace(/\s+/g, " ").trim()
+    : defaultSubject;
+  const defaultBody = `Dear ${opts.customerName},\n\nThis is a friendly reminder that Invoice ${opts.invoiceNumber} for ${formattedBalance} remains unpaid.\n\nPlease arrange payment at your earliest convenience.`;
+  const bodyHtml = renderTemplateBodyHtml(applyTemplateVariables(templateOverride?.body?.trim() || defaultBody, templateVariables));
+
+  const logoHtml = opts.company?.logo_url
+    ? `<div style="background:#fff;display:inline-block;padding:8px 14px;border-radius:6px;margin-bottom:12px;">
+        <img src="${escHtml(opts.company.logo_url)}" alt="${escHtml(companyName)}" style="max-height:48px;max-width:160px;display:block;" />
+       </div>`
+    : "";
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escHtml(subject)}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; margin: 0; padding: 0; }
+    .wrapper { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .header { background: #b45309; padding: 24px 32px; color: #fff; }
+    .body { padding: 32px; color: #1e293b; line-height: 1.6; }
+    .footer { padding: 20px 32px; background: #f1f5f9; font-size: 12px; color: #64748b; text-align: center; }
+    .divider { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+    .info-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      ${logoHtml}
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.4px;">${escHtml(companyName)}</div>
+    </div>
+    <div class="body">
+      <h2 style="margin-top:0;">Payment Reminder</h2>
+      ${bodyHtml}
+      <div class="info-box">
+        <p style="margin:0 0 4px;"><strong>Invoice number:</strong> ${escHtml(opts.invoiceNumber)}</p>
+        <p style="margin:0 0 4px;"><strong>Balance due:</strong> ${escHtml(formattedBalance)}</p>
+        <p style="margin:0;"><strong>Due date:</strong> ${escHtml(opts.dueDate || "Due on receipt")}</p>
+      </div>
+      ${opts.portalUrl ? `
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:20px 24px;margin:20px 0;">
+        <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#1e40af;">Pay Online</p>
+        <a href="${escHtml(opts.portalUrl)}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 28px;border-radius:7px;">Pay Online Now</a>
+      </div>` : ""}
+      <p>If you have already made this payment, please disregard this email.</p>
+      <hr class="divider"/>
+      <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong></p>
+    </div>
+    <div class="footer">
+      <p style="margin:0;">If this message lands in your spam folder, move it to your inbox and add <strong>${escHtml(PLATFORM_INVOICE_FROM_EMAIL)}</strong> to your contacts.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const replyToCandidate = String(opts.company?.email_reply_to || opts.company?.email || "").trim().toLowerCase();
+  const replyTo = EMAIL_RE.test(replyToCandidate) ? replyToCandidate : undefined;
+  const cc = normalizeAdditionalRecipients(opts.company?.notification_emails, toEmail, replyTo);
+
+  const sendOpts = {
+    from: FROM,
+    to: [toEmail],
+    ...(cc.length > 0 ? { cc } : {}),
+    subject,
+    html,
+    ...(opts.pdfBuffer ? { attachments: [{ filename: `invoice-${opts.invoiceNumber}.pdf`, content: opts.pdfBuffer }] } : {}),
+  } as any;
+  if (replyTo) sendOpts.replyTo = replyTo;
+
+  try {
+    const sendResult = await sendResendEmailWithRetry(sendOpts);
+    await writeTenantEmailAudit({
+      tenantId: opts.tenantId,
+      status: "accepted",
+      emailType: "invoice_reminder",
+      to: toEmail,
+      subject,
+      from: FROM,
+      replyTo,
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+      metadata: { invoiceNumber: opts.invoiceNumber },
+    });
+  } catch (sendErr) {
+    const reason = sendErr instanceof Error ? sendErr.message : String(sendErr);
+    console.error(`[invoice-email] Failed to send reminder email to ${toEmail}:`, reason);
+    await notifyEmailDeliveryFailure({
+      to: toEmail,
+      subject,
+      reason,
+      from: FROM,
+      replyTo,
+    });
+    await writeTenantEmailAudit({
+      tenantId: opts.tenantId,
+      status: "failed",
+      emailType: "invoice_reminder",
+      to: toEmail,
+      subject,
+      from: FROM,
+      replyTo,
+      errorMessage: reason,
+      metadata: { invoiceNumber: opts.invoiceNumber },
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
+  }
+}

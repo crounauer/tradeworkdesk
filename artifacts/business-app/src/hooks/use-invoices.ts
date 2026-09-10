@@ -296,6 +296,22 @@ export function useSendInvoice(id: string) {
   });
 }
 
+export function useSendInvoiceReminder(id: string) {
+  const qc = useQueryClient();
+  return useMutation<{ sent_to: string; sent_at: string }, Error, { override_email?: string }>({
+    mutationFn: (input) =>
+      apiFetch(`/api/invoices/${id}/send-reminder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: invoiceKeys.all });
+    },
+  });
+}
+
 export function useMarkInvoicePaid(id: string) {
   const qc = useQueryClient();
   return useMutation<Invoice, Error, MarkPaidInput>({

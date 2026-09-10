@@ -5,7 +5,7 @@ import { useParams, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft, Send, CheckCircle2, XCircle, RefreshCcw, Download, Trash2,
   Loader2, Receipt, AlertTriangle, FileText, CreditCard,
-  Edit3, Save, X, Mail, ChevronDown, ChevronUp, Briefcase,
+  Edit3, Save, X, Mail, ChevronDown, ChevronUp, Briefcase, BellRing,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +36,7 @@ import {
   useUpdateInvoice,
   useDeleteInvoice,
   useSendInvoice,
+  useSendInvoiceReminder,
   useMarkInvoiceSent,
   useUnsendInvoice,
   useMarkInvoicePaid,
@@ -351,6 +352,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const updateMut = useUpdateInvoice(id);
   const deleteMut = useDeleteInvoice();
   const sendMut = useSendInvoice(id);
+  const reminderMut = useSendInvoiceReminder(id);
   const markSentMut = useMarkInvoiceSent(id);
   const unsendMut = useUnsendInvoice(id);
   const paidMut = useMarkInvoicePaid(id);
@@ -536,6 +538,16 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       setEmailLogRefresh(n => n + 1);
     } catch (e) {
       toast({ title: "Send failed", description: (e as Error).message, variant: "destructive" });
+    }
+  }
+
+  async function handleSendReminder() {
+    try {
+      const result = await reminderMut.mutateAsync({});
+      toast({ title: "Reminder sent", description: `Sent to ${result.sent_to}` });
+      setEmailLogRefresh(n => n + 1);
+    } catch (e) {
+      toast({ title: "Reminder failed", description: (e as Error).message, variant: "destructive" });
     }
   }
 
@@ -745,6 +757,12 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           {isInvoice && !["paid", "cancelled", "declined", "converted"].includes(invoice.status) && balanceDue > 0 && (
             <Button variant="outline" onClick={() => setPaidOpen(true)}>
               <CreditCard className="w-4 h-4 mr-2" /> Record Payment
+            </Button>
+          )}
+          {isInvoice && invoice.status === "sent" && balanceDue > 0 && (
+            <Button variant="outline" onClick={handleSendReminder} disabled={reminderMut.isPending}>
+              {reminderMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BellRing className="w-4 h-4 mr-2" />}
+              Send Reminder
             </Button>
           )}
           {!isInvoice && invoice.status === "sent" && (
