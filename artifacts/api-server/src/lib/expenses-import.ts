@@ -4,17 +4,21 @@ export interface ParsedExpenseRow {
   date: string; // YYYY-MM-DD
   description: string;
   amount: number; // always positive; only money-out rows are returned
+  category: string | null;
   dedupeHash: string;
 }
 
 const HEADER_ALIASES: Record<string, string[]> = {
   date: ["date", "transactiondate", "postingdate", "postdate"],
-  description: ["description", "details", "narrative", "memo", "transaction", "reference", "payee"],
+  description: ["description", "details", "narrative", "memo", "transaction"],
   amount: ["amount", "value"],
   debit: ["debit", "moneyout", "paidout", "withdrawal", "outflow"],
   credit: ["credit", "moneyin", "paidin", "deposit", "inflow"],
   balance: ["balance", "runningbalance", "closingbalance", "balanceafter"],
   reference: ["reference", "transactionid", "transactionreference", "refnumber", "chequenumber", "id"],
+  // Counterparty name — often a richer identifier than the raw description/reference (e.g. "British Gas" vs "000000000073068923").
+  name: ["name", "counterparty", "payee", "merchant", "payeename", "merchantname"],
+  category: ["category"],
 };
 
 function normalizeHeader(header: string): string {
@@ -124,22 +128,73 @@ export interface CsvParseResult {
   skippedUnparseable: number;
 }
 
+export interface ExpenseCsvColumnMapping {
+  date: number;
+  description: number;
+  amount: number;
+  debit: number;
+  credit: number;
+  balance: number;
+  reference: number;
+  name: number;
+  category: number;
+}
+
+export function detectExpenseCsvMapping(headers: string[]): ExpenseCsvColumnMapping {
+  return {
+    date: detectColumn(headers, "date"),
+    description: detectColumn(headers, "description"),
+    amount: detectColumn(headers, "amount"),
+    debit: detectColumn(headers, "debit"),
+    credit: detectColumn(headers, "credit"),
+    balance: detectColumn(headers, "balance"),
+    reference: detectColumn(headers, "reference"),
+    name: detectColumn(headers, "name"),
+    category: detectColumn(headers, "category"),
+  };
+}
+
+export interface ExpenseCsvPreview {
+  headers: string[];
+  sampleRows: string[][];
+  guessedMapping: ExpenseCsvColumnMapping;
+}
+
+// Reads just the header row + a few sample rows, for a column-mapping confirmation
+// step before committing — bank CSV layouts vary too much to trust auto-detection blindly.
+export function previewExpenseCsv(content: string): ExpenseCsvPreview {
+  const lines = parseCsvLines(content);
+  if (lines.length === 0) throw new Error("This file appears to be empty.");
+  const headers = lines[0];
+  return {
+    headers,
+    sampleRows: lines.slice(1, 6),
+    guessedMapping: detectExpenseCsvMapping(headers),
+  };
+}
+
+function buildImportDescription(rawDesc: string, rawName: string | null): string {
+  const desc = rawDesc.trim();
+  const name = (rawName || "").trim();
+  if (!name) return desc;
+  if (!desc || desc.toLowerCase() === name.toLowerCase()) return name;
+  // Combine counterparty name with the raw description/reference so cryptic
+  // reference-only descriptions (e.g. "000000000073068923") still show who it was to/from.
+  return desc.toLowerCase().includes(name.toLowerCase()) ? desc : `${name} — ${desc}`;
+}
+
 // Parses a bank statement CSV and returns only money-out (expense) rows.
-export function parseExpenseCsv(content: string, tenantId: string): CsvParseResult {
+// If `mapping` is omitted, columns are auto-detected from the header row.
+export function parseExpenseCsv(content: string, tenantId: string, mapping?: ExpenseCsvColumnMapping): CsvParseResult {
   const lines = parseCsvLines(content);
   if (lines.length < 2) return { rows: [], skippedCredits: 0, skippedUnparseable: 0 };
 
   const headers = lines[0];
-  const dateCol = detectColumn(headers, "date");
-  const descCol = detectColumn(headers, "description");
-  const amountCol = detectColumn(headers, "amount");
-  const debitCol = detectColumn(headers, "debit");
-  const creditCol = detectColumn(headers, "credit");
-  const balanceCol = detectColumn(headers, "balance");
-  const referenceCol = detectColumn(headers, "reference");
+  const cols = mapping ?? detectExpenseCsvMapping(headers);
+  const { date: dateCol, description: descCol, amount: amountCol, debit: debitCol, credit: creditCol, balance: balanceCol, reference: referenceCol, name: nameCol, category: categoryCol } = cols;
 
   if (dateCol === -1 || descCol === -1 || (amountCol === -1 && debitCol === -1)) {
-    throw new Error("Could not detect Date, Description and Amount/Debit columns in this CSV. Please check the file has a header row.");
+    throw new Error("Could not detect Date, Description and Amount/Debit columns in this CSV. Please check the file has a header row, or map the columns manually.");
   }
 
   const rows: ParsedExpenseRow[] = [];
@@ -151,7 +206,8 @@ export function parseExpenseCsv(content: string, tenantId: string): CsvParseResu
     const rawDate = line[dateCol] ?? "";
     const rawDesc = line[descCol] ?? "";
     const date = parseDate(rawDate);
-    const description = rawDesc.trim();
+    const rawName = nameCol !== -1 ? (line[nameCol] ?? "") : null;
+    const description = buildImportDescription(rawDesc, rawName);
 
     let amount: number | null = null;
     if (debitCol !== -1) {
@@ -169,12 +225,14 @@ export function parseExpenseCsv(content: string, tenantId: string): CsvParseResu
 
     const balance = balanceCol !== -1 ? parseAmount(line[balanceCol] ?? "") : null;
     const reference = referenceCol !== -1 ? (line[referenceCol] ?? "").trim() : null;
+    const category = categoryCol !== -1 ? (line[categoryCol] ?? "").trim() || null : null;
     const occurrence = occurrences.next(date, description, amount);
 
     rows.push({
       date,
       description,
       amount,
+      category,
       dedupeHash: buildDedupeHash(tenantId, date, description, amount, { balance, reference, occurrence }),
     });
   }
@@ -260,6 +318,7 @@ export function parseExpensePdfText(text: string, tenantId: string): CsvParseRes
       date,
       description,
       amount,
+      category: null,
       dedupeHash: buildDedupeHash(tenantId, date, description, amount, { balance, occurrence }),
     });
   }

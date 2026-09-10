@@ -15,12 +15,24 @@ import { Receipt, Upload, Plus, Trash2, Loader2, Download, Paperclip, Eye, Chevr
 import { useToast } from "@/hooks/use-toast";
 import {
   useListExpenses, useExpenseCategories, useExpenseDateRange, useCreateExpense, useUpdateExpense,
-  useDeleteExpense, useImportExpensesCsv, type Expense,
+  useDeleteExpense, useImportExpensesCsv, usePreviewExpensesCsv, type Expense, type ExpenseCsvColumnMapping,
 } from "@/hooks/use-expenses";
 import { useCompanySettings, useUpdateCompanySettings } from "@/hooks/use-company-settings";
 import { customFetch } from "@workspace/api-client-react";
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+const MAPPING_FIELD_DEFS: { key: keyof ExpenseCsvColumnMapping; label: string; required?: boolean }[] = [
+  { key: "date", label: "Date", required: true },
+  { key: "description", label: "Description", required: true },
+  { key: "amount", label: "Amount (single signed column)" },
+  { key: "debit", label: "Debit / Money out" },
+  { key: "credit", label: "Credit / Money in" },
+  { key: "balance", label: "Running balance" },
+  { key: "reference", label: "Reference / Transaction ID" },
+  { key: "name", label: "Counterparty / Payee name" },
+  { key: "category", label: "Category" },
+];
 
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -85,6 +97,11 @@ export default function Expenses() {
   const [viewingReceiptId, setViewingReceiptId] = useState<string | null>(null);
   const [editingDescriptionId, setEditingDescriptionId] = useState<string | null>(null);
   const [descriptionDraft, setDescriptionDraft] = useState("");
+  const [pendingCsvFile, setPendingCsvFile] = useState<File | null>(null);
+  const [csvMappingOpen, setCsvMappingOpen] = useState(false);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvSampleRows, setCsvSampleRows] = useState<string[][]>([]);
+  const [csvMapping, setCsvMapping] = useState<ExpenseCsvColumnMapping | null>(null);
 
   const filters = { from: dateFrom, to: dateTo, category: category || undefined, q: search || undefined, page };
   const { data, isLoading } = useListExpenses(filters);
@@ -93,6 +110,7 @@ export default function Expenses() {
   const updateMut = useUpdateExpense();
   const deleteMut = useDeleteExpense();
   const importMut = useImportExpensesCsv();
+  const previewMut = usePreviewExpensesCsv();
 
   const [form, setForm] = useState({
     expense_date: new Date().toISOString().slice(0, 10),
@@ -111,12 +129,51 @@ export default function Expenses() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
+
+    if (/\.pdf$/i.test(file.name)) {
+      try {
+        const result = await importMut.mutateAsync({ file });
+        toast({
+          title: "Import complete",
+          description: `Imported ${result.imported} expense${result.imported === 1 ? "" : "s"}. Skipped ${result.skipped_duplicates} duplicate(s), ${result.skipped_credits} incoming payment(s).`,
+        });
+      } catch (err) {
+        toast({ title: "Import failed", description: (err as Error).message, variant: "destructive" });
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    // CSV: preview the columns first so the user can confirm/correct the mapping
+    // before anything is imported — bank export formats vary too much to trust blindly.
     try {
-      const result = await importMut.mutateAsync(file);
+      const preview = await previewMut.mutateAsync(file);
+      setPendingCsvFile(file);
+      setCsvHeaders(preview.headers);
+      setCsvSampleRows(preview.sampleRows);
+      setCsvMapping(preview.guessedMapping);
+      setCsvMappingOpen(true);
+    } catch (err) {
+      toast({ title: "Could not read file", description: (err as Error).message, variant: "destructive" });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleConfirmCsvImport() {
+    if (!pendingCsvFile || !csvMapping) return;
+    if (csvMapping.date === -1 || csvMapping.description === -1 || (csvMapping.amount === -1 && csvMapping.debit === -1)) {
+      toast({ title: "Mapping incomplete", description: "Please map Date, Description, and either Amount or Debit.", variant: "destructive" });
+      return;
+    }
+    try {
+      const result = await importMut.mutateAsync({ file: pendingCsvFile, mapping: csvMapping });
       toast({
         title: "Import complete",
         description: `Imported ${result.imported} expense${result.imported === 1 ? "" : "s"}. Skipped ${result.skipped_duplicates} duplicate(s), ${result.skipped_credits} incoming payment(s).`,
       });
+      setCsvMappingOpen(false);
+      setPendingCsvFile(null);
     } catch (err) {
       toast({ title: "Import failed", description: (err as Error).message, variant: "destructive" });
     } finally {
@@ -254,8 +311,8 @@ export default function Expenses() {
           <Button variant="outline" size="icon" onClick={() => { setFySettingsMonth(fyMonth); setFySettingsDay(fyDay); setFySettingsOpen(true); }} title="Financial year settings">
             <Settings2 className="w-4 h-4" />
           </Button>
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importMut.isPending}>
-            {importMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+          <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importMut.isPending || previewMut.isPending}>
+            {(importMut.isPending || previewMut.isPending) ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
             Import Bank Statement
           </Button>
           <Button variant="outline" onClick={handleExport}>
@@ -498,6 +555,63 @@ export default function Expenses() {
             <Button onClick={handleSaveFySettings} disabled={updateSettingsMut.isPending}>
               {updateSettingsMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={csvMappingOpen} onOpenChange={(open) => { setCsvMappingOpen(open); if (!open) { setPendingCsvFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Confirm Column Mapping</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              We've guessed which columns to use from your file's headers. Bank export formats vary, so please check these are correct before importing.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {MAPPING_FIELD_DEFS.map((field) => (
+                <div key={field.key} className="space-y-1">
+                  <Label className="text-xs">{field.label}{field.required && " *"}</Label>
+                  <Select
+                    value={String(csvMapping?.[field.key] ?? -1)}
+                    onValueChange={(v) => setCsvMapping((prev) => prev ? { ...prev, [field.key]: Number(v) } : prev)}
+                  >
+                    <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="-1">Not in file</SelectItem>
+                      {csvHeaders.map((h, i) => <SelectItem key={i} value={String(i)}>{h || `Column ${i + 1}`}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+
+            {csvSampleRows.length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-xs">Preview (first {csvSampleRows.length} rows)</Label>
+                <div className="overflow-x-auto border border-border/50 rounded-md">
+                  <table className="text-xs w-full">
+                    <thead>
+                      <tr className="bg-muted/40">
+                        {csvHeaders.map((h, i) => <th key={i} className="px-2 py-1 text-left font-medium whitespace-nowrap">{h || `Column ${i + 1}`}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {csvSampleRows.map((row, ri) => (
+                        <tr key={ri} className="border-t border-border/30">
+                          {row.map((cell, ci) => <td key={ci} className="px-2 py-1 whitespace-nowrap max-w-[160px] truncate">{cell}</td>)}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCsvMappingOpen(false)}>Cancel</Button>
+            <Button onClick={handleConfirmCsvImport} disabled={importMut.isPending}>
+              {importMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Confirm Import
             </Button>
           </DialogFooter>
         </DialogContent>

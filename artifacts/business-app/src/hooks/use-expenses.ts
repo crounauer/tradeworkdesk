@@ -112,14 +112,44 @@ export interface ImportExpensesResult {
   skipped_unparseable: number;
 }
 
-export function useImportExpensesCsv() {
-  const qc = useQueryClient();
-  return useMutation<ImportExpensesResult, Error, File>({
+export interface ExpenseCsvColumnMapping {
+  date: number;
+  description: number;
+  amount: number;
+  debit: number;
+  credit: number;
+  balance: number;
+  reference: number;
+  name: number;
+  category: number;
+}
+
+export interface ExpenseCsvPreview {
+  headers: string[];
+  sampleRows: string[][];
+  guessedMapping: ExpenseCsvColumnMapping;
+}
+
+export function usePreviewExpensesCsv() {
+  return useMutation<ExpenseCsvPreview, Error, File>({
     mutationFn: (file) => {
       const formData = new FormData();
       formData.append("file", file);
+      return apiFetch(`${import.meta.env.BASE_URL}api/expenses/import-preview`, { method: "POST", body: formData });
+    },
+  });
+}
+
+export function useImportExpensesCsv() {
+  const qc = useQueryClient();
+  return useMutation<ImportExpensesResult, Error, { file: File; mapping?: ExpenseCsvColumnMapping }>({
+    mutationFn: ({ file, mapping }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (mapping) formData.append("mapping", JSON.stringify(mapping));
       return apiFetch(`${import.meta.env.BASE_URL}api/expenses/import`, { method: "POST", body: formData });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: expensesKeys.all }),
   });
 }
+

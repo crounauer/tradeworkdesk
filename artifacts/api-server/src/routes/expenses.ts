@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { PDFParse } from "pdf-parse";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
-import { parseExpenseCsv, parseExpensePdfText, buildDedupeHash } from "../lib/expenses-import";
+import { parseExpenseCsv, parseExpensePdfText, previewExpenseCsv, buildDedupeHash, type ExpenseCsvColumnMapping } from "../lib/expenses-import";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
@@ -153,6 +153,25 @@ router.delete("/expenses/:id", ...canManage, async (req: AuthenticatedRequest, r
   res.status(204).send();
 });
 
+// ─── IMPORT PREVIEW (CSV column mapping step) ───────────────────────────────
+router.post("/expenses/import-preview", ...canManage, upload.single("file"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const file = req.file;
+  if (!file) { res.status(400).json({ error: "No file uploaded" }); return; }
+
+  const isCsv = /\.csv$/i.test(file.originalname) || file.mimetype === "text/csv" || file.mimetype === "application/vnd.ms-excel";
+  if (!isCsv) {
+    res.status(400).json({ error: "Column mapping is only available for CSV files." });
+    return;
+  }
+
+  try {
+    const preview = previewExpenseCsv(file.buffer.toString("utf-8"));
+    res.json(preview);
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
+});
+
 // ─── IMPORT (bank statement CSV or PDF) ─────────────────────────────────────
 router.post("/expenses/import", ...canManage, upload.single("file"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const file = req.file;
@@ -168,10 +187,20 @@ router.post("/expenses/import", ...canManage, upload.single("file"), async (req:
     return;
   }
 
+  let mapping: ExpenseCsvColumnMapping | undefined;
+  if (isCsv && typeof req.body?.mapping === "string") {
+    try {
+      mapping = JSON.parse(req.body.mapping) as ExpenseCsvColumnMapping;
+    } catch {
+      res.status(400).json({ error: "Invalid column mapping." });
+      return;
+    }
+  }
+
   let parsed;
   try {
     if (isCsv) {
-      parsed = parseExpenseCsv(file.buffer.toString("utf-8"), req.tenantId!);
+      parsed = parseExpenseCsv(file.buffer.toString("utf-8"), req.tenantId!, mapping);
     } else {
       const pdf = new PDFParse({ data: file.buffer });
       const { text } = await pdf.getText();
@@ -200,7 +229,7 @@ router.post("/expenses/import", ...canManage, upload.single("file"), async (req:
     expense_date: r.date,
     description: r.description,
     amount: r.amount,
-    category: null,
+    category: r.category,
     source: "import",
     import_batch_id: importBatchId,
     import_filename: file.originalname,
