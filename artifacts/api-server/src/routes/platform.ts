@@ -3397,6 +3397,103 @@ router.post("/platform/tenants/:id/backup/validate", requireAuth, requireSuperAd
   });
 });
 
+router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  if (req.body?.confirm !== true) {
+    res.status(400).json({ error: "Restore requires confirm=true" });
+    return;
+  }
+  const sourceTenantId = String(req.params.id || "").trim();
+  const { data: sourceTenant } = await supabaseAdmin.from("tenants").select("id, company_name, contact_email").eq("id", sourceTenantId).maybeSingle();
+  if (!sourceTenant) { res.status(404).json({ error: "Source tenant not found" }); return; }
+
+  const { data: settings, error: settingsError } = await supabaseAdmin.from("platform_settings").select("key, value").in("key", [...R2_KEYS]);
+  if (settingsError) { res.status(500).json({ error: settingsError.message }); return; }
+  const cfg: Record<string, string | null> = {};
+  for (const key of R2_KEYS) cfg[key] = settings?.find((row) => row.key === key)?.value ?? null;
+  const missing = R2_KEYS.filter((key) => !cfg[key]);
+  if (missing.length > 0) { res.status(422).json({ error: "R2 backup credentials are not configured", missing }); return; }
+
+  const host = `${cfg.backup_r2_account_id!}.r2.cloudflarestorage.com`;
+  const bucket = cfg.backup_r2_bucket_name!;
+  const prefix = `tenant-backups/${sourceTenantId}/`;
+  const listPath = `/${bucket}`;
+  const listQuery = `list-type=2&max-keys=100&prefix=${encodeURIComponent(prefix)}`;
+  const listHeaders = signR2Headers({ method: "GET", host, path: listPath, query: listQuery, accessKeyId: cfg.backup_r2_access_key_id!, secretAccessKey: cfg.backup_r2_secret_access_key! });
+  const listResponse = await fetch(`https://${host}${listPath}?${listQuery}`, { headers: listHeaders, signal: AbortSignal.timeout(15000) });
+  if (!listResponse.ok) { res.status(502).json({ error: `R2 listing failed: ${listResponse.status}` }); return; }
+  const keys = Array.from((await listResponse.text()).matchAll(/<Key>(.*?)<\/Key>/g)).map((match) => match[1]).filter((key) => key.endsWith(".zip"));
+  if (keys.length === 0) { res.status(404).json({ error: "No media-inclusive tenant snapshot found" }); return; }
+  keys.sort();
+  const key = keys[keys.length - 1];
+  const archiveUrl = presignR2Get({ host, bucket, key, accessKeyId: cfg.backup_r2_access_key_id!, secretAccessKey: cfg.backup_r2_secret_access_key!, expiresSeconds: 600 });
+  const archiveResponse = await fetch(archiveUrl, { signal: AbortSignal.timeout(120000) });
+  if (!archiveResponse.ok) { res.status(502).json({ error: `Backup download failed: ${archiveResponse.status}` }); return; }
+  const zip = await JSZip.loadAsync(Buffer.from(await archiveResponse.arrayBuffer()));
+  const manifest = JSON.parse(await zip.file("manifest.json")!.async("text")) as { tenantId?: string; format?: string; tenant?: { companyName?: string; contactEmail?: string } };
+  const data = JSON.parse(await zip.file("data.json")!.async("text")) as Record<string, Array<Record<string, unknown>>>;
+  if (manifest.tenantId !== sourceTenantId || manifest.format !== "tradeworkdesk-tenant-snapshot-v2") {
+    res.status(422).json({ error: "Snapshot does not match the source tenant or supported restore format" });
+    return;
+  }
+
+  const restoreName = `${manifest.tenant?.companyName || sourceTenant.company_name} (Restored ${new Date().toISOString().slice(0, 10)})`;
+  const { data: restoredTenant, error: tenantError } = await supabaseAdmin.from("tenants").insert({
+    company_name: restoreName,
+    contact_name: restoreName,
+    contact_email: manifest.tenant?.contactEmail || sourceTenant.contact_email || `restored-${sourceTenantId.slice(0, 8)}@invalid.local`,
+    status: "suspended",
+    trial_ends_at: new Date().toISOString(),
+  }).select("id, company_name, status").single();
+  if (tenantError || !restoredTenant) { res.status(500).json({ error: tenantError?.message || "Failed to create restored tenant" }); return; }
+
+  const restoreOrder = [
+    "company_settings", "customers", "properties", "appliances", "jobs", "job_parts", "job_services",
+    "job_time_entries", "invoices", "invoice_line_items", "quotes", "quote_line_items", "enquiries",
+    "enquiry_messages", "follow_ups", "websites", "website_pages", "website_blocks", "website_forms",
+    "website_form_submissions",
+  ];
+  const skipped: Array<{ table: string; reason: string; count?: number }> = [];
+  const restoredCounts: Record<string, number> = {};
+  const profileDependentFields = ["assigned_technician_id", "author_id", "created_by", "uploaded_by", "changed_by", "user_id"];
+
+  for (const table of restoreOrder) {
+    const rows = data[table] || [];
+    if (rows.length === 0) continue;
+    const sanitizedRows = rows.map((sourceRow) => {
+      const row: Record<string, unknown> = { ...sourceRow, tenant_id: restoredTenant.id };
+      for (const field of profileDependentFields) {
+        if (field in row) row[field] = null;
+      }
+      if (table === "company_settings") row.singleton_id = "default";
+      return row;
+    });
+    const { error } = await supabaseAdmin.from(table).insert(sanitizedRows);
+    if (!error) {
+      restoredCounts[table] = sanitizedRows.length;
+      continue;
+    }
+    let restored = 0;
+    for (const row of sanitizedRows) {
+      const { error: rowError } = await supabaseAdmin.from(table).insert(row);
+      if (rowError) {
+        skipped.push({ table, reason: rowError.message, count: 1 });
+      } else restored++;
+    }
+    if (restored > 0) restoredCounts[table] = restored;
+  }
+
+  const excluded = ["profiles", "tenant_user_push_preferences", "web_push_subscriptions", "file_attachments", "signatures", "website_media"];
+  await supabaseAdmin.from("platform_audit_log").insert({
+    actor_id: req.userId,
+    actor_email: req.userEmail,
+    event_type: "tenant_backup_restored_to_new_tenant",
+    entity_type: "tenant",
+    entity_id: restoredTenant.id,
+    detail: { source_tenant_id: sourceTenantId, source_backup_key: key, restored_counts: restoredCounts, skipped, excluded },
+  });
+  res.status(201).json({ restoredTenant, sourceTenantId, sourceBackupKey: key, restoredCounts, skipped, excluded });
+});
+
 router.get("/platform/backup-logs", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
   const { data, error: fetchErr } = await supabaseAdmin
     .from("platform_settings")

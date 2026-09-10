@@ -375,6 +375,24 @@ export default function PlatformTenantDetail() {
     onError: (e) => toast({ title: "Validation failed", description: e.message, variant: "destructive" }),
   });
 
+  const restoreTenantBackupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/platform/tenants/${params.id}/backup/restore`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: true }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Tenant restore failed");
+      return body as { restoredTenant: { id: string; company_name: string }; restoredCounts: Record<string, number>; skipped: Array<{ table: string; reason: string }>; excluded: string[] };
+    },
+    onSuccess: (result) => {
+      toast({ title: "Tenant restored", description: `${result.restoredTenant.company_name} created with ${Object.values(result.restoredCounts).reduce((sum, count) => sum + count, 0)} records. Review skipped tables before activating it.` });
+      navigate(`/platform/tenants/${result.restoredTenant.id}`);
+    },
+    onError: (e) => toast({ title: "Restore failed", description: e.message, variant: "destructive" }),
+  });
+
   if (isLoading) {
     return <div className="animate-pulse space-y-4"><div className="h-8 w-64 bg-slate-100 rounded" /><div className="h-48 bg-slate-100 rounded" /></div>;
   }
@@ -499,6 +517,19 @@ export default function PlatformTenantDetail() {
             >
               <ShieldCheck className="w-4 h-4 mr-2" />
               {validateTenantBackupMutation.isPending ? "Validating…" : "Validate Latest Backup"}
+            </Button>
+            <Button
+              variant="outline"
+              className="text-orange-700 border-orange-200 hover:bg-orange-50"
+              onClick={() => {
+                if (window.confirm("Restore the latest snapshot into a new suspended tenant? The source tenant will not be changed. Auth users and media files are excluded.")) {
+                  restoreTenantBackupMutation.mutate();
+                }
+              }}
+              disabled={restoreTenantBackupMutation.isPending}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              {restoreTenantBackupMutation.isPending ? "Restoring…" : "Restore as New Tenant"}
             </Button>
             {hasFreeAccessOverride(tenant.notes) ? (
               <Button
