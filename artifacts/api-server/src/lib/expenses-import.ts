@@ -143,3 +143,82 @@ export function parseExpenseCsv(content: string, tenantId: string): CsvParseResu
 
   return { rows, skippedCredits, skippedUnparseable };
 }
+
+// ── PDF bank statement parsing ──────────────────────────────────────────────
+// Banks that don't offer a CSV export (e.g. Tide) still show a running balance
+// per transaction line in their PDF statements. Rather than relying on fragile
+// column-position parsing (which breaks whenever text extraction reflows a
+// table), we detect money-out rows from the balance *decreasing* between
+// consecutive transaction lines — this is layout-independent and works across
+// most UK bank statement formats.
+const MONTH_INDEX: Record<string, string> = {
+  jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+  jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+};
+
+const PDF_DATE_LINE_RE = /^((?:\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})|(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4})|(?:\d{4}-\d{2}-\d{2}))\s+(.*)$/;
+const MONEY_TOKEN_RE = /-?£?\d{1,3}(?:,\d{3})*\.\d{2}/g;
+
+function parsePdfDateToken(token: string): string | null {
+  const monthMatch = token.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
+  if (monthMatch) {
+    const [, d, mon, y] = monthMatch;
+    const mm = MONTH_INDEX[mon.slice(0, 3).toLowerCase()];
+    if (mm) return `${y}-${mm}-${d.padStart(2, "0")}`;
+  }
+  const slashMatch = token.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+  if (slashMatch) {
+    const [, d, m, yRaw] = slashMatch;
+    const y = yRaw.length === 2 ? `20${yRaw}` : yRaw;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(token)) return token;
+  return null;
+}
+
+function parseMoneyToken(token: string): number {
+  return Number(token.replace(/[£,]/g, ""));
+}
+
+export function parseExpensePdfText(text: string, tenantId: string): CsvParseResult {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const rows: ParsedExpenseRow[] = [];
+  let skippedCredits = 0;
+  let skippedUnparseable = 0;
+  let previousBalance: number | null = null;
+
+  for (const line of lines) {
+    const dateMatch = line.match(PDF_DATE_LINE_RE);
+    if (!dateMatch) continue; // headers, totals, page footers etc. — not a transaction line
+
+    const date = parsePdfDateToken(dateMatch[1]);
+    const rest = dateMatch[2];
+    const moneyTokens = rest.match(MONEY_TOKEN_RE);
+
+    if (!date || !moneyTokens || moneyTokens.length === 0) { skippedUnparseable++; continue; }
+
+    const balance = parseMoneyToken(moneyTokens[moneyTokens.length - 1]);
+    const firstMoneyIndex = rest.indexOf(moneyTokens[0]);
+    const description = (firstMoneyIndex > 0 ? rest.slice(0, firstMoneyIndex) : rest).trim();
+
+    if (moneyTokens.length < 2) { skippedUnparseable++; continue; } // no running balance to diff against — can't safely tell direction
+
+    if (previousBalance == null) {
+      // First transaction line only establishes the balance baseline; its own
+      // direction can't be determined without an earlier balance to compare to.
+      previousBalance = balance;
+      continue;
+    }
+
+    const delta = Math.round((balance - previousBalance) * 100) / 100;
+    previousBalance = balance;
+    if (delta >= 0) { skippedCredits++; continue; }
+    if (!description) { skippedUnparseable++; continue; }
+
+    const amount = Math.abs(delta);
+    rows.push({ date, description, amount, dedupeHash: buildDedupeHash(tenantId, date, description, amount) });
+  }
+
+  return { rows, skippedCredits, skippedUnparseable };
+}
+

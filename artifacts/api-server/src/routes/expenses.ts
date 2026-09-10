@@ -1,12 +1,13 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
+import { PDFParse } from "pdf-parse";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, requireRole, type AuthenticatedRequest } from "../middlewares/auth";
-import { parseExpenseCsv, buildDedupeHash } from "../lib/expenses-import";
+import { parseExpenseCsv, parseExpensePdfText, buildDedupeHash } from "../lib/expenses-import";
 
 const router: IRouter = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 
 const canManage = [requireAuth, requireTenant, requireRole("admin", "office_staff", "super_admin")] as const;
 
@@ -139,21 +140,44 @@ router.delete("/expenses/:id", ...canManage, async (req: AuthenticatedRequest, r
   res.status(204).send();
 });
 
-// ─── IMPORT (bank statement CSV) ────────────────────────────────────────────
+// ─── IMPORT (bank statement CSV or PDF) ─────────────────────────────────────
 router.post("/expenses/import", ...canManage, upload.single("file"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const file = req.file;
-  if (!file) { res.status(400).json({ error: "No CSV file uploaded" }); return; }
+  if (!file) { res.status(400).json({ error: "No file uploaded" }); return; }
+
+  const isCsv = /\.csv$/i.test(file.originalname) || file.mimetype === "text/csv" || file.mimetype === "application/vnd.ms-excel";
+  const isPdf = /\.pdf$/i.test(file.originalname) || file.mimetype === "application/pdf";
+
+  if (!isCsv && !isPdf) {
+    res.status(400).json({
+      error: "Unsupported file type. Please upload a CSV or PDF bank statement.",
+    });
+    return;
+  }
 
   let parsed;
   try {
-    parsed = parseExpenseCsv(file.buffer.toString("utf-8"), req.tenantId!);
+    if (isCsv) {
+      parsed = parseExpenseCsv(file.buffer.toString("utf-8"), req.tenantId!);
+    } else {
+      const pdf = new PDFParse({ data: file.buffer });
+      const { text } = await pdf.getText();
+      await pdf.destroy();
+      parsed = parseExpensePdfText(text, req.tenantId!);
+    }
   } catch (e) {
-    res.status(400).json({ error: (e as Error).message });
+    res.status(400).json({ error: isPdf ? `Could not read this PDF: ${(e as Error).message}` : (e as Error).message });
     return;
   }
 
   if (parsed.rows.length === 0) {
-    res.status(400).json({ error: "No expense (money-out) rows were found in this file.", skipped_credits: parsed.skippedCredits, skipped_unparseable: parsed.skippedUnparseable });
+    res.status(400).json({
+      error: isPdf
+        ? "No expense (money-out) transactions were found in this PDF. Statement layouts vary between banks — if this keeps happening, let us know so we can improve detection for your bank's format."
+        : "No expense (money-out) rows were found in this file.",
+      skipped_credits: parsed.skippedCredits,
+      skipped_unparseable: parsed.skippedUnparseable,
+    });
     return;
   }
 

@@ -11,7 +11,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Receipt, Upload, Plus, Trash2, Loader2, Download, Paperclip, Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { Receipt, Upload, Plus, Trash2, Loader2, Download, Paperclip, Eye, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useListExpenses, useExpenseCategories, useCreateExpense, useUpdateExpense,
@@ -45,6 +45,8 @@ export default function Expenses() {
   const [addOpen, setAddOpen] = useState(false);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [viewingReceiptId, setViewingReceiptId] = useState<string | null>(null);
+  const [editingDescriptionId, setEditingDescriptionId] = useState<string | null>(null);
+  const [descriptionDraft, setDescriptionDraft] = useState("");
 
   const filters = { from: dateFrom, to: dateTo, category: category || undefined, q: search || undefined, page };
   const { data, isLoading } = useListExpenses(filters);
@@ -62,6 +64,15 @@ export default function Expenses() {
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!/\.(csv|pdf)$/i.test(file.name)) {
+      toast({
+        title: "Unsupported file",
+        description: "Please upload a CSV or PDF bank statement.",
+        variant: "destructive",
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     try {
       const result = await importMut.mutateAsync(file);
       toast({
@@ -105,6 +116,21 @@ export default function Expenses() {
     } catch (err) {
       toast({ title: "Delete failed", description: (err as Error).message, variant: "destructive" });
     }
+  }
+
+  function startEditDescription(expense: Expense) {
+    setEditingDescriptionId(expense.id);
+    setDescriptionDraft(expense.description);
+  }
+
+  function saveDescription(expense: Expense) {
+    const trimmed = descriptionDraft.trim();
+    setEditingDescriptionId(null);
+    if (!trimmed || trimmed === expense.description) return;
+    updateMut.mutate(
+      { id: expense.id, patch: { description: trimmed } },
+      { onError: (err) => toast({ title: "Failed to update description", description: (err as Error).message, variant: "destructive" }) },
+    );
   }
 
   function openReceiptPicker(expenseId: string) {
@@ -168,7 +194,7 @@ export default function Expenses() {
           <p className="text-sm text-muted-foreground mt-1">Track outgoings and import bank statements ready for end-of-year accounting.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
+          <input ref={fileInputRef} type="file" accept=".csv,.pdf" className="hidden" onChange={handleImport} />
           <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importMut.isPending}>
             {importMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
             Import Bank Statement
@@ -234,7 +260,28 @@ export default function Expenses() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm">{expense.description}</span>
+                    {editingDescriptionId === expense.id ? (
+                      <Input
+                        autoFocus
+                        className="h-7 text-sm max-w-xs"
+                        value={descriptionDraft}
+                        onChange={(e) => setDescriptionDraft(e.target.value)}
+                        onBlur={() => saveDescription(expense)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveDescription(expense);
+                          if (e.key === "Escape") setEditingDescriptionId(null);
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="font-medium text-sm inline-flex items-center gap-1 hover:underline"
+                        onClick={() => startEditDescription(expense)}
+                      >
+                        {expense.description}
+                        <Pencil className="w-3 h-3 text-muted-foreground" />
+                      </button>
+                    )}
                     {expense.source === "import" && (
                       <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">Imported</span>
                     )}
