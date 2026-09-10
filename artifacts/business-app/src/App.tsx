@@ -168,6 +168,7 @@ const Todos = lazyRetry(() => import("@/pages/todos"));
 const ShoppingLists = lazyRetry(() => import("@/pages/shopping-lists"));
 const Community = lazyRetry(() => import("@/pages/community"));
 const Invoices = lazyRetry(() => import("@/pages/invoices"));
+const Expenses = lazyRetry(() => import("@/pages/expenses"));
 const InvoiceDetail = lazyRetry(() => import("@/pages/invoice-detail"));
 const HelpPage = lazyRetry(() => import("@/pages/help"));
 const GettingStartedPage = lazyRetry(() => import("@/pages/getting-started"));
@@ -533,6 +534,7 @@ const TodosRoute = protect(Todos);
 const ShoppingListsRoute = protect(ShoppingLists);
 const CommunityRoute = protect(Community);
 const InvoicesRoute = protectFeature(Invoices, "job_management");
+const ExpensesRoute = protectFeature(Expenses, "job_management");
 const InvoiceDetailRoute = protectFeature(InvoiceDetail, "job_management");
 const HelpRoute = protect(HelpPage);
 const GettingStartedRoute = protect(GettingStartedPage);
@@ -790,6 +792,7 @@ function AppRouter() {
         <Route path="/shopping-lists" component={ShoppingListsRoute} />
         <Route path="/community" component={CommunityRoute} />
         <Route path="/invoices" component={InvoicesRoute} />
+        <Route path="/expenses" component={ExpensesRoute} />
         <Route path="/invoices/:id" component={InvoiceDetailRoute} />
           <Route path="/getting-started" component={GettingStartedRoute} />
         <Route path="/help" component={HelpRoute} />
