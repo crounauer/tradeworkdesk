@@ -344,6 +344,7 @@ export default function Expenses() {
   const categories = categoriesData?.categories ?? [];
   const pagination = data?.pagination;
   const totalPages = pagination ? Math.max(1, Math.ceil(pagination.total / pagination.limit)) : 1;
+  const selectedFYLabel = fyOptions.find((option) => option.from === dateFrom && option.to === dateTo)?.label ?? currentFY.label;
 
   return (
     <div className="space-y-6 animate-in fade-in p-4 sm:p-6">
@@ -392,7 +393,7 @@ export default function Expenses() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card className="p-4 border border-border/50">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Total expenses ({currentFY.label})</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Total expenses ({selectedFYLabel})</p>
           <p className="text-2xl font-bold mt-1">{formatCurrency(data?.totals.amount ?? 0)}</p>
         </Card>
         <Card className="p-4 border border-border/50">

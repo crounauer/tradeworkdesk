@@ -42,12 +42,23 @@ router.get("/expenses", requireAuth, requireTenant, async (req: AuthenticatedReq
   const { data, error, count } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  let totalsQuery = supabaseAdmin.from("expenses").select("amount, vat_amount").eq("tenant_id", req.tenantId!);
-  if (from) totalsQuery = totalsQuery.gte("expense_date", from);
-  if (to) totalsQuery = totalsQuery.lte("expense_date", to);
-  const { data: totalsRows } = await totalsQuery;
-  const totalAmount = (totalsRows || []).reduce((sum, r: Record<string, unknown>) => sum + Number(r.amount || 0), 0);
-  const totalVat = (totalsRows || []).reduce((sum, r: Record<string, unknown>) => sum + Number(r.vat_amount || 0), 0);
+  const totalsRows: Array<Record<string, unknown>> = [];
+  for (let offset = 0; ; offset += 1000) {
+    let totalsQuery = supabaseAdmin
+      .from("expenses")
+      .select("amount, vat_amount")
+      .eq("tenant_id", req.tenantId!)
+      .range(offset, offset + 999);
+    if (from) totalsQuery = totalsQuery.gte("expense_date", from);
+    if (to) totalsQuery = totalsQuery.lte("expense_date", to);
+
+    const { data: page, error: totalsError } = await totalsQuery;
+    if (totalsError) { res.status(500).json({ error: totalsError.message }); return; }
+    totalsRows.push(...((page || []) as Array<Record<string, unknown>>));
+    if (!page || page.length < 1000) break;
+  }
+  const totalAmount = totalsRows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const totalVat = totalsRows.reduce((sum, r) => sum + Number(r.vat_amount || 0), 0);
 
   res.json({
     items: data || [],
