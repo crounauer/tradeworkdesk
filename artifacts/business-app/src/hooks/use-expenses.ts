@@ -153,3 +153,33 @@ export function useImportExpensesCsv() {
   });
 }
 
+export interface BulkCategorizeInput {
+  q: string;
+  category: string;
+  from?: string;
+  to?: string;
+  dry_run?: boolean;
+}
+
+export function useBulkCategorizeMatchCount() {
+  return useMutation<{ matched: number }, Error, Omit<BulkCategorizeInput, "category">>({
+    mutationFn: (input) => apiFetch(`${import.meta.env.BASE_URL}api/expenses/bulk-categorize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...input, dry_run: true }),
+    }),
+  });
+}
+
+export function useBulkCategorizeExpenses() {
+  const qc = useQueryClient();
+  return useMutation<{ updated: number }, Error, BulkCategorizeInput>({
+    mutationFn: (input) => apiFetch(`${import.meta.env.BASE_URL}api/expenses/bulk-categorize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: expensesKeys.all }),
+  });
+}
+

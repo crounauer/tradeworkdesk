@@ -11,11 +11,12 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Receipt, Upload, Plus, Trash2, Loader2, Download, Paperclip, Eye, ChevronLeft, ChevronRight, Pencil, Settings2 } from "lucide-react";
+import { Receipt, Upload, Plus, Trash2, Loader2, Download, Paperclip, Eye, ChevronLeft, ChevronRight, Pencil, Settings2, Tags } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useListExpenses, useExpenseCategories, useExpenseDateRange, useCreateExpense, useUpdateExpense,
-  useDeleteExpense, useImportExpensesCsv, usePreviewExpensesCsv, type Expense, type ExpenseCsvColumnMapping,
+  useDeleteExpense, useImportExpensesCsv, usePreviewExpensesCsv, useBulkCategorizeMatchCount, useBulkCategorizeExpenses,
+  type Expense, type ExpenseCsvColumnMapping,
 } from "@/hooks/use-expenses";
 import { useCompanySettings, useUpdateCompanySettings } from "@/hooks/use-company-settings";
 import { customFetch } from "@workspace/api-client-react";
@@ -102,6 +103,11 @@ export default function Expenses() {
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvSampleRows, setCsvSampleRows] = useState<string[][]>([]);
   const [csvMapping, setCsvMapping] = useState<ExpenseCsvColumnMapping | null>(null);
+  const [bulkCategorizeOpen, setBulkCategorizeOpen] = useState(false);
+  const [bulkQuery, setBulkQuery] = useState("");
+  const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkScopeAllDates, setBulkScopeAllDates] = useState(false);
+  const [bulkMatchCount, setBulkMatchCount] = useState<number | null>(null);
 
   const filters = { from: dateFrom, to: dateTo, category: category || undefined, q: search || undefined, page };
   const { data, isLoading } = useListExpenses(filters);
@@ -111,6 +117,8 @@ export default function Expenses() {
   const deleteMut = useDeleteExpense();
   const importMut = useImportExpensesCsv();
   const previewMut = usePreviewExpensesCsv();
+  const bulkCountMut = useBulkCategorizeMatchCount();
+  const bulkCategorizeMut = useBulkCategorizeExpenses();
 
   const [form, setForm] = useState({
     expense_date: new Date().toISOString().slice(0, 10),
@@ -196,6 +204,46 @@ export default function Expenses() {
       toast({ title: "Financial year updated" });
     } catch (err) {
       toast({ title: "Save failed", description: (err as Error).message, variant: "destructive" });
+    }
+  }
+
+  function openBulkCategorize() {
+    setBulkQuery(search);
+    setBulkCategory("");
+    setBulkMatchCount(null);
+    setBulkScopeAllDates(false);
+    setBulkCategorizeOpen(true);
+  }
+
+  async function handleCheckBulkMatches() {
+    if (!bulkQuery.trim()) { setBulkMatchCount(null); return; }
+    try {
+      const result = await bulkCountMut.mutateAsync({
+        q: bulkQuery.trim(),
+        from: bulkScopeAllDates ? undefined : dateFrom,
+        to: bulkScopeAllDates ? undefined : dateTo,
+      });
+      setBulkMatchCount(result.matched);
+    } catch (err) {
+      toast({ title: "Could not check matches", description: (err as Error).message, variant: "destructive" });
+    }
+  }
+
+  async function handleApplyBulkCategorize() {
+    if (!bulkQuery.trim() || !bulkCategory) return;
+    const confirmed = window.confirm(`Set category to "${bulkCategory}" for all expenses matching "${bulkQuery.trim()}"${bulkScopeAllDates ? "" : ` in ${currentFY.label}`}? This cannot be undone in bulk.`);
+    if (!confirmed) return;
+    try {
+      const result = await bulkCategorizeMut.mutateAsync({
+        q: bulkQuery.trim(),
+        category: bulkCategory,
+        from: bulkScopeAllDates ? undefined : dateFrom,
+        to: bulkScopeAllDates ? undefined : dateTo,
+      });
+      toast({ title: "Categorized", description: `Updated ${result.updated} expense${result.updated === 1 ? "" : "s"} to "${bulkCategory}".` });
+      setBulkCategorizeOpen(false);
+    } catch (err) {
+      toast({ title: "Failed", description: (err as Error).message, variant: "destructive" });
     }
   }
 
@@ -376,6 +424,9 @@ export default function Expenses() {
           <Label className="text-xs">Search</Label>
           <Input placeholder="Search description..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
         </div>
+        <Button variant="outline" onClick={openBulkCategorize}>
+          <Tags className="w-4 h-4 mr-2" /> Bulk Categorize
+        </Button>
         <Button variant="ghost" onClick={() => { setDateFrom(currentFY.from); setDateTo(currentFY.to); setCategory(""); setSearch(""); setPage(1); }}>
           Reset to {currentFY.label}
         </Button>
@@ -612,6 +663,53 @@ export default function Expenses() {
             <Button onClick={handleConfirmCsvImport} disabled={importMut.isPending}>
               {importMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Confirm Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkCategorizeOpen} onOpenChange={setBulkCategorizeOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Bulk Categorize</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Categorize every expense whose description contains a keyword at once — e.g. "Screwfix" to tag all Screwfix transactions as Materials &amp; Parts.
+            </p>
+            <div className="space-y-1">
+              <Label>Description contains</Label>
+              <Input placeholder="e.g. screwfix" value={bulkQuery} onChange={(e) => { setBulkQuery(e.target.value); setBulkMatchCount(null); }} />
+            </div>
+            <div className="space-y-1">
+              <Label>Set category to</Label>
+              <Select value={bulkCategory || "none"} onValueChange={(v) => setBulkCategory(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select a category...</SelectItem>
+                  {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox checked={bulkScopeAllDates} onCheckedChange={(v) => { setBulkScopeAllDates(!!v); setBulkMatchCount(null); }} />
+              <Label className="!mt-0">Apply across all dates (not just {currentFY.label})</Label>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleCheckBulkMatches} disabled={!bulkQuery.trim() || bulkCountMut.isPending}>
+              {bulkCountMut.isPending ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : null}
+              Check matches
+            </Button>
+            {bulkMatchCount != null && (
+              <p className="text-sm">
+                {bulkMatchCount === 0
+                  ? "No expenses match that description."
+                  : `${bulkMatchCount} expense${bulkMatchCount === 1 ? "" : "s"} will be updated.`}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkCategorizeOpen(false)}>Cancel</Button>
+            <Button onClick={handleApplyBulkCategorize} disabled={!bulkQuery.trim() || !bulkCategory || bulkCategorizeMut.isPending}>
+              {bulkCategorizeMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Apply
             </Button>
           </DialogFooter>
         </DialogContent>

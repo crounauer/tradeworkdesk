@@ -118,6 +118,45 @@ router.post("/expenses", ...canManage, async (req: AuthenticatedRequest, res): P
   res.status(201).json(data);
 });
 
+// ─── BULK CATEGORIZE (match by description text, e.g. "Screwfix") ─────────
+router.post("/expenses/bulk-categorize", ...canManage, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const q = typeof req.body?.q === "string" ? req.body.q.trim() : "";
+  const category = typeof req.body?.category === "string" ? req.body.category.trim() : "";
+  const from = typeof req.body?.from === "string" ? req.body.from : undefined;
+  const to = typeof req.body?.to === "string" ? req.body.to : undefined;
+  const dryRun = !!req.body?.dry_run;
+
+  if (!q) { res.status(400).json({ error: "A search term is required to bulk categorize (to avoid accidentally recategorizing everything)." }); return; }
+  if (!dryRun && !category) { res.status(400).json({ error: "category is required" }); return; }
+
+  if (dryRun) {
+    let countQuery = supabaseAdmin
+      .from("expenses")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", req.tenantId!)
+      .ilike("description", `%${q}%`);
+    if (from) countQuery = countQuery.gte("expense_date", from);
+    if (to) countQuery = countQuery.lte("expense_date", to);
+    const { count, error } = await countQuery;
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ matched: count || 0 });
+    return;
+  }
+
+  let updateQuery = supabaseAdmin
+    .from("expenses")
+    .update({ category, updated_at: new Date().toISOString() })
+    .eq("tenant_id", req.tenantId!)
+    .ilike("description", `%${q}%`);
+  if (from) updateQuery = updateQuery.gte("expense_date", from);
+  if (to) updateQuery = updateQuery.lte("expense_date", to);
+
+  const { data, error } = await updateQuery.select("id");
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  res.json({ updated: (data || []).length });
+});
+
 // ─── UPDATE ─────────────────────────────────────────────────────────────────
 router.patch("/expenses/:id", ...canManage, async (req: AuthenticatedRequest, res): Promise<void> => {
   const patch: Record<string, unknown> = {};
