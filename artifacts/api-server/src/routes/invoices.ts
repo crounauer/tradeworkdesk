@@ -853,6 +853,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
   // Resolve email recipient
   const recipientEmailRaw: string | undefined = req.body.override_email || undefined;
   const recipientEmail: string | undefined = recipientEmailRaw ? String(recipientEmailRaw).trim().toLowerCase() : undefined;
+  const ccAdminEmails: string[] | undefined = req.body.cc_admin && req.userEmail ? [req.userEmail] : undefined;
   const { data: customer } = await supabaseAdmin
     .from("customers")
     .select("business_name, first_name, last_name, email")
@@ -977,6 +978,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       portalUrl: invoice.type === "invoice" && hasRegisteredPortalAccess
         ? `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`
         : null,
+      extraCc: ccAdminEmails,
       company: settings ? {
         name: settings.name,
         trading_name: settings.trading_name,
@@ -1334,6 +1336,7 @@ router.post("/invoices/:id/send-reminder", ...protect, async (req: Authenticated
 
   const recipientEmailRaw: string | undefined = req.body?.override_email || undefined;
   const recipientEmail: string | undefined = recipientEmailRaw ? String(recipientEmailRaw).trim().toLowerCase() : undefined;
+  const ccAdminEmails: string[] | undefined = req.body?.cc_admin && req.userEmail ? [req.userEmail] : undefined;
   const { data: customer } = await supabaseAdmin
     .from("customers")
     .select("business_name, first_name, last_name, email")
@@ -1378,6 +1381,7 @@ router.post("/invoices/:id/send-reminder", ...protect, async (req: Authenticated
       portalUrl: hasRegisteredPortalAccess
         ? `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`
         : null,
+      extraCc: ccAdminEmails,
       company: settings ? {
         name: settings.name,
         trading_name: settings.trading_name,

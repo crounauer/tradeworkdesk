@@ -118,6 +118,7 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     address_line1, address_line2, city, postcode, linked_customer_id } = req.body;
   const forceNewCustomer = req.body?.force_new_customer === true;
   const sendAcknowledgementEmail = req.body?.send_acknowledgement_email !== false;
+  const ccAdminOnAcknowledgement = req.body?.cc_admin === true;
   const isLandlord = req.body?.new_is_landlord === true;
   const jobAddressLine1 = typeof req.body?.new_prop_address_line1 === "string" ? req.body.new_prop_address_line1.trim() : "";
   const jobAddressLine2 = typeof req.body?.new_prop_address_line2 === "string" ? req.body.new_prop_address_line2.trim() : "";
@@ -395,6 +396,7 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
             priority: validPriorities.includes(priority) ? priority : "medium",
           },
           details,
+          ccAdminOnAcknowledgement && req.userEmail ? [req.userEmail] : undefined,
         );
         acknowledgementEmailSent = true;
       } catch (ackErr) {
@@ -541,6 +543,7 @@ router.post("/enquiries/:id/send-not-proceeding-email", requireAuth, requireTena
       description: enquiry.description,
     },
     details,
+    req.body?.cc_admin === true && req.userEmail ? [req.userEmail] : undefined,
   );
 
   await insertTenantAuditLog({

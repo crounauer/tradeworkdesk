@@ -282,7 +282,7 @@ export function useDeleteInvoice() {
 
 export function useSendInvoice(id: string) {
   const qc = useQueryClient();
-  return useMutation<Invoice & { sent_to: string }, Error, { override_email?: string; send_note?: string }>({
+  return useMutation<Invoice & { sent_to: string }, Error, { override_email?: string; send_note?: string; cc_admin?: boolean }>({
     mutationFn: (input) =>
       apiFetch(`/api/invoices/${id}/send`, {
         method: "POST",
@@ -298,7 +298,7 @@ export function useSendInvoice(id: string) {
 
 export function useSendInvoiceReminder(id: string) {
   const qc = useQueryClient();
-  return useMutation<{ sent_to: string; sent_at: string }, Error, { override_email?: string }>({
+  return useMutation<{ sent_to: string; sent_at: string }, Error, { override_email?: string; cc_admin?: boolean }>({
     mutationFn: (input) =>
       apiFetch(`/api/invoices/${id}/send-reminder`, {
         method: "POST",

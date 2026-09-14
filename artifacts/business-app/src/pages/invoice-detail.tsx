@@ -318,6 +318,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [deletingPayment, setDeletingPayment] = useState<InvoicePayment | null>(null);
   const [sendReceiptOnPayment, setSendReceiptOnPayment] = useState(false);
   const [sendEmail, setSendEmail] = useState(invoice.customer?.email || "");
+  const [ccAdminOnSend, setCcAdminOnSend] = useState(false);
   const [showBookJob, setShowBookJob] = useState(false);
   const [showCreateJob, setShowCreateJob] = useState(false);
   const [showDuplicate, setShowDuplicate] = useState(false);
@@ -534,6 +535,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
     try {
       const result = await sendMut.mutateAsync({
         override_email: sendEmail !== invoice.customer?.email ? sendEmail : undefined,
+        cc_admin: ccAdminOnSend,
       });
       toast({ title: `${isInvoice ? "Invoice" : "Quote"} sent`, description: `Sent to ${result.sent_to}` });
       setSendOpen(false);
@@ -545,7 +547,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
 
   async function handleSendReminder() {
     try {
-      const result = await reminderMut.mutateAsync({});
+      const result = await reminderMut.mutateAsync({ cc_admin: ccAdminOnSend });
       toast({ title: "Reminder sent", description: `Sent to ${result.sent_to}` });
       setEmailLogRefresh(n => n + 1);
     } catch (e) {
@@ -1252,6 +1254,10 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
             <div className="rounded-md border bg-muted/30 p-4 space-y-3 text-sm">
               <p><span className="font-medium">Subject:</span> {invoiceEmailSubject}</p>
               <div className="border-t pt-3 whitespace-pre-wrap text-muted-foreground">{invoiceEmailBody}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox id="cc-admin-send" checked={ccAdminOnSend} onCheckedChange={(checked) => setCcAdminOnSend(checked === true)} />
+              <Label htmlFor="cc-admin-send" className="text-sm font-normal cursor-pointer">Send a copy to me</Label>
             </div>
           </div>
           <DialogFooter>

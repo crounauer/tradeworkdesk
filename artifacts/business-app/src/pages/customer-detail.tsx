@@ -28,6 +28,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { BookJobDialog } from "@/components/book-job-dialog";
 import { SmsSendDialog } from "@/components/sms-send-dialog";
+import { CustomerEmailDialog } from "@/components/customer-email-dialog";
 
 const PropertyLocationLookup = lazy(() => import("@/components/property-location-lookup").then(m => ({ default: m.PropertyLocationLookup })));
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
@@ -71,6 +72,7 @@ export default function CustomerDetail() {
   const [showBookJob, setShowBookJob] = useState(false);
   const [showBookEnquiry, setShowBookEnquiry] = useState(false);
   const [showSms, setShowSms] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
   const [creatingType, setCreatingType] = useState<"invoice" | "quote" | null>(null);
   const [documentPropertyType, setDocumentPropertyType] = useState<"invoice" | "quote" | null>(null);
   const [selectedDocumentPropertyId, setSelectedDocumentPropertyId] = useState("");
@@ -201,6 +203,11 @@ export default function CustomerDetail() {
           {hasAddon("sms_messaging") && (customer.phone || customer.mobile) && (
             <Button size="sm" className="w-full md:w-auto" variant="outline" onClick={() => setShowSms(true)}>
               <MessageSquare className="w-4 h-4 mr-2" /> Send SMS
+            </Button>
+          )}
+          {customer.email && (
+            <Button size="sm" className="w-full md:w-auto" variant="outline" onClick={() => setShowEmail(true)}>
+              <Mail className="w-4 h-4 mr-2" /> Send Email
             </Button>
           )}
           <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => setEditing(!editing)}>
@@ -476,6 +483,17 @@ export default function CustomerDetail() {
         destination={customer.mobile || customer.phone || ""}
         customerId={customer.id}
       />
+
+      {customer.email && (
+        <CustomerEmailDialog
+          open={showEmail}
+          onOpenChange={setShowEmail}
+          customerId={customer.id}
+          customerEmail={customer.email}
+          customerName={customer.business_name || `${customer.first_name} ${customer.last_name}`.trim()}
+          onSent={() => qc.invalidateQueries({ queryKey: ["customer-email-audit", customer.email!.trim().toLowerCase()] })}
+        />
+      )}
 
       {/* New Enquiry dialog pre-filled with this customer */}
       <BookEnquiryDialog

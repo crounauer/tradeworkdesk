@@ -1177,6 +1177,7 @@ export async function sendJobConfirmationEmail(
   jobDetails: JobConfirmationDetails,
   companyDetails?: EmailCompanyDetails,
   responseLinks?: JobConfirmationResponseLinks,
+  extraCc?: string[],
 ): Promise<void> {
   const defaultSubject = `Appointment Confirmation — ${jobDetails.jobRef}`;
   const templateOverride = getTemplateOverride(companyDetails, "job_confirmation");
@@ -1242,7 +1243,7 @@ export async function sendJobConfirmationEmail(
 
   const replyTo = companyDetails?.email ?? undefined;
   const from = buildTenantFrom(companyDetails);
-  const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
+  const cc = normalizeAdditionalRecipients([...(companyDetails?.notification_emails || []), ...(extraCc || [])], to, replyTo);
   try {
     const sendResult = await sendResendEmailWithRetry({
     from,
@@ -1293,6 +1294,7 @@ export async function sendEnquiryAcknowledgementEmail(
   companyName: string,
   enquiryDetails: EnquiryAcknowledgementDetails,
   companyDetails?: EmailCompanyDetails,
+  extraCc?: string[],
 ): Promise<void> {
   const defaultSubject = `We have logged your enquiry — ${companyName}`;
   const sourceLabel = enquiryDetails.source
@@ -1356,6 +1358,7 @@ export async function sendEnquiryAcknowledgementEmail(
 
   const replyTo = companyDetails?.email ?? undefined;
   const from = buildTenantFrom(companyDetails);
+  const cc = normalizeAdditionalRecipients([...(companyDetails?.notification_emails || []), ...(extraCc || [])], to, replyTo);
   try {
     const sendResult = await sendResendEmailWithRetry({
       from,
@@ -1363,6 +1366,7 @@ export async function sendEnquiryAcknowledgementEmail(
       subject,
       html,
       ...(replyTo ? { replyTo } : {}),
+      ...(cc.length > 0 ? { cc } : {}),
     } as any);
     await writeTenantEmailAudit({
       status: "accepted",
@@ -1405,6 +1409,7 @@ export async function sendEnquiryNotProceedingEmail(
   companyName: string,
   enquiryDetails: EnquiryAcknowledgementDetails,
   companyDetails?: EmailCompanyDetails,
+  extraCc?: string[],
 ): Promise<void> {
   const defaultSubject = `Thank you for your enquiry — ${companyName}`;
   const sourceLabel = enquiryDetails.source
@@ -1452,8 +1457,9 @@ export async function sendEnquiryNotProceedingEmail(
     throw new Error(getTenantEmailFailureMessage());
   }
 
+  const cc = normalizeAdditionalRecipients([...(companyDetails?.notification_emails || []), ...(extraCc || [])], to, replyTo);
   try {
-    const sendResult = await sendResendEmailWithRetry({ from, to, subject, html, ...(replyTo ? { replyTo } : {}) } as any);
+    const sendResult = await sendResendEmailWithRetry({ from, to, subject, html, ...(replyTo ? { replyTo } : {}), ...(cc.length > 0 ? { cc } : {}) } as any);
     await writeTenantEmailAudit({
       status: "accepted",
       emailType: "enquiry_not_proceeding",
@@ -1862,6 +1868,7 @@ export async function sendSimpleNotification(
     companyDetails?: EmailCompanyDetails;
     tenantId?: string;
     emailType?: string;
+    extraCc?: string[];
   },
 ): Promise<void> {
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1870,6 +1877,7 @@ export async function sendSimpleNotification(
   const replyTo = opts?.companyDetails?.email_reply_to || opts?.companyDetails?.email || undefined;
   const companyDisplay = opts?.companyDetails?.name || opts?.companyDetails?.trading_name || "TradeWorkDesk";
   const emailType = opts?.emailType || "simple_notification";
+  const cc = normalizeAdditionalRecipients([...(opts?.companyDetails?.notification_emails || []), ...(opts?.extraCc || [])], normalizedTo, replyTo);
   if (!EMAIL_RE.test(normalizedTo)) {
     await writeTenantEmailAudit({
       tenantId: opts?.tenantId,
@@ -1916,6 +1924,7 @@ export async function sendSimpleNotification(
       subject,
       html,
       ...(replyTo ? { replyTo } : {}),
+      ...(cc.length > 0 ? { cc } : {}),
     } as any);
     await writeTenantEmailAudit({
       tenantId: opts?.tenantId,

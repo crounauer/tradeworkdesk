@@ -65,6 +65,7 @@ export async function sendInvoiceDocumentEmail(opts: {
   company?: EmailCompanyDetails;
   portalUrl?: string | null;
   hasPaymentProvider?: boolean;
+  extraCc?: string[] | null;
 }): Promise<void> {
 
   const toEmail = String(opts.to || "").trim().toLowerCase();
@@ -427,6 +428,7 @@ export async function sendInvoiceReminderEmail(opts: {
   pdfBuffer?: Buffer | null;
   company?: EmailCompanyDetails;
   portalUrl?: string | null;
+  extraCc?: string[] | null;
 }): Promise<void> {
   const toEmail = String(opts.to || "").trim().toLowerCase();
   if (!EMAIL_RE.test(toEmail)) {
@@ -520,7 +522,7 @@ export async function sendInvoiceReminderEmail(opts: {
 
   const replyToCandidate = String(opts.company?.email_reply_to || opts.company?.email || "").trim().toLowerCase();
   const replyTo = EMAIL_RE.test(replyToCandidate) ? replyToCandidate : undefined;
-  const cc = normalizeAdditionalRecipients(opts.company?.notification_emails, toEmail, replyTo);
+  const cc = normalizeAdditionalRecipients([...(opts.company?.notification_emails || []), ...(opts.extraCc || [])], toEmail, replyTo);
 
   const sendOpts = {
     from: FROM,

@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft, Calendar, MapPin, User, FileText, Wrench, Flame, Edit, X, Check,
@@ -213,6 +214,7 @@ export default function JobDetail() {
   const [showReturnVisit, setShowReturnVisit] = useState(false);
   const [showSms, setShowSms] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [ccAdminOnConfirmation, setCcAdminOnConfirmation] = useState(false);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState("");
   const [confirmationMessage, setConfirmationMessage] = useState("");
@@ -417,6 +419,7 @@ export default function JobDetail() {
         body: JSON.stringify({
           override_email: confirmationEmail.trim() !== customerEmail ? confirmationEmail.trim() : undefined,
           personal_message: confirmationMessage.trim() || undefined,
+          cc_admin: ccAdminOnConfirmation,
         }),
       });
       if (!res.ok) {
@@ -1733,6 +1736,11 @@ export default function JobDetail() {
                 className="resize-none"
               />
               <p className="text-xs text-muted-foreground">Appears near the top of the email, above the appointment details.</p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox id="cc-admin-job-confirmation" checked={ccAdminOnConfirmation} onCheckedChange={(v) => setCcAdminOnConfirmation(v === true)} />
+              <Label htmlFor="cc-admin-job-confirmation" className="text-xs font-normal cursor-pointer">Send a copy to me</Label>
             </div>
           </div>
 
@@ -3157,6 +3165,7 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
   const { register, handleSubmit, reset, setValue, watch } = useForm<JobEditData>();
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [ccAdminOnConfirmation, setCcAdminOnConfirmation] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedJobTypeId, setSelectedJobTypeId] = useState<string>(
     (job as unknown as { service_catalogue_id?: string | null }).service_catalogue_id || ""
@@ -3210,6 +3219,8 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
     try {
       const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}/send-confirmation`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cc_admin: ccAdminOnConfirmation }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -3308,6 +3319,10 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
                 <p><strong>Email:</strong> {customerEmail}</p>
               </div>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox id="cc-admin-edit-confirmation" checked={ccAdminOnConfirmation} onCheckedChange={(v) => setCcAdminOnConfirmation(v === true)} />
+            <Label htmlFor="cc-admin-edit-confirmation" className="text-xs font-normal cursor-pointer">Send a copy to me</Label>
           </div>
           <div className="flex gap-3">
             <Button onClick={handleSendConfirmation} disabled={sendingConfirmation} className="gap-2">

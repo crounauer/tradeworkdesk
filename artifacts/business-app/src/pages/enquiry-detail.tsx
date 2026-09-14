@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
@@ -383,6 +384,7 @@ function EnquiryDetailContent() {
   const [sendingNote, setSendingNote] = useState(false);
   const [sendingNotProceedingEmail, setSendingNotProceedingEmail] = useState(false);
   const [showNotProceedingEmail, setShowNotProceedingEmail] = useState(false);
+  const [ccAdminOnNotProceeding, setCcAdminOnNotProceeding] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
   const createInvoiceMut = useCreateInvoice();
 
@@ -576,7 +578,11 @@ function EnquiryDetailContent() {
     }
     setSendingNotProceedingEmail(true);
     try {
-      const res = await fetch(`/api/enquiries/${id}/send-not-proceeding-email`, { method: "POST" });
+      const res = await fetch(`/api/enquiries/${id}/send-not-proceeding-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cc_admin: ccAdminOnNotProceeding }),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to send email");
@@ -703,6 +709,10 @@ function EnquiryDetailContent() {
             <div className="rounded-md border bg-muted/30 p-4 space-y-3 text-sm">
               <p><span className="font-medium">Subject:</span> {notProceedingSubject}</p>
               <div className="border-t pt-3 whitespace-pre-wrap text-muted-foreground">{notProceedingBody}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox id="cc-admin-not-proceeding" checked={ccAdminOnNotProceeding} onCheckedChange={(v) => setCcAdminOnNotProceeding(v === true)} />
+              <Label htmlFor="cc-admin-not-proceeding" className="text-sm font-normal cursor-pointer">Send a copy to me</Label>
             </div>
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setShowNotProceedingEmail(false)} disabled={sendingNotProceedingEmail}>Cancel</Button>
@@ -1072,6 +1082,7 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
   const [submitting, setSubmitting] = useState(false);
   const [emailPrompt, setEmailPrompt] = useState<{ jobId: string; customerName: string; customerEmail: string } | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [ccAdminOnConfirmation, setCcAdminOnConfirmation] = useState(false);
   const [customerMode, setCustomerMode] = useState<"existing" | "new">("new");
   const [propertyMode, setPropertyMode] = useState<"existing" | "new">("existing");
   const [customerId, setCustomerId] = useState("");
@@ -1258,7 +1269,11 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
     if (!emailPrompt) return;
     setSendingEmail(true);
     try {
-      const res = await fetch(`/api/jobs/${emailPrompt.jobId}/send-confirmation`, { method: "POST" });
+      const res = await fetch(`/api/jobs/${emailPrompt.jobId}/send-confirmation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cc_admin: ccAdminOnConfirmation }),
+      });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Failed to send email");
@@ -1299,6 +1314,10 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
                 Send an appointment confirmation to <strong>{emailPrompt.customerName}</strong> at{" "}
                 <span className="text-primary">{emailPrompt.customerEmail}</span>
               </p>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <Checkbox id="cc-admin-enquiry-confirmation" checked={ccAdminOnConfirmation} onCheckedChange={(v) => setCcAdminOnConfirmation(v === true)} />
+              <Label htmlFor="cc-admin-enquiry-confirmation" className="text-sm font-normal cursor-pointer">Send a copy to me</Label>
             </div>
             <div className="flex gap-3 justify-center">
               <Button onClick={handleSendConfirmation} disabled={sendingEmail}>

@@ -949,9 +949,10 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
 
 router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { jobId } = req.params;
-  const { override_email, personal_message } = (req.body ?? {}) as {
+  const { override_email, personal_message, cc_admin } = (req.body ?? {}) as {
     override_email?: unknown;
     personal_message?: unknown;
+    cc_admin?: unknown;
   };
 
   let recipientOverride: string | null = null;
@@ -1141,6 +1142,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
       confirmationDetails,
       emailCompany,
       { confirmUrl, requestChangeUrl },
+      cc_admin === true && req.userEmail ? [req.userEmail] : undefined,
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to send confirmation email";

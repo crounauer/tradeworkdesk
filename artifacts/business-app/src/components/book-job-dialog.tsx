@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Home, Mail, Send, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -257,6 +258,7 @@ export function BookJobDialog({
     customerName: string;
   } | null>(null);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [ccAdminOnConfirmation, setCcAdminOnConfirmation] = useState(false);
   const [leaveConflict, setLeaveConflict] = useState<LeaveConflict | null>(null);
 
   // Once the newly created property appears in the list, select it in the dropdown
@@ -457,7 +459,11 @@ export function BookJobDialog({
     if (!confirmationState) return;
     setSendingConfirmation(true);
     try {
-      const res = await fetch(`/api/jobs/${confirmationState.jobId}/send-confirmation`, { method: "POST" });
+      const res = await fetch(`/api/jobs/${confirmationState.jobId}/send-confirmation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cc_admin: ccAdminOnConfirmation }),
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to send confirmation email");
@@ -685,6 +691,10 @@ export function BookJobDialog({
                     <p><strong>Email:</strong> {confirmationState.customerEmail}</p>
                   </div>
                 </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox id="cc-admin-confirmation" checked={ccAdminOnConfirmation} onCheckedChange={(v) => setCcAdminOnConfirmation(v === true)} />
+                <Label htmlFor="cc-admin-confirmation" className="text-sm font-normal cursor-pointer">Send a copy to me</Label>
               </div>
               <div className="flex gap-3">
                 <Button onClick={handleSendConfirmation} disabled={sendingConfirmation} className="flex-1 gap-2">

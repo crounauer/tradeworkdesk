@@ -14,7 +14,7 @@ import {
 } from "@workspace/api-zod";
 import { z } from "zod";
 import { createPortalImpersonationSession, generateInviteToken, portalUserCache } from "./portal";
-import { sendPortalInviteEmail, type EmailCompanyDetails } from "../lib/email";
+import { sendPortalInviteEmail, sendSimpleNotification, type EmailCompanyDetails } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -155,6 +155,69 @@ router.delete("/customers/:id", requireAuth, requireTenant, requireRole("admin")
   });
 
   res.sendStatus(204);
+});
+
+router.post("/customers/:id/send-email", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const params = GetCustomerParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  const subject = String(req.body?.subject || "").trim();
+  const body = String(req.body?.body || "").trim();
+  if (!subject) { res.status(400).json({ error: "Subject is required" }); return; }
+  if (!body) { res.status(400).json({ error: "Message body is required" }); return; }
+
+  let q = supabaseAdmin.from("customers").select("id, email, first_name, last_name").eq("id", params.data.id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: customer, error } = await q.maybeSingle();
+  if (error || !customer) { res.status(404).json({ error: "Customer not found" }); return; }
+  if (!customer.email) { res.status(400).json({ error: "This customer has no email address on file" }); return; }
+
+  const { data: settings } = await supabaseAdmin
+    .from("company_settings")
+    .select("*")
+    .eq("tenant_id", req.tenantId!)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+
+  const companyDetails: EmailCompanyDetails | undefined = settings ? {
+    name: settings.name,
+    trading_name: settings.trading_name,
+    logo_url: settings.logo_url,
+    email: settings.email,
+    notification_emails: settings.notification_emails as string[] | null,
+    phone: settings.phone,
+    website: settings.website,
+    address_line1: settings.address_line1,
+    address_line2: settings.address_line2,
+    city: settings.city,
+    county: settings.county,
+    postcode: settings.postcode,
+    vat_number: settings.vat_number,
+  } : undefined;
+
+  try {
+    await sendSimpleNotification(customer.email, subject, body, {
+      companyDetails,
+      tenantId: req.tenantId!,
+      emailType: "customer_message",
+      extraCc: req.body?.cc_admin === true && req.userEmail ? [req.userEmail] : undefined,
+    });
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message }); return;
+  }
+
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "customer_email_sent",
+    entityType: "customer",
+    entityId: params.data.id,
+    detail: { subject },
+  });
+
+  res.json({ success: true, sent_to: customer.email });
 });
 
 const ImportCustomerRow = z.object({
