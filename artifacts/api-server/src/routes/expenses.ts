@@ -165,6 +165,12 @@ router.post("/expenses/bulk-categorize", ...canManage, async (req: Authenticated
   const { data, error } = await updateQuery.select("id");
   if (error) { res.status(500).json({ error: error.message }); return; }
 
+  if (req.body?.save_rule) {
+    await supabaseAdmin
+      .from("expense_category_rules")
+      .upsert({ tenant_id: req.tenantId, keyword: q.toLowerCase(), category, created_by: req.userId, updated_at: new Date().toISOString() }, { onConflict: "tenant_id,keyword" });
+  }
+
   res.json({ updated: (data || []).length });
 });
 
@@ -202,6 +208,45 @@ router.delete("/expenses/:id", ...canManage, async (req: AuthenticatedRequest, r
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(204).send();
 });
+
+// ─── CATEGORY RULES (auto-apply keyword → category on future imports) ──────
+router.get("/expenses/category-rules", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data, error } = await supabaseAdmin
+    .from("expense_category_rules")
+    .select("id, keyword, category, created_at")
+    .eq("tenant_id", req.tenantId!)
+    .order("created_at", { ascending: false });
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ rules: data || [] });
+});
+
+router.delete("/expenses/category-rules/:id", ...canManage, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { error } = await supabaseAdmin
+    .from("expense_category_rules")
+    .delete()
+    .eq("id", req.params.id)
+    .eq("tenant_id", req.tenantId!);
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(204).send();
+});
+
+async function applyCategoryRules(tenantId: string, rows: { description: string; category: string | null }[]): Promise<void> {
+  const { data: rules } = await supabaseAdmin
+    .from("expense_category_rules")
+    .select("keyword, category")
+    .eq("tenant_id", tenantId);
+  if (!rules || rules.length === 0) return;
+
+  const normalizedRules = (rules as Array<{ keyword: string; category: string }>).map((r) => ({ keyword: r.keyword.toLowerCase(), category: r.category }));
+  for (const row of rows) {
+    if (row.category) continue; // don't override a category already set by the file itself
+    const desc = row.description.toLowerCase();
+    const match = normalizedRules.find((r) => desc.includes(r.keyword));
+    if (match) row.category = match.category;
+  }
+}
 
 // ─── IMPORT PREVIEW (CSV column mapping step) ───────────────────────────────
 router.post("/expenses/import-preview", ...canManage, upload.single("file"), async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -272,6 +317,8 @@ router.post("/expenses/import", ...canManage, upload.single("file"), async (req:
     });
     return;
   }
+
+  await applyCategoryRules(req.tenantId!, parsed.rows);
 
   const importBatchId = randomUUID();
   const insertRows = parsed.rows.map((r) => ({

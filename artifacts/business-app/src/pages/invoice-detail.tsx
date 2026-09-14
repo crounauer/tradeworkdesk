@@ -5,7 +5,7 @@ import { useParams, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft, Send, CheckCircle2, XCircle, RefreshCcw, Download, Trash2,
   Loader2, Receipt, AlertTriangle, FileText, CreditCard,
-  Edit3, Save, X, Mail, ChevronDown, ChevronUp, Briefcase, BellRing,
+  Edit3, Save, X, Mail, ChevronDown, ChevronUp, Briefcase, BellRing, Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,7 @@ import { useCompanySettings } from "@/hooks/use-company-settings";
 import { useAuth } from "@/hooks/use-auth";
 import { BookJobDialog } from "@/components/book-job-dialog";
 import { CreateJobFromQuoteDialog } from "@/components/create-job-from-quote-dialog";
+import { DuplicateInvoiceDialog } from "@/components/duplicate-invoice-dialog";
 import { PartsSection } from "@/components/line-items/parts-section";
 import { ServicesSection } from "@/components/line-items/services-section";
 import { TimeSection } from "@/components/line-items/time-section";
@@ -319,6 +320,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [sendEmail, setSendEmail] = useState(invoice.customer?.email || "");
   const [showBookJob, setShowBookJob] = useState(false);
   const [showCreateJob, setShowCreateJob] = useState(false);
+  const [showDuplicate, setShowDuplicate] = useState(false);
 
   // Callout rates (for the shared time section)
   const [calloutRates, setCalloutRates] = useState<CalloutRateOption[]>([]);
@@ -801,6 +803,9 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
             {downloadingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
             {downloadingPdf ? "Downloading..." : "Download PDF"}
           </Button>
+          <Button variant="outline" onClick={() => setShowDuplicate(true)}>
+            <Copy className="w-4 h-4 mr-2" /> Duplicate for Customer
+          </Button>
           {!isInvoice && invoice.converted_to_invoice_id && (
             <Button variant="ghost" onClick={() => navigate(`/invoices/${invoice.converted_to_invoice_id}`)}>
               View Invoice →
@@ -1203,6 +1208,19 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           initialPropertyId={invoice.job?.property_id ?? undefined}
         />
       )}
+
+      {/* ── Duplicate for another customer ── */}
+      <DuplicateInvoiceDialog
+        open={showDuplicate}
+        onOpenChange={setShowDuplicate}
+        sourceInvoiceNumber={invoice.invoice_number}
+        type={invoice.type}
+        lineItems={lines}
+        notes={invoice.notes}
+        customerNotes={invoice.customer_notes}
+        worksOrder={invoice.works_order}
+        vatRate={invoice.vat_rate}
+      />
 
       {/* ── Dialogs ── */}
 

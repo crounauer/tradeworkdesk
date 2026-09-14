@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   useListExpenses, useExpenseCategories, useExpenseDateRange, useCreateExpense, useUpdateExpense,
   useDeleteExpense, useImportExpensesCsv, usePreviewExpensesCsv, useBulkCategorizeMatchCount, useBulkCategorizeExpenses,
+  useExpenseCategoryRules, useDeleteExpenseCategoryRule,
   type Expense, type ExpenseCsvColumnMapping,
 } from "@/hooks/use-expenses";
 import { useCompanySettings, useUpdateCompanySettings } from "@/hooks/use-company-settings";
@@ -108,6 +109,8 @@ export default function Expenses() {
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkScopeAllDates, setBulkScopeAllDates] = useState(false);
   const [bulkMatchCount, setBulkMatchCount] = useState<number | null>(null);
+  const [bulkSaveRule, setBulkSaveRule] = useState(true);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const filters = { from: dateFrom, to: dateTo, category: category || undefined, q: search || undefined, page };
   const { data, isLoading } = useListExpenses(filters);
@@ -119,6 +122,8 @@ export default function Expenses() {
   const previewMut = usePreviewExpensesCsv();
   const bulkCountMut = useBulkCategorizeMatchCount();
   const bulkCategorizeMut = useBulkCategorizeExpenses();
+  const { data: rulesData } = useExpenseCategoryRules();
+  const deleteRuleMut = useDeleteExpenseCategoryRule();
 
   const [form, setForm] = useState({
     expense_date: new Date().toISOString().slice(0, 10),
@@ -212,6 +217,7 @@ export default function Expenses() {
     setBulkCategory("");
     setBulkMatchCount(null);
     setBulkScopeAllDates(false);
+    setBulkSaveRule(true);
     setBulkCategorizeOpen(true);
   }
 
@@ -239,6 +245,7 @@ export default function Expenses() {
         category: bulkCategory,
         from: bulkScopeAllDates ? undefined : dateFrom,
         to: bulkScopeAllDates ? undefined : dateTo,
+        save_rule: bulkSaveRule,
       });
       toast({ title: "Categorized", description: `Updated ${result.updated} expense${result.updated === 1 ? "" : "s"} to "${bulkCategory}".` });
       setBulkCategorizeOpen(false);
@@ -694,6 +701,10 @@ export default function Expenses() {
               <Checkbox checked={bulkScopeAllDates} onCheckedChange={(v) => { setBulkScopeAllDates(!!v); setBulkMatchCount(null); }} />
               <Label className="!mt-0">Apply across all dates (not just {currentFY.label})</Label>
             </div>
+            <div className="flex items-center gap-2">
+              <Checkbox checked={bulkSaveRule} onCheckedChange={(v) => setBulkSaveRule(!!v)} />
+              <Label className="!mt-0">Remember this so future imports auto-categorize "{bulkQuery.trim() || "..."}" the same way</Label>
+            </div>
             <Button variant="outline" size="sm" onClick={handleCheckBulkMatches} disabled={!bulkQuery.trim() || bulkCountMut.isPending}>
               {bulkCountMut.isPending ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : null}
               Check matches
@@ -705,6 +716,9 @@ export default function Expenses() {
                   : `${bulkMatchCount} expense${bulkMatchCount === 1 ? "" : "s"} will be updated.`}
               </p>
             )}
+            <button type="button" className="text-xs text-primary hover:underline" onClick={() => { setBulkCategorizeOpen(false); setRulesOpen(true); }}>
+              Manage saved rules ({rulesData?.rules.length ?? 0})
+            </button>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkCategorizeOpen(false)}>Cancel</Button>
@@ -712,6 +726,34 @@ export default function Expenses() {
               {bulkCategorizeMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Apply
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Saved Category Rules</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              These rules automatically categorize matching transactions the moment they're imported — no need to re-run Bulk Categorize each time.
+            </p>
+            {(rulesData?.rules.length ?? 0) === 0 ? (
+              <p className="text-sm text-muted-foreground">No saved rules yet. Check "Remember this" next time you use Bulk Categorize.</p>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {rulesData!.rules.map((rule) => (
+                  <div key={rule.id} className="flex items-center justify-between border border-border/40 rounded-lg px-3 py-2 text-sm">
+                    <span>Description contains <strong>"{rule.keyword}"</strong> → {rule.category}</span>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-destructive" onClick={() => deleteRuleMut.mutate(rule.id)} disabled={deleteRuleMut.isPending}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRulesOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

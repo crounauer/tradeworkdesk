@@ -159,6 +159,7 @@ export interface BulkCategorizeInput {
   from?: string;
   to?: string;
   dry_run?: boolean;
+  save_rule?: boolean;
 }
 
 export function useBulkCategorizeMatchCount() {
@@ -180,6 +181,28 @@ export function useBulkCategorizeExpenses() {
       body: JSON.stringify(input),
     }),
     onSuccess: () => qc.invalidateQueries({ queryKey: expensesKeys.all }),
+  });
+}
+
+export interface ExpenseCategoryRule {
+  id: string;
+  keyword: string;
+  category: string;
+  created_at: string;
+}
+
+export function useExpenseCategoryRules() {
+  return useQuery<{ rules: ExpenseCategoryRule[] }>({
+    queryKey: ["expenses", "category-rules"],
+    queryFn: () => apiFetch(`${import.meta.env.BASE_URL}api/expenses/category-rules`),
+  });
+}
+
+export function useDeleteExpenseCategoryRule() {
+  const qc = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (id) => apiFetch(`${import.meta.env.BASE_URL}api/expenses/category-rules/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["expenses", "category-rules"] }),
   });
 }
 
