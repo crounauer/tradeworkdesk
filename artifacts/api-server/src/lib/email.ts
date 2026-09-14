@@ -414,6 +414,59 @@ function normalizeAdditionalRecipients(
   );
 }
 
+/**
+ * Sends the "copy to admin" checkbox recipients as a fully independent message
+ * rather than bundling them as `cc` on the customer's email. Resend suppresses
+ * an entire message (all of to/cc/bcc) when the primary `to` address is on its
+ * account-level suppression list, so a bounced/complained customer address
+ * would otherwise silently swallow the admin's copy too. Best-effort: failures
+ * here never throw, so they can't break the primary customer send.
+ */
+export async function sendAdminCcCopy(opts: {
+  extraCc?: string[] | null;
+  to: string;
+  subject: string;
+  html: string;
+  from: string;
+  replyTo?: string;
+  tenantId?: string;
+  emailType: string;
+  attachments?: { filename: string; content: Buffer }[];
+}): Promise<void> {
+  const recipients = normalizeAdditionalRecipients(opts.extraCc, opts.to, opts.replyTo);
+  if (recipients.length === 0 || !resend) return;
+  try {
+    const sendResult = await sendResendEmailWithRetry({
+      from: opts.from,
+      to: recipients,
+      subject: `[Copy] ${opts.subject}`,
+      html: opts.html,
+      ...(opts.attachments ? { attachments: opts.attachments } : {}),
+    } as any);
+    await writeTenantEmailAudit({
+      tenantId: opts.tenantId,
+      status: "accepted",
+      emailType: `${opts.emailType}_admin_copy`,
+      to: recipients.join(", "),
+      subject: opts.subject,
+      from: opts.from,
+      providerMessageId: sendResult.messageId,
+    });
+  } catch (sendErr) {
+    const reason = sendErr instanceof Error ? sendErr.message : String(sendErr);
+    console.error(`[email] Failed to send admin copy of "${opts.subject}" to ${recipients.join(", ")}:`, reason);
+    await writeTenantEmailAudit({
+      tenantId: opts.tenantId,
+      status: "failed",
+      emailType: `${opts.emailType}_admin_copy`,
+      to: recipients.join(", "),
+      subject: opts.subject,
+      from: opts.from,
+      errorMessage: reason,
+    });
+  }
+}
+
 function renderCompanyHeader(company?: EmailCompanyDetails): string {
   if (!company) {
     return `
@@ -1243,7 +1296,7 @@ export async function sendJobConfirmationEmail(
 
   const replyTo = companyDetails?.email ?? undefined;
   const from = buildTenantFrom(companyDetails);
-  const cc = normalizeAdditionalRecipients([...(companyDetails?.notification_emails || []), ...(extraCc || [])], to, replyTo);
+  const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
   try {
     const sendResult = await sendResendEmailWithRetry({
     from,
@@ -1264,6 +1317,7 @@ export async function sendJobConfirmationEmail(
       retryCount: Math.max(0, sendResult.attempts - 1),
       metadata: { jobRef: jobDetails.jobRef },
     });
+    await sendAdminCcCopy({ extraCc, to, subject, html, from, replyTo, emailType: "job_confirmation" });
   } catch (sendErr) {
     const reason = sanitizeErrorForEmail(sendErr);
     console.error(`[email] Failed to send "${subject}" to ${to}:`, reason);
@@ -1358,7 +1412,7 @@ export async function sendEnquiryAcknowledgementEmail(
 
   const replyTo = companyDetails?.email ?? undefined;
   const from = buildTenantFrom(companyDetails);
-  const cc = normalizeAdditionalRecipients([...(companyDetails?.notification_emails || []), ...(extraCc || [])], to, replyTo);
+  const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
   try {
     const sendResult = await sendResendEmailWithRetry({
       from,
@@ -1379,6 +1433,7 @@ export async function sendEnquiryAcknowledgementEmail(
       retryCount: Math.max(0, sendResult.attempts - 1),
       metadata: { enquiryId: enquiryDetails.enquiryId },
     });
+    await sendAdminCcCopy({ extraCc, to, subject, html, from, replyTo, emailType: "enquiry_acknowledgement" });
   } catch (sendErr) {
     const reason = sanitizeErrorForEmail(sendErr);
     console.error(`[email] Failed to send "${subject}" to ${to}:`, reason);
@@ -1457,7 +1512,7 @@ export async function sendEnquiryNotProceedingEmail(
     throw new Error(getTenantEmailFailureMessage());
   }
 
-  const cc = normalizeAdditionalRecipients([...(companyDetails?.notification_emails || []), ...(extraCc || [])], to, replyTo);
+  const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
   try {
     const sendResult = await sendResendEmailWithRetry({ from, to, subject, html, ...(replyTo ? { replyTo } : {}), ...(cc.length > 0 ? { cc } : {}) } as any);
     await writeTenantEmailAudit({
@@ -1471,6 +1526,7 @@ export async function sendEnquiryNotProceedingEmail(
       retryCount: Math.max(0, sendResult.attempts - 1),
       metadata: { enquiryId: enquiryDetails.enquiryId },
     });
+    await sendAdminCcCopy({ extraCc, to, subject, html, from, replyTo, emailType: "enquiry_not_proceeding" });
   } catch (sendErr) {
     const reason = sanitizeErrorForEmail(sendErr);
     console.error(`[email] Failed to send "${subject}" to ${to}:`, reason);
@@ -1877,7 +1933,7 @@ export async function sendSimpleNotification(
   const replyTo = opts?.companyDetails?.email_reply_to || opts?.companyDetails?.email || undefined;
   const companyDisplay = opts?.companyDetails?.name || opts?.companyDetails?.trading_name || "TradeWorkDesk";
   const emailType = opts?.emailType || "simple_notification";
-  const cc = normalizeAdditionalRecipients([...(opts?.companyDetails?.notification_emails || []), ...(opts?.extraCc || [])], normalizedTo, replyTo);
+  const cc = normalizeAdditionalRecipients(opts?.companyDetails?.notification_emails, normalizedTo, replyTo);
   if (!EMAIL_RE.test(normalizedTo)) {
     await writeTenantEmailAudit({
       tenantId: opts?.tenantId,
@@ -1937,6 +1993,7 @@ export async function sendSimpleNotification(
       providerMessageId: sendResult.messageId,
       retryCount: Math.max(0, sendResult.attempts - 1),
     });
+    await sendAdminCcCopy({ extraCc: opts?.extraCc, to: normalizedTo, subject, html, from, replyTo, tenantId: opts?.tenantId, emailType });
   } catch (sendErr) {
     const reason = sanitizeErrorForEmail(sendErr);
     console.error(`[email] Failed to send "${subject}" to ${normalizedTo}:`, reason);

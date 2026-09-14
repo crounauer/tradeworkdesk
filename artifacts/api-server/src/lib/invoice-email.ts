@@ -3,7 +3,7 @@
  * Send invoice / quote PDFs to customers via email, following the same
  * pattern used by sendJobFormsEmail() in email.ts.
  */
-import { applyTemplateVariables, getTemplateOverride, getTenantEmailFailureMessage, notifyEmailDeliveryFailure, renderTemplateBodyHtml, sendResendEmailWithRetry, writeTenantEmailAudit, type EmailCompanyDetails } from "./email";
+import { applyTemplateVariables, getTemplateOverride, getTenantEmailFailureMessage, notifyEmailDeliveryFailure, renderTemplateBodyHtml, sendAdminCcCopy, sendResendEmailWithRetry, writeTenantEmailAudit, type EmailCompanyDetails } from "./email";
 const DEFAULT_FROM_NAME = "TradeWorkDesk";
 const PLATFORM_INVOICE_FROM_EMAIL = (process.env.INVOICE_FROM_EMAIL || "invoices@mail.tradeworkdesk.co.uk").trim().toLowerCase();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -266,6 +266,17 @@ export async function sendInvoiceDocumentEmail(opts: {
       retryCount: Math.max(0, sendResult.attempts - 1),
       metadata: { invoiceNumber },
     });
+    await sendAdminCcCopy({
+      extraCc: opts.extraCc,
+      to: toEmail,
+      subject,
+      html,
+      from: FROM,
+      replyTo,
+      tenantId: opts.tenantId,
+      emailType: isQuote ? "quote" : "invoice",
+      attachments: [{ filename, content: opts.pdfBuffer }],
+    });
   } catch (sendErr) {
     const reason = sendErr instanceof Error ? sendErr.message : String(sendErr);
     console.error(`[invoice-email] Failed to send ${label.toLowerCase()} to ${toEmail}:`, reason);
@@ -522,7 +533,7 @@ export async function sendInvoiceReminderEmail(opts: {
 
   const replyToCandidate = String(opts.company?.email_reply_to || opts.company?.email || "").trim().toLowerCase();
   const replyTo = EMAIL_RE.test(replyToCandidate) ? replyToCandidate : undefined;
-  const cc = normalizeAdditionalRecipients([...(opts.company?.notification_emails || []), ...(opts.extraCc || [])], toEmail, replyTo);
+  const cc = normalizeAdditionalRecipients(opts.company?.notification_emails, toEmail, replyTo);
 
   const sendOpts = {
     from: FROM,
@@ -547,6 +558,17 @@ export async function sendInvoiceReminderEmail(opts: {
       providerMessageId: sendResult.messageId,
       retryCount: Math.max(0, sendResult.attempts - 1),
       metadata: { invoiceNumber: opts.invoiceNumber },
+    });
+    await sendAdminCcCopy({
+      extraCc: opts.extraCc,
+      to: toEmail,
+      subject,
+      html,
+      from: FROM,
+      replyTo,
+      tenantId: opts.tenantId,
+      emailType: "invoice_reminder",
+      ...(opts.pdfBuffer ? { attachments: [{ filename: `invoice-${opts.invoiceNumber}.pdf`, content: opts.pdfBuffer }] } : {}),
     });
   } catch (sendErr) {
     const reason = sendErr instanceof Error ? sendErr.message : String(sendErr);
