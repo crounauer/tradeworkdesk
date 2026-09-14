@@ -157,6 +157,203 @@ router.delete("/customers/:id", requireAuth, requireTenant, requireRole("admin")
   res.sendStatus(204);
 });
 
+// Tables with a customer_id (or linked_customer_id) column that must be repointed to the
+// surviving customer when merging two duplicate customer records.
+const MERGE_TABLES: { table: string; column: string }[] = [
+  { table: "properties", column: "customer_id" },
+  { table: "jobs", column: "customer_id" },
+  { table: "invoices", column: "customer_id" },
+  { table: "follow_ups", column: "customer_id" },
+  { table: "job_confirmation_responses", column: "customer_id" },
+  { table: "dhw_cylinder_commissioning_records", column: "customer_id" },
+  { table: "customer_portal_access_requests", column: "customer_id" },
+  { table: "maintenance_plan_subscriptions", column: "customer_id" },
+  { table: "service_reminders", column: "customer_id" },
+  { table: "sms_messages", column: "customer_id" },
+  { table: "missed_call_logs", column: "customer_id" },
+  { table: "campaign_recipients", column: "customer_id" },
+  { table: "enquiries", column: "linked_customer_id" },
+];
+
+router.post("/customers/:id/merge", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const params = GetCustomerParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  const duplicateId = String(req.body?.duplicate_customer_id || "").trim();
+  if (!duplicateId) { res.status(400).json({ error: "duplicate_customer_id is required" }); return; }
+  if (duplicateId === params.data.id) { res.status(400).json({ error: "Cannot merge a customer into itself" }); return; }
+
+  const tenantId = req.tenantId!;
+  const [{ data: primary }, { data: duplicate }] = await Promise.all([
+    supabaseAdmin.from("customers").select("*").eq("id", params.data.id).eq("tenant_id", tenantId).maybeSingle(),
+    supabaseAdmin.from("customers").select("*").eq("id", duplicateId).eq("tenant_id", tenantId).maybeSingle(),
+  ]);
+  if (!primary) { res.status(404).json({ error: "Customer not found" }); return; }
+  if (!duplicate) { res.status(404).json({ error: "Duplicate customer not found" }); return; }
+
+  // Fill any contact fields that are blank on the surviving customer using the duplicate's
+  // values — never overwrites anything the primary already has set.
+  const FILLABLE_FIELDS = ["title", "business_name", "email", "phone", "mobile", "address_line1", "address_line2", "city", "county", "postcode"] as const;
+  const fillPatch: Record<string, unknown> = {};
+  const filledFields: string[] = [];
+  for (const field of FILLABLE_FIELDS) {
+    const primaryValue = (primary as Record<string, unknown>)[field];
+    const duplicateValue = (duplicate as Record<string, unknown>)[field];
+    if ((primaryValue === null || primaryValue === undefined || primaryValue === "") && duplicateValue) {
+      fillPatch[field] = duplicateValue;
+      filledFields.push(field);
+    }
+  }
+  if (filledFields.length > 0) {
+    await supabaseAdmin.from("customers").update(fillPatch).eq("id", primary.id).eq("tenant_id", tenantId);
+  }
+
+  const movedCounts: Record<string, number> = {};
+
+  for (const { table, column } of MERGE_TABLES) {
+    try {
+      const { data, error: moveErr } = await supabaseAdmin
+        .from(table)
+        .update({ [column]: primary.id })
+        .eq(column, duplicate.id)
+        .eq("tenant_id", tenantId)
+        .select("id");
+      if (moveErr) { console.error(`[customers/merge] Failed to move ${table}:`, moveErr.message); continue; }
+      movedCounts[table] = (data || []).length;
+    } catch (e) {
+      // Table may not exist in this environment yet — skip rather than aborting the whole merge.
+      console.error(`[customers/merge] Skipped ${table}:`, (e as Error).message);
+    }
+  }
+
+  // Portal accounts: avoid ending up with two *active* logins for the same merged customer.
+  try {
+    const { data: primaryPortalUsers } = await supabaseAdmin
+      .from("customer_portal_users")
+      .select("id")
+      .eq("customer_id", primary.id)
+      .eq("is_active", true)
+      .limit(1);
+    const { data: movedPortalUsers } = await supabaseAdmin
+      .from("customer_portal_users")
+      .update({ customer_id: primary.id })
+      .eq("customer_id", duplicate.id)
+      .eq("tenant_id", tenantId)
+      .select("id");
+    movedCounts.customer_portal_users = (movedPortalUsers || []).length;
+    if ((primaryPortalUsers || []).length > 0 && (movedPortalUsers || []).length > 0) {
+      await supabaseAdmin
+        .from("customer_portal_users")
+        .update({ is_active: false })
+        .in("id", (movedPortalUsers || []).map((r) => (r as { id: string }).id));
+    }
+  } catch (e) {
+    console.error("[customers/merge] Skipped customer_portal_users:", (e as Error).message);
+  }
+
+  // File attachments use a generic entity_type/entity_id pattern rather than a customer_id column.
+  try {
+    const { data: movedFiles } = await supabaseAdmin
+      .from("file_attachments")
+      .update({ entity_id: primary.id })
+      .eq("entity_type", "customer")
+      .eq("entity_id", duplicate.id)
+      .eq("tenant_id", tenantId)
+      .select("id");
+    movedCounts.file_attachments = (movedFiles || []).length;
+  } catch (e) {
+    console.error("[customers/merge] Skipped file_attachments:", (e as Error).message);
+  }
+
+  // Verify nothing still references the duplicate before treating the merge as complete —
+  // a failed/skipped table above must not be silently reported as a success.
+  const unmigrated: Record<string, number> = {};
+  for (const { table, column } of MERGE_TABLES) {
+    try {
+      const { count } = await supabaseAdmin
+        .from(table)
+        .select("id", { count: "exact", head: true })
+        .eq(column, duplicate.id)
+        .eq("tenant_id", tenantId);
+      if (count && count > 0) unmigrated[table] = count;
+    } catch {
+      // Table doesn't exist in this environment — nothing to verify.
+    }
+  }
+  try {
+    const { count: portalCount } = await supabaseAdmin
+      .from("customer_portal_users")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", duplicate.id)
+      .eq("tenant_id", tenantId);
+    if (portalCount && portalCount > 0) unmigrated.customer_portal_users = portalCount;
+  } catch { /* ignore */ }
+  try {
+    const { count: fileCount } = await supabaseAdmin
+      .from("file_attachments")
+      .select("id", { count: "exact", head: true })
+      .eq("entity_type", "customer")
+      .eq("entity_id", duplicate.id)
+      .eq("tenant_id", tenantId);
+    if (fileCount && fileCount > 0) unmigrated.file_attachments = fileCount;
+  } catch { /* ignore */ }
+
+  if (Object.keys(unmigrated).length > 0) {
+    // Leave the duplicate active so it stays visible and the merge can be retried.
+    await insertTenantAuditLog({
+      tenantId,
+      actorId: req.userId,
+      actorEmail: req.userEmail,
+      actorRole: req.userRole,
+      eventType: "customer_merge_incomplete",
+      entityType: "customer",
+      entityId: primary.id,
+      detail: {
+        merged_customer_id: duplicate.id,
+        moved_counts: movedCounts,
+        unmigrated,
+      },
+    });
+    res.status(207).json({
+      success: false,
+      primary_customer_id: primary.id,
+      moved_counts: movedCounts,
+      filled_fields: filledFields,
+      unmigrated,
+      error: "Some records could not be moved. The duplicate customer was left active so you can retry the merge.",
+    });
+    return;
+  }
+
+  // Deactivate the duplicate record — kept (not hard-deleted) so historical references/audit stay valid.
+  const mergeNote = `[Merged into ${primary.business_name || `${primary.first_name} ${primary.last_name}`} on ${new Date().toISOString().slice(0, 10)}]`;
+  await supabaseAdmin
+    .from("customers")
+    .update({
+      is_active: false,
+      notes: [duplicate.notes, mergeNote].filter(Boolean).join("\n\n"),
+    })
+    .eq("id", duplicate.id)
+    .eq("tenant_id", tenantId);
+
+  await insertTenantAuditLog({
+    tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "customer_merged",
+    entityType: "customer",
+    entityId: primary.id,
+    detail: {
+      merged_customer_id: duplicate.id,
+      merged_customer_name: duplicate.business_name || `${duplicate.first_name} ${duplicate.last_name}`,
+      moved_counts: movedCounts,
+      filled_fields: filledFields,
+    },
+  });
+
+  res.json({ success: true, primary_customer_id: primary.id, moved_counts: movedCounts, filled_fields: filledFields });
+});
+
 router.post("/customers/:id/send-email", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetCustomerParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }

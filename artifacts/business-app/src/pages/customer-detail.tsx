@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt, ChevronRight, LogIn, FileText, Navigation, Camera } from "lucide-react";
+import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt, ChevronRight, LogIn, FileText, Navigation, Camera, GitMerge } from "lucide-react";
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -29,6 +29,7 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { BookJobDialog } from "@/components/book-job-dialog";
 import { SmsSendDialog } from "@/components/sms-send-dialog";
 import { CustomerEmailDialog } from "@/components/customer-email-dialog";
+import { MergeCustomerDialog } from "@/components/merge-customer-dialog";
 
 const PropertyLocationLookup = lazy(() => import("@/components/property-location-lookup").then(m => ({ default: m.PropertyLocationLookup })));
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
@@ -73,6 +74,7 @@ export default function CustomerDetail() {
   const [showBookEnquiry, setShowBookEnquiry] = useState(false);
   const [showSms, setShowSms] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
+  const [showMerge, setShowMerge] = useState(false);
   const [creatingType, setCreatingType] = useState<"invoice" | "quote" | null>(null);
   const [documentPropertyType, setDocumentPropertyType] = useState<"invoice" | "quote" | null>(null);
   const [selectedDocumentPropertyId, setSelectedDocumentPropertyId] = useState("");
@@ -213,6 +215,11 @@ export default function CustomerDetail() {
           <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => setEditing(!editing)}>
             {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit</>}
           </Button>
+          {canDelete && (
+            <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => setShowMerge(true)}>
+              <GitMerge className="w-4 h-4 mr-2" /> Merge Duplicate
+            </Button>
+          )}
           {canDelete && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -494,6 +501,19 @@ export default function CustomerDetail() {
           onSent={() => qc.invalidateQueries({ queryKey: ["customer-email-audit", customer.email!.trim().toLowerCase()] })}
         />
       )}
+
+      <MergeCustomerDialog
+        open={showMerge}
+        onOpenChange={setShowMerge}
+        primaryCustomerId={customer.id}
+        primaryCustomerName={customer.business_name || `${customer.first_name} ${customer.last_name}`.trim()}
+        onMerged={() => {
+          qc.invalidateQueries({ queryKey: ["/api/customers"] });
+          qc.invalidateQueries({ queryKey: ["customer", customer.id] });
+          qc.invalidateQueries({ queryKey: ["customer-jobs"] });
+          qc.invalidateQueries({ queryKey: ["/api/invoices"] });
+        }}
+      />
 
       {/* New Enquiry dialog pre-filled with this customer */}
       <BookEnquiryDialog
