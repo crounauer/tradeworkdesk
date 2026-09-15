@@ -125,6 +125,21 @@ function formatHumanDate(yyyyMmDd: string): string {
   });
 }
 
+export function jobMatchesTargetDate(
+  job: { scheduled_date?: string | null; scheduled_end_date?: string | null },
+  targetDate: string,
+): boolean {
+  const scheduledDate = String(job.scheduled_date || "").slice(0, 10);
+  if (!scheduledDate) return false;
+
+  if (scheduledDate === targetDate) return true;
+
+  const endDate = String(job.scheduled_end_date || "").slice(0, 10);
+  if (!endDate || endDate === scheduledDate) return false;
+
+  return scheduledDate <= targetDate && endDate >= targetDate;
+}
+
 function formatJobTime(time: string | null, allDay: boolean | null): string {
   if (allDay) return "All day";
   const raw = String(time || "").trim();
@@ -311,12 +326,14 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
         continue;
       }
 
+      const targetDateRange = `and(scheduled_date.eq.${targetDate},scheduled_end_date.is.null),and(scheduled_date.lte.${targetDate},scheduled_end_date.gte.${targetDate})`;
+
       let jobsQuery = supabaseAdmin
         .from("jobs")
-        .select("id, job_ref, assigned_technician_id, scheduled_date, scheduled_time, all_day, status, description, customers(first_name, last_name, business_name), properties(address_line1, postcode)")
+        .select("id, job_ref, assigned_technician_id, scheduled_date, scheduled_end_date, scheduled_time, all_day, status, description, customers(first_name, last_name, business_name), properties(address_line1, postcode)")
         .eq("tenant_id", tenantId)
         .eq("is_active", true)
-        .eq("scheduled_date", targetDate)
+        .or(targetDateRange)
         .in("status", ACTIVE_JOB_STATUSES)
         .order("scheduled_time", { ascending: true, nullsFirst: false });
 

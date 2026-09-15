@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { getTransactionalSenderEmail } from "./email";
-import { buildSummaryBody } from "./technician-daily-summary";
+import { buildSummaryBody, jobMatchesTargetDate } from "./technician-daily-summary";
 import { validateJobEmailSendRequest } from "../routes/jobs";
 
 test("uses a dedicated transactional sender email by default", () => {
@@ -40,4 +40,15 @@ test("keeps technician summaries operational and adds spam guidance", () => {
   assert.match(body, /notifications@mail\.tradeworkdesk\.co\.uk/);
   assert.doesNotMatch(body, /notifications@tradeworkdesk\.co\.uk/);
   assert.doesNotMatch(body, /Powered by TradeWorkDesk/i);
+});
+
+test("includes all-day jobs scheduled across a date range in the daily summary", () => {
+  const job = {
+    scheduled_date: "2026-09-15",
+    scheduled_end_date: "2026-09-16",
+  };
+
+  assert.equal(jobMatchesTargetDate(job, "2026-09-15"), true);
+  assert.equal(jobMatchesTargetDate(job, "2026-09-16"), true);
+  assert.equal(jobMatchesTargetDate(job, "2026-09-17"), false);
 });
