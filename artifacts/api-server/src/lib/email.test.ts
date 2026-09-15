@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getTransactionalSenderEmail } from "./email";
+import { getTransactionalSenderEmail, isCcAdminRequested } from "./email";
 import { buildSummaryBody, jobMatchesTargetDate } from "./technician-daily-summary";
 import { validateJobEmailSendRequest } from "../routes/jobs";
 
@@ -51,4 +51,13 @@ test("includes all-day jobs scheduled across a date range in the daily summary",
   assert.equal(jobMatchesTargetDate(job, "2026-09-15"), true);
   assert.equal(jobMatchesTargetDate(job, "2026-09-16"), true);
   assert.equal(jobMatchesTargetDate(job, "2026-09-17"), false);
+});
+
+test("treats true-like cc_admin values as enabled for admin copy sends", () => {
+  assert.equal(isCcAdminRequested(true), true);
+  assert.equal(isCcAdminRequested("true"), true);
+  assert.equal(isCcAdminRequested("1"), true);
+  assert.equal(isCcAdminRequested(1), true);
+  assert.equal(isCcAdminRequested(false), false);
+  assert.equal(isCcAdminRequested("false"), false);
 });

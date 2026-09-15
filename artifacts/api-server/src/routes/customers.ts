@@ -397,7 +397,7 @@ router.post("/customers/:id/send-email", requireAuth, requireTenant, requireRole
       companyDetails,
       tenantId: req.tenantId!,
       emailType: "customer_message",
-      extraCc: req.body?.cc_admin === true && req.userEmail ? [req.userEmail] : undefined,
+      extraCc: isCcAdminRequested(req.body?.cc_admin) && req.userEmail ? [req.userEmail] : undefined,
     });
   } catch (e) {
     res.status(500).json({ error: (e as Error).message }); return;

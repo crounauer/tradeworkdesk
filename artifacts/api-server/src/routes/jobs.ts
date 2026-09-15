@@ -1142,7 +1142,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
       confirmationDetails,
       emailCompany,
       { confirmUrl, requestChangeUrl },
-      cc_admin === true && req.userEmail ? [req.userEmail] : undefined,
+      isCcAdminRequested(cc_admin) && req.userEmail ? [req.userEmail] : undefined,
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to send confirmation email";

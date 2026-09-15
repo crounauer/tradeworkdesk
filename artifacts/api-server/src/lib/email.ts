@@ -398,6 +398,12 @@ interface ManagedEmailTemplateOverride {
   body?: string | null;
 }
 
+export function isCcAdminRequested(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value.trim().toLowerCase() === "true" || value.trim() === "1";
+  return value === 1 || value === "1";
+}
+
 function normalizeAdditionalRecipients(
   extra: string[] | null | undefined,
   to: string,
