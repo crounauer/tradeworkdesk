@@ -14,7 +14,7 @@ import {
 } from "@workspace/api-zod";
 import { z } from "zod";
 import { createPortalImpersonationSession, generateInviteToken, portalUserCache } from "./portal";
-import { sendPortalInviteEmail, sendSimpleNotification, type EmailCompanyDetails } from "../lib/email";
+import { isCcAdminRequested, sendPortalInviteEmail, sendSimpleNotification, type EmailCompanyDetails } from "../lib/email";
 
 const router: IRouter = Router();
 

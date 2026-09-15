@@ -27,7 +27,7 @@ import {
   type InvoiceData,
   type InvoiceLineItem,
 } from "../lib/invoice-export";
-import { sendJobFormsEmail, sendJobConfirmationEmail, sendSimpleNotification, type EmailAttachment, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
+import { isCcAdminRequested, sendJobFormsEmail, sendJobConfirmationEmail, sendSimpleNotification, type EmailAttachment, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
 import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 import { invalidateCalendarCache } from "./calendar";
 import { invalidateHomepageCache } from "./homepage";

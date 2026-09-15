@@ -4,6 +4,7 @@ import { requireTenantInvoicing, bustInvoicingCache } from "../middlewares/requi
 import { supabaseAdmin } from "../lib/supabase";
 import { generateInvoicePdf, type InvoicePdfData } from "../lib/invoice-pdf";
 import { sendInvoiceDocumentEmail, sendInvoiceReminderEmail, sendPaymentReceiptEmail } from "../lib/invoice-email";
+import { isCcAdminRequested } from "../lib/email";
 import { buildInvoiceData } from "./jobs";
 import { requireStripe } from "../lib/stripe";
 import { gcRequest, GC_API_BASE } from "./gocardless";
