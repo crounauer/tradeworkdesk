@@ -191,9 +191,13 @@ export default function ContactFormBlock({ content }: Props) {
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []).slice(0, 5);
-    setPhotos(files);
-    setPhotoPreviews(files.map((f) => URL.createObjectURL(f)));
+    const selectedFiles = Array.from(e.target.files ?? []);
+    if (selectedFiles.length === 0) return;
+
+    const nextFiles = [...photos, ...selectedFiles].slice(0, 5);
+    setPhotos(nextFiles);
+    setPhotoPreviews(nextFiles.map((f) => URL.createObjectURL(f)));
+    e.target.value = "";
   }
 
   function removePhoto(i: number) {
@@ -380,7 +384,7 @@ export default function ContactFormBlock({ content }: Props) {
                     onClick={() => photoInputRef.current?.click()}
                     style={{ padding: "8px 16px", border: `1px dashed ${accent_color}`, borderRadius: 6, background: "transparent", color: accent_color, cursor: "pointer", fontSize: "0.875rem", fontWeight: 600, fontFamily: buttonFont }}
                   >
-                    📷 {photos.length === 0 ? "Add photos" : "Change photos"}
+                    📷 {photos.length === 0 ? "Add photos" : "Add more photos"}
                   </button>
                 </div>
               )}
