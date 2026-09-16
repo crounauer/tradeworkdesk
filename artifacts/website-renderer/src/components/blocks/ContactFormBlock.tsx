@@ -228,9 +228,9 @@ export default function ContactFormBlock({ content }: Props) {
       ? { ...values, photos: photoUrls, form_kind: form_kind || "contact" }
       : { ...values, form_kind: form_kind || "contact" };
 
-    const result = configuredFormId
-      ? await submitForm(configuredFormId, payload)
-      : await submitWebsiteForm(websiteId, payload);
+    const result = websiteId
+      ? await submitWebsiteForm(websiteId, payload)
+      : await submitForm(configuredFormId, payload);
 
     setSubmitting(false);
     if (result.ok) {
