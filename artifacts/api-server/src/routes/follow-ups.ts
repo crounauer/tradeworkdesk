@@ -323,7 +323,9 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     followUp.notes ? `Notes: ${followUp.notes}` : null,
   ].filter(Boolean).join("\n");
 
-  const scheduledTimeValue = scheduled_time || null;
+  const scheduledTimeValue = typeof scheduled_time === "string" && /^\d{2}:\d{2}(?::\d{2})?$/.test(scheduled_time)
+    ? scheduled_time.slice(0, 5)
+    : null;
   const originalDuration = Number(origJob?.estimated_duration);
   const estimatedDuration = scheduledTimeValue
     ? (Number.isFinite(originalDuration) && originalDuration > 0 ? Math.round(originalDuration) : 60)
@@ -356,7 +358,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     return;
   }
 
-  const { data: newJob, error: jobErr } = await supabaseAdmin.from("jobs").insert(jobInsert).select("id, job_ref").single();
+  const { data: newJob, error: jobErr } = await supabaseAdmin.from("jobs").insert(jobInsert).select("id, job_ref, scheduled_date, scheduled_time, estimated_duration").single();
   if (jobErr) { res.status(500).json({ error: jobErr.message }); return; }
 
   if (copyParts || copyServices || copyTimeEntries) {
@@ -495,6 +497,9 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     follow_up_id: id,
     job_id: newJob.id,
     job_ref: newJob.job_ref,
+    scheduled_date: newJob.scheduled_date,
+    scheduled_time: newJob.scheduled_time,
+    estimated_duration: newJob.estimated_duration,
     copied: {
       parts: copyParts,
       services: copyServices,
