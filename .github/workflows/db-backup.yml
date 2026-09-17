@@ -60,14 +60,20 @@ jobs:
           STATUS_LINE=$(printf '%s\n' "$HTTP_BODY" | tail -n 1)
           HTTP_STATUS=${STATUS_LINE#HTTP_STATUS=}
           RESPONSE=$(printf '%s\n' "$HTTP_BODY" | sed '$d')
-          if [ "$HTTP_STATUS" != "200" ]; then
+          if [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "207" ]; then
             echo "Tenant snapshot request failed with HTTP $HTTP_STATUS"
             echo "$RESPONSE"
             exit 1
           fi
           STATUS=$(echo "$RESPONSE" | jq -r '.status // "error"')
-          if [ "$STATUS" != "success" ]; then
+          if [ "$STATUS" != "success" ] && [ "$STATUS" != "partial" ]; then
             echo "Tenant snapshots failed: $RESPONSE"
             exit 1
           fi
-          echo "Tenant snapshots complete: $(echo "$RESPONSE" | jq -r '.total') tenant(s)"
+          TOTAL=$(echo "$RESPONSE" | jq -r '.total // 0')
+          FAILED=$(echo "$RESPONSE" | jq -r '.failed // 0')
+          echo "Tenant snapshots complete: $TOTAL tenant(s), $FAILED failed"
+          if [ "$FAILED" != "0" ]; then
+            echo "Tenant snapshots were partial: $RESPONSE"
+            exit 1
+          fi
