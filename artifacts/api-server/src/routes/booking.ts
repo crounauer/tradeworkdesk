@@ -188,14 +188,15 @@ function normalizeTimeForDateBoundary(value: string | null | undefined, fallback
 }
 
 function holidayBlocksSlotOnDate(args: {
-  holiday: { start_date: string; end_date: string; start_time?: string | null; end_time?: string | null };
+  holiday: { start_date: string; end_date: string; start_time?: string | null; end_time?: string | null; allow_bookings?: boolean | null };
   dateStr: string;
   slotStart: Date;
   slotEnd: Date;
 }): boolean {
   const { holiday, dateStr, slotStart, slotEnd } = args;
   if (holiday.start_date > dateStr || holiday.end_date < dateStr) return false;
-  if (!holiday.start_time || !holiday.end_time) return true;
+  if (!holiday.start_time || !holiday.end_time) return holiday.allow_bookings !== true;
+  if (holiday.allow_bookings !== true) return true;
 
   const effectiveStartTime = dateStr === holiday.start_date
     ? normalizeTimeForDateBoundary(holiday.start_time, "00:00")
@@ -503,7 +504,7 @@ async function getAvailableSlots(
       .eq("is_active", true)
       .eq("can_be_assigned_jobs", true),
     db.from("calendar_holidays")
-      .select("technician_id, holiday_type, start_date, end_date, start_time, end_time")
+      .select("technician_id, holiday_type, start_date, end_date, start_time, end_time, allow_bookings")
       .eq("tenant_id", tenantId)
       .lte("start_date", toDate)
       .gte("end_date", fromDate),
@@ -698,7 +699,7 @@ async function selectAvailableEngineerForSlot(args: {
       .eq("is_active", true)
       .eq("can_be_assigned_jobs", true),
     db.from("calendar_holidays")
-      .select("technician_id, holiday_type, start_date, end_date, start_time, end_time")
+      .select("technician_id, holiday_type, start_date, end_date, start_time, end_time, allow_bookings")
       .eq("tenant_id", tenantId)
       .lte("start_date", dateStr)
       .gte("end_date", dateStr),
@@ -717,7 +718,7 @@ async function selectAvailableEngineerForSlot(args: {
     return ["technician_leave", "technician_away", "technician_sick", "public_holiday", "bank_holiday"].includes(type);
   };
 
-  const holidays: Array<{ technician_id: string | null; holiday_type?: string | null; start_date: string; end_date: string; start_time?: string | null; end_time?: string | null }> = holidaysResult.data || [];
+  const holidays: Array<{ technician_id: string | null; holiday_type?: string | null; start_date: string; end_date: string; start_time?: string | null; end_time?: string | null; allow_bookings?: boolean | null }> = holidaysResult.data || [];
   const blockingHolidays = holidays.filter((holiday) => isBlockingHoliday(holiday.holiday_type) && holidayBlocksSlotOnDate({
     holiday,
     dateStr,

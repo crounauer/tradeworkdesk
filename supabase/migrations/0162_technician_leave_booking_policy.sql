@@ -1,0 +1,2 @@
+ALTER TABLE calendar_holidays
+  ADD COLUMN IF NOT EXISTS allow_bookings BOOLEAN NOT NULL DEFAULT FALSE;

@@ -279,7 +279,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
   const copyServices = carry_forward_services === true;
   const copyTimeEntries = carry_forward_time_entries === true;
 
-  let fuQ = supabaseAdmin.from("follow_ups").select("*, original_job:jobs!follow_ups_original_job_id_fkey(id, job_ref)").eq("id", id);
+  let fuQ = supabaseAdmin.from("follow_ups").select("*, original_job:jobs!follow_ups_original_job_id_fkey(id, job_ref, estimated_duration)").eq("id", id);
   if (req.tenantId) fuQ = fuQ.eq("tenant_id", req.tenantId);
   const { data: followUp, error: fuErr } = await fuQ.single();
 
@@ -295,7 +295,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
   }
 
   const tenantId = req.tenantId || followUp.tenant_id;
-  const origJob = followUp.original_job as { id: string; job_ref?: string } | null;
+  const origJob = followUp.original_job as { id: string; job_ref?: string; estimated_duration?: number | null } | null;
   const origRef = origJob?.job_ref || followUp.original_job_id;
 
   let generatedJobRef: string | undefined;
@@ -323,6 +323,12 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     followUp.notes ? `Notes: ${followUp.notes}` : null,
   ].filter(Boolean).join("\n");
 
+  const scheduledTimeValue = scheduled_time || null;
+  const originalDuration = Number(origJob?.estimated_duration);
+  const estimatedDuration = scheduledTimeValue
+    ? (Number.isFinite(originalDuration) && originalDuration > 0 ? Math.round(originalDuration) : 60)
+    : null;
+
   const jobInsert: Record<string, unknown> = {
     tenant_id: tenantId,
     customer_id: followUp.customer_id,
@@ -331,7 +337,8 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     status: "scheduled",
     priority: "medium",
     scheduled_date: scheduled_date || new Date().toISOString().split("T")[0],
-    scheduled_time: scheduled_time || null,
+    scheduled_time: scheduledTimeValue,
+    estimated_duration: estimatedDuration,
     assigned_technician_id: assigned_technician_id || null,
     description: descriptionParts,
     job_ref: generatedJobRef,

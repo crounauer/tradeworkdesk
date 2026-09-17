@@ -48,6 +48,7 @@ interface CalendarHolidayRow {
   end_date: string;
   start_time: string | null;
   end_time: string | null;
+  allow_bookings: boolean;
   holiday_type: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
   notes: string | null;
   source: string;
@@ -306,7 +307,7 @@ router.get("/calendar", requireAuth, requireTenant, async (req: AuthenticatedReq
 
   let holidaysQ = supabaseAdmin
     .from("calendar_holidays")
-    .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, holiday_type, notes, source, created_at, updated_at")
+    .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, allow_bookings, holiday_type, notes, source, created_at, updated_at")
     .eq("tenant_id", req.tenantId)
     .lte("start_date", dateTo)
     .gte("end_date", dateFrom)
@@ -393,7 +394,7 @@ router.get("/calendar/holidays", requireAuth, requireTenant, async (req: Authent
 
   let q = supabaseAdmin
     .from("calendar_holidays")
-    .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, holiday_type, notes, source, created_at, updated_at")
+    .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, allow_bookings, holiday_type, notes, source, created_at, updated_at")
     .eq("tenant_id", req.tenantId)
     .lte("start_date", dateTo)
     .gte("end_date", dateFrom)
@@ -424,6 +425,7 @@ router.post(
       end_date,
       start_time,
       end_time,
+      allow_bookings,
       technician_id,
       holiday_type,
       notes,
@@ -433,6 +435,7 @@ router.post(
       end_date?: string;
       start_time?: string;
       end_time?: string;
+      allow_bookings?: boolean;
       technician_id?: string | null;
       holiday_type?: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
       notes?: string;
@@ -447,6 +450,7 @@ router.post(
     const effectiveEnd = end_date || start_date;
     const normalizedStartTime = normalize24HourTime(start_time);
     const normalizedEndTime = normalize24HourTime(end_time);
+    const allowBookings = allow_bookings === true;
 
     if (effectiveEnd < start_date) {
       res.status(400).json({ error: "end_date cannot be before start_date" });
@@ -488,12 +492,13 @@ router.post(
         end_date: effectiveEnd,
         start_time: normalizedStartTime,
         end_time: normalizedEndTime,
+        allow_bookings: allowBookings,
         holiday_type: type,
         notes: notes?.trim() || null,
         source: "manual",
         created_by: req.userId || null,
       })
-      .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, holiday_type, notes, source, created_at, updated_at")
+      .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, allow_bookings, holiday_type, notes, source, created_at, updated_at")
       .single();
 
     if (error || !data) {
@@ -531,12 +536,13 @@ router.post(
   requireTenant,
   requireRole("admin", "office_staff", "super_admin"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const { name, start_date, repeat_until, start_time, end_time, technician_id, holiday_type, weekdays, pattern } = req.body as {
+    const { name, start_date, repeat_until, start_time, end_time, allow_bookings, technician_id, holiday_type, weekdays, pattern } = req.body as {
       name?: string;
       start_date?: string;
       repeat_until?: string;
       start_time?: string;
       end_time?: string;
+      allow_bookings?: boolean;
       technician_id?: string;
       holiday_type?: "technician_leave" | "technician_away" | "technician_sick";
       weekdays?: unknown;
@@ -547,6 +553,7 @@ router.post(
       : [];
     const normalizedStartTime = normalize24HourTime(start_time);
     const normalizedEndTime = normalize24HourTime(end_time);
+    const allowBookings = allow_bookings === true;
 
     const validPatterns: RecurringLeavePattern[] = ["every_weekday", "weekly", "fortnightly", "monthly_date", "monthly_first_week", "monthly_last_week"];
     const needsWeekdaySelection = pattern === "weekly" || pattern === "fortnightly" || pattern === "monthly_first_week" || pattern === "monthly_last_week";
@@ -584,6 +591,7 @@ router.post(
         end_date: date,
         start_time: normalizedStartTime,
         end_time: normalizedEndTime,
+        allow_bookings: allowBookings,
         holiday_type: holiday_type || "technician_leave",
         source: "recurring",
         recurrence_group_id: recurrenceGroupId,
@@ -656,12 +664,13 @@ router.patch(
   requireAuth,
   requireTenant,
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const { name, start_date, end_date, start_time, end_time, holiday_type, notes } = req.body as {
+    const { name, start_date, end_date, start_time, end_time, allow_bookings, holiday_type, notes } = req.body as {
       name?: string;
       start_date?: string;
       end_date?: string;
       start_time?: string | null;
       end_time?: string | null;
+      allow_bookings?: boolean;
       holiday_type?: "technician_leave" | "technician_away" | "technician_sick";
       notes?: string | null;
     };
@@ -693,6 +702,7 @@ router.patch(
       updates.start_time = normalizedStartTime;
       updates.end_time = normalizedEndTime;
     }
+    if (allow_bookings !== undefined) updates.allow_bookings = allow_bookings === true;
 
     const nextStart = String(updates.start_date ?? req.body.start_date ?? "");
     const nextEnd = String(updates.end_date ?? req.body.end_date ?? nextStart);
@@ -705,7 +715,7 @@ router.patch(
       .update(updates)
       .eq("id", req.params.id)
       .eq("tenant_id", req.tenantId)
-      .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, holiday_type, notes, source, created_at, updated_at")
+      .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, allow_bookings, holiday_type, notes, source, created_at, updated_at")
       .single();
 
     if (error) { res.status(500).json({ error: error.message || "Failed to update holiday" }); return; }

@@ -26,6 +26,7 @@ function holidayOverlapsScheduledWindow(args: {
   holidayEndDate: string;
   holidayStartTime: string | null;
   holidayEndTime: string | null;
+  allowBookings: boolean;
   scheduledDate: string;
   scheduledEndDate: string;
   scheduledTime?: string | null;
@@ -36,6 +37,7 @@ function holidayOverlapsScheduledWindow(args: {
     holidayEndDate,
     holidayStartTime,
     holidayEndTime,
+    allowBookings,
     scheduledDate,
     scheduledEndDate,
     scheduledTime,
@@ -43,7 +45,8 @@ function holidayOverlapsScheduledWindow(args: {
   } = args;
 
   if (holidayStartDate > scheduledEndDate || holidayEndDate < scheduledDate) return false;
-  if (!holidayStartTime || !holidayEndTime) return true;
+  if (!holidayStartTime || !holidayEndTime) return !allowBookings;
+  if (!allowBookings) return true;
   if (!scheduledTime || scheduledDate !== scheduledEndDate) return true;
   if (scheduledDate !== holidayStartDate || scheduledDate !== holidayEndDate) return false;
 
@@ -79,7 +82,7 @@ export async function findTechnicianLeaveConflict(args: {
   const effectiveEndDate = scheduledEndDate || scheduledDate;
   const { data: holidayRows } = await supabaseAdmin
     .from("calendar_holidays")
-    .select("technician_id, holiday_type, name, start_date, end_date, start_time, end_time, profiles!calendar_holidays_technician_id_fkey(full_name)")
+    .select("technician_id, holiday_type, name, start_date, end_date, start_time, end_time, allow_bookings, profiles!calendar_holidays_technician_id_fkey(full_name)")
     .eq("tenant_id", tenantId)
     .eq("technician_id", technicianId)
     .in("holiday_type", ["technician_leave", "technician_away", "technician_sick"])
@@ -93,6 +96,7 @@ export async function findTechnicianLeaveConflict(args: {
     holidayEndDate: row.end_date,
     holidayStartTime: row.start_time,
     holidayEndTime: row.end_time,
+    allowBookings: row.allow_bookings === true,
     scheduledDate,
     scheduledEndDate: effectiveEndDate,
     scheduledTime,

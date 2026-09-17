@@ -26,6 +26,7 @@ type TechnicianLeave = {
   end_date: string;
   start_time?: string | null;
   end_time?: string | null;
+  allow_bookings?: boolean | null;
   holiday_type: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
 };
 
@@ -41,7 +42,7 @@ function MyLeaveList({ technicianId }: { technicianId: string }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", start_date: "", end_date: "", start_time: "", end_time: "", holiday_type: "technician_leave" as TechnicianLeave["holiday_type"] });
+  const [editForm, setEditForm] = useState({ name: "", start_date: "", end_date: "", start_time: "", end_time: "", allow_bookings: false, holiday_type: "technician_leave" as TechnicianLeave["holiday_type"] });
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const { data: holidays = [], isLoading } = useQuery<TechnicianLeave[]>({
     queryKey: ["my-leave", technicianId],
@@ -67,6 +68,7 @@ function MyLeaveList({ technicianId }: { technicianId: string }) {
       end_date: String(holiday.end_date).slice(0, 10),
       start_time: holiday.start_time?.slice(0, 5) || "",
       end_time: holiday.end_time?.slice(0, 5) || "",
+      allow_bookings: holiday.allow_bookings === true,
       holiday_type: holiday.holiday_type,
     });
   };
@@ -83,6 +85,7 @@ function MyLeaveList({ technicianId }: { technicianId: string }) {
           end_date: editForm.end_date,
           start_time: editForm.start_time || null,
           end_time: editForm.end_time || null,
+          allow_bookings: editForm.allow_bookings,
           holiday_type: editForm.holiday_type,
         }),
       });
@@ -132,6 +135,10 @@ function MyLeaveList({ technicianId }: { technicianId: string }) {
                     <Input type="date" value={editForm.end_date} onChange={(e) => setEditForm((f) => ({ ...f, end_date: e.target.value }))} />
                     <Input type="time" value={editForm.start_time} onChange={(e) => setEditForm((f) => ({ ...f, start_time: e.target.value }))} />
                     <Input type="time" value={editForm.end_time} onChange={(e) => setEditForm((f) => ({ ...f, end_time: e.target.value }))} />
+                      <label className="md:col-span-4 flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={editForm.allow_bookings} onChange={(e) => setEditForm((f) => ({ ...f, allow_bookings: e.target.checked }))} />
+                      Allow bookings during this leave
+                    </label>
                     <Select value={editForm.holiday_type} onValueChange={(value) => setEditForm((f) => ({ ...f, holiday_type: value as TechnicianLeave["holiday_type"] }))}>
                       <SelectTrigger className="md:col-span-2"><SelectValue /></SelectTrigger>
                       <SelectContent>

@@ -16,6 +16,7 @@ interface HolidayItem {
   end_date: string;
   start_time?: string | null;
   end_time?: string | null;
+  allow_bookings?: boolean | null;
   holiday_type: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
   notes?: string | null;
   source?: string;
@@ -95,6 +96,7 @@ export default function ScheduleHolidayManager() {
   const [useTimeRange, setUseTimeRange] = useState(false);
   const [leaveStartTime, setLeaveStartTime] = useState("09:00");
   const [leaveEndTime, setLeaveEndTime] = useState("10:00");
+  const [allowBookings, setAllowBookings] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>("none");
   const [recurrenceWeekdays, setRecurrenceWeekdays] = useState<number[]>([new Date().getDay()]);
   const [repeatUntil, setRepeatUntil] = useState(nextYearIso());
@@ -210,6 +212,7 @@ export default function ScheduleHolidayManager() {
           } : { end_date: leaveEnd }),
           start_time: useTimeRange ? normalizedStartTime : undefined,
           end_time: useTimeRange ? normalizedEndTime : undefined,
+          allow_bookings: useTimeRange && allowBookings,
           holiday_type: selectedLeaveType.holidayType,
         }),
       });
@@ -401,6 +404,19 @@ export default function ScheduleHolidayManager() {
               </div>
             </div>
           ) : null}
+          <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={allowBookings}
+                onChange={(e) => setAllowBookings(e.target.checked)}
+              />
+              <span>
+                <span className="font-medium">Allow bookings during this leave</span>
+                <span className="block text-xs text-muted-foreground">
+                  {useTimeRange ? "Appointments still clash if they overlap this leave period." : "The technician can still be booked on these dates."}
+                </span>
+              </span>
+          </label>
           <Button onClick={addTechnicianLeave} disabled={submitting !== null || leaveTypeOptions.length === 0 || (recurrenceNeedsWeekdays && recurrenceWeekdays.length === 0)} className="w-full">
             {submitting === "leave" ? "Saving..." : recurrencePattern === "none" ? "Add Technician Leave Block" : "Add Recurring Leave"}
           </Button>
@@ -450,6 +466,7 @@ export default function ScheduleHolidayManager() {
                     <p className="text-xs text-muted-foreground">
                       {h.start_date}{h.end_date !== h.start_date ? ` to ${h.end_date}` : ""} · {HOLIDAY_TYPE_LABELS[h.holiday_type]}
                       {h.start_time && h.end_time ? ` · ${prettyTime(h.start_time)}-${prettyTime(h.end_time)}` : ""}
+                      {h.start_time && h.end_time && h.allow_bookings ? " · Bookable outside leave time" : ""}
                       {h.technician_id ? ` · ${technicians.find((t) => t.id === h.technician_id)?.full_name || "Technician"}` : ""}
                     </p>
                   </div>
