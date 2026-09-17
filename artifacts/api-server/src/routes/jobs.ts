@@ -390,7 +390,7 @@ router.get("/jobs/confirmation/respond", async (req, res): Promise<void> => {
   const tokenHash = hashConfirmationToken(token);
   const { data: responseRow, error: responseErr } = await supabaseAdmin
     .from("job_confirmation_responses")
-    .select("id, tenant_id, job_id, status, token_expires_at, responded_at, jobs(job_ref), tenants(company_name)")
+    .select("id, tenant_id, job_id, status, token_expires_at, responded_at, jobs(job_ref, scheduled_date, scheduled_time, estimated_duration, customers(first_name, last_name), properties(address_line1, address_line2, city, county, postcode)), tenants(company_name)")
     .eq("token_hash", tokenHash)
     .maybeSingle();
 
@@ -467,7 +467,17 @@ router.get("/jobs/confirmation/respond", async (req, res): Promise<void> => {
       .eq("id", jobId);
   }
 
-  const jobRef = (responseRow as { jobs?: { job_ref?: string | null } | null }).jobs?.job_ref || jobId.slice(0, 8).toUpperCase();
+  const confirmedJob = (responseRow as {
+    jobs?: {
+      job_ref?: string | null;
+      scheduled_date?: string | null;
+      scheduled_time?: string | null;
+      estimated_duration?: number | null;
+      customers?: { first_name?: string | null; last_name?: string | null } | null;
+      properties?: { address_line1?: string | null; address_line2?: string | null; city?: string | null; county?: string | null; postcode?: string | null } | null;
+    } | null;
+  }).jobs;
+  const jobRef = confirmedJob?.job_ref || jobId.slice(0, 8).toUpperCase();
   const tenantId = (responseRow as { tenant_id: string }).tenant_id;
   if (nextStatus === "confirmed") {
     const [{ data: companySettings }, { data: adminProfiles }] = await Promise.all([
@@ -492,8 +502,26 @@ router.get("/jobs/confirmation/respond", async (req, res): Promise<void> => {
       .map((profile) => profile.email as string);
     const adminRecipients = Array.from(new Set([...configuredRecipients, ...profileRecipients].map((email) => email.trim().toLowerCase()).filter(Boolean)));
     const companyName = String(settings?.name || settings?.trading_name || tenantName || "Your Service Provider");
+    const customerName = [confirmedJob?.customers?.first_name, confirmedJob?.customers?.last_name].filter(Boolean).join(" ") || "Customer";
+    const address = [
+      confirmedJob?.properties?.address_line1,
+      confirmedJob?.properties?.address_line2,
+      confirmedJob?.properties?.city,
+      confirmedJob?.properties?.county,
+      confirmedJob?.properties?.postcode,
+    ].filter(Boolean).join(", ") || "Address not available";
+    const scheduledDate = confirmedJob?.scheduled_date
+      ? new Date(`${confirmedJob.scheduled_date}T00:00:00`).toLocaleDateString("en-GB", { dateStyle: "full" })
+      : "Date not available";
+    const scheduledTime = confirmedJob?.scheduled_time
+      ? confirmedJob.scheduled_time.slice(0, 5)
+      : (confirmedJob?.estimated_duration == null ? "All day" : "Time not set");
     const notificationBody = [
       `Customer confirmed appointment ${jobRef}.`,
+      "",
+      `Customer: ${customerName}`,
+      `Address: ${address}`,
+      `Appointment: ${scheduledDate} at ${scheduledTime}`,
       "",
       `Confirmed at: ${new Date(nowIso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`,
       "",
