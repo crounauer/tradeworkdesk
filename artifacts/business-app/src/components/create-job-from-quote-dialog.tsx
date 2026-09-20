@@ -3,14 +3,15 @@ import { useForm } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Briefcase, Package, Wrench } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Briefcase, Package, Wrench, Mail, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { createJobType } from "@/lib/create-job-type";
@@ -38,6 +39,7 @@ interface CreateJobFromQuoteDialogProps {
   quoteNumber: string;
   customerId: string;
   customerName: string;
+  customerEmail?: string | null;
   customerNotes?: string | null;
   notes?: string | null;
   lineItems: InvoiceLineItem[];
@@ -56,6 +58,7 @@ export function CreateJobFromQuoteDialog({
   quoteNumber,
   customerId,
   customerName,
+  customerEmail,
   customerNotes,
   notes,
   lineItems,
@@ -69,6 +72,9 @@ export function CreateJobFromQuoteDialog({
   const [showAddJobTypeInline, setShowAddJobTypeInline] = useState(false);
   const [newJobTypeName, setNewJobTypeName] = useState("");
   const [creatingJobType, setCreatingJobType] = useState(false);
+  const [confirmationJob, setConfirmationJob] = useState<{ id: string; ref?: string } | null>(null);
+  const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [ccAdminOnConfirmation, setCcAdminOnConfirmation] = useState(false);
 
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -188,13 +194,49 @@ export function CreateJobFromQuoteDialog({
       ]);
 
       toast({ title: "Job created", description: `Job${result.job_ref ? ` ${result.job_ref}` : ""} created from ${quoteNumber}.` });
-      onOpenChange(false);
-      navigate(`/jobs/${result.job_id}`);
+      if (customerEmail) {
+        setConfirmationJob({ id: result.job_id, ref: result.job_ref });
+      } else {
+        onOpenChange(false);
+        navigate(`/jobs/${result.job_id}`);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create job";
       toast({ title: "Error", description: message, variant: "destructive" });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const finishJobCreation = () => {
+    if (!confirmationJob) return;
+    const jobId = confirmationJob.id;
+    setConfirmationJob(null);
+    setCcAdminOnConfirmation(false);
+    onOpenChange(false);
+    navigate(`/jobs/${jobId}`);
+  };
+
+  const handleSendConfirmation = async () => {
+    if (!confirmationJob) return;
+    setSendingConfirmation(true);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${confirmationJob.id}/send-confirmation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ cc_admin: ccAdminOnConfirmation }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to send confirmation email");
+      }
+      toast({ title: "Confirmation sent", description: `Appointment confirmation emailed to ${customerEmail}.` });
+      finishJobCreation();
+    } catch (err) {
+      toast({ title: "Email failed", description: err instanceof Error ? err.message : "Could not send confirmation email", variant: "destructive" });
+    } finally {
+      setSendingConfirmation(false);
     }
   };
 
@@ -226,8 +268,44 @@ export function CreateJobFromQuoteDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      if (!nextOpen && confirmationJob) {
+        finishJobCreation();
+        return;
+      }
+      onOpenChange(nextOpen);
+    }}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        {confirmationJob ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Send Booking Confirmation?</DialogTitle>
+              <DialogDescription>Confirm whether to email the customer with their new booking details.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="flex items-start gap-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <Mail className="mt-0.5 h-8 w-8 shrink-0 text-blue-600" />
+                <div className="text-sm">
+                  <p className="font-medium">Would you like to send a booking confirmation email?</p>
+                  <p className="mt-2 text-muted-foreground"><strong>To:</strong> {customerName}</p>
+                  <p className="text-muted-foreground"><strong>Email:</strong> {customerEmail}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox id="cc-admin-quote-confirmation" checked={ccAdminOnConfirmation} onCheckedChange={(value) => setCcAdminOnConfirmation(value === true)} />
+                <Label htmlFor="cc-admin-quote-confirmation" className="cursor-pointer text-sm font-normal">Send a copy to me</Label>
+              </div>
+              <div className="flex gap-3">
+                <Button onClick={handleSendConfirmation} disabled={sendingConfirmation} className="flex-1 gap-2">
+                  {sendingConfirmation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {sendingConfirmation ? "Sending..." : "Send Confirmation"}
+                </Button>
+                <Button type="button" variant="outline" onClick={finishJobCreation} disabled={sendingConfirmation}>Skip</Button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Briefcase className="w-5 h-5 text-primary" />
@@ -409,6 +487,8 @@ export function CreateJobFromQuoteDialog({
             </Button>
           </DialogFooter>
         </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

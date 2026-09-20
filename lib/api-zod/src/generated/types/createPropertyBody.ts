@@ -15,6 +15,9 @@ export interface CreatePropertyBody {
   postcode: string;
   property_type?: string;
   occupancy_type?: string;
+  tenant_name?: string;
+  tenant_email?: string;
+  tenant_phone?: string;
   access_notes?: string;
   parking_notes?: string;
   boiler_location?: string;

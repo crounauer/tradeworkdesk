@@ -1174,6 +1174,9 @@ export declare const ListPropertiesResponseItem: zod.ZodObject<{
     postcode: zod.ZodString;
     property_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     occupancy_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_email: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_phone: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     access_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     parking_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     boiler_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -1208,6 +1211,9 @@ export declare const ListPropertiesResponseItem: zod.ZodObject<{
     boiler_location?: string | null | undefined;
     flue_location?: string | null | undefined;
     tank_location?: string | null | undefined;
+    tenant_name?: string | null | undefined;
+    tenant_email?: string | null | undefined;
+    tenant_phone?: string | null | undefined;
 }, {
     id: string;
     is_active: boolean;
@@ -1230,6 +1236,9 @@ export declare const ListPropertiesResponseItem: zod.ZodObject<{
     boiler_location?: string | null | undefined;
     flue_location?: string | null | undefined;
     tank_location?: string | null | undefined;
+    tenant_name?: string | null | undefined;
+    tenant_email?: string | null | undefined;
+    tenant_phone?: string | null | undefined;
 }>;
 export declare const ListPropertiesResponse: zod.ZodArray<zod.ZodObject<{
     id: zod.ZodString;
@@ -1241,6 +1250,9 @@ export declare const ListPropertiesResponse: zod.ZodArray<zod.ZodObject<{
     postcode: zod.ZodString;
     property_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     occupancy_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_email: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_phone: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     access_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     parking_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     boiler_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -1275,6 +1287,9 @@ export declare const ListPropertiesResponse: zod.ZodArray<zod.ZodObject<{
     boiler_location?: string | null | undefined;
     flue_location?: string | null | undefined;
     tank_location?: string | null | undefined;
+    tenant_name?: string | null | undefined;
+    tenant_email?: string | null | undefined;
+    tenant_phone?: string | null | undefined;
 }, {
     id: string;
     is_active: boolean;
@@ -1297,6 +1312,9 @@ export declare const ListPropertiesResponse: zod.ZodArray<zod.ZodObject<{
     boiler_location?: string | null | undefined;
     flue_location?: string | null | undefined;
     tank_location?: string | null | undefined;
+    tenant_name?: string | null | undefined;
+    tenant_email?: string | null | undefined;
+    tenant_phone?: string | null | undefined;
 }>, "many">;
 /**
  * @summary Create a property
@@ -1310,6 +1328,9 @@ export declare const CreatePropertyBody: zod.ZodObject<{
     postcode: zod.ZodString;
     property_type: zod.ZodOptional<zod.ZodString>;
     occupancy_type: zod.ZodOptional<zod.ZodString>;
+    tenant_name: zod.ZodOptional<zod.ZodString>;
+    tenant_email: zod.ZodOptional<zod.ZodString>;
+    tenant_phone: zod.ZodOptional<zod.ZodString>;
     access_notes: zod.ZodOptional<zod.ZodString>;
     parking_notes: zod.ZodOptional<zod.ZodString>;
     boiler_location: zod.ZodOptional<zod.ZodString>;
@@ -1335,6 +1356,9 @@ export declare const CreatePropertyBody: zod.ZodObject<{
     boiler_location?: string | undefined;
     flue_location?: string | undefined;
     tank_location?: string | undefined;
+    tenant_name?: string | undefined;
+    tenant_email?: string | undefined;
+    tenant_phone?: string | undefined;
 }, {
     customer_id: string;
     address_line1: string;
@@ -1352,6 +1376,9 @@ export declare const CreatePropertyBody: zod.ZodObject<{
     boiler_location?: string | undefined;
     flue_location?: string | undefined;
     tank_location?: string | undefined;
+    tenant_name?: string | undefined;
+    tenant_email?: string | undefined;
+    tenant_phone?: string | undefined;
 }>;
 /**
  * @summary Get property by ID
@@ -1373,6 +1400,9 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
     postcode: zod.ZodString;
     property_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     occupancy_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_email: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_phone: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     access_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     parking_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     boiler_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -1407,6 +1437,9 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
     boiler_location?: string | null | undefined;
     flue_location?: string | null | undefined;
     tank_location?: string | null | undefined;
+    tenant_name?: string | null | undefined;
+    tenant_email?: string | null | undefined;
+    tenant_phone?: string | null | undefined;
 }, {
     id: string;
     is_active: boolean;
@@ -1429,6 +1462,9 @@ export declare const GetPropertyResponse: zod.ZodIntersection<zod.ZodObject<{
     boiler_location?: string | null | undefined;
     flue_location?: string | null | undefined;
     tank_location?: string | null | undefined;
+    tenant_name?: string | null | undefined;
+    tenant_email?: string | null | undefined;
+    tenant_phone?: string | null | undefined;
 }>, zod.ZodObject<{
     customer: zod.ZodOptional<zod.ZodObject<{
         id: zod.ZodString;
@@ -1771,6 +1807,9 @@ export declare const UpdatePropertyBody: zod.ZodObject<{
     postcode: zod.ZodOptional<zod.ZodString>;
     property_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     occupancy_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_email: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_phone: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     access_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     parking_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     boiler_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -1798,6 +1837,9 @@ export declare const UpdatePropertyBody: zod.ZodObject<{
     boiler_location?: string | null | undefined;
     flue_location?: string | null | undefined;
     tank_location?: string | null | undefined;
+    tenant_name?: string | null | undefined;
+    tenant_email?: string | null | undefined;
+    tenant_phone?: string | null | undefined;
 }, {
     is_active?: boolean | undefined;
     customer_id?: string | undefined;
@@ -1816,6 +1858,9 @@ export declare const UpdatePropertyBody: zod.ZodObject<{
     boiler_location?: string | null | undefined;
     flue_location?: string | null | undefined;
     tank_location?: string | null | undefined;
+    tenant_name?: string | null | undefined;
+    tenant_email?: string | null | undefined;
+    tenant_phone?: string | null | undefined;
 }>;
 export declare const UpdatePropertyResponse: zod.ZodObject<{
     id: zod.ZodString;
@@ -1827,6 +1872,9 @@ export declare const UpdatePropertyResponse: zod.ZodObject<{
     postcode: zod.ZodString;
     property_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     occupancy_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_email: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+    tenant_phone: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     access_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     parking_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     boiler_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -1861,6 +1909,9 @@ export declare const UpdatePropertyResponse: zod.ZodObject<{
     boiler_location?: string | null | undefined;
     flue_location?: string | null | undefined;
     tank_location?: string | null | undefined;
+    tenant_name?: string | null | undefined;
+    tenant_email?: string | null | undefined;
+    tenant_phone?: string | null | undefined;
 }, {
     id: string;
     is_active: boolean;
@@ -1883,6 +1934,9 @@ export declare const UpdatePropertyResponse: zod.ZodObject<{
     boiler_location?: string | null | undefined;
     flue_location?: string | null | undefined;
     tank_location?: string | null | undefined;
+    tenant_name?: string | null | undefined;
+    tenant_email?: string | null | undefined;
+    tenant_phone?: string | null | undefined;
 }>;
 /**
  * @summary Soft-delete property
@@ -2207,6 +2261,9 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         postcode: zod.ZodString;
         property_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         occupancy_type: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        tenant_name: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        tenant_email: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
+        tenant_phone: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         access_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         parking_notes: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
         boiler_location: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
@@ -2237,6 +2294,9 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         boiler_location?: string | null | undefined;
         flue_location?: string | null | undefined;
         tank_location?: string | null | undefined;
+        tenant_name?: string | null | undefined;
+        tenant_email?: string | null | undefined;
+        tenant_phone?: string | null | undefined;
     }, {
         id: string;
         is_active: boolean;
@@ -2257,6 +2317,9 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         boiler_location?: string | null | undefined;
         flue_location?: string | null | undefined;
         tank_location?: string | null | undefined;
+        tenant_name?: string | null | undefined;
+        tenant_email?: string | null | undefined;
+        tenant_phone?: string | null | undefined;
     }>>;
     recent_jobs: zod.ZodOptional<zod.ZodArray<zod.ZodIntersection<zod.ZodObject<{
         id: zod.ZodString;
@@ -2425,6 +2488,9 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         boiler_location?: string | null | undefined;
         flue_location?: string | null | undefined;
         tank_location?: string | null | undefined;
+        tenant_name?: string | null | undefined;
+        tenant_email?: string | null | undefined;
+        tenant_phone?: string | null | undefined;
     } | undefined;
 }, {
     recent_jobs?: ({
@@ -2480,6 +2546,9 @@ export declare const GetApplianceResponse: zod.ZodIntersection<zod.ZodObject<{
         boiler_location?: string | null | undefined;
         flue_location?: string | null | undefined;
         tank_location?: string | null | undefined;
+        tenant_name?: string | null | undefined;
+        tenant_email?: string | null | undefined;
+        tenant_phone?: string | null | undefined;
     } | undefined;
 }>>;
 /**

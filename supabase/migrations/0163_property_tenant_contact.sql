@@ -1,0 +1,4 @@
+ALTER TABLE properties
+  ADD COLUMN IF NOT EXISTS tenant_name TEXT,
+  ADD COLUMN IF NOT EXISTS tenant_email TEXT,
+  ADD COLUMN IF NOT EXISTS tenant_phone TEXT;

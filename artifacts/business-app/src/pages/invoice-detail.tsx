@@ -1204,6 +1204,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               ? `${invoice.customer.first_name} ${invoice.customer.last_name}`
               : "Customer"
           }
+          customerEmail={invoice.customer?.email}
           customerNotes={invoice.customer_notes}
           notes={invoice.notes}
           lineItems={lines}

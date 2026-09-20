@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Home, Mail, Send, AlertCircle } from "lucide-react";
+import { Plus, Home, Mail, Send, AlertCircle, Briefcase, ExternalLink } from "lucide-react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useAutoAssign } from "@/hooks/use-auto-assign";
@@ -47,6 +48,12 @@ type JobClashConflict = {
   scheduled_date: string;
   scheduled_time: string;
   estimated_duration: number;
+};
+
+type ExistingCustomerWork = {
+  jobs: Array<{ id: string; job_ref?: string | null; status: string; scheduled_date?: string | null; description?: string | null }>;
+  followUps: Array<{ id: string; original_job_id: string; original_job_ref?: string | null; new_job_id?: string | null; status: string; work_description?: string | null }>;
+  formData: BookJobFormData;
 };
 
 function formatLeaveConflict(conflict: LeaveConflict): string {
@@ -151,6 +158,7 @@ export function BookJobDialog({
   initialBookingPrefill,
 }: BookJobDialogProps) {
   const qc = useQueryClient();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const { profile } = useAuth();
   const { autoAssign } = useAutoAssign();
@@ -260,6 +268,7 @@ export function BookJobDialog({
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
   const [ccAdminOnConfirmation, setCcAdminOnConfirmation] = useState(false);
   const [leaveConflict, setLeaveConflict] = useState<LeaveConflict | null>(null);
+  const [existingCustomerWork, setExistingCustomerWork] = useState<ExistingCustomerWork | null>(null);
 
   // Once the newly created property appears in the list, select it in the dropdown
   useEffect(() => {
@@ -273,6 +282,7 @@ export function BookJobDialog({
 
   const handleClose = () => {
     setConfirmationState(null);
+    setExistingCustomerWork(null);
     setLeaveConflict(null);
     setShowAddProperty(false);
     setNewPropAddress("");
@@ -478,7 +488,31 @@ export function BookJobDialog({
     }
   };
 
-  const onSubmit = async (data: BookJobFormData) => {
+  const onSubmit = async (data: BookJobFormData, skipExistingCheck = false) => {
+    if (!skipExistingCheck && data.customer_mode === "existing" && data.customer_id && isOnline) {
+      setSubmitting(true);
+      try {
+        const [jobsResponse, followUpsResponse] = await Promise.all([
+          fetch(`${import.meta.env.BASE_URL}api/jobs?customer_id=${encodeURIComponent(data.customer_id)}&limit=100`, { credentials: "include" }),
+          fetch(`${import.meta.env.BASE_URL}api/follow-ups?customer_id=${encodeURIComponent(data.customer_id)}&limit=100`, { credentials: "include" }),
+        ]);
+        if (!jobsResponse.ok || !followUpsResponse.ok) throw new Error("Could not check existing customer work");
+        const jobsPayload = await jobsResponse.json() as { jobs?: ExistingCustomerWork["jobs"] };
+        const followUpsPayload = await followUpsResponse.json() as { follow_ups?: ExistingCustomerWork["followUps"] };
+        const openJobs = (jobsPayload.jobs || []).filter((job) => !["completed", "invoiced", "cancelled"].includes(job.status));
+        const activeFollowUps = (followUpsPayload.follow_ups || []).filter((followUp) => !["completed", "cancelled"].includes(followUp.status));
+        if (openJobs.length > 0 || activeFollowUps.length > 0) {
+          setExistingCustomerWork({ jobs: openJobs, followUps: activeFollowUps, formData: data });
+          return;
+        }
+      } catch (error) {
+        toast({ title: "Existing work check failed", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+        return;
+      } finally {
+        setSubmitting(false);
+      }
+    }
+
     setSubmitting(true);
     setLeaveConflict(null);
     try {
@@ -668,10 +702,59 @@ export function BookJobDialog({
     }
   };
 
+  const handleFormSubmit = (data: BookJobFormData) => onSubmit(data);
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(v); }}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        {confirmationState ? (
+        {existingCustomerWork ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-xl">Existing Customer Work</DialogTitle>
+              <DialogDescription>This customer already has open work. Open an existing item or confirm that this is a separate job.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              {existingCustomerWork.jobs.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold">Open Jobs</p>
+                  {existingCustomerWork.jobs.map((job) => (
+                    <button key={job.id} type="button" className="flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left hover:bg-muted/50" onClick={() => { handleClose(); navigate(`/jobs/${job.id}`); }}>
+                      <span>
+                        <span className="block text-sm font-medium">{job.job_ref || `Job #${job.id.slice(0, 8)}`}</span>
+                        <span className="block text-xs text-muted-foreground capitalize">{job.status.replace(/_/g, " ")}{job.scheduled_date ? ` · ${new Date(`${job.scheduled_date}T00:00:00`).toLocaleDateString("en-GB")}` : ""}</span>
+                      </span>
+                      <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {existingCustomerWork.followUps.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold">Follow-Ups</p>
+                  {existingCustomerWork.followUps.map((followUp) => (
+                    <button key={followUp.id} type="button" className="flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left hover:bg-muted/50" onClick={() => { handleClose(); navigate(followUp.new_job_id ? `/jobs/${followUp.new_job_id}` : `/follow-ups?open=${encodeURIComponent(followUp.id)}`); }}>
+                      <span>
+                        <span className="block text-sm font-medium">{followUp.original_job_ref || `Job #${followUp.original_job_id.slice(0, 8)}`}</span>
+                        <span className="block text-xs text-muted-foreground capitalize">Follow-up · {followUp.status.replace(/_/g, " ")}</span>
+                      </span>
+                      <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-3 pt-2">
+                <Button type="button" className="flex-1 gap-2" onClick={() => {
+                  const pendingData = existingCustomerWork.formData;
+                  setExistingCustomerWork(null);
+                  void onSubmit(pendingData, true);
+                }}>
+                  <Briefcase className="h-4 w-4" /> Create New Job Anyway
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setExistingCustomerWork(null)}>Back</Button>
+              </div>
+            </div>
+          </>
+        ) : confirmationState ? (
           <>
             <DialogHeader>
               <DialogTitle className="text-xl">Send Booking Confirmation?</DialogTitle>
@@ -732,7 +815,7 @@ export function BookJobDialog({
               </div>
             )}
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5">
               {/* Customer / New Customer tabs */}
               <div className="flex gap-2 bg-muted rounded-lg p-1">
                 <button

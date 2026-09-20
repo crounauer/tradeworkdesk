@@ -360,14 +360,16 @@ router.post("/customers/:id/send-email", requireAuth, requireTenant, requireRole
 
   const subject = String(req.body?.subject || "").trim();
   const body = String(req.body?.body || "").trim();
+  const recipientOverride = typeof req.body?.recipient_email === "string" ? req.body.recipient_email.trim() : "";
   if (!subject) { res.status(400).json({ error: "Subject is required" }); return; }
   if (!body) { res.status(400).json({ error: "Message body is required" }); return; }
+  if (recipientOverride && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientOverride)) { res.status(400).json({ error: "Enter a valid recipient email address" }); return; }
 
   let q = supabaseAdmin.from("customers").select("id, email, first_name, last_name").eq("id", params.data.id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data: customer, error } = await q.maybeSingle();
   if (error || !customer) { res.status(404).json({ error: "Customer not found" }); return; }
-  if (!customer.email) { res.status(400).json({ error: "This customer has no email address on file" }); return; }
+  if (!customer.email && !recipientOverride) { res.status(400).json({ error: "This customer has no email address on file" }); return; }
 
   const { data: settings } = await supabaseAdmin
     .from("company_settings")
@@ -393,7 +395,7 @@ router.post("/customers/:id/send-email", requireAuth, requireTenant, requireRole
   } : undefined;
 
   try {
-    await sendSimpleNotification(customer.email, subject, body, {
+    await sendSimpleNotification(recipientOverride || customer.email, subject, body, {
       companyDetails,
       tenantId: req.tenantId!,
       emailType: "customer_message",
@@ -414,7 +416,7 @@ router.post("/customers/:id/send-email", requireAuth, requireTenant, requireRole
     detail: { subject },
   });
 
-  res.json({ success: true, sent_to: customer.email });
+  res.json({ success: true, sent_to: recipientOverride || customer.email });
 });
 
 const ImportCustomerRow = z.object({

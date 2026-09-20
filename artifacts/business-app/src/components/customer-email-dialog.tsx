@@ -14,10 +14,11 @@ interface CustomerEmailDialogProps {
   customerId: string;
   customerEmail: string;
   customerName: string;
+  recipientEmail?: string;
   onSent?: () => void;
 }
 
-export function CustomerEmailDialog({ open, onOpenChange, customerId, customerEmail, customerName, onSent }: CustomerEmailDialogProps) {
+export function CustomerEmailDialog({ open, onOpenChange, customerId, customerEmail, customerName, recipientEmail, onSent }: CustomerEmailDialogProps) {
   const { toast } = useToast();
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -44,7 +45,7 @@ export function CustomerEmailDialog({ open, onOpenChange, customerId, customerEm
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ subject: subject.trim(), body: body.trim(), cc_admin: ccAdmin }),
+        body: JSON.stringify({ subject: subject.trim(), body: body.trim(), cc_admin: ccAdmin, recipient_email: recipientEmail || undefined }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

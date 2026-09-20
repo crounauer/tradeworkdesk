@@ -1967,17 +1967,22 @@ router.post("/invoices/:id/create-job", ...protect, async (req: AuthenticatedReq
   // Resolve job type enum from service catalogue selection
   let resolvedJobType: string = "service";
   let verifiedServiceCatalogueId: string | undefined;
+  let estimatedDuration: number | null = scheduled_time ? 60 : null;
 
   if (service_catalogue_id && req.tenantId) {
     const { data: svc } = await supabaseAdmin
       .from("service_catalogue")
-      .select("id, is_active")
+      .select("id, is_active, booking_duration_minutes")
       .eq("id", service_catalogue_id)
       .eq("tenant_id", req.tenantId)
       .single();
     if (svc?.is_active) {
       verifiedServiceCatalogueId = svc.id as string;
       resolvedJobType = "service";
+      const configuredDuration = Number(svc.booking_duration_minutes);
+      if (scheduled_time && Number.isFinite(configuredDuration) && configuredDuration > 0) {
+        estimatedDuration = Math.round(configuredDuration);
+      }
     }
   }
 
@@ -2022,6 +2027,7 @@ router.post("/invoices/:id/create-job", ...protect, async (req: AuthenticatedReq
     priority: "medium",
     scheduled_date,
     scheduled_time: scheduled_time || null,
+    estimated_duration: estimatedDuration,
     description: description?.trim() || (quote.customer_notes as string | null) || (quote.notes as string | null) || null,
     assigned_technician_id: finalTechnicianId,
     tenant_id: req.tenantId,

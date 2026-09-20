@@ -20,6 +20,9 @@ export interface UpdatePropertyBody {
   property_type?: string | null;
   /** @nullable */
   occupancy_type?: string | null;
+  tenant_name?: string | null;
+  tenant_email?: string | null;
+  tenant_phone?: string | null;
   /** @nullable */
   access_notes?: string | null;
   /** @nullable */

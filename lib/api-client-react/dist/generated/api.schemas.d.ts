@@ -80,6 +80,12 @@ export interface Property {
     /** @nullable */
     occupancy_type?: string | null;
     /** @nullable */
+    tenant_name?: string | null;
+    /** @nullable */
+    tenant_email?: string | null;
+    /** @nullable */
+    tenant_phone?: string | null;
+    /** @nullable */
     access_notes?: string | null;
     /** @nullable */
     parking_notes?: string | null;
@@ -302,6 +308,9 @@ export interface CreatePropertyBody {
     postcode: string;
     property_type?: string;
     occupancy_type?: string;
+    tenant_name?: string;
+    tenant_email?: string;
+    tenant_phone?: string;
     access_notes?: string;
     parking_notes?: string;
     boiler_location?: string;
@@ -325,6 +334,12 @@ export interface UpdatePropertyBody {
     property_type?: string | null;
     /** @nullable */
     occupancy_type?: string | null;
+    /** @nullable */
+    tenant_name?: string | null;
+    /** @nullable */
+    tenant_email?: string | null;
+    /** @nullable */
+    tenant_phone?: string | null;
     /** @nullable */
     access_notes?: string | null;
     /** @nullable */

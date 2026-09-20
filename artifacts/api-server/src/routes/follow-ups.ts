@@ -31,6 +31,7 @@ function parseFollowUpParts(partsDescription: string | null | undefined): Array<
 
 router.get("/follow-ups", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const status = req.query.status as string | undefined;
+  const customerId = req.query.customer_id as string | undefined;
   const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
   const page = parseInt(req.query.page as string) || 1;
   const offset = (page - 1) * limit;
@@ -42,13 +43,14 @@ router.get("/follow-ups", requireAuth, requireTenant, requirePlanFeature("job_ma
     .range(offset, offset + limit - 1);
 
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  if (customerId) q = q.eq("customer_id", customerId);
   if (status && ["awaiting_parts", "parts_arrived", "booked", "cancelled", "completed"].includes(status)) {
     q = q.eq("status", status);
     if (status === "parts_arrived") {
       // Parts Arrived tab should only include follow-ups that actually have parts listed.
       q = q.not("parts_description", "is", null).neq("parts_description", "");
     }
-  } else {
+  } else if (!customerId) {
     // Default "All" view shows actionable follow-ups only; booked items live in the Booked tab.
     q = q.neq("status", "completed").neq("status", "cancelled").neq("status", "booked");
   }
