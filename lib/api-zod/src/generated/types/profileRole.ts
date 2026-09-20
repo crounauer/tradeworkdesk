@@ -12,4 +12,6 @@ export const ProfileRole = {
   admin: "admin",
   office_staff: "office_staff",
   technician: "technician",
+  bookkeeper: "bookkeeper",
+  accountant: "accountant",
 } as const;

@@ -23,12 +23,12 @@ export function useCompanyType() {
   });
 
   return {
-    companyType: data?.company_type ?? "sole_trader",
+    companyType: "company" as const,
     hasTeamManagement: data?.has_team_management ?? false,
     planName: data?.plan_name ?? null,
     activeUserCount: data?.active_user_count ?? 1,
-    isSoleTrader: (data?.company_type ?? "sole_trader") === "sole_trader",
-    isCompany: data?.company_type === "company",
+    isSoleTrader: false,
+    isCompany: true,
     isLoading,
     isError,
     error,
@@ -52,7 +52,7 @@ export function useUpgradeToCompany() {
       qc.invalidateQueries({ queryKey: ["company-type"] });
       qc.invalidateQueries({ queryKey: ["me-init"] });
       qc.invalidateQueries({ queryKey: ["tenant-info"] });
-      toast({ title: "Upgraded to Company", description: "Team features are now available. You can invite team members and assign jobs." });
+      toast({ title: "Workspace updated", description: "Team features are available through users, roles, and job assignment." });
     },
     onError: (e: Error) => {
       toast({ title: "Upgrade failed", description: e.message, variant: "destructive" });
@@ -77,7 +77,7 @@ export function useDowngradeToSoleTrader() {
       qc.invalidateQueries({ queryKey: ["company-type"] });
       qc.invalidateQueries({ queryKey: ["me-init"] });
       qc.invalidateQueries({ queryKey: ["tenant-info"] });
-      toast({ title: "Switched to Sole Trader", description: "Team features have been deactivated. Jobs will auto-assign to you." });
+      toast({ title: "Workspace updated", description: "Access is managed through users, roles, and job assignment." });
     },
     onError: (e: Error) => {
       toast({ title: "Downgrade failed", description: e.message, variant: "destructive" });

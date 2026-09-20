@@ -323,7 +323,7 @@ router.get(
   "/admin/accounting-integrations/invoice-log",
   requireAuth,
   requireTenant,
-  requireRole("admin", "office_staff"),
+  requireRole("admin", "office_staff", "bookkeeper", "accountant"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
       const tenantId = req.tenantId!;
@@ -384,7 +384,7 @@ router.post(
   "/jobs/:id/send-to-accounting",
   requireAuth,
   requireTenant,
-  requireRole("admin", "office_staff"),
+  requireRole("admin", "office_staff", "bookkeeper", "accountant"),
   async (req: AuthenticatedRequest, res): Promise<void> => {
     try {
       const jobId = toSingleParam(req.params.id);

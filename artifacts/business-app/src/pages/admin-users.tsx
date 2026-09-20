@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Users, ShieldCheck, Wrench, UserCog, Package, UserPlus, Copy, Trash2, Clock, Mail } from "lucide-react";
+import { Calculator, ReceiptText, Users, ShieldCheck, Wrench, UserCog, Package, UserPlus, Copy, Trash2, Clock, Mail } from "lucide-react";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { useInitData } from "@/hooks/use-init-data";
@@ -27,7 +27,7 @@ type Profile = {
   id: string;
   email: string;
   full_name: string;
-  role: "admin" | "office_staff" | "technician";
+  role: "admin" | "office_staff" | "technician" | "bookkeeper" | "accountant";
   phone?: string | null;
   created_at: string;
   can_be_assigned_jobs: boolean;
@@ -49,18 +49,24 @@ const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
   office_staff: "Office Staff",
   technician: "Technician",
+  bookkeeper: "Bookkeeper",
+  accountant: "Accountant",
 };
 
 const ROLE_COLORS: Record<string, string> = {
   admin: "bg-violet-100 text-violet-700 border-violet-200",
   office_staff: "bg-blue-100 text-blue-700 border-blue-200",
   technician: "bg-slate-100 text-slate-700 border-slate-200",
+  bookkeeper: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  accountant: "bg-amber-100 text-amber-700 border-amber-200",
 };
 
 const ROLE_ICON: Record<string, React.ReactNode> = {
   admin: <ShieldCheck className="w-3.5 h-3.5" />,
   office_staff: <UserCog className="w-3.5 h-3.5" />,
   technician: <Wrench className="w-3.5 h-3.5" />,
+  bookkeeper: <ReceiptText className="w-3.5 h-3.5" />,
+  accountant: <Calculator className="w-3.5 h-3.5" />,
 };
 
 function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
@@ -307,6 +313,8 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
                 <SelectContent>
                   <SelectItem value="technician">Technician</SelectItem>
                   <SelectItem value="office_staff">Office Staff</SelectItem>
+                  <SelectItem value="bookkeeper">Bookkeeper</SelectItem>
+                  <SelectItem value="accountant">Accountant</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
@@ -451,6 +459,8 @@ function AdminUsersContent({ embedded = false }: { embedded?: boolean }) {
                       >
                         <option value="admin">Admin</option>
                         <option value="office_staff">Office Staff</option>
+                        <option value="bookkeeper">Bookkeeper</option>
+                        <option value="accountant">Accountant</option>
                         <option value="technician">Technician</option>
                       </select>
                     </td>

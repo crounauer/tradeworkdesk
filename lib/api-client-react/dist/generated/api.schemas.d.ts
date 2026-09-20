@@ -13,6 +13,8 @@ export declare const ProfileRole: {
     readonly admin: "admin";
     readonly office_staff: "office_staff";
     readonly technician: "technician";
+    readonly bookkeeper: "bookkeeper";
+    readonly accountant: "accountant";
 };
 export interface Profile {
     id: string;

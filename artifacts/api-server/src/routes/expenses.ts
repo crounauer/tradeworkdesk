@@ -9,7 +9,7 @@ import { parseExpenseCsv, parseExpensePdfText, previewExpenseCsv, buildDedupeHas
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 
-const canManage = [requireAuth, requireTenant, requireRole("admin", "office_staff", "super_admin")] as const;
+const canManage = [requireAuth, requireTenant, requireRole("admin", "office_staff", "bookkeeper", "accountant", "super_admin")] as const;
 
 // Suggested categories shown in the UI; category is free text so tenants aren't locked in.
 export const SUGGESTED_EXPENSE_CATEGORIES = [

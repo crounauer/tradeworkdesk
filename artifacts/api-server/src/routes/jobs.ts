@@ -2513,14 +2513,14 @@ export async function buildInvoiceData(
   };
 }
 
-router.get("/jobs/:id/invoice-summary", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("invoicing"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/jobs/:id/invoice-summary", requireAuth, requireTenant, requireRole("admin", "office_staff", "bookkeeper", "accountant"), requirePlanFeature("invoicing"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = toSingleParam(req.params.id);
   const invoiceData = await buildInvoiceData(jobId, req.tenantId);
   if (!invoiceData) { res.status(404).json({ error: "Job not found" }); return; }
   res.json(invoiceData);
 });
 
-router.get("/jobs/:id/invoice-export", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("invoicing"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/jobs/:id/invoice-export", requireAuth, requireTenant, requireRole("admin", "office_staff", "bookkeeper", "accountant"), requirePlanFeature("invoicing"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = toSingleParam(req.params.id);
   const format = (req.query.format as string) || "csv";
 
@@ -2568,7 +2568,7 @@ router.get("/jobs/:id/invoice-export", requireAuth, requireTenant, requireRole("
   res.send(content);
 });
 
-router.post("/jobs/bulk-invoice-export", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("invoicing"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/jobs/bulk-invoice-export", requireAuth, requireTenant, requireRole("admin", "office_staff", "bookkeeper", "accountant"), requirePlanFeature("invoicing"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { job_ids, format } = req.body as { job_ids?: string[]; format?: string };
   if (!job_ids || !Array.isArray(job_ids) || job_ids.length === 0) {
     res.status(400).json({ error: "job_ids array is required" }); return;

@@ -1,24 +1,28 @@
 # Role Permissions Matrix
 
-Last updated: 2026-07-16
+Last updated: 2026-09-20
 
 This matrix summarizes effective permissions for tenant roles in TradeWorkDesk, with emphasis on multi-engineer setups and booking/company configuration.
 
 ## Roles
 
-- Technician
-- Office Staff
 - Admin
+- Office Staff
+- Technician
+- Bookkeeper
+- Accountant
 - Super Admin
+
+TradeWorkDesk treats every customer as a workspace with users and roles. Sole trader vs limited/company status is not a permissions mode; a one-person business is an Admin user with `can_be_assigned_jobs = true`.
 
 ## Company Setup / Admin Configuration
 
-| Area | Technician | Office Staff | Admin | Super Admin |
-|---|---|---|---|---|
-| View company settings | Yes (read) | Yes | Yes | Yes |
-| Edit company settings (`/api/admin/company-settings`) | No | No | Yes | Yes |
-| Manage service catalogue (`/api/admin/service-catalogue`) | No | No | Yes | Yes |
-| Manage admin users/invites | No | No (except where explicitly allowed in UI) | Yes | Yes |
+| Area | Technician | Office Staff | Bookkeeper | Accountant | Admin | Super Admin |
+|---|---|---|---|---|---|---|
+| View company settings | Yes (read) | Yes | Limited | Limited | Yes | Yes |
+| Edit company settings (`/api/admin/company-settings`) | No | No | No | No | Yes | Yes |
+| Manage service catalogue (`/api/admin/service-catalogue`) | No | No | No | No | Yes | Yes |
+| Manage users/invites | No | No | No | No | Yes | Yes |
 
 Notes:
 - Company settings write APIs are role-gated to Admin (Super Admin always allowed by middleware).
@@ -26,14 +30,14 @@ Notes:
 
 ## Booking (Internal Staff Endpoints)
 
-| Endpoint Group | Technician | Office Staff | Admin | Super Admin |
-|---|---|---|---|---|
-| Booking settings (`GET/PUT /api/booking/settings`) | No | Yes | Yes | Yes |
-| Booking services (`GET/POST/PATCH/DELETE /api/booking/services`) | No | Yes | Yes | Yes |
-| Slot overrides (`POST/DELETE /api/booking/slot-overrides`) | No | Yes | Yes | Yes |
-| Booking list/detail (`GET /api/booking/bookings*`) | No | Yes | Yes | Yes |
-| Booking operations (`POST/PATCH/DELETE /api/booking/bookings*`, confirm/cancel/reopen/convert) | No | Yes | Yes | Yes |
-| Staff slot lookup (`GET /api/booking/slots`) | Yes* | Yes | Yes | Yes |
+| Endpoint Group | Technician | Office Staff | Bookkeeper | Accountant | Admin | Super Admin |
+|---|---|---|---|---|---|---|
+| Booking settings (`GET/PUT /api/booking/settings`) | No | Yes | No | No | Yes | Yes |
+| Booking services (`GET/POST/PATCH/DELETE /api/booking/services`) | No | Yes | No | No | Yes | Yes |
+| Slot overrides (`POST/DELETE /api/booking/slot-overrides`) | No | Yes | No | No | Yes | Yes |
+| Booking list/detail (`GET /api/booking/bookings*`) | No | Yes | No | No | Yes | Yes |
+| Booking operations (`POST/PATCH/DELETE /api/booking/bookings*`, confirm/cancel/reopen/convert) | No | Yes | No | No | Yes | Yes |
+| Staff slot lookup (`GET /api/booking/slots`) | Yes* | Yes | No | No | Yes | Yes |
 
 \* `GET /api/booking/slots` remains authenticated+tenant+feature gated, and is read-only.
 
@@ -47,11 +51,13 @@ Notes:
 
 ## Operational Data Visibility
 
-| Data | Technician | Office Staff | Admin | Super Admin |
-|---|---|---|---|---|
-| Jobs list/details | Assigned jobs only | Tenant-wide | Tenant-wide | Tenant-wide / support mode |
-| Dashboard/Homepage job feed | Assigned jobs only | Tenant-wide | Tenant-wide | Tenant-wide / support mode |
-| Invoices APIs | No | Yes | Yes | Yes |
+| Data | Technician | Office Staff | Bookkeeper | Accountant | Admin | Super Admin |
+|---|---|---|---|---|---|---|
+| Jobs list/details | Assigned jobs only | Tenant-wide | Finance context | Finance context | Tenant-wide | Tenant-wide / support mode |
+| Dashboard/Homepage job feed | Assigned jobs only | Tenant-wide | No | No | Tenant-wide | Tenant-wide / support mode |
+| Invoices APIs | No | Yes | Yes | Yes | Yes | Yes |
+| Expenses APIs | No | Yes | Yes | Yes | Yes | Yes |
+| Reports APIs | No | Yes | Yes | Yes | Yes | Yes |
 
 ## Multi-Engineer Dashboard UX
 

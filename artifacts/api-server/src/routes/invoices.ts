@@ -27,7 +27,7 @@ function toSingleParam(value: string | string[] | undefined): string {
 const protect = [
   requireAuth,
   requireTenant,
-  requireRole("admin", "office_staff"),
+  requireRole("admin", "office_staff", "bookkeeper", "accountant"),
   requirePlanFeature("invoicing"),
   requireTenantInvoicing,
 ];

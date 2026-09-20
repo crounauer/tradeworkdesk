@@ -51,6 +51,8 @@ const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
   office_staff: "Office Staff",
   technician: "Technician",
+  bookkeeper: "Bookkeeper",
+  accountant: "Accountant",
 };
 
 function getRegisterUrl(code: string) {
@@ -184,6 +186,8 @@ function AdminInviteCodesContent() {
               >
                 <option value="technician">Technician</option>
                 <option value="office_staff">Office Staff</option>
+                <option value="bookkeeper">Bookkeeper</option>
+                <option value="accountant">Accountant</option>
                 <option value="admin">Admin</option>
               </select>
             </div>

@@ -114,6 +114,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const isLockedOut = !isSuperAdmin && !isReadOnlySupportMode && !isCommunitySupportMode && (accountSuspended || accountCancelled);
   const allowedLockedPaths = ["/billing", "/account"];
   const isOnAllowedPath = allowedLockedPaths.some(p => location === p || location.startsWith(p + "/"));
+  const canAccessFinance = ["admin", "office_staff", "bookkeeper", "accountant", "super_admin"].includes(profile?.role || "");
 
   const canSeeDashboardAnnouncements = profile?.role === "admin" || profile?.role === "office_staff";
   const visibleAnnouncements = canSeeDashboardAnnouncements
@@ -142,18 +143,18 @@ export function Layout({ children }: { children: ReactNode }) {
         ? [{ href: "/booking", label: "Online Bookings", icon: CalendarCheck }]
         : []),
       { href: "/jobs", label: "Jobs", icon: Briefcase },
-      ...(companySettings?.invoicing_provider !== "external"
+      ...(canAccessFinance && companySettings?.invoicing_provider !== "external"
         ? [
             { href: "/invoices", label: "Invoices", icon: Receipt },
             { href: "/invoices?type=quote", label: "Quotes", icon: FileText },
           ]
         : []),
-      { href: "/expenses", label: "Expenses", icon: Wallet },
+      ...(canAccessFinance ? [{ href: "/expenses", label: "Expenses", icon: Wallet }] : []),
       { href: "/customers", label: "Customers", icon: Users },
       { href: "/properties", label: "Properties", icon: Home },
       { href: "/appliances", label: "Appliances", icon: Flame },
     ] : []),
-    ...((hasWebsiteBuilder || profile?.role === "admin" || profile?.role === "office_staff") ? [{ href: "/reporting", label: "Reporting", icon: FileBarChart }] : []),
+    ...((hasWebsiteBuilder || canAccessFinance) ? [{ href: "/reporting", label: "Reporting", icon: FileBarChart }] : []),
     { href: supportHref, label: "Support", icon: MessageSquare },
     { href: "/tools", label: "Tools", icon: Wrench },
     { href: "/help", label: "User Guide", icon: HelpCircle },
@@ -167,8 +168,6 @@ export function Layout({ children }: { children: ReactNode }) {
 
   // Legacy alias used in some render paths
   const navItems = workNavItems;
-
-  const isCompanyType = tenantInfo?.company_type === "company";
 
   const adminNavItems = [
     { href: "/admin/company-settings", label: "Company Settings", icon: Building2 },

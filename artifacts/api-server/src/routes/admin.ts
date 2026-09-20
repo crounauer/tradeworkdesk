@@ -16,6 +16,8 @@ import { sendTestTechnicianDailySummaryEmail } from "../lib/technician-daily-sum
 
 const router: IRouter = Router();
 
+const TENANT_USER_ROLES = new Set(["admin", "office_staff", "technician", "bookkeeper", "accountant"]);
+
 function toSingleParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] || "";
   return value || "";
@@ -60,6 +62,11 @@ router.get("/admin/users", requireAuth, requireTenant, requireRole("admin"), req
 router.patch("/admin/users/:id", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const id = toSingleParam(req.params.id);
   const { role, full_name, phone, can_be_assigned_jobs, can_create_own_shopping_lists } = req.body;
+
+  if (role !== undefined && !TENANT_USER_ROLES.has(role)) {
+    res.status(400).json({ error: "Invalid role." });
+    return;
+  }
 
   const { data: before } = await supabaseAdmin
     .from("profiles")
@@ -241,6 +248,11 @@ router.get("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin
 
 router.post("/admin/invite-codes", requireAuth, requireTenant, requireRole("admin"), requirePlanFeature("team_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { role = "technician", expires_at, note } = req.body;
+
+  if (!TENANT_USER_ROLES.has(role)) {
+    res.status(400).json({ error: "Invalid role." });
+    return;
+  }
 
   const code = crypto.randomBytes(5).toString("hex").toUpperCase();
 
@@ -1005,7 +1017,7 @@ router.post("/admin/switch-to-company", requireAuth, requireTenant, requireRole(
 });
 
 router.post("/auth/register", async (req, res): Promise<void> => {
-  const { company_name, contact_name, contact_email, contact_phone, password, plan_id, product, company_type, addon_ids, addon_quantities = {}, beta_code, start_on_free } = req.body;
+  const { company_name, contact_name, contact_email, contact_phone, password, plan_id, product, addon_ids, addon_quantities = {}, beta_code, start_on_free } = req.body;
 
   // Skip beta code validation for now to enable dev testing
   let betaInvite: {
@@ -1184,6 +1196,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
         full_name: contact_name,
         role: "admin",
         tenant_id: tenant.id,
+        can_be_assigned_jobs: true,
       },
       { onConflict: "id" }
     );
@@ -1288,7 +1301,7 @@ router.get("/admin/company-type", requireAuth, requireTenant, requireRole("admin
     .eq("is_active", true);
 
   res.json({
-    company_type: tenant.company_type,
+    company_type: "company",
     has_team_management: true,
     plan_name: (tenant.plans as { name?: string } | null)?.name ?? null,
     active_user_count: userCount || 0,
@@ -1296,17 +1309,6 @@ router.get("/admin/company-type", requireAuth, requireTenant, requireRole("admin
 });
 
 router.post("/admin/company-type/upgrade", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { data: tenant } = await supabaseAdmin
-    .from("tenants")
-    .select("company_type, plan_id")
-    .eq("id", req.tenantId!)
-    .single();
-
-  if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
-  if (tenant.company_type === "company") {
-    res.status(400).json({ error: "Already operating as a company." }); return;
-  }
-
   await supabaseAdmin
     .from("tenants")
     .update({ company_type: "company" })
@@ -1323,42 +1325,10 @@ router.post("/admin/company-type/upgrade", requireAuth, requireTenant, requireRo
 });
 
 router.post('/admin/company-type/downgrade', requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { data: tenant } = await supabaseAdmin
-    .from("tenants")
-    .select("company_type")
-    .eq("id", req.tenantId!)
-    .single();
-
-  if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
-  if (tenant.company_type === "sole_trader") {
-    res.status(400).json({ error: "Already operating as a sole trader." }); return;
-  }
-
-  const { count: userCount } = await supabaseAdmin
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("tenant_id", req.tenantId!)
-    .eq("is_active", true);
-
-  if ((userCount || 0) > 1) {
-    res.status(400).json({
-      error: "You must remove all other team members before switching to sole trader mode. Currently there are " + ((userCount || 0) - 1) + " other user(s).",
-      code: "USERS_EXIST",
-    });
-    return;
-  }
-
   await supabaseAdmin
     .from("tenants")
-    .update({ company_type: "sole_trader" })
+    .update({ company_type: "company" })
     .eq("id", req.tenantId!);
-
-  await supabaseAdmin
-    .from("invite_codes")
-    .update({ is_active: false })
-    .eq("tenant_id", req.tenantId!)
-    .eq("is_active", true)
-    .is("used_at", null);
 
   await supabaseAdmin
     .from('profiles')
@@ -1367,7 +1337,7 @@ router.post('/admin/company-type/downgrade', requireAuth, requireTenant, require
     .eq('tenant_id', req.tenantId!);
 
   bustInitCache(req.tenantId!);
-  res.json({ success: true, company_type: 'sole_trader' });
+  res.json({ success: true, company_type: 'company' });
 });
 
 router.post('/admin/jobs/bulk-reassign', requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {

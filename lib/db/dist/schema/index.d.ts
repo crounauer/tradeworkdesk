@@ -1,4 +1,4 @@
-export declare const userRoleEnum: import("drizzle-orm/pg-core").PgEnum<["admin", "office_staff", "technician"]>;
+export declare const userRoleEnum: import("drizzle-orm/pg-core").PgEnum<["admin", "office_staff", "technician", "bookkeeper", "accountant"]>;
 export declare const jobStatusEnum: import("drizzle-orm/pg-core").PgEnum<["scheduled", "in_progress", "completed", "cancelled", "requires_follow_up", "follow_up_scheduled"]>;
 export declare const jobTypeEnum: import("drizzle-orm/pg-core").PgEnum<["service", "breakdown", "installation", "inspection", "follow_up"]>;
 export declare const priorityEnum: import("drizzle-orm/pg-core").PgEnum<["low", "medium", "high", "urgent"]>;
@@ -194,14 +194,14 @@ export declare const profiles: import("drizzle-orm/pg-core").PgTableWithColumns<
             tableName: "profiles";
             dataType: "string";
             columnType: "PgEnumColumn";
-            data: "admin" | "office_staff" | "technician";
+            data: "admin" | "office_staff" | "technician" | "bookkeeper" | "accountant";
             driverParam: string;
             notNull: true;
             hasDefault: true;
             isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: ["admin", "office_staff", "technician"];
+            enumValues: ["admin", "office_staff", "technician", "bookkeeper", "accountant"];
             baseColumn: never;
             identity: undefined;
             generated: undefined;

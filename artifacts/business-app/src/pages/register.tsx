@@ -372,6 +372,8 @@ export default function Register() {
     admin: "Admin",
     office_staff: "Office Staff",
     technician: "Technician",
+    bookkeeper: "Bookkeeper",
+    accountant: "Accountant",
   };
 
   const validateCompanyDetailsStep = () => {

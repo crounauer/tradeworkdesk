@@ -1832,7 +1832,7 @@ components:
           type: string
         role:
           type: string
-          enum: [admin, office_staff, technician]
+          enum: [admin, office_staff, technician, bookkeeper, accountant]
         phone:
           type: ["string", "null"]
         is_active:
