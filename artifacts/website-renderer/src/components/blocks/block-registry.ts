@@ -36,6 +36,9 @@ const blockTypeAliases: Record<string, string> = {
   "amazon.affiliates": "amazon_affiliates",
   "blog.index": "blog_index",
   "legal.content": "legal_content",
+  table: "data_table",
+  spreadsheet: "data_table",
+  "data.table": "data_table",
 };
 
 const skippableBlockTypes = new Set(["site.header", "site.footer"]);
@@ -94,6 +97,7 @@ const supportedBlockTypes = new Set([
   "amazon",
   "amazon_products",
   "amazon_affiliates",
+  "data_table",
 ]);
 
 export function hasBlockRendererForType(blockType: string): boolean {

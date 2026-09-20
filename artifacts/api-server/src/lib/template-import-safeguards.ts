@@ -38,6 +38,9 @@ const rendererBlockTypeAliases: Record<string, string> = {
   "features.list": "feature_cards",
   "blog.index": "blog_index",
   "legal.content": "legal_content",
+  table: "data_table",
+  spreadsheet: "data_table",
+  "data.table": "data_table",
 };
 
 const rendererSupportedBlockTypes = new Set<string>([
@@ -83,6 +86,7 @@ const rendererSupportedBlockTypes = new Set<string>([
   "legal_content",
   "site.header",
   "site.footer",
+  "data_table",
 ]);
 
 export function getRendererSupportedBlockTypes(): Set<string> {

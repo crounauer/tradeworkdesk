@@ -154,6 +154,16 @@ function getDefaultBlockContent(blockType: string, pageType?: string): Record<st
     text: {
       content: "Add your content here",
     },
+    data_table: {
+      eyebrow: "Rates",
+      title: "Rates & Pricing",
+      columns: ["Service", "Rate"],
+      rows: [
+        ["Standard call-out, including the first hour", "£85"],
+        ["Additional labour", "£50 per hour"],
+      ],
+      striped: true,
+    },
   };
 
   return defaults[blockType] || {};

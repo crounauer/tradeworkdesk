@@ -34,6 +34,9 @@ test("normalizeBlockType maps known aliases", () => {
   assert.equal(normalizeBlockType("trust.badges"), "trust_badges");
   assert.equal(normalizeBlockType("reviews.grid"), "reviews");
   assert.equal(normalizeBlockType("areas.grid"), "areas_grid");
+  assert.equal(normalizeBlockType("table"), "data_table");
+  assert.equal(normalizeBlockType("spreadsheet"), "data_table");
+  assert.equal(normalizeBlockType("data.table"), "data_table");
 });
 
 test("hasBlockRendererForType detects supported and unsupported blocks", () => {
@@ -46,6 +49,8 @@ test("hasBlockRendererForType detects supported and unsupported blocks", () => {
   assert.equal(hasBlockRendererForType("amazon.affiliates"), true);
   assert.equal(hasBlockRendererForType("amazon_affiliates"), true);
   assert.equal(hasBlockRendererForType("sticky_mobile_cta"), true);
+  assert.equal(hasBlockRendererForType("data_table"), true);
+  assert.equal(hasBlockRendererForType("table"), true);
   assert.equal(hasBlockRendererForType("unknown_block_type"), false);
 });
 

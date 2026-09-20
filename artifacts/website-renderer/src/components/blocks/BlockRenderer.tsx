@@ -28,6 +28,7 @@ import LegalContentBlock from "./LegalContentBlock";
 import FeatureCardsBlock from "./FeatureCardsBlock";
 import DetailSectionBlock from "./DetailSectionBlock";
 import AmazonBlock from "./AmazonBlock";
+import DataTableBlock from "./DataTableBlock";
 import { hasBlockRendererForType, isSkippableBlockType, normalizeBlockType } from "./block-registry";
 import { resolveSiteTheme } from "@/lib/siteTheme";
 
@@ -322,6 +323,7 @@ const blockRegistry: Record<string, BlockRendererFn> = {
   amazon: (context) => render(AmazonBlock, context),
   amazon_products: (context) => render(AmazonBlock, context),
   amazon_affiliates: (context) => render(AmazonBlock, context),
+  data_table: (context) => render(DataTableBlock, context),
 };
 
 function UnsupportedBlock({ blockType, showFallback }: { blockType: string; showFallback?: boolean }) {

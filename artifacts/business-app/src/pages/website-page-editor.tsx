@@ -54,7 +54,7 @@ import {
   ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown,
   Eye, EyeOff, Globe, Save, Loader2, ChevronRight,
   ChevronLeft, Type, Image, Layout, MessageSquare, Star, Grid3X3,
-  Phone, Award, Minus, Undo2, CalendarCheck, Copy,
+  Phone, Award, Minus, Undo2, CalendarCheck, Copy, Table as TableIcon,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -69,6 +69,7 @@ type BlockType =
   | "cta"
   | "services"
   | "service_rates"
+  | "data_table"
   | "contact"
   | "contact_form"
   | "testimonials"
@@ -255,6 +256,25 @@ const BLOCK_PALETTE: BlockPaletteItem[] = [
       variation: "cards",
       note: "Final quote depends on scope and parts.",
       rates: [],
+    },
+  },
+  {
+    type: "data_table",
+    label: "Data Table",
+    icon: TableIcon,
+    description: "Spreadsheet-style table for rates, comparisons or any structured data",
+    defaultContent: {
+      eyebrow: "Rates",
+      title: "Rates & Pricing",
+      subtitle: "",
+      columns: ["Service", "Rate"],
+      rows: [
+        ["Standard call-out, including the first hour", "£85"],
+        ["Additional labour during standard hours", "£50 per hour"],
+        ["Parts and materials", "Trade cost plus 20% markup"],
+      ],
+      striped: true,
+      note: "Any applicable VAT will be shown separately on the quotation or invoice.",
     },
   },
   {
@@ -910,6 +930,7 @@ function resolveEditorType(blockType: string): BlockType | "generic" {
     "cta",
     "services",
     "service_rates",
+    "data_table",
     "contact",
     "contact_form",
     "testimonials",
@@ -936,6 +957,7 @@ function resolveEditorType(blockType: string): BlockType | "generic" {
   if (known.includes(t as BlockType)) return t as BlockType;
 
   if (t === "service_rates" || t === "services.rates" || t.includes("service_rate")) return "service_rates";
+  if (t === "data_table" || t === "data.table" || t === "table" || t === "spreadsheet" || t.includes("data_table")) return "data_table";
   if (t.includes("sticky_mobile_cta")) return "sticky_mobile_cta";
   if (t === "site.header" || t.includes("site.header")) return "site.header";
   if (t.includes("hero")) return "hero";
@@ -2300,6 +2322,109 @@ function BlockEditor({
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Rate
             </Button>
           </div>
+        </div>
+      );
+    }
+
+    case "data_table": {
+      const eyebrow = readString(c, ["eyebrow", "label"], "Rates");
+      const title = readString(c, ["title", "heading"], "Rates & Pricing");
+      const subtitle = readString(c, ["subtitle", "subheading"], "");
+      const note = readString(c, ["note"], "");
+      const striped = c.striped !== false;
+      const columns = readArray<string>(c, ["columns"], ["Service", "Rate"]).map(String);
+      const rows = readArray<string[]>(c, ["rows"], []).map((row) => (Array.isArray(row) ? row.map(String) : []));
+
+      const updateColumns = (nextColumns: string[]) => onChange({ ...c, columns: nextColumns });
+      const updateRows = (nextRows: string[][]) => onChange({ ...c, rows: nextRows });
+
+      const addColumn = () => updateColumns([...columns, `Column ${columns.length + 1}`]);
+      const removeColumn = (index: number) => {
+        updateColumns(columns.filter((_, i) => i !== index));
+        updateRows(rows.map((row) => row.filter((_, i) => i !== index)));
+      };
+      const addRow = () => updateRows([...rows, columns.map(() => "")]);
+      const removeRow = (index: number) => updateRows(rows.filter((_, i) => i !== index));
+
+      return (
+        <div className="space-y-3">
+          <FieldRow label="Eyebrow / Label (optional)">
+            <Input value={eyebrow} onChange={(e) => set("eyebrow", e.target.value)} />
+          </FieldRow>
+          <FieldRow label="Section Heading">
+            <Input value={title} onChange={(e) => set("title", e.target.value)} />
+          </FieldRow>
+          <FieldRow label="Subheading (optional)">
+            <Textarea value={subtitle} onChange={(e) => set("subtitle", e.target.value)} rows={2} />
+          </FieldRow>
+
+          <BackgroundColorField label="Section Background" value={readString(c, ["section_bg", "background_color"], "default")} onChange={(value) => set("section_bg", value)} inheritOptions={backgroundInheritOptions} />
+          <BackgroundColorField label="Header Row Background" value={readString(c, ["accent_color"], "default")} onChange={(value) => set("accent_color", value)} inheritOptions={backgroundInheritOptions} />
+          <FieldRow label="Header Row Text Colour"><ColorSwatch value={readString(c, ["header_text_color"], "#ffffff")} onChange={(e) => set("header_text_color", e.target.value)} /></FieldRow>
+          <BackgroundColorField label="Row Background" value={readString(c, ["card_bg"], "default")} onChange={(value) => set("card_bg", value)} inheritOptions={backgroundInheritOptions} />
+          <BackgroundColorField label="Alternate Row Background" value={readString(c, ["alt_row_bg"], "default")} onChange={(value) => set("alt_row_bg", value)} inheritOptions={backgroundInheritOptions} />
+          <FieldRow label="Border Colour"><ColorSwatch value={readString(c, ["border_color"], "default")} onChange={(e) => set("border_color", e.target.value)} /></FieldRow>
+
+          <FieldRow label="Alternate Row Shading">
+            <div className="flex items-center gap-2">
+              <Switch checked={striped} onCheckedChange={(checked) => set("striped", checked)} />
+              <span className="text-xs text-muted-foreground">Shade every other row</span>
+            </div>
+          </FieldRow>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Columns</Label>
+              <Button variant="outline" size="sm" onClick={addColumn}><Plus className="w-3.5 h-3.5 mr-1" /> Add Column</Button>
+            </div>
+            <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.max(columns.length, 1)}, minmax(0, 1fr))` }}>
+              {columns.map((col, colIndex) => (
+                <div key={colIndex} className="flex items-center gap-1">
+                  <Input value={col} onChange={(e) => { const n = [...columns]; n[colIndex] = e.target.value; updateColumns(n); }} placeholder={`Column ${colIndex + 1}`} />
+                  {columns.length > 1 && (
+                    <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => removeColumn(colIndex)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Rows</Label>
+              <Button variant="outline" size="sm" onClick={addRow}><Plus className="w-3.5 h-3.5 mr-1" /> Add Row</Button>
+            </div>
+            {rows.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No rows yet. Add a row to start building the table.</p>
+            ) : null}
+            {rows.map((row, rowIndex) => (
+              <div key={rowIndex} className="flex items-center gap-2">
+                <div className="grid flex-1 gap-2" style={{ gridTemplateColumns: `repeat(${Math.max(columns.length, 1)}, minmax(0, 1fr))` }}>
+                  {columns.map((_, colIndex) => (
+                    <Input
+                      key={colIndex}
+                      value={row[colIndex] ?? ""}
+                      onChange={(e) => {
+                        const nextRows = rows.map((r) => [...r]);
+                        nextRows[rowIndex][colIndex] = e.target.value;
+                        updateRows(nextRows);
+                      }}
+                      placeholder={columns[colIndex] || `Column ${colIndex + 1}`}
+                    />
+                  ))}
+                </div>
+                <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive" onClick={() => removeRow(rowIndex)}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <FieldRow label="Footer Note (optional)">
+            <Input value={note} onChange={(e) => set("note", e.target.value)} placeholder="Any applicable VAT will be shown separately on the quotation or invoice." />
+          </FieldRow>
         </div>
       );
     }
