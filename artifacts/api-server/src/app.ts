@@ -157,17 +157,20 @@ app.use("/api", withRequestContext, (req: Request, res: Response, next: NextFunc
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error("Unhandled error:", err.stack || err.message);
-  // Report to Sentry if available (lazy import to avoid circular deps)
-  import("./lib/sentry").then(({ captureException }) => captureException(err)).catch(() => {});
   if (err.name === "ZodError") {
     res.status(422).json({ error: "Response validation failed", details: err.message });
     return;
   }
   // Multer errors (file size, wrong type, etc.)
   if (err.name === "MulterError" || (err as { code?: string }).code === "LIMIT_FILE_SIZE") {
-    res.status(400).json({ error: err.message });
+    const isTooLarge = (err as { code?: string }).code === "LIMIT_FILE_SIZE";
+    res.status(isTooLarge ? 413 : 400).json({
+      error: isTooLarge ? "File is too large. Expense statement imports support files up to 15 MB." : err.message,
+    });
     return;
   }
+  // Report only unexpected server errors to Sentry.
+  import("./lib/sentry").then(({ captureException }) => captureException(err)).catch(() => {});
   res.status(500).json({ error: err.message || "Internal server error" });
 });
 

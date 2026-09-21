@@ -54,7 +54,7 @@ export default function DataTableBlock({ content }: Props) {
 
   return (
     <section style={{ padding: "72px 24px", background: sectionBg }}>
-      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         {(eyebrow || title || subtitle) && (
           <div style={{ maxWidth: 720, marginBottom: 32 }}>
             {eyebrow ? (
@@ -75,7 +75,7 @@ export default function DataTableBlock({ content }: Props) {
           </div>
         )}
 
-        <div style={{ border: `1px solid ${borderColor}`, borderRadius: radius, background: cardBg, overflow: "hidden" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto", border: `1px solid ${borderColor}`, borderRadius: radius, background: cardBg, overflow: "hidden" }}>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
               <thead>

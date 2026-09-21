@@ -133,6 +133,15 @@ export default function Expenses() {
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Expense statement imports support files up to 15 MB.",
+        variant: "destructive",
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     if (!/\.(csv|pdf)$/i.test(file.name)) {
       toast({
         title: "Unsupported file",

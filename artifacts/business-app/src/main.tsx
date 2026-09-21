@@ -22,13 +22,14 @@ if (import.meta.env.VITE_SENTRY_DSN) {
       },
     });
     
-    // Expose test functions for manual testing
-    (window as any).triggerTestError = () => {
-      throw new Error("Test error from browser console");
-    };
-    (window as any).captureTestMessage = () => {
-      Sentry.captureMessage("Test message from browser console", "info");
-    };
+    if (import.meta.env.DEV) {
+      (window as any).triggerTestError = () => {
+        throw new Error("Test error from browser console");
+      };
+      (window as any).captureTestMessage = () => {
+        Sentry.captureMessage("Test message from browser console", "info");
+      };
+    }
   }).catch(err => {
     console.error("Failed to initialize Sentry:", err);
   });
