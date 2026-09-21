@@ -75,7 +75,7 @@ export default function DataTableBlock({ content }: Props) {
           </div>
         )}
 
-        <div style={{ maxWidth: 960, margin: "0 auto", border: `1px solid ${borderColor}`, borderRadius: radius, background: cardBg, overflow: "hidden" }}>
+        <div style={{ border: `1px solid ${borderColor}`, borderRadius: radius, background: cardBg, overflow: "hidden" }}>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
               <thead>
