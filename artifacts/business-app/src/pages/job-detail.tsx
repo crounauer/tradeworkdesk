@@ -187,6 +187,18 @@ interface JobService {
   created_at: string;
 }
 
+interface JobApplianceAssignment {
+  id: string;
+  manufacturer?: string | null;
+  model?: string | null;
+  serial_number?: string | null;
+  boiler_type?: string | null;
+  fuel_type?: string | null;
+  next_service_due?: string | null;
+  assigned: boolean;
+  linked: boolean;
+}
+
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
@@ -195,7 +207,7 @@ export default function JobDetail() {
   const { data: completionReport } = useGetJobCompletionReportByJob(id!, { query: { enabled: !!id } } as any);
   const { data: completedForms } = useQuery({
     queryKey: [`/api/jobs/${id}/completed-forms`],
-    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/jobs/${id}/completed-forms`) as Promise<Array<{ form_type: string; form_label: string; form_id: string }>>,
+    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/jobs/${id}/completed-forms`) as Promise<Array<{ form_type: string; form_label: string; form_id: string; appliance_id?: string | null }>>,
     enabled: !!id,
   });
   const completedFormTypes = new Set(completedForms?.map(f => f.form_type) || []);
@@ -213,6 +225,7 @@ export default function JobDetail() {
   const [pricingRefresh, setPricingRefresh] = useState(0);
   const [showReturnVisit, setShowReturnVisit] = useState(false);
   const [showSms, setShowSms] = useState(false);
+  const [savingApplianceAssignments, setSavingApplianceAssignments] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
   const [ccAdminOnConfirmation, setCcAdminOnConfirmation] = useState(false);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
@@ -533,6 +546,11 @@ export default function JobDetail() {
 
   const customerId = typeof jobRecord.customer_id === "string" ? jobRecord.customer_id : "";
   const propertyId = typeof jobRecord.property_id === "string" ? jobRecord.property_id : "";
+  const { data: jobAppliances = [] } = useQuery<JobApplianceAssignment[]>({
+    queryKey: [`/api/jobs/${job?.id ?? id}/appliances`],
+    enabled: !!job?.id && !!propertyId,
+    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/jobs/${job!.id}/appliances`) as Promise<JobApplianceAssignment[]>,
+  });
   const { data: propertyAppliances = [] } = useListAppliances(
     { property_id: propertyId || undefined },
     { query: { queryKey: ["/api/appliances", { property_id: propertyId || undefined }], enabled: !!propertyId } },
@@ -619,7 +637,7 @@ export default function JobDetail() {
   if (!job) return <div>Job not found{!isOnline ? " — this job hasn't been cached for offline viewing." : ""}</div>;
 
   const appliancesForDisplay = propertyAppliances.length > 0
-    ? propertyAppliances
+    ? (jobAppliances.length > 0 ? jobAppliances.filter((appliance) => appliance.assigned) : propertyAppliances)
     : job.appliance
       ? [job.appliance]
       : [];
@@ -1357,8 +1375,19 @@ export default function JobDetail() {
                     ].join("\n");
                     const formRequestHref = `/support?prefill=form_request&category=feature_request&priority=normal&subject=${encodeURIComponent("Form Request: New Job Form")}&body=${encodeURIComponent(formRequestBody)}`;
 
+                    const assignedOilFormLinks = (jobAppliances.length > 0 ? jobAppliances.filter((appliance) => appliance.assigned) : appliancesForDisplay)
+                      .filter((appliance) => appliance.fuel_type === "oil" || !appliance.fuel_type)
+                      .map((appliance) => ({
+                        id: `oil-service-record-${appliance.id}`,
+                        path: `/jobs/${job.id}/oil-service-record?appliance_id=${appliance.id}`,
+                        label: `Oil Service: ${[appliance.manufacturer, appliance.model].filter(Boolean).join(" ") || "Unnamed appliance"}`,
+                        desc: "Complete this appliance's oil service record",
+                        completedKey: "service_record",
+                        visibleByDefault: showOilForms,
+                        completed: completedForms?.some((form) => form.form_type === "service_record" && form.appliance_id === appliance.id) || false,
+                      }));
                     const allFormDefs = [
-                      { id: "oil-service-record", path: `/jobs/${job.id}/oil-service-record`, label: "Oil Service Record", desc: "Complete oil boiler service record", completedKey: "service_record", visibleByDefault: showOilForms },
+                      ...assignedOilFormLinks,
                       { id: "breakdown-report", path: `/jobs/${job.id}/breakdown-report`, label: "Breakdown Report", desc: "Record faults and fixes", completedKey: "breakdown_report", visibleByDefault: true },
                       { id: "service-record", path: `/jobs/${job.id}/service-record`, label: "Service Record", desc: "Complete full inspection", completedKey: "service_record", visibleByDefault: showGasForms },
                       { id: "commissioning", path: `/jobs/${job.id}/commissioning`, label: "Commissioning Record", desc: "New installation commissioning", completedKey: "commissioning_record", visibleByDefault: showGasForms && job.job_type === "installation" },
@@ -1374,9 +1403,24 @@ export default function JobDetail() {
                       { id: "oil-line-vacuum-test", path: `/jobs/${job.id}/oil-line-vacuum-test`, label: "Oil Line Vacuum Test", desc: "Pipework & vacuum readings", completedKey: "oil_line_vacuum_test", visibleByDefault: showOilForms },
                     ];
                     const extraForms = allFormDefs.filter(f => !f.visibleByDefault);
-                    if (extraForms.length === 0) return null;
+                    if (extraForms.length === 0 && assignedOilFormLinks.length === 0) return null;
                     return (
                       <div className="mt-6">
+                        {assignedOilFormLinks.length > 0 && (
+                          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                            {assignedOilFormLinks.map((form) => (
+                              <Link key={form.id} href={form.path}>
+                                <Card className={`flex h-full items-center gap-3 p-4 hover:border-amber-500 hover:shadow-md ${form.completed ? "border-emerald-200 bg-emerald-50/60" : "border-amber-200 bg-amber-50/50"}`}>
+                                  <div className={`rounded-lg p-2 ${form.completed ? "bg-emerald-500 text-white" : "bg-amber-100 text-amber-700"}`}><Wrench className="h-5 w-5" /></div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5"><h4 className="truncate text-sm font-semibold">{form.label}</h4>{form.completed && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}</div>
+                                    <p className="text-xs text-muted-foreground">{form.completed ? "Completed — tap to view or edit" : form.desc}</p>
+                                  </div>
+                                </Card>
+                              </Link>
+                            ))}
+                          </div>
+                        )}
                         <Card className="p-4 mb-3 border-dashed border-primary/40 bg-primary/5">
                           <p className="text-sm text-muted-foreground">
                             Need a form that is not listed? Submit a form request ticket and we will review feasibility and add it if suitable.
@@ -1548,6 +1592,42 @@ export default function JobDetail() {
                     </Button>
                   </div>
                 </div>
+
+                {jobAppliances.length > 0 && isOfficeOrAdmin && (
+                  <div className="mb-4 rounded-lg border border-orange-200 bg-orange-50/40 p-3">
+                    <p className="mb-2 text-xs font-semibold text-orange-900">Appliances serviced on this job</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {jobAppliances.map((appliance) => (
+                        <label key={appliance.id} className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md border bg-background px-2.5 py-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={appliance.assigned}
+                            disabled={savingApplianceAssignments}
+                            onChange={async () => {
+                              const applianceIds = jobAppliances
+                                .filter((item) => item.assigned !== (item.id === appliance.id))
+                                .map((item) => item.id);
+                              setSavingApplianceAssignments(true);
+                              try {
+                                await customFetch(`${import.meta.env.BASE_URL}api/jobs/${job.id}/appliances`, {
+                                  method: "PUT",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ appliance_ids: applianceIds }),
+                                });
+                                await qc.refetchQueries({ queryKey: [`/api/jobs/${job.id}/appliances`] });
+                              } catch (error) {
+                                toast({ title: "Unable to update appliances", description: error instanceof Error ? error.message : "Assignment failed", variant: "destructive" });
+                              } finally {
+                                setSavingApplianceAssignments(false);
+                              }
+                            }}
+                          />
+                          <span className="min-w-0 truncate">{[appliance.manufacturer, appliance.model].filter(Boolean).join(" ") || "Unnamed appliance"}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {showAddAppliance && (
                   <form onSubmit={handleSubmitAppliance(onAddAppliance)} className="space-y-4 mb-4">
@@ -3681,7 +3761,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
                   {selectedPhotos.size === photos.length ? "Deselect All" : "Select All"}
                 </Button>
               </div>
-              <div className="grid grid-cols-4 gap-2 border border-border rounded-lg p-2 max-h-48 overflow-y-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border border-border rounded-lg p-2 max-h-48 overflow-y-auto">
                 {photos.map(p => (
                   <label key={p.id} className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-colors ${selectedPhotos.has(p.id) ? "border-primary" : "border-transparent hover:border-muted-foreground/30"}`}>
                     <input type="checkbox" checked={selectedPhotos.has(p.id)} onChange={() => togglePhoto(p.id)} className="sr-only" />

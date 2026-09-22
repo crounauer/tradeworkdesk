@@ -4369,6 +4369,7 @@ export declare const DeleteJobParams: zod.ZodObject<{
  */
 export declare const CreateServiceRecordBody: zod.ZodObject<{
     job_id: zod.ZodString;
+    appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     technician_id: zod.ZodString;
     modulation_readings: zod.ZodOptional<zod.ZodString>;
     arrival_time: zod.ZodOptional<zod.ZodDate>;
@@ -4476,6 +4477,7 @@ export declare const CreateServiceRecordBody: zod.ZodObject<{
 }, "strip", zod.ZodTypeAny, {
     job_id: string;
     technician_id: string;
+    appliance_id?: string | null | undefined;
     next_service_due?: Date | undefined;
     follow_up_required?: boolean | undefined;
     work_completed?: string | undefined;
@@ -4582,6 +4584,7 @@ export declare const CreateServiceRecordBody: zod.ZodObject<{
 }, {
     job_id: string;
     technician_id: string;
+    appliance_id?: string | null | undefined;
     next_service_due?: Date | undefined;
     follow_up_required?: boolean | undefined;
     work_completed?: string | undefined;
@@ -4699,6 +4702,7 @@ export declare const GetServiceRecordParams: zod.ZodObject<{
 export declare const GetServiceRecordResponse: zod.ZodObject<{
     id: zod.ZodString;
     job_id: zod.ZodString;
+    appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     technician_id: zod.ZodString;
     modulation_readings: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     arrival_time: zod.ZodOptional<zod.ZodNullable<zod.ZodDate>>;
@@ -4811,6 +4815,7 @@ export declare const GetServiceRecordResponse: zod.ZodObject<{
     updated_at: Date;
     job_id: string;
     technician_id: string;
+    appliance_id?: string | null | undefined;
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
     work_completed?: string | null | undefined;
@@ -4920,6 +4925,7 @@ export declare const GetServiceRecordResponse: zod.ZodObject<{
     updated_at: Date;
     job_id: string;
     technician_id: string;
+    appliance_id?: string | null | undefined;
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
     work_completed?: string | null | undefined;
@@ -5350,6 +5356,7 @@ export declare const UpdateServiceRecordBody: zod.ZodObject<{
 export declare const UpdateServiceRecordResponse: zod.ZodObject<{
     id: zod.ZodString;
     job_id: zod.ZodString;
+    appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     technician_id: zod.ZodString;
     arrival_time: zod.ZodOptional<zod.ZodNullable<zod.ZodDate>>;
     departure_time: zod.ZodOptional<zod.ZodNullable<zod.ZodDate>>;
@@ -5461,6 +5468,7 @@ export declare const UpdateServiceRecordResponse: zod.ZodObject<{
     updated_at: Date;
     job_id: string;
     technician_id: string;
+    appliance_id?: string | null | undefined;
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
     work_completed?: string | null | undefined;
@@ -5569,6 +5577,7 @@ export declare const UpdateServiceRecordResponse: zod.ZodObject<{
     updated_at: Date;
     job_id: string;
     technician_id: string;
+    appliance_id?: string | null | undefined;
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
     work_completed?: string | null | undefined;
@@ -5685,6 +5694,7 @@ export declare const GetServiceRecordByJobParams: zod.ZodObject<{
 export declare const GetServiceRecordByJobResponse: zod.ZodObject<{
     id: zod.ZodString;
     job_id: zod.ZodString;
+    appliance_id: zod.ZodOptional<zod.ZodNullable<zod.ZodString>>;
     technician_id: zod.ZodString;
     arrival_time: zod.ZodOptional<zod.ZodNullable<zod.ZodDate>>;
     departure_time: zod.ZodOptional<zod.ZodNullable<zod.ZodDate>>;
@@ -5760,6 +5770,7 @@ export declare const GetServiceRecordByJobResponse: zod.ZodObject<{
     updated_at: Date;
     job_id: string;
     technician_id: string;
+    appliance_id?: string | null | undefined;
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
     work_completed?: string | null | undefined;
@@ -5832,6 +5843,7 @@ export declare const GetServiceRecordByJobResponse: zod.ZodObject<{
     updated_at: Date;
     job_id: string;
     technician_id: string;
+    appliance_id?: string | null | undefined;
     next_service_due?: Date | null | undefined;
     follow_up_required?: boolean | undefined;
     work_completed?: string | null | undefined;

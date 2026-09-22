@@ -9,6 +9,7 @@ import type { CreateServiceRecordBodyApplianceClassification } from "./createSer
 
 export interface CreateServiceRecordBody {
   job_id: string;
+  appliance_id?: string | null;
   technician_id: string;
   arrival_time?: Date;
   departure_time?: Date;

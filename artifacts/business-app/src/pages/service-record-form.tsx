@@ -1,9 +1,8 @@
 import { useForm } from "react-hook-form";
 import { useEffect, useMemo , useRef, useState } from "react";
-import { useCreateServiceRecord, useGetServiceRecordByJob, useUpdateServiceRecord, useGetJob, useListAppliances, customFetch, getGetServiceRecordByJobQueryKey, getListAppliancesQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
-import type { Appliance, CreateServiceRecordBody } from "@workspace/api-client-react";
-import { useParams, useLocation } from "wouter";
+import { useCreateServiceRecord, useUpdateServiceRecord, useGetJob, useListAppliances, customFetch, getListAppliancesQueryKey, type Appliance, type CreateServiceRecordBody, type ServiceRecord } from "@workspace/api-client-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useParams, useLocation, useSearch } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +11,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, ArrowLeft, FileDown, Calendar, Wrench, Shield, AlertTriangle, Flame, Gauge, Trash2 } from "lucide-react";
 import { Link } from "wouter";
+
+type ApplianceServiceRecord = ServiceRecord & { appliance_id?: string | null };
+type ApplianceServiceRecordBody = CreateServiceRecordBody & { appliance_id?: string | null };
 
 interface ServiceRecordFormData {
   service_date: string;
@@ -127,12 +129,19 @@ interface ServiceRecordFormData {
 
 export default function ServiceRecordForm() {
   const { jobId } = useParams<{ jobId: string }>();
+  const search = useSearch();
+  const applianceIdFromUrl = new URLSearchParams(search).get("appliance_id") || "";
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
 
   const queryClient = useQueryClient();
-  const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useGetServiceRecordByJob(jobId!);
+  const recordQueryKey = [`/api/service-records/job/${jobId}`, applianceIdFromUrl];
+  const { data: existingRecord, isLoading: isLoadingExisting, dataUpdatedAt } = useQuery<ApplianceServiceRecord | null>({
+    queryKey: recordQueryKey,
+    enabled: !!jobId,
+    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/service-records/job/${jobId}${applianceIdFromUrl ? `?appliance_id=${encodeURIComponent(applianceIdFromUrl)}` : ""}`) as Promise<ApplianceServiceRecord | null>,
+  });
   const { data: job } = useGetJob(jobId!);
   const { data: appliances = [] } = useListAppliances(
     { property_id: job?.property_id || "" },
@@ -442,11 +451,16 @@ export default function ServiceRecordForm() {
   }, [existingRecord, dataUpdatedAt, reset, job]);
 
   useEffect(() => {
-    if (existingRecord || selectedApplianceId || appliances.length === 0) return;
+    if (existingRecord?.appliance_id) {
+      setSelectedApplianceId(existingRecord.appliance_id);
+      return;
+    }
+    if (selectedApplianceId || appliances.length === 0) return;
     const defaultAppliance = appliances.find((appliance) => appliance.id === job?.appliance_id)
+      || appliances.find((appliance) => appliance.id === applianceIdFromUrl)
       || (appliances.length === 1 ? appliances[0] : undefined);
     if (defaultAppliance) setSelectedApplianceId(defaultAppliance.id);
-  }, [appliances, existingRecord, job?.appliance_id, selectedApplianceId]);
+  }, [appliances, applianceIdFromUrl, existingRecord, job?.appliance_id, selectedApplianceId]);
 
   useEffect(() => {
     if (existingRecord || !selectedApplianceId) return;
@@ -564,8 +578,9 @@ export default function ServiceRecordForm() {
     const baseSafetyNotes = stripTaggedSafetyLines(data.safety_devices_notes || "");
     const mergedSafetyNotes = [baseSafetyNotes, ...capLines].filter(Boolean).join("\n");
 
-    const payload: CreateServiceRecordBody = {
+    const payload: ApplianceServiceRecordBody = {
       job_id: jobId!,
+      appliance_id: selectedApplianceId || undefined,
       technician_id: user.id,
       modulation_readings: isOil && burnerStages === "fully_modulating" ? JSON.stringify(modulationReadings) : undefined,
       arrival_time: data.service_date || undefined,
@@ -679,11 +694,11 @@ export default function ServiceRecordForm() {
       if (existingRecord) {
         const { job_id: _jid, technician_id: _tid, ...updatePayload } = payload;
         await updateMutation.mutateAsync({ id: existingRecord.id, data: updatePayload });
-        await queryClient.invalidateQueries({ queryKey: getGetServiceRecordByJobQueryKey(jobId!) });
+        await queryClient.invalidateQueries({ queryKey: recordQueryKey });
         toast({ title: "Updated", description: "Service record updated successfully" });
       } else {
         await createMutation.mutateAsync({ data: payload });
-        await queryClient.invalidateQueries({ queryKey: getGetServiceRecordByJobQueryKey(jobId!) });
+        await queryClient.invalidateQueries({ queryKey: recordQueryKey });
         toast({ title: "Success", description: "Service record created successfully" });
       }
       setLocation(`/jobs/${jobId}`);
@@ -806,7 +821,11 @@ export default function ServiceRecordForm() {
                 <select
                   className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
                   value={selectedApplianceId}
-                  onChange={(event) => setSelectedApplianceId(event.target.value)}
+                  onChange={(event) => {
+                    const nextApplianceId = event.target.value;
+                    setSelectedApplianceId(nextApplianceId);
+                    if (nextApplianceId) setLocation(`/jobs/${jobId}/oil-service-record?appliance_id=${nextApplianceId}`);
+                  }}
                 >
                   <option value="">Select appliance...</option>
                   {appliances.map((appliance) => (

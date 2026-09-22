@@ -199,7 +199,7 @@ export function ServicesSection({
       ) : services.length === 0 ? (
         <p className="text-sm text-muted-foreground">No services recorded yet.</p>
       ) : (
-        <div className="border rounded-lg overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+        <div className="max-w-full min-w-0 overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b">
               <tr>

@@ -434,6 +434,7 @@ export declare const ServiceRecordApplianceClassification: {
 export interface ServiceRecord {
     id: string;
     job_id: string;
+    appliance_id?: string | null;
     technician_id: string;
     modulation_readings?: string | null;
     /** @nullable */
@@ -808,6 +809,7 @@ export declare const CreateServiceRecordBodyApplianceClassification: {
 };
 export interface CreateServiceRecordBody {
     job_id: string;
+    appliance_id?: string | null;
     technician_id: string;
     modulation_readings?: string;
     arrival_time?: string;

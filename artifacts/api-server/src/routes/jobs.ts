@@ -35,6 +35,8 @@ import { triggerReviewRequestAutomation } from "../lib/review-request-service";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
 
+const router: IRouter = Router();
+
 interface SupabaseJobRow {
   id: string;
   customer_id: string;
@@ -68,6 +70,65 @@ interface SupabaseJobRow {
   profiles?: { full_name: string } | null;
 }
 
+
+router.get("/jobs/:id/appliances", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const params = GetJobParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  let jobQ = supabaseAdmin.from("jobs").select("id, property_id, appliance_id").eq("id", params.data.id);
+  if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
+  const { data: job } = await jobQ.single();
+  if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+
+  let appliancesQ = supabaseAdmin.from("appliances").select("*").eq("property_id", job.property_id).eq("is_active", true).order("created_at", { ascending: true });
+  if (req.tenantId) appliancesQ = appliancesQ.eq("tenant_id", req.tenantId);
+  const { data: appliances, error: appliancesError } = await appliancesQ;
+  if (appliancesError) { res.status(500).json({ error: appliancesError.message }); return; }
+
+  let assignmentsQ = supabaseAdmin.from("job_appliances").select("appliance_id").eq("job_id", params.data.id);
+  if (req.tenantId) assignmentsQ = assignmentsQ.eq("tenant_id", req.tenantId);
+  const { data: assignments } = await assignmentsQ;
+  const assignedIds = assignments && assignments.length > 0
+    ? new Set(assignments.map((row) => row.appliance_id))
+    : new Set((appliances || []).map((appliance) => appliance.id));
+
+  res.json((appliances || []).map((appliance) => ({
+    ...appliance,
+    assigned: assignedIds.has(appliance.id),
+    linked: appliance.id === job.appliance_id,
+  })));
+});
+
+router.put("/jobs/:id/appliances", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const params = GetJobParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  const applianceIds = Array.isArray(req.body?.appliance_ids) ? req.body.appliance_ids : null;
+  if (!applianceIds || applianceIds.some((value: unknown) => typeof value !== "string" || !/^[0-9a-f-]{36}$/i.test(value))) {
+    res.status(400).json({ error: "appliance_ids must be an array of UUIDs" }); return;
+  }
+
+  let jobQ = supabaseAdmin.from("jobs").select("id, property_id").eq("id", params.data.id);
+  if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
+  const { data: job } = await jobQ.single();
+  if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+
+  let appliancesQ = supabaseAdmin.from("appliances").select("id").eq("property_id", job.property_id).in("id", applianceIds);
+  if (req.tenantId) appliancesQ = appliancesQ.eq("tenant_id", req.tenantId);
+  const { data: validAppliances } = await appliancesQ;
+  if ((validAppliances || []).length !== new Set(applianceIds).size) {
+    res.status(400).json({ error: "Every appliance must belong to this job's property" }); return;
+  }
+
+  let deleteQ = supabaseAdmin.from("job_appliances").delete().eq("job_id", params.data.id);
+  if (req.tenantId) deleteQ = deleteQ.eq("tenant_id", req.tenantId);
+  const { error: deleteError } = await deleteQ;
+  if (deleteError) { res.status(500).json({ error: deleteError.message }); return; }
+  if (applianceIds.length > 0) {
+    const { error: insertError } = await supabaseAdmin.from("job_appliances").insert(applianceIds.map((appliance_id: string) => ({ tenant_id: req.tenantId, job_id: params.data.id, appliance_id })));
+    if (insertError) { res.status(500).json({ error: insertError.message }); return; }
+  }
+  res.json({ success: true, appliance_ids: applianceIds });
+});
 type ServiceCatalogueRow = {
   id: string;
   name: string;
@@ -251,7 +312,6 @@ function sendTechnicianJobClash(res: Parameters<typeof sendTechnicianLeaveConfli
   });
 }
 
-const router: IRouter = Router();
 
 type CustomerConfirmationAction = "confirm" | "request_change";
 
@@ -3166,15 +3226,16 @@ router.get("/jobs/:jobId/completed-forms", requireAuth, requireTenant, requirePl
     if (!isOwner) { res.status(403).json({ error: "Not authorized" }); return; }
   }
 
-  const completed: Array<{ form_type: string; form_label: string; form_id: string }> = [];
+  const completed: Array<{ form_type: string; form_label: string; form_id: string; appliance_id?: string | null }> = [];
 
   for (const [formType, config] of Object.entries(FORM_TABLE_MAP)) {
-    let q = supabaseAdmin.from(config.table).select("id").eq("job_id", jobId);
+    let q = supabaseAdmin.from(config.table).select("*").eq("job_id", jobId);
     if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
     const { data: records } = await q;
     if (records && records.length > 0) {
       for (const rec of records) {
-        completed.push({ form_type: formType, form_label: config.label, form_id: (rec as Record<string, unknown>).id as string });
+        const record = rec as unknown as Record<string, unknown>;
+        completed.push({ form_type: formType, form_label: config.label, form_id: record.id as string, appliance_id: record.appliance_id as string | null | undefined });
       }
     }
   }

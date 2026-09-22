@@ -19,20 +19,28 @@ const router: IRouter = Router();
 router.post("/service-records", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateServiceRecordBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const recordData = parsed.data as typeof parsed.data & { appliance_id?: string | null };
 
-  const access = await verifyJobAccess(req, parsed.data.job_id);
+  const access = await verifyJobAccess(req, recordData.job_id);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
-  const { data, error } = await supabaseAdmin.from("service_records").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
+  if (recordData.appliance_id) {
+    const { data: job } = await supabaseAdmin.from("jobs").select("property_id").eq("id", recordData.job_id).single();
+    const { data: appliance } = await supabaseAdmin.from("appliances").select("property_id").eq("id", recordData.appliance_id).eq("tenant_id", req.tenantId).single();
+    if (!job || !appliance || job.property_id !== appliance.property_id) { res.status(400).json({ error: "Appliance does not belong to this job property" }); return; }
+  }
+
+  const { data, error } = await supabaseAdmin.from("service_records").insert({ ...recordData, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  if (parsed.data.next_service_due) {
-    const { data: job } = await supabaseAdmin.from("jobs").select("appliance_id").eq("id", parsed.data.job_id).single();
-    if (job?.appliance_id) {
+  if (recordData.next_service_due) {
+    const { data: job } = await supabaseAdmin.from("jobs").select("appliance_id").eq("id", recordData.job_id).single();
+    const targetApplianceId = recordData.appliance_id || job?.appliance_id;
+    if (targetApplianceId) {
       await supabaseAdmin.from("appliances").update({
         last_service_date: new Date().toISOString().split("T")[0],
-        next_service_due: parsed.data.next_service_due,
-      }).eq("id", job.appliance_id);
+        next_service_due: recordData.next_service_due,
+      }).eq("id", targetApplianceId);
     }
   }
 
@@ -90,7 +98,9 @@ router.get("/service-records/job/:jobId", requireAuth, requireTenant, async (req
   const access = await verifyJobAccess(req, params.data.jobId);
   if (!access.allowed) { res.status(403).json({ error: access.error }); return; }
 
-  let jobRecQ = supabaseAdmin.from("service_records").select("*").eq("job_id", params.data.jobId);
+  let jobRecQ = supabaseAdmin.from("service_records").select("*").eq("job_id", params.data.jobId).order("created_at", { ascending: false }).limit(1);
+  const applianceId = typeof req.query.appliance_id === "string" ? req.query.appliance_id : null;
+  if (applianceId) jobRecQ = jobRecQ.eq("appliance_id", applianceId);
   if (req.tenantId) jobRecQ = jobRecQ.eq("tenant_id", req.tenantId);
   const { data, error } = await jobRecQ.maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }

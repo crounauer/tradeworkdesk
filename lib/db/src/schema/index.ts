@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, varchar, boolean, date, time, integer, serial, numeric, timestamp, pgEnum, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, varchar, boolean, date, time, integer, serial, numeric, timestamp, pgEnum, doublePrecision, unique } from "drizzle-orm/pg-core";
 
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "office_staff", "technician", "bookkeeper", "accountant"]);
@@ -124,9 +124,20 @@ export const jobs = pgTable("jobs", {
   updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const jobAppliances = pgTable("job_appliances", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenant_id: uuid("tenant_id").notNull().references(() => tenants.id),
+  job_id: uuid("job_id").notNull().references(() => jobs.id),
+  appliance_id: uuid("appliance_id").notNull().references(() => appliances.id),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  jobApplianceUnique: unique().on(table.job_id, table.appliance_id),
+}));
+
 export const serviceRecords = pgTable("service_records", {
   id: uuid("id").primaryKey().defaultRandom(),
   job_id: uuid("job_id").notNull().references(() => jobs.id),
+  appliance_id: uuid("appliance_id").references(() => appliances.id),
   technician_id: uuid("technician_id").notNull().references(() => profiles.id),
   appliance_make: text("appliance_make"),
   appliance_model: text("appliance_model"),

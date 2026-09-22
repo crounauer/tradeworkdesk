@@ -1448,6 +1448,7 @@ export const DeleteJobParams = zod.object({
  */
 export const CreateServiceRecordBody = zod.object({
   job_id: zod.string().uuid(),
+  appliance_id: zod.string().uuid().nullish(),
   technician_id: zod.string().uuid(),
   modulation_readings: zod.string().optional(),
   arrival_time: zod.coerce.date().optional(),
@@ -1571,6 +1572,7 @@ export const GetServiceRecordParams = zod.object({
 export const GetServiceRecordResponse = zod.object({
   id: zod.string().uuid(),
   job_id: zod.string().uuid(),
+  appliance_id: zod.string().uuid().nullish(),
   technician_id: zod.string().uuid(),
   modulation_readings: zod.string().nullish(),
   arrival_time: zod.coerce.date().nullish(),
@@ -1811,6 +1813,7 @@ export const UpdateServiceRecordBody = zod.object({
 export const UpdateServiceRecordResponse = zod.object({
   id: zod.string().uuid(),
   job_id: zod.string().uuid(),
+  appliance_id: zod.string().uuid().nullish(),
   technician_id: zod.string().uuid(),
   arrival_time: zod.coerce.date().nullish(),
   departure_time: zod.coerce.date().nullish(),
@@ -1936,6 +1939,7 @@ export const GetServiceRecordByJobParams = zod.object({
 export const GetServiceRecordByJobResponse = zod.object({
   id: zod.string().uuid(),
   job_id: zod.string().uuid(),
+  appliance_id: zod.string().uuid().nullish(),
   technician_id: zod.string().uuid(),
   arrival_time: zod.coerce.date().nullish(),
   departure_time: zod.coerce.date().nullish(),

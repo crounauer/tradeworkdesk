@@ -2534,6 +2534,9 @@ components:
         job_id:
           type: string
           format: uuid
+        appliance_id:
+          type: [string, "null"]
+          format: uuid
         technician_id:
           type: string
           format: uuid
@@ -2688,6 +2691,9 @@ components:
       properties:
         job_id:
           type: string
+          format: uuid
+        appliance_id:
+          type: [string, "null"]
           format: uuid
         technician_id:
           type: string

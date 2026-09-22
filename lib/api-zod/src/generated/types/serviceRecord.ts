@@ -10,6 +10,7 @@ import type { ServiceRecordApplianceClassification } from "./serviceRecordApplia
 export interface ServiceRecord {
   id: string;
   job_id: string;
+  appliance_id?: string | null;
   technician_id: string;
   /** @nullable */
   arrival_time?: Date | null;
