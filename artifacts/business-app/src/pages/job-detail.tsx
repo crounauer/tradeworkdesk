@@ -1,4 +1,4 @@
-import { useGetJob, useUpdateJob, useDeleteJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote, useListJobTimeEntries, useCreateJobTimeEntry, useDeleteJobTimeEntry, useUpdateJobTimeEntry, useGetJobCompletionReportByJob, useCreateAppliance, type JobDetail as JobDetailType } from "@workspace/api-client-react";
+import { useGetJob, useUpdateJob, useDeleteJob, useListFiles, useDeleteFile, useListJobNotes, useCreateJobNote, useListJobTimeEntries, useCreateJobTimeEntry, useDeleteJobTimeEntry, useUpdateJobTimeEntry, useGetJobCompletionReportByJob, useCreateAppliance, useListAppliances, type JobDetail as JobDetailType } from "@workspace/api-client-react";
 import { customFetch } from "@workspace/api-client-react";
 import { useParams, Link, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -533,6 +533,10 @@ export default function JobDetail() {
 
   const customerId = typeof jobRecord.customer_id === "string" ? jobRecord.customer_id : "";
   const propertyId = typeof jobRecord.property_id === "string" ? jobRecord.property_id : "";
+  const { data: propertyAppliances = [] } = useListAppliances(
+    { property_id: propertyId || undefined },
+    { query: { queryKey: ["/api/appliances", { property_id: propertyId || undefined }], enabled: !!propertyId } },
+  );
 
   const { data: hasYearRebookScheduled = false } = useQuery({
     queryKey: ["job-rebook-indicator", job?.id ?? id ?? "", expectedRebookDate],
@@ -613,6 +617,12 @@ export default function JobDetail() {
   if (isLoading || loadingCache) return <div className="p-8">Loading job details...</div>;
 
   if (!job) return <div>Job not found{!isOnline ? " — this job hasn't been cached for offline viewing." : ""}</div>;
+
+  const appliancesForDisplay = propertyAppliances.length > 0
+    ? propertyAppliances
+    : job.appliance
+      ? [job.appliance]
+      : [];
 
   const onAddAppliance = async (data: ApplianceCreateData) => {
     if (!propertyId) {
@@ -1653,21 +1663,28 @@ export default function JobDetail() {
                   </form>
                 )}
 
-                {job.appliance ? (
-                  <Link href={`/appliances/${job.appliance.id}`} className="block rounded-lg border border-border/50 bg-background p-4 hover:border-primary/50 hover:shadow-sm transition-colors">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Flame className="w-4 h-4 text-orange-500" />
-                      <p className="font-semibold text-foreground truncate">
-                        {[job.appliance.manufacturer, job.appliance.model].filter(Boolean).join(" ") || "Unnamed Appliance"}
-                      </p>
-                    </div>
-                    <div className="space-y-1 text-sm text-muted-foreground">
-                      <p>Type: <span className="text-foreground capitalize">{String(job.appliance.boiler_type || "n/a").replace(/_/g, " ")}</span></p>
-                      <p>Fuel: <span className="text-foreground capitalize">{String(job.appliance.fuel_type || "n/a").replace(/_/g, " ")}</span></p>
-                      {job.appliance.serial_number && <p>Serial: <span className="text-foreground font-mono">{job.appliance.serial_number}</span></p>}
-                      {job.appliance.next_service_due && <p>Next Service: <span className="text-foreground">{formatDate(job.appliance.next_service_due)}</span></p>}
-                    </div>
-                  </Link>
+                {appliancesForDisplay.length > 0 ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {appliancesForDisplay.map((appliance) => (
+                      <Link key={appliance.id} href={`/appliances/${appliance.id}`} className="block min-w-0 rounded-lg border border-border/50 bg-background p-4 hover:border-primary/50 hover:shadow-sm transition-colors">
+                        <div className="mb-2 flex min-w-0 items-center gap-2">
+                          <Flame className="w-4 h-4 shrink-0 text-orange-500" />
+                          <p className="min-w-0 flex-1 truncate font-semibold text-foreground">
+                            {[appliance.manufacturer, appliance.model].filter(Boolean).join(" ") || "Unnamed Appliance"}
+                          </p>
+                          {appliance.id === job.appliance?.id && (
+                            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Linked</span>
+                          )}
+                        </div>
+                        <div className="space-y-1 text-sm text-muted-foreground">
+                          <p>Type: <span className="text-foreground capitalize">{String(appliance.boiler_type || "n/a").replace(/_/g, " ")}</span></p>
+                          <p>Fuel: <span className="text-foreground capitalize">{String(appliance.fuel_type || "n/a").replace(/_/g, " ")}</span></p>
+                          {appliance.serial_number && <p className="break-words">Serial: <span className="text-foreground font-mono">{appliance.serial_number}</span></p>}
+                          {appliance.next_service_due && <p>Next Service: <span className="text-foreground">{formatDate(appliance.next_service_due)}</span></p>}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
                 ) : (
                   <div className="rounded-lg border border-dashed border-border bg-background/80 p-4 text-sm text-muted-foreground">
                     No appliance is linked to this job yet.
