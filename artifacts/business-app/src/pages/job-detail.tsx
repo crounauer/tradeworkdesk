@@ -705,7 +705,7 @@ export default function JobDetail() {
       <div className="flex flex-col gap-4 min-w-0 max-w-full">
         <div className="min-w-0">
           <div className="flex items-center gap-3 mb-2 flex-wrap">
-            <h1 className="text-2xl sm:text-3xl font-display font-bold truncate">{customerDisplayName} • {resolvedJobTypeLabel}</h1>
+            <h1 className="min-w-0 max-w-full flex-1 text-2xl sm:text-3xl font-display font-bold truncate">{customerDisplayName} • {resolvedJobTypeLabel}</h1>
             {hasFollowUpLabel && (
               <span className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">Follow-Up</span>
             )}
@@ -770,7 +770,7 @@ export default function JobDetail() {
             )}
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex w-full min-w-0 flex-wrap gap-2 sm:w-auto [&>a]:max-w-full [&>button]:max-w-full">
           {hasFollowUpScheduled && followUpJobId ? (
             <Link href={`/jobs/${followUpJobId}`}>
               <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white">
@@ -986,7 +986,7 @@ export default function JobDetail() {
               <div className="flex items-center gap-2 mb-1">
                 <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <Link href={`/customers/${job.customer_id}`} className="font-bold text-sm hover:underline truncate">{job.customer?.first_name} {job.customer?.last_name}</Link>
-                {job.customer?.phone && <span className="text-xs text-muted-foreground">{job.customer.phone}</span>}
+                {job.customer?.phone && <span className="max-w-[9rem] truncate text-xs text-muted-foreground">{job.customer.phone}</span>}
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -1020,8 +1020,8 @@ export default function JobDetail() {
         <div className="grid lg:grid-cols-3 gap-6 max-w-full min-w-0">
           <div className="lg:col-span-2 space-y-6 min-w-0">
             <Card className="p-4 sm:p-6 border border-border/50 shadow-sm max-w-full min-w-0">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <h3 className="font-bold text-lg">Job Information</h3>
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <h3 className="min-w-0 font-bold text-lg">Job Information</h3>
                 <Button variant="outline" size="sm" onClick={() => setEditing(!editing)}>
                   {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit Job</>}
                 </Button>
@@ -1055,7 +1055,7 @@ export default function JobDetail() {
                 </div>
                 <div className="sm:col-span-2 pt-4 border-t border-border/50">
                   <p className="text-sm text-muted-foreground mb-1">Description</p>
-                  <p className="text-foreground whitespace-pre-wrap">{job.description || 'No description provided.'}</p>
+                  <p className="text-foreground whitespace-pre-wrap break-words">{job.description || 'No description provided.'}</p>
                   {originalJobId && (
                     <Link href={`/jobs/${originalJobId}`} className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
                       <ExternalLink className="h-3.5 w-3.5" /> View Original Job

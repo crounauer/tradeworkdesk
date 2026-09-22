@@ -1,12 +1,12 @@
-import { useGetAppliance, useUpdateAppliance, useDeleteAppliance } from "@workspace/api-client-react";
+import { customFetch, useDeleteFile, useDeleteAppliance, useGetAppliance, useListFiles, useUpdateAppliance } from "@workspace/api-client-react";
 import { useParams, Link, useLocation, useSearch } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Flame, Briefcase, Edit, X, Check, Trash2 } from "lucide-react";
+import { ArrowLeft, Flame, Briefcase, Edit, X, Check, Trash2, Camera, ImagePlus } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -193,6 +193,8 @@ export default function ApplianceDetail() {
               </Card>
             )}
 
+            <AppliancePhotos applianceId={appliance.id} />
+
             {appliance.recent_jobs && appliance.recent_jobs.length > 0 && (
               <div>
                 <h2 className="text-xl font-display font-bold mb-4 flex items-center gap-2"><Briefcase className="w-5 h-5 text-purple-500" /> Service History</h2>
@@ -237,6 +239,81 @@ export default function ApplianceDetail() {
         </div>
       )}
     </div>
+  );
+}
+
+function AppliancePhotos({ applianceId }: { applianceId: string }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const { data: files, isLoading, queryKey } = useListFiles({ entity_type: "appliance", entity_id: applianceId });
+  const deleteFile = useDeleteFile();
+  const photos = (files || []).filter((file) => file.file_type?.startsWith("image/"));
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = event.target.files;
+    if (!selectedFiles?.length) return;
+
+    setUploading(true);
+    try {
+      for (const file of Array.from(selectedFiles)) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("entity_type", "appliance");
+        formData.append("entity_id", applianceId);
+        await customFetch(`${import.meta.env.BASE_URL}api/files/upload`, { method: "POST", body: formData });
+      }
+      await queryClient.refetchQueries({ queryKey });
+      toast({ title: "Photos uploaded", description: `${selectedFiles.length} photo(s) added to this appliance.` });
+    } catch (error: unknown) {
+      toast({ title: "Upload failed", description: error instanceof Error ? error.message : "Unable to upload photos", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDelete = async (fileId: string) => {
+    try {
+      await deleteFile.mutateAsync({ id: fileId });
+      await queryClient.refetchQueries({ queryKey });
+      toast({ title: "Photo deleted" });
+    } catch (error: unknown) {
+      toast({ title: "Delete failed", description: error instanceof Error ? error.message : "Unable to delete photo", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card className="p-6 border border-border/50 shadow-sm">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h3 className="font-bold text-lg flex items-center gap-2"><Camera className="w-5 h-5 text-primary" /> Appliance Photos</h3>
+        <input ref={fileInputRef} type="file" className="hidden" accept="image/*" multiple onChange={handleUpload} />
+        <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+          <ImagePlus className="w-4 h-4 mr-1" /> {uploading ? "Uploading..." : "Add Photos"}
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading photos...</p>
+      ) : photos.length === 0 ? (
+        <div className="py-6 text-center border border-dashed rounded-lg">
+          <Camera className="w-9 h-9 text-muted-foreground/40 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No photos attached to this appliance.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {photos.map((photo) => (
+            <div key={photo.id} className="relative group aspect-square overflow-hidden rounded-lg border bg-muted">
+              {photo.signed_url && <a href={photo.signed_url} target="_blank" rel="noopener noreferrer"><img src={photo.thumbnail_signed_url || photo.signed_url} alt={photo.file_name} className="w-full h-full object-cover" loading="lazy" /></a>}
+              <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-7 w-7 p-0 opacity-0 group-hover:opacity-100" onClick={() => handleDelete(photo.id)} disabled={deleteFile.isPending}>
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 

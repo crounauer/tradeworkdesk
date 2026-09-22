@@ -94,7 +94,7 @@ router.post("/appliances", requireAuth, requireTenant, async (req: Authenticated
   if (!valid) { res.status(403).json({ error: `Referenced ${failedTable} does not belong to your company.` }); return; }
 
   const payload = normalizeAppliancePayload(parsed.data);
-  const { data, error } = await supabaseAdmin.from("appliances").insert({ ...payload, tenant_id: req.tenantId }).select().single();
+  const { data, error } = await supabaseAdmin.from("appliances").insert({ ...payload, tenant_id: req.tenantId, is_active: true }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.status(201).json(data);
 });
