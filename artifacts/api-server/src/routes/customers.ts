@@ -15,6 +15,7 @@ import {
 import { z } from "zod";
 import { createPortalImpersonationSession, generateInviteToken, portalUserCache } from "./portal";
 import { isCcAdminRequested, sendPortalInviteEmail, sendSimpleNotification, type EmailCompanyDetails } from "../lib/email";
+import { COMPANY_ACCOUNT_EMAIL_ERROR, isCompanyAccountEmail } from "../lib/customer-email-policy";
 
 const router: IRouter = Router();
 
@@ -66,9 +67,35 @@ router.get("/customers", requireAuth, requireTenant, async (req: AuthenticatedRe
   res.json(ListCustomersResponse.parse(data || []));
 });
 
+router.get("/admin/customer-email-conflicts", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const [{ data: tenant }, { data: settings }] = await Promise.all([
+    supabaseAdmin.from("tenants").select("contact_email").eq("id", req.tenantId!).maybeSingle(),
+    supabaseAdmin.from("company_settings").select("email").eq("tenant_id", req.tenantId!).eq("singleton_id", "default").maybeSingle(),
+  ]);
+  const companyEmails = [...new Set([tenant?.contact_email, settings?.email]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean))];
+  if (companyEmails.length === 0) { res.json([]); return; }
+
+  const { data: customers, error } = await supabaseAdmin
+    .from("customers")
+    .select("id, first_name, last_name, email, is_active")
+    .eq("tenant_id", req.tenantId!)
+    .or(companyEmails.map((email) => `email.ilike.${email}`).join(","));
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json((customers || []).map((customer) => ({
+    ...customer,
+    conflict_email: companyEmails.find((email) => email === String(customer.email || "").trim().toLowerCase()) || null,
+  })));
+});
+
 router.post("/customers", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = CreateCustomerBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  if (await isCompanyAccountEmail(req.tenantId!, parsed.data.email)) {
+    res.status(409).json({ error: COMPANY_ACCOUNT_EMAIL_ERROR });
+    return;
+  }
 
   const { data, error } = await supabaseAdmin.from("customers").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
@@ -139,19 +166,99 @@ router.delete("/customers/:id", requireAuth, requireTenant, requireRole("admin")
   const params = DeleteCustomerParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  let q = supabaseAdmin.from("customers").update({ is_active: false }).eq("id", params.data.id);
-  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
-  const { error } = await q;
-  if (error) { res.status(500).json({ error: error.message }); return; }
+  const customerId = params.data.id;
+  const tenantId = req.tenantId!;
+  const { data: customer, error: customerError } = await supabaseAdmin
+    .from("customers")
+    .select("id, tenant_id")
+    .eq("id", customerId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (customerError) { res.status(500).json({ error: customerError.message }); return; }
+  if (!customer) { res.status(404).json({ error: "Customer not found" }); return; }
+
+  const { data: properties, error: propertiesError } = await supabaseAdmin
+    .from("properties")
+    .select("id")
+    .eq("customer_id", customerId)
+    .eq("tenant_id", tenantId);
+  if (propertiesError) { res.status(500).json({ error: propertiesError.message }); return; }
+
+  const { data: invoices, error: invoicesError } = await supabaseAdmin
+    .from("invoices")
+    .select("id")
+    .eq("customer_id", customerId)
+    .eq("tenant_id", tenantId);
+  if (invoicesError) { res.status(500).json({ error: invoicesError.message }); return; }
+
+  const { data: jobs, error: jobsError } = await supabaseAdmin
+    .from("jobs")
+    .select("id")
+    .eq("customer_id", customerId)
+    .eq("tenant_id", tenantId);
+  if (jobsError) { res.status(500).json({ error: jobsError.message }); return; }
+
+  const propertyIds = (properties || []).map((row) => row.id as string);
+  const invoiceIds = (invoices || []).map((row) => row.id as string);
+  const jobIds = (jobs || []).map((row) => row.id as string);
+
+  const deleteByIds = async (table: string, column: string, ids: string[]) => {
+    if (ids.length === 0) return;
+    const { error } = await supabaseAdmin.from(table).delete().in(column, ids).eq("tenant_id", tenantId);
+    if (error) throw new Error(`Failed to delete ${table}: ${error.message}`);
+  };
+  const deleteByCustomer = async (table: string, column = "customer_id") => {
+    const { error } = await supabaseAdmin.from(table).delete().eq(column, customerId).eq("tenant_id", tenantId);
+    if (error) throw new Error(`Failed to delete ${table}: ${error.message}`);
+  };
+
+  try {
+    // Remove restrictive customer-linked records before deleting invoices/jobs.
+    await deleteByCustomer("customer_portal_users");
+    await deleteByCustomer("customer_portal_access_requests");
+    await deleteByCustomer("maintenance_plan_subscriptions");
+    await deleteByCustomer("service_reminders");
+    await deleteByCustomer("sms_messages");
+    await deleteByCustomer("missed_call_logs");
+    await deleteByCustomer("campaign_recipients");
+    await deleteByCustomer("job_confirmation_responses");
+    await deleteByCustomer("dhw_cylinder_commissioning_records");
+    await deleteByCustomer("follow_ups");
+    const { error: invoiceReferenceError } = await supabaseAdmin
+      .from("invoices")
+      .update({ converted_to_invoice_id: null })
+      .eq("customer_id", customerId)
+      .eq("tenant_id", tenantId);
+    if (invoiceReferenceError) throw new Error(`Failed to clear invoice references: ${invoiceReferenceError.message}`);
+    await deleteByCustomer("invoices");
+    await deleteByCustomer("enquiries", "linked_customer_id");
+
+    // These records are linked through jobs/properties rather than customer_id.
+    await deleteByIds("review_requests", "job_id", jobIds);
+    await deleteByIds("review_requests", "invoice_id", invoiceIds);
+    await deleteByIds("automation_logs", "entity_id", [...jobIds, ...propertyIds, ...invoiceIds]);
+    await deleteByIds("jobs", "id", jobIds);
+    await deleteByIds("properties", "id", propertyIds);
+
+    const { error: customerDeleteError } = await supabaseAdmin
+      .from("customers")
+      .delete()
+      .eq("id", customerId)
+      .eq("tenant_id", tenantId);
+    if (customerDeleteError) throw new Error(`Failed to delete customer: ${customerDeleteError.message}`);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+    return;
+  }
 
   await insertTenantAuditLog({
-    tenantId: req.tenantId,
+    tenantId,
     actorId: req.userId,
     actorEmail: req.userEmail,
     actorRole: req.userRole,
     eventType: "customer_deleted",
     entityType: "customer",
-    entityId: params.data.id,
+    entityId: customerId,
   });
 
   res.sendStatus(204);
@@ -479,6 +586,10 @@ router.post("/customers/import", requireAuth, requireTenant, requireRole("admin"
     }
 
     const row = v.data;
+        if (await isCompanyAccountEmail(tenantId, row.email)) {
+          failed.push({ row: i + 1, reason: COMPANY_ACCOUNT_EMAIL_ERROR });
+          continue;
+        }
     let isDuplicate = false;
     if (row.email && emailSet.has(row.email.toLowerCase().trim())) {
       isDuplicate = true;

@@ -13,6 +13,7 @@ import { grantTrialUsageCredits, syncUserAddonSeats } from "../lib/tenant-limits
 import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
 import { cleanupProfileReferences } from "../lib/profile-delete-cleanup";
 import { sendTestTechnicianDailySummaryEmail } from "../lib/technician-daily-summary";
+import { COMPANY_ACCOUNT_EMAIL_ERROR } from "../lib/customer-email-policy";
 
 const router: IRouter = Router();
 
@@ -775,6 +776,23 @@ router.put("/admin/company-settings", requireAuth, requireTenant, requireRole("a
     const val = updates[colorField];
     if (val && typeof val === "string" && !/^#[0-9A-Fa-f]{6}$/.test(val)) {
       res.status(400).json({ error: `${colorField} must be a valid 6-digit hex colour (e.g. #6366f1)` });
+      return;
+    }
+  }
+
+  const companyEmail = typeof updates.email === "string" ? updates.email.trim().toLowerCase() : "";
+  if (companyEmail) {
+    const { data: conflictingCustomer, error: conflictError } = await supabaseAdmin
+      .from("customers")
+      .select("id")
+      .eq("tenant_id", req.tenantId!)
+      .eq("is_active", true)
+      .ilike("email", companyEmail)
+      .limit(1)
+      .maybeSingle();
+    if (conflictError) { res.status(500).json({ error: conflictError.message }); return; }
+    if (conflictingCustomer) {
+      res.status(409).json({ error: `${COMPANY_ACCOUNT_EMAIL_ERROR} Remove or correct the conflicting customer record first.` });
       return;
     }
   }

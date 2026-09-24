@@ -31,6 +31,7 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { createHash } from "crypto";
 import { supabaseAdmin } from "../lib/supabase";
 import { sendBookingPendingApprovalEmail, sendJobConfirmationEmail, sendEnquiryAcknowledgementEmail, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
+import { COMPANY_ACCOUNT_EMAIL_ERROR, isCompanyAccountEmail } from "../lib/customer-email-policy";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { geocodeAddress, getIdealPostcodesKey, idealPostcodesLookup, normalizeUKPostcode, calculateDistanceMiles } from "../lib/geocode";
 import { hasActiveAddon, getAddonCredits, deductAddonCredit } from "../lib/tenant-limits";
@@ -313,6 +314,9 @@ async function ensureBookingCustomerAndProperty(args: {
   }
 
   if (!customerId) {
+    if (await isCompanyAccountEmail(tenantId, email)) {
+      throw new Error(COMPANY_ACCOUNT_EMAIL_ERROR);
+    }
     const { firstName, lastName } = splitContactName(customerName);
     const { data: createdCustomer, error: customerErr } = await db.from("customers").insert({
       tenant_id: tenantId,

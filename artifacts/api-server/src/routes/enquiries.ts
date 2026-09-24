@@ -1,3 +1,4 @@
+import { COMPANY_ACCOUNT_EMAIL_ERROR, isCompanyAccountEmail } from "../lib/customer-email-policy";
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
@@ -197,6 +198,10 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     }
 
     if (!resolvedLinkedCustomerId) {
+      if (await isCompanyAccountEmail(req.tenantId, contact_email)) {
+        res.status(409).json({ error: COMPANY_ACCOUNT_EMAIL_ERROR });
+        return;
+      }
       const { first_name, last_name } = splitContactName(contact_name);
       const { data: createdCustomer, error: createdCustomerErr } = await supabaseAdmin
         .from("customers")

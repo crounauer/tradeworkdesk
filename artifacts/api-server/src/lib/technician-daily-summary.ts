@@ -326,7 +326,9 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
         continue;
       }
 
-      const targetDateRange = `and(scheduled_date.eq.${targetDate},scheduled_end_date.is.null),and(scheduled_date.lte.${targetDate},scheduled_end_date.gte.${targetDate})`;
+      // Keep the PostgREST filter simple, then apply the full date-span check below.
+      // Nested `and(...)` expressions in `.or()` are rejected by some PostgREST versions.
+      const targetDateRange = `scheduled_date.eq.${targetDate},scheduled_end_date.gte.${targetDate}`;
 
       let jobsQuery = supabaseAdmin
         .from("jobs")
@@ -349,8 +351,9 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
         continue;
       }
 
+      const matchingJobs = (jobs || []).filter((job) => jobMatchesTargetDate(job, targetDate));
       const jobsByTech = new Map<string, Array<any>>();
-      for (const job of jobs || []) {
+      for (const job of matchingJobs) {
         const key = String((job as { assigned_technician_id?: string | null }).assigned_technician_id || "");
         if (!key) continue;
         const bucket = jobsByTech.get(key) || [];
@@ -366,7 +369,7 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
         }
 
         const techJobs = tech.role === "admin" && adminScope === "company"
-          ? (jobs || [])
+          ? matchingJobs
           : jobsByTech.get(tech.id) || [];
         if (techJobs.length === 0) {
           if (!sendIfNoJobs) {

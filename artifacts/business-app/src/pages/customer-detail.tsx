@@ -231,7 +231,7 @@ export default function CustomerDetail() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete {customer.first_name} {customer.last_name}?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently remove the customer record and cannot be undone.
+                    This will permanently delete this customer and all associated jobs, invoices, quotes, properties, appliances, follow-ups, portal access, messages, and other records. Everything will be deleted and cannot be recovered.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -250,7 +250,7 @@ export default function CustomerDetail() {
                       }
                     }}
                   >
-                    {deleteMutation.isPending ? "Deleting..." : "Delete Customer"}
+                    {deleteMutation.isPending ? "Deleting Everything..." : "Delete Everything Permanently"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

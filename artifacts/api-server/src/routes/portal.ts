@@ -8,6 +8,7 @@ import { sendSimpleNotification } from "../lib/email";
 import crypto from "crypto";
 import { getPlatformSetting } from "../lib/geocode";
 import { getStripe } from "../lib/stripe";
+import { isCompanyAccountEmailForAnyTenant } from "../lib/customer-email-policy";
 
 const router: IRouter = Router();
 
@@ -442,6 +443,15 @@ router.post("/portal/request-access", async (req: CustomerPortalRequest, res): P
 
   if (!rawEmail || !/^\S+@\S+\.\S+$/.test(rawEmail)) {
     res.status(400).json({ error: "A valid email address is required" });
+    return;
+  }
+
+  // Company login emails must never be treated as customer portal identities.
+  if (await isCompanyAccountEmailForAnyTenant(rawEmail)) {
+    res.json({
+      success: true,
+      message: "If your details match our records, we have sent your request to your service provider.",
+    });
     return;
   }
 
