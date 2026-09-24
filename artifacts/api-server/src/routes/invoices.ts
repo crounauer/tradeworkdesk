@@ -901,7 +901,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
   const settings = await getCompanySettings(req.tenantId!);
   let hasRegisteredPortalAccess = false;
 
-  if (invoice.type === "invoice") {
+  if (invoice.type === "invoice" || invoice.type === "quote") {
     try {
       const { data: portalUser } = await supabaseAdmin
         .from("customer_portal_users")
@@ -977,7 +977,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       bankDetails: showBankDetails ? ((settings?.invoice_bank_details as string | null) || null) : null,
       pdfBuffer,
       hasPaymentProvider,
-      portalUrl: invoice.type === "invoice" && hasRegisteredPortalAccess
+      portalUrl: hasRegisteredPortalAccess
         ? `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`
         : null,
       extraCc: ccAdminEmails,

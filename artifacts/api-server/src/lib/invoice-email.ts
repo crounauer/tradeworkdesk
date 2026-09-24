@@ -213,7 +213,12 @@ export async function sendInvoiceDocumentEmail(opts: {
       ${worksOrderHtml}
       ${additionalTextHtml}
       ${customerNotesHtml}
-      ${!isQuote && opts.portalUrl ? opts.hasPaymentProvider ? `
+      ${opts.portalUrl ? isQuote ? `
+      <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:20px 24px;margin:20px 0;">
+        <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#065f46;">Review and accept this quote</p>
+        <p style="margin:0 0 16px;font-size:13px;color:#334155;">Open your customer portal to review the quotation and accept or decline it online.</p>
+        <a href="${escHtml(opts.portalUrl)}" style="display:inline-block;background:#059669;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 28px;border-radius:7px;">Review Quote</a>
+      </div>` : opts.hasPaymentProvider ? `
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:20px 24px;margin:20px 0;">
         <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#1e40af;">Pay Online (quickest)</p>
         <p style="margin:0 0 16px;font-size:13px;color:#334155;">Log in to your customer portal to pay by card or bank transfer.</p>

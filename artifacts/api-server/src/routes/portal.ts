@@ -1052,9 +1052,14 @@ async function handleQuoteAction(
 
   const newStatus = action === "accept" ? "accepted" : "declined";
 
+  const acceptanceTimestamp = action === "accept" ? new Date().toISOString() : null;
   const { error: updateError } = await supabaseAdmin
     .from("invoices")
-    .update({ status: newStatus, updated_at: new Date().toISOString() })
+    .update({
+      status: newStatus,
+      ...(acceptanceTimestamp ? { accepted_at: acceptanceTimestamp } : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id);
 
   if (updateError) {
