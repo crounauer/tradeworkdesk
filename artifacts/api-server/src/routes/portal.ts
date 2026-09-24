@@ -447,7 +447,7 @@ router.post("/portal/request-access", async (req: CustomerPortalRequest, res): P
 
   const { data: candidateCustomers } = await supabaseAdmin
     .from("customers")
-    .select("id, tenant_id, email, postcode, is_active")
+    .select("id, tenant_id, email, postcode, first_name, last_name, is_active")
     .eq("is_active", true)
     .ilike("email", rawEmail)
     .limit(20);
@@ -457,7 +457,7 @@ router.post("/portal/request-access", async (req: CustomerPortalRequest, res): P
     return normalizePostcode(customer.postcode) === normalizedPostcode;
   });
 
-  for (const customer of matchedCustomers as Array<{ id: string; tenant_id: string; email: string | null; postcode: string | null }>) {
+  for (const customer of matchedCustomers as Array<{ id: string; tenant_id: string; email: string | null; postcode: string | null; first_name: string | null; last_name: string | null }>) {
     const { data: existingPending } = await supabaseAdmin
       .from("customer_portal_access_requests")
       .select("id")
@@ -469,7 +469,7 @@ router.post("/portal/request-access", async (req: CustomerPortalRequest, res): P
 
     if (existingPending) continue;
 
-    await supabaseAdmin
+    const { error: insertError } = await supabaseAdmin
       .from("customer_portal_access_requests")
       .insert({
         tenant_id: customer.tenant_id,
@@ -479,6 +479,39 @@ router.post("/portal/request-access", async (req: CustomerPortalRequest, res): P
         status: "pending",
         source: "portal_login",
       });
+
+    if (insertError) continue;
+
+    try {
+      const { data: settings } = await supabaseAdmin
+        .from("company_settings")
+        .select("email, name, trading_name, notification_emails")
+        .eq("tenant_id", customer.tenant_id)
+        .eq("singleton_id", "default")
+        .maybeSingle();
+      const adminEmail = (settings as any)?.email;
+      if (adminEmail) {
+        const customerName = `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || rawEmail;
+        await sendSimpleNotification(
+          adminEmail,
+          "Customer portal access requested",
+          `${customerName} (${rawEmail}) has requested access to the customer portal.\n\nReview the pending request in TradeWorkDesk to approve or reject it.${rawPostcode ? `\n\nPostcode: ${rawPostcode}` : ""}`,
+          {
+            tenantId: customer.tenant_id,
+            emailType: "portal_access_request",
+            extraCc: Array.isArray((settings as any)?.notification_emails) ? (settings as any).notification_emails : undefined,
+            companyDetails: {
+              name: (settings as any)?.name || null,
+              trading_name: (settings as any)?.trading_name || null,
+              email: (settings as any)?.email || null,
+              notification_emails: (settings as any)?.notification_emails || null,
+            },
+          },
+        );
+      }
+    } catch (notificationError) {
+      console.error("[portal] Failed to notify company about access request:", notificationError);
+    }
   }
 
   // Always return a generic success response to avoid revealing customer/account existence.
