@@ -4,7 +4,7 @@ import { requireTenantInvoicing, bustInvoicingCache } from "../middlewares/requi
 import { supabaseAdmin } from "../lib/supabase";
 import { generateInvoicePdf, type InvoicePdfData } from "../lib/invoice-pdf";
 import { sendInvoiceDocumentEmail, sendInvoiceReminderEmail, sendPaymentReceiptEmail } from "../lib/invoice-email";
-import { isCcAdminRequested } from "../lib/email";
+import { isCcAdminRequested, sendSimpleNotification } from "../lib/email";
 import { buildInvoiceData } from "./jobs";
 import { requireStripe } from "../lib/stripe";
 import { gcRequest, GC_API_BASE } from "./gocardless";
@@ -16,6 +16,7 @@ import { triggerReviewRequestAutomation } from "../lib/review-request-service";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { amendInvoicePayment, deleteInvoicePayment, loadInvoicePayments, recordInvoicePayment } from "../lib/invoice-payments";
 import { getQuoteAdditionalText } from "../lib/quote-terms";
+import { createQuoteAcceptToken, verifyQuoteAcceptToken } from "../lib/quote-action-token";
 
 const router: IRouter = Router();
 
@@ -977,9 +978,14 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       bankDetails: showBankDetails ? ((settings?.invoice_bank_details as string | null) || null) : null,
       pdfBuffer,
       hasPaymentProvider,
-      portalUrl: hasRegisteredPortalAccess
-        ? `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`
+      acceptQuoteUrl: isQuote
+        ? `${(process.env.APP_URL || "https://tradeworkdesk.co.uk").replace(/\/+$/, "")}/api/public/quotes/accept?token=${encodeURIComponent(createQuoteAcceptToken(req.tenantId!, String(invoice.id)))}&return=1`
         : null,
+      portalUrl: isQuote
+        ? `${(process.env.APP_URL || "https://tradeworkdesk.co.uk").replace(/\/+$/, "")}/portal/login`
+        : hasRegisteredPortalAccess
+          ? `${process.env.APP_URL || "https://tradeworkdesk.co.uk"}/portal/invoices`
+          : null,
       extraCc: ccAdminEmails,
       company: settings ? {
         name: settings.name,
@@ -1691,6 +1697,71 @@ router.delete("/invoices/:id/payments/:paymentId", ...protect, async (req: Authe
 
 // ─── ACCEPT QUOTE ──────────────────────────────────────────────────────────
 // POST /invoices/:id/accept
+router.get("/public/quotes/accept", async (req, res): Promise<void> => {
+  const token = typeof req.query.token === "string" ? req.query.token : "";
+  const claims = verifyQuoteAcceptToken(token);
+  if (!claims) {
+    res.status(400).type("html").send("<h1>Invalid or expired quote link</h1><p>Please contact the company for a new quotation link.</p>");
+    return;
+  }
+
+  const { data: quote, error: lookupErr } = await supabaseAdmin
+    .from("invoices")
+    .select("id, type, status, invoice_number, total, currency, customer_id, tenant_id")
+    .eq("id", claims.quoteId)
+    .eq("tenant_id", claims.tenantId)
+    .eq("type", "quote")
+    .maybeSingle();
+
+  if (lookupErr || !quote) {
+    res.status(404).type("html").send("<h1>Quote not found</h1><p>Please contact the company for assistance.</p>");
+    return;
+  }
+  if (quote.status === "accepted") {
+    res.type("html").send("<h1>Quote already accepted</h1><p>Thank you. The company has been notified.</p>");
+    return;
+  }
+  if (quote.status !== "sent") {
+    res.status(400).type("html").send("<h1>Quote cannot be accepted</h1><p>This quote is no longer available for acceptance.</p>");
+    return;
+  }
+
+  const acceptedAt = new Date().toISOString();
+  const { error: updateError } = await supabaseAdmin
+    .from("invoices")
+    .update({ status: "accepted", accepted_at: acceptedAt, updated_at: acceptedAt })
+    .eq("id", claims.quoteId)
+    .eq("tenant_id", claims.tenantId)
+    .eq("status", "sent");
+
+  if (updateError) {
+    res.status(500).type("html").send("<h1>Unable to accept quote</h1><p>Please try again or contact the company.</p>");
+    return;
+  }
+
+  try {
+    const [{ data: settings }, { data: customer }] = await Promise.all([
+      supabaseAdmin.from("company_settings").select("email, name, trading_name").eq("tenant_id", claims.tenantId).eq("singleton_id", "default").maybeSingle(),
+      supabaseAdmin.from("customers").select("first_name, last_name").eq("id", quote.customer_id).maybeSingle(),
+    ]);
+    const companyEmail = (settings as any)?.email;
+    if (companyEmail) {
+      const customerName = customer ? `${customer.first_name} ${customer.last_name}`.trim() : "A customer";
+      const amount = new Intl.NumberFormat("en-GB", { style: "currency", currency: quote.currency || "GBP" }).format(Number(quote.total));
+      await sendSimpleNotification(
+        companyEmail,
+        `Quote ${quote.invoice_number} Accepted by Customer`,
+        `${customerName} has accepted quote ${quote.invoice_number} for ${amount}.\n\nLog in to TradeWorkDesk to view the quote.`,
+        { tenantId: claims.tenantId, emailType: "quote_status_notification", companyDetails: { name: (settings as any)?.name || null, trading_name: (settings as any)?.trading_name || null, email: (settings as any)?.email || null } },
+      );
+    }
+  } catch {
+    // Acceptance remains successful if the notification cannot be delivered.
+  }
+
+  res.type("html").send("<h1>Quote accepted</h1><p>Thank you. The company has been notified.</p>");
+});
+
 router.post("/invoices/:id/accept", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { data: invoice, error: lookupErr } = await verifyInvoiceOwnership(req.params.id, req.tenantId!);
   if (lookupErr || !invoice) { res.status(404).json({ error: lookupErr || "Invoice not found" }); return; }
@@ -1707,6 +1778,37 @@ router.post("/invoices/:id/accept", ...protect, async (req: AuthenticatedRequest
   const { data: updated, error } = await supabaseAdmin
     .from("invoices")
     .update({ status: "accepted", accepted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", req.params.id)
+    .eq("tenant_id", req.tenantId!)
+    .select()
+    .single();
+
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(updated);
+});
+
+// ─── REVERT ACCEPTED QUOTE ─────────────────────────────────────────────────
+// POST /invoices/:id/revert-to-sent
+router.post("/invoices/:id/revert-to-sent", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { data: invoice, error: lookupErr } = await verifyInvoiceOwnership(req.params.id, req.tenantId!);
+  if (lookupErr || !invoice) { res.status(404).json({ error: lookupErr || "Invoice not found" }); return; }
+
+  if (invoice.type !== "quote") {
+    res.status(400).json({ error: "Only quotes can be reverted" });
+    return;
+  }
+  if (invoice.status !== "accepted") {
+    res.status(400).json({ error: "Only accepted quotes can be reverted to sent" });
+    return;
+  }
+  if (invoice.converted_to_invoice_id) {
+    res.status(400).json({ error: "Converted quotes cannot be reverted to sent" });
+    return;
+  }
+
+  const { data: updated, error } = await supabaseAdmin
+    .from("invoices")
+    .update({ status: "sent", accepted_at: null, updated_at: new Date().toISOString() })
     .eq("id", req.params.id)
     .eq("tenant_id", req.tenantId!)
     .select()

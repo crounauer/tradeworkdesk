@@ -44,6 +44,7 @@ import {
   useAmendInvoicePayment,
   useDeleteInvoicePayment,
   useAcceptQuote,
+  useRevertQuoteToSent,
   useDeclineQuote,
   useConvertToInvoice,
   type InvoiceLineItem,
@@ -362,6 +363,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const amendPaymentMut = useAmendInvoicePayment(id);
   const deletePaymentMut = useDeleteInvoicePayment(id);
   const acceptMut = useAcceptQuote(id);
+  const revertQuoteMut = useRevertQuoteToSent(id);
   const declineMut = useDeclineQuote(id);
   const convertMut = useConvertToInvoice(id);
 
@@ -627,6 +629,15 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
     }
   }
 
+  async function handleRevertQuoteToSent() {
+    try {
+      await revertQuoteMut.mutateAsync();
+      toast({ title: "Quote reverted to sent" });
+    } catch (e) {
+      toast({ title: "Failed", description: (e as Error).message, variant: "destructive" });
+    }
+  }
+
   async function handleConvert() {
     try {
       const newInv = await convertMut.mutateAsync();
@@ -799,6 +810,12 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           {!isInvoice && invoice.status === "accepted" && (
             <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={handleDecline} disabled={declineMut.isPending}>
               <XCircle className="w-4 h-4 mr-2" /> Mark as Declined
+            </Button>
+          )}
+          {!isInvoice && invoice.status === "accepted" && !invoice.converted_to_invoice_id && (
+            <Button variant="outline" onClick={handleRevertQuoteToSent} disabled={revertQuoteMut.isPending}>
+              {revertQuoteMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCcw className="w-4 h-4 mr-2" />}
+              Revert to Sent
             </Button>
           )}
           <Button variant="outline" onClick={downloadPdf} disabled={downloadingPdf}>

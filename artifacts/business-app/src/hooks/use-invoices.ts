@@ -367,6 +367,18 @@ export function useAcceptQuote(id: string) {
   });
 }
 
+export function useRevertQuoteToSent(id: string) {
+  const qc = useQueryClient();
+  return useMutation<Invoice, Error, void>({
+    mutationFn: () =>
+      apiFetch<Invoice>(`/api/invoices/${id}/revert-to-sent`, { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: invoiceKeys.all });
+    },
+  });
+}
+
 export function useDeclineQuote(id: string) {
   const qc = useQueryClient();
   return useMutation<Invoice, Error, void>({

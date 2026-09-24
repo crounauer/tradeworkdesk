@@ -63,6 +63,7 @@ export async function sendInvoiceDocumentEmail(opts: {
   bankDetails?: string | null;
   pdfBuffer: Buffer;
   company?: EmailCompanyDetails;
+  acceptQuoteUrl?: string | null;
   portalUrl?: string | null;
   hasPaymentProvider?: boolean;
   extraCc?: string[] | null;
@@ -213,12 +214,12 @@ export async function sendInvoiceDocumentEmail(opts: {
       ${worksOrderHtml}
       ${additionalTextHtml}
       ${customerNotesHtml}
-      ${opts.portalUrl ? isQuote ? `
+      ${isQuote && opts.acceptQuoteUrl ? `
       <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:20px 24px;margin:20px 0;">
-        <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#065f46;">Review and accept this quote</p>
-        <p style="margin:0 0 16px;font-size:13px;color:#334155;">Open your customer portal to review the quotation and accept or decline it online.</p>
-        <a href="${escHtml(opts.portalUrl)}" style="display:inline-block;background:#059669;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 28px;border-radius:7px;">Review Quote</a>
-      </div>` : opts.hasPaymentProvider ? `
+        <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#065f46;">Accept this quote</p>
+        <p style="margin:0 0 16px;font-size:13px;color:#334155;">Click below to accept the quotation and confirm the booking.</p>
+        <a href="${escHtml(opts.acceptQuoteUrl)}" style="display:inline-block;background:#059669;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 28px;border-radius:7px;">Accept Quote</a>
+      </div>` : !isQuote && opts.portalUrl ? opts.hasPaymentProvider ? `
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:20px 24px;margin:20px 0;">
         <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#1e40af;">Pay Online (quickest)</p>
         <p style="margin:0 0 16px;font-size:13px;color:#334155;">Log in to your customer portal to pay by card or bank transfer.</p>
@@ -228,6 +229,10 @@ export async function sendInvoiceDocumentEmail(opts: {
         <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#334155;">View Invoice Online</p>
         <p style="margin:0 0 16px;font-size:13px;color:#64748b;">Log in to your customer portal to view your invoice and service history.</p>
         <a href="${escHtml(opts.portalUrl)}" style="display:inline-block;background:#475569;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 28px;border-radius:7px;">View Invoice</a>
+      </div>` : isQuote && opts.portalUrl ? `
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin:20px 0;">
+        <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#334155;">Want to view your quotes, jobs and invoices?</p>
+        <a href="${escHtml(opts.portalUrl)}" style="color:#1d4ed8;font-weight:700;text-decoration:none;">Open Customer Portal</a>
       </div>` : ""}
       ${bankDetailsHtml ? `<p style="margin:16px 0 8px;font-size:14px;color:#475569;"><strong>${isQuote ? "Pay your deposit" : (opts.hasPaymentProvider ? "Or pay" : "Pay")} by bank transfer</strong> using the details below:</p>${bankDetailsHtml}` : ""}
       <p>If you have any questions, please don't hesitate to get in touch.</p>
