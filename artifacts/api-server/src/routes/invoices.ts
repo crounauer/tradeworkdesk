@@ -51,8 +51,8 @@ function sendQuoteActionPage(
 
   res.status(statusCode).type("html").send(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} | ${escapeHtml(companyName)}</title></head>
-<body style="margin:0;min-height:100vh;background:#f5f7fb;color:#172033;font-family:Arial,sans-serif;display:grid;place-items:center;padding:20px;box-sizing:border-box;">
-  <main style="width:min(100%,380px);background:#fff;border:1px solid #e4e8f0;border-radius:12px;padding:28px 24px;text-align:center;box-shadow:0 8px 24px rgba(20,35,60,.08);box-sizing:border-box;">
+<body style="margin:0;background:#f5f7fb;color:#172033;font-family:Arial,sans-serif;padding:24px;box-sizing:border-box;">
+  <main style="width:min(100%,380px);margin:0 auto;background:#fff;border:1px solid #e4e8f0;border-radius:12px;padding:28px 24px;text-align:center;box-shadow:0 8px 24px rgba(20,35,60,.08);box-sizing:border-box;">
     ${logo}
     <div style="width:42px;height:42px;margin:0 auto 14px;border-radius:50%;background:${primaryColor};color:#fff;font-size:20px;line-height:42px;font-weight:700;">${statusCode < 400 ? "OK" : "!"}</div>
     <h1 style="font-size:20px;line-height:1.25;margin:0 0 8px;color:#172033;">${escapeHtml(title)}</h1>
