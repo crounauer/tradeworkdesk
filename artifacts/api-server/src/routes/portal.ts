@@ -1119,12 +1119,13 @@ async function handleQuoteAction(
     const companyName = (cs as any)?.name || (cs as any)?.trading_name || "Your company";
     const customerName = customer ? `${customer.first_name} ${customer.last_name}`.trim() : "A customer";
     const amount = new Intl.NumberFormat("en-GB", { style: "currency", currency: (invoice as any).currency || "GBP" }).format(Number((invoice as any).total));
+    const quoteUrl = `${(process.env.APP_URL || "https://tradeworkdesk.co.uk").replace(/\/+$/, "")}/invoices/${(invoice as any).id}`;
 
     if (companyEmail) {
       await sendSimpleNotification(
         companyEmail,
         `Quote ${(invoice as any).invoice_number} ${action === "accept" ? "Accepted" : "Declined"} by Customer`,
-        `${customerName} has ${action === "accept" ? "accepted" : "declined"} quote ${(invoice as any).invoice_number} for ${amount}.\n\nLog in to TradeWorkDesk to view the quote.`,
+        `${customerName} has ${action === "accept" ? "accepted" : "declined"} quote ${(invoice as any).invoice_number} for ${amount}.\n\nOpen the quote in TradeWorkDesk to continue: ${quoteUrl}`,
         {
           tenantId: req.tenantId,
           emailType: "quote_status_notification",

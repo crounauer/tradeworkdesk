@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
 import { requireTenantInvoicing, bustInvoicingCache } from "../middlewares/require-tenant-invoicing";
 import { supabaseAdmin } from "../lib/supabase";
@@ -23,6 +23,42 @@ const router: IRouter = Router();
 function toSingleParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] || "";
   return value || "";
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function sendQuoteActionPage(
+  res: Response,
+  statusCode: number,
+  title: string,
+  message: string,
+  branding?: { companyName?: unknown; logoUrl?: unknown; primaryColor?: unknown },
+): void {
+  const companyName = String(branding?.companyName || "TradeWorkDesk");
+  const logoUrl = String(branding?.logoUrl || "");
+  const configuredColor = String(branding?.primaryColor || "");
+  const primaryColor = /^#[0-9a-fA-F]{6}$/.test(configuredColor) ? configuredColor : "#2563eb";
+  const logo = logoUrl
+    ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(companyName)}" style="max-width:150px;max-height:42px;object-fit:contain;margin-bottom:16px;" />`
+    : `<div style="font-size:18px;font-weight:800;color:${primaryColor};margin-bottom:16px;">${escapeHtml(companyName)}</div>`;
+
+  res.status(statusCode).type("html").send(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} | ${escapeHtml(companyName)}</title></head>
+<body style="margin:0;min-height:100vh;background:#f5f7fb;color:#172033;font-family:Arial,sans-serif;display:grid;place-items:center;padding:20px;box-sizing:border-box;">
+  <main style="width:min(100%,380px);background:#fff;border:1px solid #e4e8f0;border-radius:12px;padding:28px 24px;text-align:center;box-shadow:0 8px 24px rgba(20,35,60,.08);box-sizing:border-box;">
+    ${logo}
+    <div style="width:42px;height:42px;margin:0 auto 14px;border-radius:50%;background:${primaryColor};color:#fff;font-size:20px;line-height:42px;font-weight:700;">${statusCode < 400 ? "OK" : "!"}</div>
+    <h1 style="font-size:20px;line-height:1.25;margin:0 0 8px;color:#172033;">${escapeHtml(title)}</h1>
+    <p style="font-size:14px;line-height:1.5;margin:0;color:#667085;">${escapeHtml(message)}</p>
+  </main>
+</body></html>`);
 }
 
 // ─── Auth middleware chain shared by all invoice endpoints ───────────────────
@@ -859,7 +895,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
   const ccAdminEmails: string[] | undefined = isCcAdminRequested(req.body.cc_admin) && req.userEmail ? [req.userEmail] : undefined;
   const { data: customer } = await supabaseAdmin
     .from("customers")
-    .select("business_name, first_name, last_name, email")
+    .select("business_name, first_name, last_name, email, phone")
     .eq("id", invoice.customer_id as string)
     .maybeSingle();
 
@@ -1026,6 +1062,31 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
     .single();
 
   if (updateErr) { res.status(500).json({ error: updateErr.message }); return; }
+
+  if (invoice.type === "invoice" && customer?.email && invoice.job_id) {
+    const { data: activeFollowUps, error: followUpErr } = await supabaseAdmin
+      .from("follow_ups")
+      .select("id, status")
+      .eq("original_job_id", invoice.job_id as string)
+      .eq("tenant_id", req.tenantId!)
+      .not("status", "in", "(completed,cancelled)");
+
+    if (followUpErr) {
+      console.error("[review-requests] Failed to check follow-ups before scheduling:", followUpErr.message);
+    } else if (!activeFollowUps?.length) {
+      void triggerReviewRequestAutomation({
+        tenantId: req.tenantId!,
+        event: "invoice.sent",
+        entityId: toSingleParam(req.params.id),
+        entityType: "invoice",
+        metadata: {
+          customer_name: getCustomerDisplayName(customer, "Customer"),
+          customer_email: customer.email,
+          customer_phone: customer.phone || null,
+        },
+      }).catch((err) => console.error("[review-requests] Failed to schedule invoice-sent review request:", err));
+    }
+  }
 
   // ── Create Stripe Checkout Session if tenant has Connect account ────────
   // Only for invoices (not quotes) with a positive balance
@@ -1701,7 +1762,7 @@ router.get("/public/quotes/accept", async (req, res): Promise<void> => {
   const token = typeof req.query.token === "string" ? req.query.token : "";
   const claims = verifyQuoteAcceptToken(token);
   if (!claims) {
-    res.status(400).type("html").send("<h1>Invalid or expired quote link</h1><p>Please contact the company for a new quotation link.</p>");
+    sendQuoteActionPage(res, 400, "Invalid or expired link", "Please contact the company for a new quotation link.");
     return;
   }
 
@@ -1714,15 +1775,26 @@ router.get("/public/quotes/accept", async (req, res): Promise<void> => {
     .maybeSingle();
 
   if (lookupErr || !quote) {
-    res.status(404).type("html").send("<h1>Quote not found</h1><p>Please contact the company for assistance.</p>");
+    sendQuoteActionPage(res, 404, "Quote not found", "Please contact the company for assistance.");
     return;
   }
+  const { data: quoteBranding } = await supabaseAdmin
+    .from("company_settings")
+    .select("name, trading_name, logo_url, primary_color")
+    .eq("tenant_id", claims.tenantId)
+    .eq("singleton_id", "default")
+    .maybeSingle();
+  const branding = {
+    companyName: (quoteBranding as any)?.name || (quoteBranding as any)?.trading_name,
+    logoUrl: (quoteBranding as any)?.logo_url,
+    primaryColor: (quoteBranding as any)?.primary_color,
+  };
   if (quote.status === "accepted") {
-    res.type("html").send("<h1>Quote already accepted</h1><p>Thank you. The company has been notified.</p>");
+    sendQuoteActionPage(res, 200, "Quote already accepted", "Thank you. The company has been notified.", branding);
     return;
   }
   if (quote.status !== "sent") {
-    res.status(400).type("html").send("<h1>Quote cannot be accepted</h1><p>This quote is no longer available for acceptance.</p>");
+    sendQuoteActionPage(res, 400, "Quote unavailable", "This quote is no longer available for acceptance.", branding);
     return;
   }
 
@@ -1735,7 +1807,7 @@ router.get("/public/quotes/accept", async (req, res): Promise<void> => {
     .eq("status", "sent");
 
   if (updateError) {
-    res.status(500).type("html").send("<h1>Unable to accept quote</h1><p>Please try again or contact the company.</p>");
+    sendQuoteActionPage(res, 500, "Unable to accept quote", "Please try again or contact the company.", branding);
     return;
   }
 
@@ -1748,10 +1820,11 @@ router.get("/public/quotes/accept", async (req, res): Promise<void> => {
     if (companyEmail) {
       const customerName = customer ? `${customer.first_name} ${customer.last_name}`.trim() : "A customer";
       const amount = new Intl.NumberFormat("en-GB", { style: "currency", currency: quote.currency || "GBP" }).format(Number(quote.total));
+      const quoteUrl = `${(process.env.APP_URL || "https://tradeworkdesk.co.uk").replace(/\/+$/, "")}/invoices/${quote.id}`;
       await sendSimpleNotification(
         companyEmail,
         `Quote ${quote.invoice_number} Accepted by Customer`,
-        `${customerName} has accepted quote ${quote.invoice_number} for ${amount}.\n\nLog in to TradeWorkDesk to view the quote.`,
+        `${customerName} has accepted quote ${quote.invoice_number} for ${amount}.\n\nOpen the quote in TradeWorkDesk to continue: ${quoteUrl}`,
         { tenantId: claims.tenantId, emailType: "quote_status_notification", companyDetails: { name: (settings as any)?.name || null, trading_name: (settings as any)?.trading_name || null, email: (settings as any)?.email || null } },
       );
     }
@@ -1759,7 +1832,7 @@ router.get("/public/quotes/accept", async (req, res): Promise<void> => {
     // Acceptance remains successful if the notification cannot be delivered.
   }
 
-  res.type("html").send("<h1>Quote accepted</h1><p>Thank you. The company has been notified.</p>");
+  sendQuoteActionPage(res, 200, "Quote accepted", "Thank you. The company has been notified.", branding);
 });
 
 router.post("/invoices/:id/accept", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {

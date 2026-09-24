@@ -10,7 +10,7 @@ type ReviewRequestRow = {
   customer_name: string;
   customer_email: string | null;
   customer_phone: string | null;
-  trigger_type: "job_completed" | "invoice_paid" | "manual";
+  trigger_type: "job_completed" | "invoice_sent" | "invoice_paid" | "manual";
   job_id: string | null;
   invoice_id: string | null;
   status: "pending" | "sent" | "opened" | "clicked" | "failed" | "suppressed";
@@ -326,7 +326,7 @@ export async function triggerReviewRequestAutomation(input: TriggerReviewRequest
   const { tenantId, event, entityId, entityType, metadata } = input;
   const logs: TriggerReviewRequestResult = [];
 
-  if (event === "job.completed" || event === "invoice.paid") {
+  if (event === "job.completed" || event === "invoice.sent" || event === "invoice.paid") {
     const { data: settings } = await supabaseAdmin
       .from("review_request_settings")
       .select("*")
@@ -337,6 +337,7 @@ export async function triggerReviewRequestAutomation(input: TriggerReviewRequest
       const triggerOn = settings.trigger_on;
       const matches =
         (triggerOn === "job_completed" && event === "job.completed") ||
+        (triggerOn === "invoice_sent" && event === "invoice.sent") ||
         (triggerOn === "invoice_paid" && event === "invoice.paid");
 
       if (matches && metadata?.customer_email) {

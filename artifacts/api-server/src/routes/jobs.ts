@@ -31,7 +31,6 @@ import { isCcAdminRequested, sendJobFormsEmail, sendJobConfirmationEmail, sendSi
 import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 import { invalidateCalendarCache } from "./calendar";
 import { invalidateHomepageCache } from "./homepage";
-import { triggerReviewRequestAutomation } from "../lib/review-request-service";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
 
@@ -1781,34 +1780,6 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   invalidateJobsCache(req.tenantId);
   invalidateCalendarCache(req.tenantId);
   invalidateHomepageCache(req.tenantId);
-
-  if (
-    req.tenantId
-    && body.data.status === "completed"
-    && previousJobMeta?.status !== "completed"
-    && previousJobMeta?.customer_id
-  ) {
-    const { data: customer } = await supabaseAdmin
-      .from("customers")
-      .select("first_name, last_name, email, phone")
-      .eq("id", previousJobMeta.customer_id)
-      .eq("tenant_id", req.tenantId)
-      .maybeSingle();
-
-    if (customer?.email) {
-      void triggerReviewRequestAutomation({
-        tenantId: req.tenantId,
-        event: "job.completed",
-        entityId: params.data.id,
-        entityType: "job",
-        metadata: {
-          customer_name: `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "Customer",
-          customer_email: customer.email,
-          customer_phone: customer.phone || null,
-        },
-      }).catch((err) => console.error("[review-requests] Failed to schedule job completion review request:", err));
-    }
-  }
 
   const updatedJob = data as {
     id: string;
