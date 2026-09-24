@@ -938,7 +938,7 @@ router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: Customer
     company_footer_text: isQuote ? (quoteFooterText || invoiceFooterText) : invoiceFooterText,
     company_bank_details: showBankDetails ? ((cs as any)?.invoice_bank_details || null) : null,
     company_additional_text: isQuote
-      ? getQuoteAdditionalText((cs as any)?.quote_additional_text)
+      ? getQuoteAdditionalText((cs as any)?.quote_additional_text, paymentTermsDays)
       : ((cs as any)?.invoice_additional_text || null),
     company_rates_url: showRatesUrl ? ((cs as any)?.rates_url || null) : null,
     company_trading_terms_url: showTradingTermsUrl ? ((cs as any)?.trading_terms_url || null) : null,

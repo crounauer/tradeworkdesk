@@ -276,7 +276,7 @@ async function buildPdfData(
   const invoiceFooterText = (settings?.invoice_footer_text as string | null) || null;
   const quoteFooterText = (settings?.quote_footer_text as string | null) || null;
   const invoiceAdditionalText = (settings?.invoice_additional_text as string | null) || null;
-  const quoteAdditionalText = getQuoteAdditionalText(settings?.quote_additional_text);
+  const quoteAdditionalText = getQuoteAdditionalText(settings?.quote_additional_text, paymentTermsDays);
   const showBankDetails = isQuote
     ? (settings?.show_bank_details_on_quotes as boolean | null) !== false
     : (settings?.show_bank_details_on_invoices as boolean | null) !== false;
@@ -1008,7 +1008,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       expiryDate: pdfData.expiry_date,
       customerNotes: invoice.customer_notes as string | null,
       additionalText: isQuote
-        ? getQuoteAdditionalText(settings?.quote_additional_text)
+        ? getQuoteAdditionalText(settings?.quote_additional_text, pdfData.payment_terms_days)
         : ((settings?.invoice_additional_text as string | null) || null),
       worksOrder: invoice.works_order as string | null,
       bankDetails: showBankDetails ? ((settings?.invoice_bank_details as string | null) || null) : null,
