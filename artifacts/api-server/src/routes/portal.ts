@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import type { Request, Response, NextFunction } from "express";
 import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 import { generateInvoicePdf } from "../lib/invoice-pdf";
+import { getQuoteAdditionalText } from "../lib/quote-terms";
 import { sendSimpleNotification } from "../lib/email";
 import crypto from "crypto";
 import { getPlatformSetting } from "../lib/geocode";
@@ -904,7 +905,7 @@ router.get("/portal/invoices/:id/pdf", requireCustomerAuth, async (req: Customer
     company_footer_text: isQuote ? (quoteFooterText || invoiceFooterText) : invoiceFooterText,
     company_bank_details: showBankDetails ? ((cs as any)?.invoice_bank_details || null) : null,
     company_additional_text: isQuote
-      ? ((cs as any)?.quote_additional_text || null)
+      ? getQuoteAdditionalText((cs as any)?.quote_additional_text)
       : ((cs as any)?.invoice_additional_text || null),
     company_rates_url: showRatesUrl ? ((cs as any)?.rates_url || null) : null,
     company_trading_terms_url: showTradingTermsUrl ? ((cs as any)?.trading_terms_url || null) : null,

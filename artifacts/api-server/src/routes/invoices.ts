@@ -15,6 +15,7 @@ import { getPlatformSetting } from "../lib/geocode";
 import { triggerReviewRequestAutomation } from "../lib/review-request-service";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { amendInvoicePayment, deleteInvoicePayment, loadInvoicePayments, recordInvoicePayment } from "../lib/invoice-payments";
+import { getQuoteAdditionalText } from "../lib/quote-terms";
 
 const router: IRouter = Router();
 
@@ -238,7 +239,7 @@ async function buildPdfData(
   const invoiceFooterText = (settings?.invoice_footer_text as string | null) || null;
   const quoteFooterText = (settings?.quote_footer_text as string | null) || null;
   const invoiceAdditionalText = (settings?.invoice_additional_text as string | null) || null;
-  const quoteAdditionalText = (settings?.quote_additional_text as string | null) || null;
+  const quoteAdditionalText = getQuoteAdditionalText(settings?.quote_additional_text);
   const showBankDetails = isQuote
     ? (settings?.show_bank_details_on_quotes as boolean | null) !== false
     : (settings?.show_bank_details_on_invoices as boolean | null) !== false;
@@ -970,7 +971,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
       expiryDate: pdfData.expiry_date,
       customerNotes: invoice.customer_notes as string | null,
       additionalText: isQuote
-        ? ((settings?.quote_additional_text as string | null) || null)
+        ? getQuoteAdditionalText(settings?.quote_additional_text)
         : ((settings?.invoice_additional_text as string | null) || null),
       worksOrder: invoice.works_order as string | null,
       bankDetails: showBankDetails ? ((settings?.invoice_bank_details as string | null) || null) : null,
