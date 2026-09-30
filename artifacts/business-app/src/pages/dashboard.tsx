@@ -430,6 +430,40 @@ export default function Dashboard() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <AddToHomeScreen />
 
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 pb-1">
+        <h1 className="flex-1 text-3xl font-display font-bold text-foreground">Dashboard</h1>
+        <div className="flex flex-nowrap sm:flex-wrap gap-2">
+          {canCreateInvoices && (
+            <Button size="sm" variant="outline" className="flex-1 sm:flex-none px-2 sm:px-3 gap-1.5" onClick={() => setShowQuickInvoice("quote")}>
+              <FileText className="hidden sm:inline w-4 h-4" />
+              <span className="sm:hidden">+ Qte</span>
+              <span className="hidden sm:inline">+ Quote</span>
+            </Button>
+          )}
+          {canCreateInvoices && (
+            <Button size="sm" variant="outline" className="flex-1 sm:flex-none px-2 sm:px-3 gap-1.5" onClick={() => setShowQuickInvoice("invoice")}>
+              <Receipt className="hidden sm:inline w-4 h-4" />
+              <span className="sm:hidden">+ Inv</span>
+              <span className="hidden sm:inline">+ Invoice</span>
+            </Button>
+          )}
+          {canCreateJobs && (
+            <Button size="sm" variant="outline" className="flex-1 sm:flex-none px-2 sm:px-3 gap-1.5" onClick={() => { setQuickDate(undefined); setShowAddEnquiry(true); }}>
+              <MessageSquarePlus className="hidden sm:inline w-4 h-4" />
+              <span className="sm:hidden">+ Enq</span>
+              <span className="hidden sm:inline">Add Enquiry</span>
+            </Button>
+          )}
+          {canCreateJobs && (
+            <Button size="sm" className="flex-1 sm:flex-none px-2 sm:px-3 gap-1.5" onClick={() => handleBookJob()}>
+              <Plus className="hidden sm:inline w-4 h-4" />
+              <span className="sm:hidden">+ Job</span>
+              <span className="hidden sm:inline">Book Job</span>
+            </Button>
+          )}
+        </div>
+      </div>
+
       {showEssentialSetupCard && (
         <Card className="p-4 border-emerald-200 bg-emerald-50/60">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -455,35 +489,6 @@ export default function Dashboard() {
           </div>
         </a>
       )}
-
-      <div className="flex flex-col sm:flex-row sm:items-center gap-5 pb-2">
-        <div className="flex-1">
-          <h1 className="text-3xl font-display font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Here's what's happening today.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canCreateInvoices && (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowQuickInvoice("quote")}>
-              <FileText className="w-4 h-4" /> + Quote
-            </Button>
-          )}
-          {canCreateInvoices && (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowQuickInvoice("invoice")}>
-              <Receipt className="w-4 h-4" /> + Invoice
-            </Button>
-          )}
-          {canCreateJobs && (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setQuickDate(undefined); setShowAddEnquiry(true); }}>
-              <MessageSquarePlus className="w-4 h-4" /> Add Enquiry
-            </Button>
-          )}
-          {canCreateJobs && (
-            <Button size="sm" className="gap-1.5" onClick={() => handleBookJob()}>
-              <Plus className="w-4 h-4" /> Book Job
-            </Button>
-          )}
-        </div>
-      </div>
 
       {/* Stats */}
       {hasJobManagement && (
