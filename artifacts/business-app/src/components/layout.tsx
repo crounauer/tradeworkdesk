@@ -557,7 +557,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <main className="flex-1 md:ml-64 pt-16 md:pt-0 pb-16 md:pb-0 min-h-screen flex flex-col min-w-0 w-full max-w-full">
+      <main className="flex-1 md:ml-64 pt-16 md:pt-0 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0 min-h-screen flex flex-col min-w-0 w-full max-w-full">
         <OfflineBanner />
 
         {/* ── Global header bar ───────────────────────────────────────────── */}
@@ -729,31 +729,33 @@ export function Layout({ children }: { children: ReactNode }) {
       </main>
 
       {/* ── Mobile bottom navigation (app-style) ─────────────────────────── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border flex items-stretch justify-around h-16 pb-[env(safe-area-inset-bottom)]">
-        {mobileBottomNavItems.map((item) => {
-          const isActive = item.href === "/"
-            ? location === "/"
-            : location === item.href || location.startsWith(item.href + "/");
-          return (
-            <Link key={item.href} href={item.href} className={cn(
-              "flex flex-col items-center justify-center gap-0.5 flex-1 text-[11px] font-medium transition-colors",
-              isActive ? "text-primary" : "text-muted-foreground"
-            )}>
-              <item.icon className="w-5 h-5" />
-              <span className="truncate max-w-full px-1">{item.label}</span>
-            </Link>
-          );
-        })}
-        <button
-          onClick={() => setIsMobileMenuOpen(true)}
-          className={cn(
-            "flex flex-col items-center justify-center gap-0.5 flex-1 text-[11px] font-medium transition-colors",
-            isMobileMenuOpen ? "text-primary" : "text-muted-foreground"
-          )}
-        >
-          <Menu className="w-5 h-5" />
-          <span>More</span>
-        </button>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-stretch justify-around h-16">
+          {mobileBottomNavItems.map((item) => {
+            const isActive = item.href === "/"
+              ? location === "/"
+              : location === item.href || location.startsWith(item.href + "/");
+            return (
+              <Link key={item.href} href={item.href} className={cn(
+                "flex flex-col items-center justify-center gap-1 flex-1 min-w-0 text-[11px] font-medium transition-colors",
+                isActive ? "text-primary" : "text-muted-foreground"
+              )}>
+                <item.icon className="w-5 h-5 shrink-0" />
+                <span className="truncate max-w-full">{item.label}</span>
+              </Link>
+            );
+          })}
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 flex-1 min-w-0 text-[11px] font-medium transition-colors",
+              isMobileMenuOpen ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            <Menu className="w-5 h-5 shrink-0" />
+            <span>More</span>
+          </button>
+        </div>
       </nav>
     </div>
   );
