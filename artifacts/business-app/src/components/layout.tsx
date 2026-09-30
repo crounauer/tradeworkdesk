@@ -230,6 +230,18 @@ export function Layout({ children }: { children: ReactNode }) {
     ? superuserTopMenuItems
     : topMenuItems;
 
+  // ── Mobile bottom navigation (app-style) ──────────────────────────────────
+  const mobilePrimaryHrefs = isSuperAdmin
+    ? ["/platform", "/platform/tenants", "/platform/support-tickets", "/platform/plans"]
+    : ["/", "/schedule", "/jobs", "/customers"];
+  const mobileNavSource = isSuperAdmin ? platformNavItems : workNavItems;
+  const mobileBottomNavItems = (() => {
+    const picked = mobilePrimaryHrefs
+      .map((href) => mobileNavSource.find((i) => i.href === href))
+      .filter(Boolean) as Array<{ href: string; label: string; icon: React.ElementType }>;
+    return (picked.length > 0 ? picked : mobileNavSource).slice(0, 4) as Array<{ href: string; label: string; icon: React.ElementType }>;
+  })();
+
   const openEnquiryCount = enquiryCountData?.count || 0;
   const canSeeOnlineBookings = hasJobManagement && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
   const { data: pendingOnlineBookings = 0 } = useQuery<number>({
@@ -493,14 +505,17 @@ export function Layout({ children }: { children: ReactNode }) {
             </span>
           )}
         </div>
-        <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </Button>
       </div>
 
       {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-background pt-16 overflow-y-auto">
-          <div className="p-4 pb-16 space-y-2">
+        <div className="md:hidden fixed inset-0 z-[60] bg-background overflow-y-auto">
+          <div className="sticky top-0 z-10 flex items-center justify-between px-4 h-16 border-b border-border bg-card">
+            <span className="text-lg font-bold tracking-tight text-foreground">Menu</span>
+            <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
+              <X className="w-6 h-6" />
+            </Button>
+          </div>
+          <div className="p-4 pb-24 space-y-2">
             {(!isSuperAdmin || isCommunitySupportMode) && workNavItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false), true))}
             {(!isSuperAdmin || isCommunitySupportMode) && websiteNavItems.length > 0 && renderSection("My Website", websiteNavItems, () => setIsMobileMenuOpen(false), true)}
             {(!isSuperAdmin || isCommunitySupportMode) && blocksNavItems.length > 0 && renderSection("Blocks", blocksNavItems, () => setIsMobileMenuOpen(false), true)}
@@ -542,7 +557,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen flex flex-col min-w-0 w-full max-w-full">
+      <main className="flex-1 md:ml-64 pt-16 md:pt-0 pb-16 md:pb-0 min-h-screen flex flex-col min-w-0 w-full max-w-full">
         <OfflineBanner />
 
         {/* ── Global header bar ───────────────────────────────────────────── */}
@@ -712,6 +727,34 @@ export function Layout({ children }: { children: ReactNode }) {
           ) : children}
         </div>
       </main>
+
+      {/* ── Mobile bottom navigation (app-style) ─────────────────────────── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border flex items-stretch justify-around h-16 pb-[env(safe-area-inset-bottom)]">
+        {mobileBottomNavItems.map((item) => {
+          const isActive = item.href === "/"
+            ? location === "/"
+            : location === item.href || location.startsWith(item.href + "/");
+          return (
+            <Link key={item.href} href={item.href} className={cn(
+              "flex flex-col items-center justify-center gap-0.5 flex-1 text-[11px] font-medium transition-colors",
+              isActive ? "text-primary" : "text-muted-foreground"
+            )}>
+              <item.icon className="w-5 h-5" />
+              <span className="truncate max-w-full px-1">{item.label}</span>
+            </Link>
+          );
+        })}
+        <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          className={cn(
+            "flex flex-col items-center justify-center gap-0.5 flex-1 text-[11px] font-medium transition-colors",
+            isMobileMenuOpen ? "text-primary" : "text-muted-foreground"
+          )}
+        >
+          <Menu className="w-5 h-5" />
+          <span>More</span>
+        </button>
+      </nav>
     </div>
   );
 }
