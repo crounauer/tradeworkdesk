@@ -730,14 +730,14 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* ── Mobile bottom navigation (app-style) ─────────────────────────── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]">
-        <div className="flex items-stretch justify-around h-16">
+        <div className="flex items-stretch justify-around h-16 pt-2">
           {mobileBottomNavItems.map((item) => {
             const isActive = item.href === "/"
               ? location === "/"
               : location === item.href || location.startsWith(item.href + "/");
             return (
               <Link key={item.href} href={item.href} className={cn(
-                "flex flex-col items-center justify-center gap-1 flex-1 min-w-0 text-[11px] font-medium transition-colors",
+                "flex flex-col items-center gap-1 flex-1 min-w-0 text-[11px] font-medium transition-colors",
                 isActive ? "text-primary" : "text-muted-foreground"
               )}>
                 <item.icon className="w-5 h-5 shrink-0" />
@@ -748,7 +748,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <button
             onClick={() => setIsMobileMenuOpen(true)}
             className={cn(
-              "flex flex-col items-center justify-center gap-1 flex-1 min-w-0 text-[11px] font-medium transition-colors",
+              "flex flex-col items-center gap-1 flex-1 min-w-0 text-[11px] font-medium transition-colors",
               isMobileMenuOpen ? "text-primary" : "text-muted-foreground"
             )}
           >
