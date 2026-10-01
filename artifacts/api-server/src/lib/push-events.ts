@@ -245,17 +245,22 @@ async function shouldDispatchByEventKey(
 ): Promise<boolean> {
   if (!eventKey) return true;
 
-  const { error } = await supabaseAdmin
+  // ON CONFLICT DO NOTHING: a returned row means we inserted (first dispatch);
+  // no row means the event_key already existed, so skip without a 23505 error.
+  const { data, error } = await supabaseAdmin
     .from("push_notification_dispatch_log")
-    .insert({
-      tenant_id: tenantId,
-      user_id: userId,
-      event_type: eventType,
-      event_key: eventKey,
-    });
+    .upsert(
+      {
+        tenant_id: tenantId,
+        user_id: userId,
+        event_type: eventType,
+        event_key: eventKey,
+      },
+      { onConflict: "tenant_id,user_id,event_key", ignoreDuplicates: true }
+    )
+    .select("id");
 
-  if (!error) return true;
-  if ((error as { code?: string }).code === "23505") return false;
+  if (!error) return (data?.length ?? 0) > 0;
 
   console.error("[push-events] Failed to write dispatch log:", error.message);
   return false;

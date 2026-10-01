@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 import { GetDashboardResponse } from "@workspace/api-zod";
+import { businessToday, addBusinessDays } from "../lib/business-date";
 
 const DASHBOARD_JOB_FIELDS = "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, status, priority, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, description, notes, is_active, created_at, updated_at, customers(first_name, last_name), properties(address_line1), profiles(full_name)";
 
@@ -91,9 +92,9 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
   const { tenantId, userId, userRole, cacheKey } = params;
   const t0 = Date.now();
 
-  const today     = new Date().toISOString().split("T")[0];
-  const weekAgo   = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
-  const weekAhead = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
+  const today     = businessToday();
+  const weekAgo   = addBusinessDays(today, -7);
+  const weekAhead = addBusinessDays(today, 7);
 
   const techFilter = userRole === "technician" ? userId : undefined;
 
