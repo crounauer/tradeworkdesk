@@ -43,6 +43,14 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
   const footerDescription = readFooterString(footerProps, ["description"], tagline || "");
   const footerPhone = readFooterString(footerProps, ["phone"], company?.phone || "");
   const footerEmail = readFooterString(footerProps, ["email"], company?.email || "");
+  const footerServiceArea = (() => {
+    const explicit = String(company?.service_area || "").trim();
+    if (explicit) return explicit;
+    const place = [company?.city, company?.county].map((v) => String(v || "").trim()).filter(Boolean).join(", ");
+    if (!place) return "";
+    const radius = company?.coverage_radius_miles;
+    return typeof radius === "number" && radius > 0 ? `${place} & surrounding areas within ${radius} miles` : place;
+  })();
   const rawLayoutVariant = readFooterString(footerProps, ["layout_variant", "layout"], String(theme.footer_layout_variant || theme.footer_layout || "four-column")).toLowerCase();
   const footerVariant = readFooterString(footerProps, ["variant"], "default").toLowerCase();
   const footerTone = readFooterString(footerProps, ["tone"], "default").toLowerCase();
@@ -238,13 +246,12 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
     const servicesLinks = navItems.length > 0
       ? navItems.slice(0, 7)
       : [
-          { label: "Leak Repair", href: "/services" },
-          { label: "Taps & Mixers", href: "/services" },
-          { label: "Toilets", href: "/services" },
-          { label: "Showers", href: "/services" },
-          { label: "Pipework", href: "/services" },
-          { label: "Radiators", href: "/services" },
-          { label: "Emergency Plumbing", href: "/emergency" },
+          { label: "Repairs", href: "/services" },
+          { label: "Servicing", href: "/services" },
+          { label: "Installations", href: "/services" },
+          { label: "Maintenance", href: "/services" },
+          { label: "Free Quotes", href: "/contact" },
+          { label: "Emergency Call-Outs", href: "/emergency" },
         ];
     const quickLinks = navItems.length > 0
       ? navItems
@@ -383,11 +390,7 @@ export default function SiteFooter({ siteName, company, socialLinks, theme, temp
               ) : null}
               <li style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                 <span style={{ color: accentColor }} aria-hidden="true">📍</span>
-                <span>Reading, Berkshire &amp; surrounding areas within 20 miles</span>
-              </li>
-              <li style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                <span style={{ color: accentColor }} aria-hidden="true">🕒</span>
-                <span>Mon-Sat 7am-8pm<br />Emergency cover 24/7</span>
+                <span>{footerServiceArea || "Local & surrounding areas"}</span>
               </li>
             </ul>
           </div>

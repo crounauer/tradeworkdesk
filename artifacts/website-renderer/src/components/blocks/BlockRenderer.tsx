@@ -53,13 +53,25 @@ type BlockRenderContext = {
   page?: SitePage;
 };
 
+/** Build the "serving X and the surrounding area" phrase from the tenant's real location. */
+function buildFallbackCityText(
+  company?: { city?: string | null; service_area?: string | null; county?: string | null } | null,
+): string {
+  const titleCase = (value: string) =>
+    value.replace(/\b[A-Z]{2,}\b/g, (word) => word.charAt(0) + word.slice(1).toLowerCase());
+  const primary = (company?.city || company?.service_area || company?.county || "").trim();
+  if (!primary) return "the local area";
+  return `${titleCase(primary)} and the surrounding area`;
+}
+
 function buildLocalPlumbingFallback(
   blockType: string,
   pageSlug: string | undefined,
   phone: string | undefined,
   email: string | undefined,
+  cityText: string,
+  includeSampleTestimonials: boolean,
 ): Record<string, unknown> | null {
-  const cityText = "Reading and the surrounding area";
 
   switch (blockType) {
     case "hero":
@@ -67,7 +79,7 @@ function buildLocalPlumbingFallback(
       if (pageSlug?.replace(/^\/+/, "") === "contact") {
         return {
           eyebrow: "Contact",
-          title: "Get in touch about plumbing or heating work",
+          title: "Get in touch about your enquiry",
           subtitle: "A focused contact page with phone, email, opening hours and enquiry form placement.",
           primaryCtaLabel: "Send an enquiry",
           primaryCtaHref: "#contact",
@@ -84,8 +96,8 @@ function buildLocalPlumbingFallback(
         };
       }
       return {
-        title: "Reliable Local Plumbing Services",
-        subtitle: `Honest, fast and fully insured plumbers serving ${cityText}. Free quotes, 12-month guarantee.`,
+        title: "Reliable Local Home Services",
+        subtitle: `Honest, fast and fully insured professionals serving ${cityText}. Free quotes, 12-month guarantee.`,
         primaryCtaLabel: phone ? `Call Now: ${phone}` : "Call Now",
         primaryCtaHref: phone ? `tel:${phone.replace(/\s+/g, "")}` : "#contact",
         secondaryCtaLabel: "Request a Quote",
@@ -128,7 +140,7 @@ function buildLocalPlumbingFallback(
     case "services":
     case "services_grid":
       return {
-        heading: "Plumbing Services We Cover",
+        heading: "Services We Cover",
         label: "What We Do",
         subheading: "From emergency call-outs to planned installations, delivered by trusted local professionals.",
         section_bg: "#ffffff",
@@ -138,16 +150,16 @@ function buildLocalPlumbingFallback(
         border_color: "rgba(26, 58, 107, 0.12)",
         accent_color: "#00a8a8",
         services: [
-          { title: "Emergency Plumbing", description: "Urgent leaks, burst pipes and no-water faults resolved quickly.", href: "/services" },
-          { title: "Boiler Repairs", description: "Fast diagnostics and repairs for boiler and heating issues.", href: "/services" },
-          { title: "Bathroom Plumbing", description: "Installations, upgrades and fixes for baths, showers and toilets.", href: "/services" },
+          { title: "Emergency Call-Outs", description: "Urgent faults and breakdowns resolved quickly.", href: "/services" },
+          { title: "Repairs & Servicing", description: "Fast diagnostics, repairs and routine servicing.", href: "/services" },
+          { title: "Installations & Upgrades", description: "New installations, replacements and upgrades.", href: "/services" },
         ],
       };
     case "service_rates":
       return {
         eyebrow: "Rates",
         title: "Typical Service Rates",
-        subtitle: "Clear starting prices for common plumbing jobs.",
+        subtitle: "Clear starting prices for common jobs.",
         variation: "cards",
         note: "Final quote depends on access, complexity and parts required.",
         rates: [],
@@ -181,11 +193,16 @@ function buildLocalPlumbingFallback(
         body_color: "#5a6a7e",
         border_color: "rgba(26, 58, 107, 0.12)",
         star_color: "#f59e0b",
-        testimonials: [
-          { author_name: "Sarah M.", location: "Reading", rating: 5, body: "Fast response, tidy work and very fair pricing." },
-          { author_name: "James T.", location: "Caversham", rating: 5, body: "Excellent communication and the issue was fixed first visit." },
-          { author_name: "Priya L.", location: "Tilehurst", rating: 5, body: "Professional team, great advice and no hidden costs." },
-        ],
+        // Sample reviews are demo-only — never fabricate testimonials on a live site.
+        ...(includeSampleTestimonials
+          ? {
+              testimonials: [
+                { author_name: "Sarah M.", location: "Reading", rating: 5, body: "Fast response, tidy work and very fair pricing." },
+                { author_name: "James T.", location: "Caversham", rating: 5, body: "Excellent communication and the issue was fixed first visit." },
+                { author_name: "Priya L.", location: "Tilehurst", rating: 5, body: "Professional team, great advice and no hidden costs." },
+              ],
+            }
+          : {}),
       };
     case "trust_badges":
     case "accreditations":
@@ -205,7 +222,7 @@ function buildLocalPlumbingFallback(
     case "cta":
     case "cta_band":
       return {
-        heading: "Need Plumbing Help Today?",
+        heading: "Need Help Today?",
         subheading: "Call now for fast local support or request a free quote online.",
         cta_text: phone ? `Call Now: ${phone}` : "Call Now",
         cta_url: phone ? `tel:${phone.replace(/\s+/g, "")}` : "#contact",
@@ -481,7 +498,14 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
 
   const fallbackContent =
     templateSlug === "local-plumbing-pro"
-      ? buildLocalPlumbingFallback(normalizedType, page?.slug, companyContact?.phone ?? undefined, companyContact?.email ?? undefined)
+      ? buildLocalPlumbingFallback(
+          normalizedType,
+          page?.slug,
+          companyContact?.phone ?? undefined,
+          companyContact?.email ?? undefined,
+          buildFallbackCityText(site?.company),
+          showFallback === true,
+        )
       : null;
 
   const content = {
@@ -520,7 +544,6 @@ export default function BlockRenderer({ block, websiteId, theme, tenantId, compa
                   { title: "2-Hour Emergency", icon: "⚡" },
                   { title: "Free Quotes", icon: "✓" },
                   { title: "12-Month Guarantee", icon: "◎" },
-                  { title: "Mon-Sat 7am-8pm", icon: "◷" },
                 ]),
         }
       : {}),
