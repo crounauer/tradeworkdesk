@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, type FormEvent } from "react";
+import { Fragment, useState, useRef, useEffect, type FormEvent } from "react";
 import { submitForm, submitWebsiteForm, uploadFormPhotos, lookupWebsitePostcode, type PostcodeAddress } from "@/lib/api";
 import { isModernTemplateContent } from "@/lib/siteTheme";
 
@@ -196,6 +196,7 @@ export default function ContactFormBlock({ content }: Props) {
   const [lookupResults, setLookupResults] = useState<PostcodeAddress[]>([]);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookupAvailable, setLookupAvailable] = useState(true);
+  const [manualAddressVisible, setManualAddressVisible] = useState(false);
 
   const turnstileSiteKey =
     (typeof content.turnstile_site_key === "string" && content.turnstile_site_key.trim())
@@ -225,6 +226,10 @@ export default function ContactFormBlock({ content }: Props) {
       { name: "postcode", label: "Postcode", type: "text" },
     ];
   })();
+  const addressFieldNames = new Set(["address", "address_line1", "address_line2", "city", "town", "county", "postcode"]);
+  const firstAddressField = renderedFields.find((field) => addressFieldNames.has(field.name))?.name;
+  const showLookup = collectAddress && Boolean(websiteId) && lookupAvailable;
+  const showAddressFields = !showLookup || manualAddressVisible;
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selectedFiles = Array.from(e.target.files ?? []);
@@ -245,6 +250,11 @@ export default function ContactFormBlock({ content }: Props) {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const formEl = e.currentTarget as HTMLFormElement;
+    if (!showAddressFields && renderedFields.some((field) => addressFieldNames.has(field.name) && field.required && !values[field.name]?.trim())) {
+      setManualAddressVisible(true);
+      setError("Please find your address or enter the required address details manually.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
@@ -294,15 +304,18 @@ export default function ContactFormBlock({ content }: Props) {
 
   async function handlePostcodeLookup() {
     const pc = lookupPostcode.trim();
-    if (!pc || !websiteId) return;
+    if (!pc || !websiteId) {
+      setLookupError("Enter a postcode to find your address.");
+      return;
+    }
     setLookupLoading(true);
     setLookupError(null);
     setLookupResults([]);
     const { addresses, error, available } = await lookupWebsitePostcode(websiteId, pc);
     setLookupLoading(false);
     if (!available) {
-      // Tenant isn't entitled to address lookup — hide the widget, keep manual entry.
       setLookupAvailable(false);
+      setLookupError("Address lookup is unavailable. Please enter your address manually.");
       return;
     }
     if (error || addresses.length === 0) {
@@ -314,7 +327,18 @@ export default function ContactFormBlock({ content }: Props) {
 
   function applyLookupAddress(a: PostcodeAddress) {
     const line1 = [a.line_1, a.line_2].filter(Boolean).join(", ");
-    setValues((prev) => ({ ...prev, address_line1: line1, city: a.post_town || "", postcode: a.postcode || "" }));
+    const addressName = renderedFields.some((field) => field.name === "address_line1") ? "address_line1" : "address";
+    const cityName = renderedFields.some((field) => field.name === "city") ? "city" : "town";
+    const separateLine2 = renderedFields.some((field) => field.name === "address_line2");
+    setValues((prev) => ({
+      ...prev,
+      [addressName]: separateLine2 ? a.line_1 || "" : line1,
+      ...(separateLine2 ? { address_line2: a.line_2 || "" } : {}),
+      [cityName]: a.post_town || "",
+      county: a.county || "",
+      postcode: a.postcode || "",
+    }));
+    setManualAddressVisible(true);
     setLookupResults([]);
   }
 
@@ -395,13 +419,19 @@ export default function ContactFormBlock({ content }: Props) {
                   onChange={(e) => setHoneypot(e.target.value)}
                 />
               </div>
-              {collectAddress && websiteId && lookupAvailable && (
+              {renderedFields.map((field) => (
+                <Fragment key={field.name}>
+              {field.name === firstAddressField && lookupError && !lookupAvailable && (
+                <p role="status" style={{ color: bodyColor, marginBottom: 12 }}>{lookupError}</p>
+              )}
+              {field.name === firstAddressField && showLookup && (
                 <div style={{ marginBottom: 18, padding: 12, border: `1px dashed ${borderColor}`, borderRadius: 6 }}>
-                  <label style={{ display: "block", fontWeight: 600, marginBottom: 6, fontSize: "0.9rem", color: headingColor, fontFamily: bodyFont }}>
+                  <label htmlFor="cf-lookup-postcode" style={{ display: "block", fontWeight: 600, marginBottom: 6, fontSize: "0.9rem", color: headingColor, fontFamily: bodyFont }}>
                     Find your address by postcode <span style={{ fontWeight: 400, color: bodyColor }}>(optional)</span>
                   </label>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input
+                      id="cf-lookup-postcode"
                       type="text"
                       value={lookupPostcode}
                       onChange={(e) => setLookupPostcode(e.target.value)}
@@ -422,17 +452,26 @@ export default function ContactFormBlock({ content }: Props) {
                   {lookupResults.length > 0 && (
                     <select
                       defaultValue=""
-                      onChange={(e) => { const idx = Number(e.target.value); if (!Number.isNaN(idx) && lookupResults[idx]) applyLookupAddress(lookupResults[idx]); }}
+                      onChange={(e) => { if (!e.target.value) return; const idx = Number(e.target.value); if (lookupResults[idx]) applyLookupAddress(lookupResults[idx]); }}
                       style={{ width: "100%", marginTop: 8, padding: "10px 12px", border: `1px solid ${borderColor}`, borderRadius: 6, fontSize: "0.9375rem", backgroundColor: "#fff", color: headingColor, fontFamily: bodyFont }}
                     >
                       <option value="">Select your address ({lookupResults.length} found)…</option>
                       {lookupResults.map((a, i) => <option key={i} value={i}>{a.display}</option>)}
                     </select>
                   )}
+                  {!manualAddressVisible && (
+                    <button
+                      type="button"
+                      onClick={() => setManualAddressVisible(true)}
+                      style={{ marginTop: 10, padding: 0, border: "none", background: "none", color: headingColor, textDecoration: "underline", cursor: "pointer", fontFamily: bodyFont }}
+                    >
+                      Enter address manually
+                    </button>
+                  )}
                 </div>
               )}
-              {renderedFields.map((field) => (
-                <div key={field.name} style={{ marginBottom: 18 }}>
+              {(!addressFieldNames.has(field.name) || showAddressFields) && (
+                <div style={{ marginBottom: 18 }}>
                   <label htmlFor={field.name} style={{ display: "block", fontWeight: 600, marginBottom: 6, fontSize: "0.9rem", color: headingColor, fontFamily: bodyFont }}>
                     {field.label}{field.required && <span style={{ color: "#ef4444", marginLeft: 4 }}>*</span>}
                   </label>
@@ -470,6 +509,8 @@ export default function ContactFormBlock({ content }: Props) {
                     />
                   )}
                 </div>
+              )}
+                </Fragment>
               ))}
 
               {/* Photo upload (optional, controlled by allow_photos prop) */}
