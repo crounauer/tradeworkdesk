@@ -15,9 +15,26 @@ export async function generateMetadata(): Promise<Metadata> {
   const site = await getSiteByDomain(domain);
   if (!site) return {};
 
+  const blogPage = site.pages.find(
+    (p) => p.page_type === "blog" || p.slug === "blog" || p.slug === "/blog"
+  );
+
+  const title = blogPage?.meta_title || `Blog | ${site.website.site_name}`;
+  const description = blogPage?.meta_description || buildBlogDescription(site);
+  const canonicalUrl = blogPage?.canonical_url || `https://${domain}/blog`;
+
   return {
-    title: `Blog | ${site.website.site_name}`,
-    description: buildBlogDescription(site),
+    title,
+    description,
+    alternates: { canonical: canonicalUrl },
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      siteName: site.website.site_name,
+      images: blogPage?.og_image_url ? [blogPage.og_image_url] : [],
+    },
+    robots: blogPage?.no_index ? { index: false } : undefined,
   };
 }
 

@@ -18,9 +18,11 @@ export async function generateMetadata(): Promise<Metadata> {
   if (!site) return {};
 
   const { website } = site;
-  const title = website.default_meta_title || website.site_name;
-  const description = buildDefaultSiteDescription(site);
-  const canonicalUrl = `https://${domain}`;
+  const homePage = site.pages.find((p) => p.page_type === "home" || p.slug === "/") || site.pages[0];
+
+  const title = homePage?.meta_title || website.default_meta_title || website.site_name;
+  const description = homePage?.meta_description || buildDefaultSiteDescription(site);
+  const canonicalUrl = homePage?.canonical_url || `https://${domain}`;
 
   return {
     title,
@@ -32,9 +34,10 @@ export async function generateMetadata(): Promise<Metadata> {
       url: canonicalUrl,
       type: "website",
       siteName: website.site_name,
-      images: [],
+      images: homePage?.og_image_url ? [homePage.og_image_url] : [],
     },
     icons: website.favicon_url ? { icon: website.favicon_url } : undefined,
+    robots: homePage?.no_index ? { index: false } : undefined,
   };
 }
 
