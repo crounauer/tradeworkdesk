@@ -408,13 +408,16 @@ export default function ContactFormBlock({ content }: Props) {
             {!hasSplit && subheading && <p style={{ color: bodyColor, marginBottom: 24, fontFamily: bodyFont }}>{subheading}</p>}
             <form onSubmit={handleSubmit}>
               <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", top: "auto", width: 1, height: 1, overflow: "hidden" }}>
-                <label htmlFor="cf-company-url">Company website (leave blank)</label>
+                <label htmlFor="cf-contact-ref">Leave this field empty</label>
                 <input
-                  id="cf-company-url"
+                  id="cf-contact-ref"
                   type="text"
-                  name="company_url"
+                  name="cf_contact_ref"
                   tabIndex={-1}
                   autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-form-type="other"
                   value={honeypot}
                   onChange={(e) => setHoneypot(e.target.value)}
                 />
