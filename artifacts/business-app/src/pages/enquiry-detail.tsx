@@ -11,13 +11,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useCompanySettings } from "@/hooks/use-company-settings";
+import { SmsSendDialog } from "@/components/sms-send-dialog";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { createJobType } from "@/lib/create-job-type";
 import {
   ArrowLeft, Phone, Mail, MapPin, MessageSquare, Send,
   Briefcase, Clock, Edit, Check, X, Trash2,
   Camera, ImagePlus, Loader2, ChevronLeft, ChevronRight, Paperclip,
-  FileText, Receipt, ChevronDown
+  FileText, Receipt, ChevronDown, ShieldBan
 } from "lucide-react";
 import { useCreateInvoice } from "@/hooks/use-invoices";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -44,6 +45,13 @@ const PRIORITY_COLORS: Record<string, string> = {
   medium: "bg-blue-100 text-blue-700",
   high: "bg-amber-100 text-amber-700",
   urgent: "bg-red-100 text-red-700",
+};
+
+const EMAIL_TYPE_LABELS: Record<string, string> = {
+  enquiry_customer_message: "Message to customer",
+  enquiry_acknowledgement: "Enquiry acknowledgement",
+  enquiry_not_proceeding: "Not proceeding",
+  general: "Email",
 };
 
 function formatEnquiryAddress(enquiry: Record<string, unknown>): string {
@@ -378,6 +386,8 @@ function EnquiryDetailContent() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { profile } = useAuth();
+  const { hasAddon, isLoading: featuresLoading } = usePlanFeatures();
+  const smsEnabled = !featuresLoading && hasAddon("sms_messaging");
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [noteText, setNoteText] = useState("");
@@ -386,6 +396,14 @@ function EnquiryDetailContent() {
   const [showNotProceedingEmail, setShowNotProceedingEmail] = useState(false);
   const [ccAdminOnNotProceeding, setCcAdminOnNotProceeding] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
+  const [showSendEmail, setShowSendEmail] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [ccAdminOnEmail, setCcAdminOnEmail] = useState(false);
+  const [emailAttachmentIds, setEmailAttachmentIds] = useState<string[]>([]);
+  const [blockingSender, setBlockingSender] = useState(false);
+  const [showSms, setShowSms] = useState(false);
   const createInvoiceMut = useCreateInvoice();
 
   async function handleCreateInvoiceOrQuote(type: "invoice" | "quote") {
@@ -461,6 +479,53 @@ function EnquiryDetailContent() {
       const res = await fetch(`/api/files?entity_type=enquiry&entity_id=${id}`);
       if (!res.ok) return [];
       return res.json();
+    },
+  });
+
+  const { data: sentEmails = [] } = useQuery<Array<Record<string, unknown>>>({
+    queryKey: ["enquiry-emails", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/enquiries/${id}/emails`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: coverage } = useQuery<Record<string, unknown>>({
+    queryKey: ["enquiry-coverage", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/enquiries/${id}/coverage`);
+      if (!res.ok) return {};
+      return res.json();
+    },
+  });
+
+  const { data: replies = [] } = useQuery<Array<Record<string, unknown>>>({
+    queryKey: ["enquiry-replies", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/enquiries/${id}/replies`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: smsMessages = [], error: smsError } = useQuery<Array<{
+    id: string;
+    destination: string;
+    content: string;
+    status: string;
+    created_at: string;
+  }>>({
+    queryKey: ["enquiry-sms", id],
+    enabled: smsEnabled && !!id,
+    queryFn: async () => {
+      const res = await fetch(`/api/sms/messages?enquiry_id=${id}&limit=100`);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to load SMS history");
+      }
+      const result = await res.json();
+      return result.data;
     },
   });
 
@@ -606,6 +671,76 @@ function EnquiryDetailContent() {
     }
   };
 
+  const openSendEmail = () => {
+    const companyName = String(companySettings?.trading_name || companySettings?.name || "").trim();
+    setEmailSubject(`Re: your enquiry${companyName ? ` — ${companyName}` : ""}`);
+    setEmailBody("");
+    setCcAdminOnEmail(false);
+    setEmailAttachmentIds([]);
+    setShowSendEmail(true);
+  };
+
+  const handleSendCustomerEmail = async () => {
+    const email = String(enquiry?.contact_email || "").trim();
+    if (!email) {
+      toast({ title: "No email address", description: "This enquiry has no customer email address.", variant: "destructive" });
+      return;
+    }
+    if (!emailSubject.trim() || !emailBody.trim()) {
+      toast({ title: "Missing details", description: "Enter both a subject and a message.", variant: "destructive" });
+      return;
+    }
+    setSendingEmail(true);
+    try {
+      const res = await fetch(`/api/enquiries/${id}/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject: emailSubject.trim(), body: emailBody.trim(), cc_admin: ccAdminOnEmail, attachment_file_ids: emailAttachmentIds }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to send email");
+      }
+      qc.invalidateQueries({ queryKey: ["enquiry-emails", id] });
+      toast({ title: "Email sent", description: `Your message was sent to ${email}.` });
+      setShowSendEmail(false);
+    } catch (error) {
+      toast({ title: "Email failed", description: error instanceof Error ? error.message : "Failed to send email", variant: "destructive" });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const handleBlockSender = async (scope: "email" | "domain") => {
+    const email = String(enquiry?.contact_email || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      toast({ title: "No email", description: "This enquiry has no email address to block.", variant: "destructive" });
+      return;
+    }
+    const value = scope === "domain" ? email.split("@")[1] : email;
+    if (!confirm(scope === "domain"
+      ? `Block all enquiries from the domain "${value}"? Future website submissions from this domain will be discarded.`
+      : `Block "${value}" from submitting your website form? Future submissions will be discarded.`)) return;
+    setBlockingSender(true);
+    try {
+      const res = await fetch("/api/form-blocklist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: scope, value, note: `Blocked from enquiry ${String(enquiry?.id || "").slice(0, 8)}` }),
+      });
+      if (!res.ok && res.status !== 409) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to block sender");
+      }
+      qc.invalidateQueries({ queryKey: ["form-blocklist"] });
+      toast({ title: res.status === 409 ? "Already blocked" : "Sender blocked", description: `${value} is on your spam filter.` });
+    } catch (error) {
+      toast({ title: "Failed", description: error instanceof Error ? error.message : "Failed to block sender", variant: "destructive" });
+    } finally {
+      setBlockingSender(false);
+    }
+  };
+
   if (isLoading) return <div className="p-8">Loading enquiry...</div>;
   if (!enquiry) return <div className="p-8">Enquiry not found</div>;
 
@@ -628,6 +763,91 @@ function EnquiryDetailContent() {
   const notProceedingBody = replaceTemplateVariables(
     notProceedingTemplate?.body || "Dear {{customer_name}},\n\nThank you for your enquiry with {{company_name}}.\n\nWe understand this enquiry is not going ahead with us at this time, but we appreciate you getting in touch. We would be happy to help with any other work in the future.\n\nAll the best with your initial enquiry.\n\nKind regards,\n{{company_name}}",
   );
+
+  const composeTemplateOptions = [
+    {
+      key: "acknowledgement",
+      label: "Enquiry acknowledgement",
+      subject: replaceTemplateVariables(companySettings?.email_templates?.enquiry_acknowledgement?.subject || "We have received your enquiry — {{company_name}}"),
+      body: replaceTemplateVariables(companySettings?.email_templates?.enquiry_acknowledgement?.body || "Dear {{customer_name}},\n\nThank you for contacting {{company_name}}. We have received your enquiry and a member of our team will be in touch shortly.\n\nKind regards,\n{{company_name}}"),
+    },
+    {
+      key: "quote_followup",
+      label: "Quote follow-up",
+      subject: replaceTemplateVariables("Your quote from {{company_name}}"),
+      body: replaceTemplateVariables("Dear {{customer_name}},\n\nThank you for your enquiry. Based on the details you provided, please see our quote below:\n\n[Add quote details here]\n\nIf you would like to go ahead, or have any questions, just reply to this email.\n\nKind regards,\n{{company_name}}"),
+    },
+    {
+      key: "booking_confirmation",
+      label: "Booking confirmation",
+      subject: replaceTemplateVariables("Your booking with {{company_name}}"),
+      body: replaceTemplateVariables("Dear {{customer_name}},\n\nThank you — your booking is confirmed for [date/time].\n\nIf you need to change anything, please reply to this email.\n\nKind regards,\n{{company_name}}"),
+    },
+    {
+      key: "not_proceeding",
+      label: "Not proceeding",
+      subject: notProceedingSubject,
+      body: notProceedingBody,
+    },
+  ];
+
+  const emailStatusBadge = (status: string): { label: string; cls: string } => {
+    const s = String(status || "").toLowerCase();
+    if (s === "delivered") return { label: "Delivered", cls: "bg-emerald-100 text-emerald-700" };
+    if (s === "bounced") return { label: "Bounced", cls: "bg-red-100 text-red-700" };
+    if (s === "failed") return { label: "Failed", cls: "bg-red-100 text-red-700" };
+    if (s === "complained") return { label: "Spam report", cls: "bg-orange-100 text-orange-700" };
+    return { label: "Sent", cls: "bg-blue-100 text-blue-700" };
+  };
+
+  const conversation = [
+    ...sentEmails.map((em) => ({
+      id: `sent-${String(em.id)}`,
+      direction: "out" as const,
+      at: String(em.created_at || ""),
+      who: String(em.to_email || ""),
+      label: EMAIL_TYPE_LABELS[String(em.email_type)] || "Email",
+      subject: String(em.subject || ""),
+      body: "",
+      status: String(em.status || ""),
+      error: ["failed", "bounced", "complained"].includes(String(em.status)) ? String(em.error_message || "") : "",
+    })),
+    ...replies.map((rep) => ({
+      id: `reply-${String(rep.id)}`,
+      direction: "in" as const,
+      at: String(rep.received_at || rep.created_at || ""),
+      who: String(rep.from_email || ""),
+      label: "Reply",
+      subject: String(rep.subject || ""),
+      body: String(rep.body_text || ""),
+      status: "",
+      error: "",
+    })),
+    ...(smsEnabled ? smsMessages : []).map((sms) => ({
+      id: `sms-${sms.id}`,
+      direction: "out" as const,
+      at: sms.created_at,
+      who: sms.destination,
+      label: "SMS",
+      subject: "",
+      body: sms.content,
+      status: sms.status,
+      error: sms.status === "failed" ? "SMS send failed." : "",
+    })),
+  ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+
+  const openReply = () => {
+    const lastSubject = conversation.find(c => c.subject)?.subject || "";
+    const companyName = String(companySettings?.trading_name || companySettings?.name || "").trim();
+    const re = lastSubject
+      ? (lastSubject.toLowerCase().startsWith("re:") ? lastSubject : `Re: ${lastSubject}`)
+      : `Re: your enquiry${companyName ? ` — ${companyName}` : ""}`;
+    setEmailSubject(re);
+    setEmailBody("");
+    setCcAdminOnEmail(false);
+    setEmailAttachmentIds([]);
+    setShowSendEmail(true);
+  };
 
   const statusOpt = STATUS_OPTIONS.find(s => s.value === enquiry.status);
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
@@ -725,6 +945,84 @@ function EnquiryDetailContent() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showSendEmail} onOpenChange={(open) => !sendingEmail && setShowSendEmail(open)}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Email {enquiry.contact_name || "Customer"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Sending to <strong className="text-foreground">{enquiry.contact_email}</strong>. Replies come back to your company email address.
+            </p>
+            <div className="space-y-1">
+              <Label htmlFor="enquiry-email-template">Start from a template (optional)</Label>
+              <select
+                id="enquiry-email-template"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background h-10"
+                defaultValue=""
+                disabled={sendingEmail}
+                onChange={(e) => {
+                  const tpl = composeTemplateOptions.find(t => t.key === e.target.value);
+                  if (tpl) { setEmailSubject(tpl.subject); setEmailBody(tpl.body); }
+                }}
+              >
+                <option value="">Blank message</option>
+                {composeTemplateOptions.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="enquiry-email-subject">Subject</Label>
+              <Input id="enquiry-email-subject" value={emailSubject} onChange={e => setEmailSubject(e.target.value)} disabled={sendingEmail} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="enquiry-email-body">Message</Label>
+              <textarea
+                id="enquiry-email-body"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background min-h-[160px]"
+                value={emailBody}
+                onChange={e => setEmailBody(e.target.value)}
+                placeholder="Write your message to the customer..."
+                disabled={sendingEmail}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox id="cc-admin-email" checked={ccAdminOnEmail} onCheckedChange={(v) => setCcAdminOnEmail(v === true)} />
+              <Label htmlFor="cc-admin-email" className="text-sm font-normal cursor-pointer">Send a copy to me</Label>
+            </div>
+            {allPhotos.length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-sm">Attach photos ({emailAttachmentIds.length} selected)</Label>
+                <div className="flex flex-wrap gap-2">
+                  {allPhotos.map((f) => {
+                    const selected = emailAttachmentIds.includes(f.id);
+                    return (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setEmailAttachmentIds(prev => selected ? prev.filter(x => x !== f.id) : [...prev, f.id])}
+                        className={`relative w-16 h-16 rounded-md overflow-hidden border-2 ${selected ? "border-primary ring-2 ring-primary/30" : "border-border"}`}
+                        title={f.file_name || "Photo"}
+                        disabled={sendingEmail}
+                      >
+                        {f.signed_url ? <img src={f.signed_url} alt={f.file_name || "Photo"} className="w-full h-full object-cover" /> : <span className="text-[10px]">{f.file_name}</span>}
+                        {selected && <span className="absolute top-0.5 right-0.5 bg-primary text-white rounded-full w-4 h-4 flex items-center justify-center"><Check className="w-3 h-3" /></span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowSendEmail(false)} disabled={sendingEmail}>Cancel</Button>
+              <Button onClick={handleSendCustomerEmail} disabled={sendingEmail || !emailSubject.trim() || !emailBody.trim()}>
+                {sendingEmail ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                Send Email
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {editing ? (
@@ -734,9 +1032,16 @@ function EnquiryDetailContent() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-lg">Enquiry Details</h3>
                 {canEdit && (
-                  <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-                    <Edit className="w-4 h-4 mr-1" /> Edit
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {enquiry.contact_email && (
+                      <Button variant="outline" size="sm" onClick={openSendEmail}>
+                        <Mail className="w-4 h-4 mr-1" /> Send Email
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                      <Edit className="w-4 h-4 mr-1" /> Edit
+                    </Button>
+                  </div>
                 )}
               </div>
               <div className="grid sm:grid-cols-2 gap-y-4 gap-x-8">
@@ -756,6 +1061,14 @@ function EnquiryDetailContent() {
                   <div className="sm:col-span-2">
                     <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><MapPin className="w-4 h-4" /> Address</p>
                     <p className="font-medium whitespace-pre-line">{formatEnquiryAddressMultiline(enquiry)}</p>
+                    {Boolean(coverage?.configured) && Boolean(coverage?.known) && (
+                      <span className={`inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${coverage?.allowed ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                        <MapPin className="w-3 h-3" />
+                        {coverage?.allowed
+                          ? `Within service area (${String(coverage?.distance_miles)} mi)`
+                          : `Outside service area (${String(coverage?.distance_miles)} mi, limit ${String(coverage?.radius_miles)})`}
+                      </span>
+                    )}
                   </div>
                 )}
                 <div className="sm:col-span-2 pt-4 border-t border-border/50">
@@ -930,6 +1243,74 @@ function EnquiryDetailContent() {
             </div>
           </Card>
 
+          <Card className="p-6 border border-border/50 shadow-sm bg-slate-50/50">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold flex items-center gap-2"><Mail className="w-4 h-4 text-blue-500" /> Conversation</h3>
+              <div className="flex items-center gap-1">
+                {canEdit && smsEnabled && enquiry.contact_phone && (
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowSms(true)}>
+                    <MessageSquare className="w-3.5 h-3.5" /> SMS
+                  </Button>
+                )}
+                {canEdit && enquiry.contact_email && (
+                  <Button variant="outline" size="sm" className="gap-1" onClick={openReply}>
+                    <Send className="w-3.5 h-3.5" /> Reply
+                  </Button>
+                )}
+                {canEdit && enquiry.contact_email && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive gap-1" disabled={blockingSender}>
+                        {blockingSender ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldBan className="w-3.5 h-3.5" />}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleBlockSender("email")}>
+                        Block this email address
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleBlockSender("domain")}>
+                        Block the whole domain
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            </div>
+            {smsEnabled && smsError && (
+              <p role="alert" className="text-sm text-destructive mb-3">{smsError.message}</p>
+            )}
+            {conversation.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No messages yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {conversation.map((msg) => {
+                  const inbound = msg.direction === "in";
+                  const badge = inbound ? null : emailStatusBadge(msg.status);
+                  return (
+                    <div key={msg.id} className={`rounded-lg p-3 text-sm ${inbound ? "bg-blue-50 border border-blue-200" : "bg-white border border-border/60"}`}>
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${inbound ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>
+                          {inbound ? "Customer" : "You"}
+                        </span>
+                        <span className="font-medium">{msg.label}</span>
+                        {badge && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${badge.cls}`}>{badge.label}</span>
+                        )}
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          {msg.at ? new Date(msg.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}
+                        </span>
+                      </div>
+                      {msg.subject ? <p className="font-medium truncate" title={msg.subject}>{msg.subject}</p> : null}
+                      {msg.body ? <p className="whitespace-pre-wrap text-foreground mt-0.5">{msg.body}</p> : null}
+                      <p className="text-xs text-muted-foreground mt-0.5">{inbound ? "From" : "To"} {msg.who}</p>
+                      {msg.error ? <p className="text-xs text-red-600 mt-0.5">{msg.error}</p> : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
           {enquiry.created_by_profile && (
             <Card className="p-6 border border-border/50 shadow-sm bg-slate-50/50">
               <h3 className="font-bold mb-2">Created By</h3>
@@ -949,6 +1330,18 @@ function EnquiryDetailContent() {
           )}
         </div>
       </div>
+
+      {smsEnabled && showSms && (
+        <SmsSendDialog
+          open={showSms}
+          onOpenChange={setShowSms}
+          destination={enquiry.contact_phone || ""}
+          enquiryId={id}
+          onSent={() => {
+            qc.invalidateQueries({ queryKey: ["enquiry-sms", id] });
+          }}
+        />
+      )}
 
       {showConvert && (
         <ConvertToJobDialog
@@ -1098,11 +1491,15 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
   const [newPhone, setNewPhone] = useState((enquiry.contact_phone as string) || "");
   const [newEmail, setNewEmail] = useState((enquiry.contact_email as string) || "");
   const [newAddress, setNewAddress] = useState(() => {
+    if (String(enquiry.address_line1 ?? "").trim()) {
+      return [enquiry.address_line1, enquiry.address_line2].map(v => String(v ?? "").trim()).filter(Boolean).join(", ");
+    }
     const addr = formatEnquiryAddress(enquiry);
     const parts = addr.split(",").map(s => s.trim());
     return parts[0] || "";
   });
   const [newCity, setNewCity] = useState(() => {
+    if (String(enquiry.city ?? "").trim()) return String(enquiry.city).trim();
     const addr = formatEnquiryAddress(enquiry);
     const parts = addr.split(",").map(s => s.trim());
     const postcodeRe = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\s*$/i;
@@ -1118,6 +1515,7 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
     return "";
   });
   const [newPostcode, setNewPostcode] = useState(() => {
+    if (String(enquiry.postcode ?? "").trim()) return String(enquiry.postcode).trim();
     const addr = formatEnquiryAddress(enquiry);
     const postcodeRe = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\s*$/i;
     const m = addr.match(postcodeRe);

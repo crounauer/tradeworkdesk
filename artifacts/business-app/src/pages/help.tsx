@@ -147,6 +147,10 @@ const sections: HelpSection[] = [
         a: "An Enquiry is an unconfirmed lead — someone who has called or emailed asking about work. You can convert it to a Job once confirmed. Enquiries show as a badge count in the sidebar.",
       },
       {
+        q: "Can I send texts from an enquiry?",
+        a: "With the SMS Messaging add-on active, admins and office staff can use SMS in the enquiry's Conversation panel. Sending requires available SMS credits; reading history does not spend credits. Texts appear alongside emails and remain visible in the job's SMS Log after conversion. SMS currently supports outbound messages only, not customer text replies.",
+      },
+      {
         q: "How do I use the Schedule calendar?",
         a: "The Schedule page shows all jobs in Day, Week, or Month view. Admins and office staff can drag and drop jobs to reschedule them. Click on a job to open it.",
       },

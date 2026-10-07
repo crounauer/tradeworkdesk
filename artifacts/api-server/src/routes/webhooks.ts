@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import crypto from "crypto";
+import { Resend } from "resend";
 import { getStripe } from "../lib/stripe";
 import { supabaseAdmin } from "../lib/supabase";
 import {
@@ -12,6 +13,7 @@ import { sendPaymentReceiptEmail } from "../lib/invoice-email";
 import { generateInvoicePdf } from "../lib/invoice-pdf";
 import { recordInvoicePayment } from "../lib/invoice-payments";
 import { topUpAddonCredits } from "../lib/tenant-limits";
+import { notifyUsersForEvent } from "../lib/push-events";
 import { syncSeats } from "./billing";
 import { bustInitCache } from "./platform";
 import { getPlatformSetting } from "../lib/geocode";
@@ -247,6 +249,137 @@ router.post(
     }
 
     res.json({ received: true, status: mappedStatus });
+  },
+);
+
+// Inbound customer email replies (Resend inbound). Threads replies sent to the
+// tokenised reply-to address (enq-<enquiryId>@INBOUND_REPLY_DOMAIN) back to the
+// originating enquiry. No-op unless inbound is configured and routed here.
+
+async function fetchInboundEmailBody(emailId: string): Promise<string> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !emailId) throw new Error("Inbound email retrieval is not configured");
+  const resp = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!resp.ok) throw new Error(`Inbound email retrieval failed (${resp.status})`);
+  const json = (await resp.json()) as { text?: string | null; html?: string | null };
+  const text = String(json.text || "").trim();
+  if (text) return text;
+  return String(json.html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+router.post(
+  "/webhooks/resend-inbound",
+  async (req: Request & { rawBody?: Buffer }, res: Response): Promise<void> => {
+    const secret = process.env.RESEND_INBOUND_WEBHOOK_SECRET || process.env.RESEND_WEBHOOK_SECRET;
+    if (!secret || !req.rawBody) {
+      console.error("[webhooks/resend-inbound] Signature verification is not configured");
+      res.status(503).json({ error: "Inbound webhook verification unavailable" });
+      return;
+    }
+    try {
+      new Resend(process.env.RESEND_API_KEY).webhooks.verify({
+        payload: req.rawBody.toString("utf8"),
+        headers: {
+          id: String(req.headers["svix-id"] || ""),
+          timestamp: String(req.headers["svix-timestamp"] || ""),
+          signature: String(req.headers["svix-signature"] || ""),
+        },
+        webhookSecret: secret,
+      });
+    } catch {
+      res.status(401).json({ error: "Invalid webhook signature" });
+      return;
+    }
+
+    const payload = req.body as Record<string, unknown>;
+    if (payload.type !== "email.received") {
+      res.json({ received: true, matched: false });
+      return;
+    }
+    const data = (payload?.data as Record<string, unknown> | undefined) || payload;
+
+    const toRaw = data?.to;
+    const recipients: string[] = Array.isArray(toRaw)
+      ? toRaw.map((v) => String(v))
+      : [String(toRaw || "")];
+    const headersTo = String((data?.headers as Record<string, unknown> | undefined)?.to || "");
+    const haystack = [...recipients, headersTo].join(" ");
+
+    const match = haystack.match(/enq-([0-9a-fA-F-]{36})@/);
+    const enquiryId = match?.[1] || "";
+    if (!enquiryId) {
+      res.json({ received: true, matched: false });
+      return;
+    }
+
+    const { data: enquiry } = await supabaseAdmin
+      .from("enquiries")
+      .select("id, tenant_id, linked_job_id")
+      .eq("id", enquiryId)
+      .maybeSingle() as { data: { id: string; tenant_id: string; linked_job_id: string | null } | null };
+
+    if (!enquiry) {
+      res.json({ received: true, matched: false });
+      return;
+    }
+
+    const fromEmail = String(data?.from || (data?.sender as string) || "").trim();
+    const subject = String(data?.subject || "").trim();
+    let bodyText = String(data?.text || data?.body_text || data?.stripped_text || "").trim()
+      || String(data?.html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const providerMessageId = String(data?.email_id || data?.id || data?.message_id || "").trim() || null;
+    const receivedAt = String(data?.created_at || data?.timestamp || new Date().toISOString());
+
+    // Some Resend inbound payloads carry only metadata; fetch the full message
+    // body via the API when the webhook didn't include it.
+    if (!bodyText && providerMessageId) {
+      try {
+        bodyText = await fetchInboundEmailBody(providerMessageId);
+      } catch (error) {
+        console.error("[webhooks/resend-inbound] Failed to fetch reply:", error);
+        res.status(502).json({ error: "Unable to retrieve reply; retry delivery" });
+        return;
+      }
+    }
+
+    const { error } = await supabaseAdmin.from("enquiry_email_replies").insert({
+      tenant_id: enquiry.tenant_id,
+      enquiry_id: enquiry.id,
+      job_id: enquiry.linked_job_id,
+      from_email: fromEmail || null,
+      to_email: recipients[0] || null,
+      subject: subject || null,
+      body_text: bodyText || null,
+      provider_message_id: providerMessageId,
+      received_at: receivedAt,
+    });
+
+    if (error) {
+      console.error("[webhooks/resend-inbound] Failed to store reply:", error.message);
+      res.status(500).json({ error: "Failed to store reply" });
+      return;
+    }
+
+    // Notify the office that a customer has replied.
+    try {
+      await notifyUsersForEvent({
+        tenantId: String(enquiry.tenant_id),
+        eventType: "customer_communications",
+        title: "New customer reply",
+        body: `${fromEmail || "A customer"} replied${subject ? `: ${subject}` : ""}`,
+        url: `/enquiries/${enquiry.id}`,
+        eventKey: providerMessageId ? `enquiry_reply:${providerMessageId}` : undefined,
+        targetRoles: ["admin", "office_staff"],
+        data: { type: "enquiry_email_reply", enquiryId: enquiry.id, jobId: enquiry.linked_job_id },
+      });
+    } catch (notifyErr) {
+      console.error("[webhooks/resend-inbound] Notification failed:", (notifyErr as Error).message);
+    }
+
+    res.json({ received: true, matched: true });
   },
 );
 

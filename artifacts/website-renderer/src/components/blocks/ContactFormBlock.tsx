@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, type FormEvent } from "react";
-import { submitForm, submitWebsiteForm, uploadFormPhotos } from "@/lib/api";
+import { useState, useRef, useEffect, type FormEvent } from "react";
+import { submitForm, submitWebsiteForm, uploadFormPhotos, lookupWebsitePostcode, type PostcodeAddress } from "@/lib/api";
 import { isModernTemplateContent } from "@/lib/siteTheme";
 
 interface ContactInfo {
@@ -189,6 +189,42 @@ export default function ContactFormBlock({ content }: Props) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const [honeypot, setHoneypot] = useState("");
+  const renderedAtRef = useRef(Date.now());
+  const [lookupPostcode, setLookupPostcode] = useState("");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupResults, setLookupResults] = useState<PostcodeAddress[]>([]);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookupAvailable, setLookupAvailable] = useState(true);
+
+  const turnstileSiteKey =
+    (typeof content.turnstile_site_key === "string" && content.turnstile_site_key.trim())
+    || (typeof process !== "undefined" ? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY : "")
+    || "";
+
+  useEffect(() => {
+    if (!turnstileSiteKey || typeof document === "undefined") return;
+    if (document.querySelector("script[data-cf-turnstile]")) return;
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+    script.async = true;
+    script.defer = true;
+    script.setAttribute("data-cf-turnstile", "1");
+    document.head.appendChild(script);
+  }, [turnstileSiteKey]);
+
+  const collectAddress = content.collect_address !== false;
+  const renderedFields = (() => {
+    if (!collectAddress) return fields;
+    const names = new Set(fields.map((f) => f.name));
+    if (names.has("address_line1") || names.has("address") || names.has("postcode")) return fields;
+    return [
+      ...fields,
+      { name: "address_line1", label: "Address", type: "text" },
+      { name: "city", label: "Town / City", type: "text" },
+      { name: "postcode", label: "Postcode", type: "text" },
+    ];
+  })();
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selectedFiles = Array.from(e.target.files ?? []);
@@ -208,8 +244,19 @@ export default function ContactFormBlock({ content }: Props) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const formEl = e.currentTarget as HTMLFormElement;
     setSubmitting(true);
     setError(null);
+
+    let turnstileToken = "";
+    if (turnstileSiteKey) {
+      turnstileToken = (formEl.querySelector('input[name="cf-turnstile-response"]') as HTMLInputElement | null)?.value || "";
+      if (!turnstileToken) {
+        setSubmitting(false);
+        setError("Please complete the verification challenge and try again.");
+        return;
+      }
+    }
 
     // Upload photos first (if any)
     let photoUrls: string[] = [];
@@ -228,9 +275,10 @@ export default function ContactFormBlock({ content }: Props) {
       }
     }
 
+    const spamSignals = { _hp: honeypot, _elapsed_ms: Date.now() - renderedAtRef.current, ...(turnstileSiteKey ? { _turnstile: turnstileToken } : {}) };
     const payload = photoUrls.length > 0
-      ? { ...values, photos: photoUrls, form_kind: form_kind || "contact" }
-      : { ...values, form_kind: form_kind || "contact" };
+      ? { ...values, ...spamSignals, photos: photoUrls, form_kind: form_kind || "contact" }
+      : { ...values, ...spamSignals, form_kind: form_kind || "contact" };
 
     const result = websiteId
       ? await submitWebsiteForm(websiteId, payload)
@@ -242,6 +290,32 @@ export default function ContactFormBlock({ content }: Props) {
     } else {
       setError(result.error || "Something went wrong. Please try again.");
     }
+  }
+
+  async function handlePostcodeLookup() {
+    const pc = lookupPostcode.trim();
+    if (!pc || !websiteId) return;
+    setLookupLoading(true);
+    setLookupError(null);
+    setLookupResults([]);
+    const { addresses, error, available } = await lookupWebsitePostcode(websiteId, pc);
+    setLookupLoading(false);
+    if (!available) {
+      // Tenant isn't entitled to address lookup — hide the widget, keep manual entry.
+      setLookupAvailable(false);
+      return;
+    }
+    if (error || addresses.length === 0) {
+      setLookupError(error || "No addresses found for this postcode");
+      return;
+    }
+    setLookupResults(addresses);
+  }
+
+  function applyLookupAddress(a: PostcodeAddress) {
+    const line1 = [a.line_1, a.line_2].filter(Boolean).join(", ");
+    setValues((prev) => ({ ...prev, address_line1: line1, city: a.post_town || "", postcode: a.postcode || "" }));
+    setLookupResults([]);
   }
 
   if (success) {
@@ -309,7 +383,55 @@ export default function ContactFormBlock({ content }: Props) {
             {!hasSplit && heading && <h2 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: 8, color: headingColor, fontFamily: headingFont }}>{heading}</h2>}
             {!hasSplit && subheading && <p style={{ color: bodyColor, marginBottom: 24, fontFamily: bodyFont }}>{subheading}</p>}
             <form onSubmit={handleSubmit}>
-              {fields.map((field) => (
+              <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", top: "auto", width: 1, height: 1, overflow: "hidden" }}>
+                <label htmlFor="cf-company-url">Company website (leave blank)</label>
+                <input
+                  id="cf-company-url"
+                  type="text"
+                  name="company_url"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypot}
+                  onChange={(e) => setHoneypot(e.target.value)}
+                />
+              </div>
+              {collectAddress && websiteId && lookupAvailable && (
+                <div style={{ marginBottom: 18, padding: 12, border: `1px dashed ${borderColor}`, borderRadius: 6 }}>
+                  <label style={{ display: "block", fontWeight: 600, marginBottom: 6, fontSize: "0.9rem", color: headingColor, fontFamily: bodyFont }}>
+                    Find your address by postcode <span style={{ fontWeight: 400, color: bodyColor }}>(optional)</span>
+                  </label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="text"
+                      value={lookupPostcode}
+                      onChange={(e) => setLookupPostcode(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handlePostcodeLookup(); } }}
+                      placeholder="e.g. SW1A 1AA"
+                      style={{ flex: 1, padding: "10px 12px", border: `1px solid ${borderColor}`, borderRadius: 6, fontSize: "0.9375rem", boxSizing: "border-box", color: headingColor, fontFamily: bodyFont }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handlePostcodeLookup}
+                      disabled={lookupLoading}
+                      style={{ padding: "8px 16px", border: "none", borderRadius: 6, background: accent_color, color: "#fff", cursor: lookupLoading ? "not-allowed" : "pointer", fontWeight: 600, fontFamily: buttonFont, whiteSpace: "nowrap" }}
+                    >
+                      {lookupLoading ? "Searching…" : "Find address"}
+                    </button>
+                  </div>
+                  {lookupError && <p style={{ color: "#ef4444", marginTop: 6, fontSize: "0.85rem" }}>{lookupError}</p>}
+                  {lookupResults.length > 0 && (
+                    <select
+                      defaultValue=""
+                      onChange={(e) => { const idx = Number(e.target.value); if (!Number.isNaN(idx) && lookupResults[idx]) applyLookupAddress(lookupResults[idx]); }}
+                      style={{ width: "100%", marginTop: 8, padding: "10px 12px", border: `1px solid ${borderColor}`, borderRadius: 6, fontSize: "0.9375rem", backgroundColor: "#fff", color: headingColor, fontFamily: bodyFont }}
+                    >
+                      <option value="">Select your address ({lookupResults.length} found)…</option>
+                      {lookupResults.map((a, i) => <option key={i} value={i}>{a.display}</option>)}
+                    </select>
+                  )}
+                </div>
+              )}
+              {renderedFields.map((field) => (
                 <div key={field.name} style={{ marginBottom: 18 }}>
                   <label htmlFor={field.name} style={{ display: "block", fontWeight: 600, marginBottom: 6, fontSize: "0.9rem", color: headingColor, fontFamily: bodyFont }}>
                     {field.label}{field.required && <span style={{ color: "#ef4444", marginLeft: 4 }}>*</span>}
@@ -390,6 +512,9 @@ export default function ContactFormBlock({ content }: Props) {
               )}
 
               {error && <p style={{ color: "#ef4444", marginBottom: 16 }}>{error}</p>}
+              {turnstileSiteKey && (
+                <div className="cf-turnstile" data-sitekey={turnstileSiteKey} style={{ marginBottom: 16 }} />
+              )}
               <button
                 type="submit"
                 disabled={submitting}

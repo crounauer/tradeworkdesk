@@ -1424,7 +1424,19 @@ publicRouter.post("/public/booking/:tenantId/postcode-lookup", postcodeLookupLim
   }
   const normalizedPostcode = normalizeUKPostcode(postcode);
 
+  // Gated feature: mirror the canonical staff-side gating — require an active
+  // uk_address_lookup addon, then (for usage-based addons) credits remaining.
+  // The booking UI already treats 402 as "fall back to manual entry".
+  const addonActive = await hasActiveAddon(tenantId, "uk_address_lookup");
+  if (!addonActive) {
+    res.status(402).json({ error: "Address lookup not available", available: false });
+    return;
+  }
   const creditInfo = await getAddonCredits(tenantId, "uk_address_lookup");
+  if (creditInfo !== null && creditInfo.credits_remaining <= 0) {
+    res.status(402).json({ error: "Address lookup not available", available: false });
+    return;
+  }
 
   try {
     const apiKey = await getIdealPostcodesKey();

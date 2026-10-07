@@ -3603,7 +3603,9 @@ router.get("/jobs/:jobId/email-log", requireAuth, requireTenant, requirePlanFeat
   }));
 
   // Include customer-facing emails that are tracked in the tenant audit log but
-  // do not have a job_id, such as unlinked invoices and service reminders.
+  // do not have a job_email_logs row: unlinked invoices and service reminders
+  // (matched by the customer's email), plus enquiry emails sent before/after
+  // conversion (matched by the job id or its linked enquiry ids in metadata).
   const { data: jobCustomer } = await supabaseAdmin
     .from("jobs")
     .select("customer_id, customers(email)")
@@ -3612,29 +3614,62 @@ router.get("/jobs/:jobId/email-log", requireAuth, requireTenant, requirePlanFeat
     .maybeSingle();
   const customerEmail = String((jobCustomer?.customers as { email?: string | null } | null)?.email || "").trim().toLowerCase();
 
+  const { data: linkedEnquiries } = await supabaseAdmin
+    .from("enquiries")
+    .select("id")
+    .eq("linked_job_id", jobId)
+    .eq("tenant_id", req.tenantId!);
+  const enquiryIds = (linkedEnquiries || []).map((e: { id: string }) => e.id);
+
+  const auditSelect = "id, actor_id, status, email_type, to_email, subject, metadata, created_at, profiles!tenant_email_audit_log_actor_id_fkey(full_name)";
+  const includedStatuses = ["queued", "accepted", "delivered", "sent"];
+  const auditById = new Map<string, Record<string, unknown>>();
+
   if (customerEmail) {
-    const { data: auditRows, error: auditError } = await supabaseAdmin
+    const { data: byEmail, error: byEmailErr } = await supabaseAdmin
       .from("tenant_email_audit_log")
-      .select("id, actor_id, status, email_type, to_email, subject, metadata, created_at, profiles!tenant_email_audit_log_actor_id_fkey(full_name)")
+      .select(auditSelect)
       .eq("tenant_id", req.tenantId!)
       .eq("to_email", customerEmail)
-      .in("status", ["queued", "accepted", "delivered", "sent"])
+      .in("status", includedStatuses)
       .order("created_at", { ascending: false })
       .limit(200);
+    if (byEmailErr) { res.status(500).json({ error: byEmailErr.message }); return; }
+    for (const row of byEmail || []) auditById.set(String(row.id), row);
+  }
 
-    if (auditError) { res.status(500).json({ error: auditError.message }); return; }
+  const orParts = [`metadata->>jobId.eq.${jobId}`, ...enquiryIds.map((eid) => `metadata->>enquiryId.eq.${eid}`)];
+  if (orParts.length > 0) {
+    const { data: byMeta, error: byMetaErr } = await supabaseAdmin
+      .from("tenant_email_audit_log")
+      .select(auditSelect)
+      .eq("tenant_id", req.tenantId!)
+      .in("status", includedStatuses)
+      .or(orParts.join(","))
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (byMetaErr) { res.status(500).json({ error: byMetaErr.message }); return; }
+    for (const row of byMeta || []) auditById.set(String(row.id), row);
+  }
 
-    const auditEntries = (auditRows || []).filter((entry: Record<string, unknown>) => {
+  if (auditById.size > 0) {
+    const auditEntries = Array.from(auditById.values()).filter((entry: Record<string, unknown>) => {
       const sentAt = new Date(String(entry.created_at)).getTime();
+      const toEmail = String(entry.to_email || "").toLowerCase();
       const subject = String(entry.subject || "").trim().toLowerCase();
       return !mapped.some((jobEntry) =>
-        String(jobEntry.sent_to || "").toLowerCase() === customerEmail
+        String(jobEntry.sent_to || "").toLowerCase() === toEmail
         && String(jobEntry.subject || "").trim().toLowerCase() === subject
         && Math.abs(new Date(String(jobEntry.created_at)).getTime() - sentAt) < 5 * 60 * 1000,
       );
     }).map((entry: Record<string, unknown>) => {
       const emailType = String(entry.email_type || "general");
       const metadata = (entry.metadata as Record<string, unknown> | null) || {};
+      const emailTypeLabels: Record<string, string> = {
+        enquiry_customer_message: "Message to customer",
+        enquiry_acknowledgement: "Enquiry acknowledgement",
+        enquiry_not_proceeding: "Not proceeding notice",
+      };
       return {
         id: `audit-${String(entry.id)}`,
         job_id: null,
@@ -3645,7 +3680,7 @@ router.get("/jobs/:jobId/email-log", requireAuth, requireTenant, requirePlanFeat
         subject: entry.subject,
         forms_included: [{
           form_type: emailType,
-          form_label: emailType.replace(/_/g, " "),
+          form_label: emailTypeLabels[emailType] || emailType.replace(/_/g, " "),
           form_id: String(metadata.invoiceId || metadata.invoice_id || entry.id),
         }],
         photos_included: null,

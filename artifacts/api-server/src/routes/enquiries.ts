@@ -5,7 +5,8 @@ import { requireAuth, requireRole, requireTenant, requirePlanFeature, type Authe
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
 import { getEffectiveLimits, getJobsThisMonth } from "../lib/tenant-limits";
 import { notifyUsersForEvent } from "../lib/push-events";
-import { isCcAdminRequested, sendEnquiryAcknowledgementEmail, sendEnquiryNotProceedingEmail, type EmailCompanyDetails } from "../lib/email";
+import { isCcAdminRequested, sendEnquiryAcknowledgementEmail, sendEnquiryNotProceedingEmail, sendEnquiryCustomerEmail, type EmailCompanyDetails } from "../lib/email";
+import { geocodeAddress, normalizeUKPostcode, calculateDistanceMiles } from "../lib/geocode";
 
 const router: IRouter = Router();
 
@@ -565,6 +566,148 @@ router.post("/enquiries/:id/send-not-proceeding-email", requireAuth, requireTena
   res.json({ ok: true });
 });
 
+router.post("/enquiries/:id/send-email", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const id = toSingleParam(req.params.id);
+  const subject = typeof req.body?.subject === "string" ? req.body.subject.trim() : "";
+  const body = typeof req.body?.body === "string" ? req.body.body.trim() : "";
+
+  if (!subject) { res.status(400).json({ error: "A subject is required." }); return; }
+  if (!body) { res.status(400).json({ error: "A message body is required." }); return; }
+
+  const attachmentFileIds: string[] = Array.isArray(req.body?.attachment_file_ids)
+    ? req.body.attachment_file_ids.filter((v: unknown) => typeof v === "string")
+    : [];
+
+  let q = supabaseAdmin.from("enquiries").select("id, contact_name, contact_email, linked_job_id").eq("id", id);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data: enquiry, error } = await q.maybeSingle();
+  if (error || !enquiry) { res.status(404).json({ error: "Enquiry not found" }); return; }
+  if (!enquiry.contact_email) { res.status(400).json({ error: "This enquiry has no customer email address." }); return; }
+
+  const attachments: Array<{ filename: string; path: string }> = [];
+  if (attachmentFileIds.length > 0) {
+    let filesQ = supabaseAdmin
+      .from("files")
+      .select("id, file_name, file_type, storage_path")
+      .in("id", attachmentFileIds)
+      .eq("entity_type", "enquiry")
+      .eq("entity_id", id);
+    if (req.tenantId) filesQ = filesQ.eq("tenant_id", req.tenantId);
+    const { data: files } = await filesQ as { data: Array<{ id: string; file_name: string | null; file_type: string | null; storage_path: string }> | null };
+    for (const file of files || []) {
+      const bucket = file.storage_path?.startsWith("form-submissions/")
+        ? "public-uploads"
+        : (file.file_type?.startsWith("image/") ? "service-photos" : "service-documents");
+      const { data: urlData } = await supabaseAdmin.storage.from(bucket).createSignedUrl(file.storage_path, 3600);
+      if (urlData?.signedUrl) {
+        attachments.push({ filename: file.file_name || `attachment-${file.id.slice(0, 8)}`, path: urlData.signedUrl });
+      }
+    }
+  }
+
+  const { companyName, details } = await loadEnquiryEmailCompanyDetails(req.tenantId!);
+
+  try {
+    await sendEnquiryCustomerEmail(
+      enquiry.contact_email,
+      enquiry.contact_name || "Customer",
+      companyName,
+      { subject, body, enquiryId: enquiry.id, jobId: enquiry.linked_job_id || null },
+      details,
+      isCcAdminRequested(req.body?.cc_admin) && req.userEmail ? [req.userEmail] : undefined,
+      attachments.length > 0 ? attachments : undefined,
+    );
+  } catch (sendErr) {
+    res.status(502).json({ error: sendErr instanceof Error ? sendErr.message : "Failed to send email" });
+    return;
+  }
+
+  await insertTenantAuditLog({
+    tenantId: req.tenantId,
+    actorId: req.userId,
+    actorEmail: req.userEmail,
+    actorRole: req.userRole,
+    eventType: "enquiry_customer_email_sent",
+    entityType: "enquiry",
+    entityId: id,
+    detail: { to: enquiry.contact_email, subject },
+  });
+
+  res.json({ ok: true });
+});
+
+router.get("/enquiries/:id/emails", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const id = toSingleParam(req.params.id);
+
+  let enqQ = supabaseAdmin.from("enquiries").select("id").eq("id", id);
+  if (req.tenantId) enqQ = enqQ.eq("tenant_id", req.tenantId);
+  const { data: enquiry } = await enqQ.maybeSingle();
+  if (!enquiry) { res.status(404).json({ error: "Enquiry not found" }); return; }
+
+  let q = supabaseAdmin
+    .from("tenant_email_audit_log")
+    .select("id, status, email_type, to_email, subject, error_message, created_at")
+    .eq("metadata->>enquiryId", id)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data, error } = await q;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
+router.get("/enquiries/:id/replies", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const id = toSingleParam(req.params.id);
+  let q = supabaseAdmin
+    .from("enquiry_email_replies")
+    .select("id, from_email, subject, body_text, received_at, created_at")
+    .eq("enquiry_id", id)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
+  const { data, error } = await q;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json(data || []);
+});
+
+router.get("/enquiries/:id/coverage", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const id = toSingleParam(req.params.id);
+
+  let enqQ = supabaseAdmin.from("enquiries").select("id, postcode, address").eq("id", id);
+  if (req.tenantId) enqQ = enqQ.eq("tenant_id", req.tenantId);
+  const { data: enquiry } = await enqQ.maybeSingle();
+  if (!enquiry) { res.status(404).json({ error: "Enquiry not found" }); return; }
+
+  const { data: company } = await supabaseAdmin
+    .from("company_settings")
+    .select("postcode, coverage_radius_miles")
+    .eq("tenant_id", req.tenantId!)
+    .eq("singleton_id", "default")
+    .maybeSingle() as { data: { postcode: string | null; coverage_radius_miles: number | null } | null };
+
+  const radius = Number(company?.coverage_radius_miles ?? 0);
+  if (!Number.isFinite(radius) || radius <= 0) { res.json({ configured: false }); return; }
+
+  const originPostcode = normalizeUKPostcode(company?.postcode || "");
+  const postcodeRe = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
+  const rawTarget = String(enquiry.postcode || "").trim() || (String(enquiry.address || "").match(postcodeRe)?.[1] || "");
+  const targetPostcode = normalizeUKPostcode(rawTarget);
+
+  if (!originPostcode || !targetPostcode) { res.json({ configured: true, known: false, radius_miles: radius }); return; }
+
+  const [origin, target] = await Promise.all([geocodeAddress(originPostcode), geocodeAddress(targetPostcode)]);
+  if (!origin || !target) { res.json({ configured: true, known: false, radius_miles: radius }); return; }
+
+  const distanceMiles = calculateDistanceMiles(origin, target);
+  res.json({
+    configured: true,
+    known: true,
+    allowed: distanceMiles <= radius,
+    distance_miles: Number(distanceMiles.toFixed(1)),
+    radius_miles: radius,
+  });
+});
+
 router.delete("/enquiries/:id", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const id = toSingleParam(req.params.id);
 
@@ -835,6 +978,57 @@ router.get("/enquiries-count", requireAuth, requireTenant, requirePlanFeature("j
   const { count, error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.json({ count: count || 0 });
+});
+
+router.get("/enquiries-analytics", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const tenantId = req.tenantId!;
+
+  let rowsQ = supabaseAdmin
+    .from("enquiries")
+    .select("status, source, created_at")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false })
+    .limit(5000);
+  const { data: rows, error } = await rowsQ as { data: Array<{ status: string | null; source: string | null; created_at: string }> | null; error: unknown };
+  if (error) { res.status(500).json({ error: (error as { message?: string }).message || "Failed" }); return; }
+
+  const byStatus: Record<string, number> = { new: 0, contacted: 0, quoted: 0, converted: 0, lost: 0 };
+  const bySourceMap: Record<string, number> = {};
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  let thisMonth = 0;
+
+  for (const r of rows || []) {
+    const status = String(r.status || "new");
+    if (byStatus[status] === undefined) byStatus[status] = 0;
+    byStatus[status] += 1;
+    const source = String(r.source || "other");
+    bySourceMap[source] = (bySourceMap[source] || 0) + 1;
+    if (new Date(r.created_at).getTime() >= monthStart) thisMonth += 1;
+  }
+
+  const total = (rows || []).length;
+  const decided = byStatus.converted + byStatus.lost;
+  const conversionRate = decided > 0 ? Math.round((byStatus.converted / decided) * 100) : 0;
+  const bySource = Object.entries(bySourceMap)
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+
+  const { count: spamCount } = await supabaseAdmin
+    .from("website_form_submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .eq("status", "spam");
+
+  res.json({
+    total,
+    this_month: thisMonth,
+    by_status: byStatus,
+    by_source: bySource,
+    conversion_rate: conversionRate,
+    spam_caught: spamCount || 0,
+  });
 });
 
 export default router;

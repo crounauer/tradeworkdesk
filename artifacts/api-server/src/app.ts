@@ -118,7 +118,14 @@ app.use(
   }
 );
 
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({
+  limit: "10mb",
+  verify: (req: Request & { rawBody?: Buffer }, _res, buffer) => {
+    if (req.originalUrl.split("?")[0] === "/api/webhooks/resend-inbound") {
+      req.rawBody = Buffer.from(buffer);
+    }
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 app.get("/health", (_req: Request, res: Response) => {

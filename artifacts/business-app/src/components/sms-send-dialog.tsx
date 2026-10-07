@@ -24,6 +24,7 @@ interface SmsSendDialogProps {
   jobId?: string;
   /** Optional: link the SMS to a customer */
   customerId?: string;
+  enquiryId?: string;
   /** Called after a message is sent successfully */
   onSent?: () => void;
 }
@@ -36,7 +37,7 @@ interface SmsTemplate {
 
 const MAX_CHARS = 160;
 
-export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, customerId, onSent }: SmsSendDialogProps) {
+export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, customerId, enquiryId, onSent }: SmsSendDialogProps) {
   const { toast } = useToast();
   const [to, setTo] = useState(destination);
   const [sender, setSender] = useState("");
@@ -102,6 +103,7 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
           sender_id: sender.trim() || defaultSender,
           job_id: jobId || undefined,
           customer_id: customerId || undefined,
+          enquiry_id: enquiryId || undefined,
         }),
       });
 

@@ -217,7 +217,7 @@ export default function JobDetail() {
   const { toast } = useToast();
   const { profile } = useAuth();
   const { currentUsers } = useAutoAssign();
-  const { hasAddon } = usePlanFeatures();
+  const { hasAddon, isLoading: addonsLoading } = usePlanFeatures();
   const [editing, setEditing] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailLogRefresh, setEmailLogRefresh] = useState(0);
@@ -1468,7 +1468,9 @@ export default function JobDetail() {
 
             <JobInvoicesSection jobId={job.id} />
             <EmailLogSection jobId={job.id} refreshKey={emailLogRefresh} />
-            <SmsLogSection jobId={job.id} refreshKey={smsLogRefresh} />
+            {!addonsLoading && hasAddon("sms_messaging") && (
+              <SmsLogSection jobId={job.id} refreshKey={smsLogRefresh} />
+            )}
           </div>
 
           <div className="space-y-6">

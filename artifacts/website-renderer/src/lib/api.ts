@@ -316,6 +316,39 @@ export async function submitWebsiteForm(
 }
 
 /**
+ * Look up UK addresses for a postcode on the public website contact form.
+ * Returns an empty list if lookup is unavailable or not configured.
+ */
+export interface PostcodeAddress {
+  line_1?: string;
+  line_2?: string;
+  post_town?: string;
+  county?: string;
+  postcode?: string;
+  display: string;
+}
+
+export async function lookupWebsitePostcode(
+  websiteId: string,
+  postcode: string,
+): Promise<{ addresses: PostcodeAddress[]; error?: string; available: boolean }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/public/website/${encodeURIComponent(websiteId)}/postcode-lookup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ postcode }),
+    });
+    const json = await res.json().catch(() => ({})) as { addresses?: PostcodeAddress[]; error?: string; available?: boolean };
+    // 402/404 with available:false means the tenant isn't entitled — hide the widget.
+    if (json.available === false) return { addresses: [], error: json.error, available: false };
+    if (!res.ok) return { addresses: [], error: json.error || "No addresses found", available: true };
+    return { addresses: json.addresses ?? [], available: true };
+  } catch {
+    return { addresses: [], error: "Lookup unavailable", available: true };
+  }
+}
+
+/**
  * Upload photos for a form submission.
  * Returns an array of public URLs, or an empty array on failure.
  */

@@ -1551,6 +1551,81 @@ export async function sendEnquiryNotProceedingEmail(
   }
 }
 
+export async function sendEnquiryCustomerEmail(
+  to: string,
+  customerName: string,
+  companyName: string,
+  message: { subject: string; body: string; enquiryId: string; jobId?: string | null },
+  companyDetails?: EmailCompanyDetails,
+  extraCc?: string[],
+  attachments?: Array<{ filename: string; path: string }>,
+): Promise<void> {
+  const subject = String(message.subject || "").replace(/\s+/g, " ").trim() || `A message from ${companyName}`;
+  const metadata = { enquiryId: message.enquiryId, ...(message.jobId ? { jobId: message.jobId } : {}) };
+  const html = baseHtml(subject, `
+    <p>Dear ${escHtml(customerName)},</p>
+    ${renderTemplateBodyHtml(message.body)}
+    ${renderDocumentLinks(companyDetails)}
+    <hr class="divider"/>
+    <p style="font-size:13px;color:#64748b;">Kind regards,<br/><strong>${escHtml(companyName)}</strong><br/><em>Sent via TradeWorkDesk</em></p>
+  `, companyDetails);
+
+  // When inbound reply threading is configured, route replies to a tokenised
+  // address so the webhook can thread them back to this enquiry. Otherwise keep
+  // the tenant's own mailbox as the reply-to (default behaviour).
+  const inboundDomain = (process.env.INBOUND_REPLY_DOMAIN || "").trim();
+  const replyTo = inboundDomain
+    ? `enq-${message.enquiryId}@${inboundDomain}`
+    : (companyDetails?.email ?? undefined);
+  const from = buildTenantFrom(companyDetails);
+  if (!resend) {
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "enquiry_customer_message",
+      to,
+      subject,
+      from,
+      replyTo,
+      errorMessage: "Email service is not configured (RESEND_API_KEY missing)",
+      failureCategory: "platform",
+      metadata,
+    });
+    throw new Error(getTenantEmailFailureMessage());
+  }
+
+  const cc = normalizeAdditionalRecipients(companyDetails?.notification_emails, to, replyTo);
+  try {
+    const sendResult = await sendResendEmailWithRetry({ from, to, subject, html, ...(replyTo ? { replyTo } : {}), ...(cc.length > 0 ? { cc } : {}), ...(attachments && attachments.length > 0 ? { attachments } : {}) } as any);
+    await writeTenantEmailAudit({
+      status: "accepted",
+      emailType: "enquiry_customer_message",
+      to,
+      subject,
+      from,
+      replyTo,
+      providerMessageId: sendResult.messageId,
+      retryCount: Math.max(0, sendResult.attempts - 1),
+      metadata,
+    });
+    await sendAdminCcCopy({ extraCc, to, subject, html, from, replyTo, emailType: "enquiry_customer_message" });
+  } catch (sendErr) {
+    const reason = sanitizeErrorForEmail(sendErr);
+    console.error(`[email] Failed to send "${subject}" to ${to}:`, reason);
+    await notifyEmailDeliveryFailure({ to, subject, reason, from, replyTo });
+    await writeTenantEmailAudit({
+      status: "failed",
+      emailType: "enquiry_customer_message",
+      to,
+      subject,
+      from,
+      replyTo,
+      errorMessage: reason,
+      metadata,
+    });
+    throw new Error(getTenantEmailFailureMessage(reason));
+  }
+}
+
 export async function sendBookingPendingApprovalEmail(
   to: string,
   customerName: string,

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CustomerAutocomplete } from "@/components/customer-autocomplete";
@@ -16,7 +17,8 @@ const PostcodeAddressFinder = lazy(() =>
 );
 import {
   Plus, Search, Phone, Mail, MessageSquare, Globe, Users, Hash,
-  Clock, Filter, ChevronRight, ChevronDown, ChevronUp, CheckCircle2, FileText, XCircle
+  Clock, Filter, ChevronRight, ChevronDown, ChevronUp, CheckCircle2, FileText, XCircle,
+  ShieldBan, Trash2, Loader2
 } from "lucide-react";
 
 const SOURCE_OPTIONS = [
@@ -72,6 +74,7 @@ function EnquiriesContent() {
   const [sourceFilter, setSourceFilter] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [showBlocklist, setShowBlocklist] = useState(false);
 
   const queryParams = new URLSearchParams();
   if (statusFilter) queryParams.set("status", statusFilter);
@@ -84,6 +87,15 @@ function EnquiriesContent() {
     queryFn: async () => {
       const res = await fetch(`/api/enquiries${qs ? `?${qs}` : ""}`);
       if (!res.ok) throw new Error("Failed to load enquiries");
+      return res.json();
+    },
+  });
+
+  const { data: analytics } = useQuery<Record<string, unknown>>({
+    queryKey: ["enquiries-analytics"],
+    queryFn: async () => {
+      const res = await fetch("/api/enquiries-analytics");
+      if (!res.ok) return {};
       return res.json();
     },
   });
@@ -126,10 +138,44 @@ function EnquiriesContent() {
           <h1 className="text-3xl font-display font-bold text-foreground">Enquiries</h1>
           <p className="text-muted-foreground mt-1">Track incoming leads and convert them to jobs.</p>
         </div>
-        <Button size="lg" className="gap-2" onClick={() => setShowCreate(true)}>
-          <Plus className="w-5 h-5" /> New Enquiry
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="lg" className="gap-2" onClick={() => setShowBlocklist(true)}>
+            <ShieldBan className="w-5 h-5" /> Spam Filter
+          </Button>
+          <Button size="lg" className="gap-2" onClick={() => setShowCreate(true)}>
+            <Plus className="w-5 h-5" /> New Enquiry
+          </Button>
+        </div>
       </div>
+
+      {analytics && Number(analytics.total ?? 0) > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card className="p-4">
+            <p className="text-xs text-muted-foreground">Total enquiries</p>
+            <p className="text-2xl font-bold">{String(analytics.total ?? 0)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{String(analytics.this_month ?? 0)} this month</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-xs text-muted-foreground">Conversion rate</p>
+            <p className="text-2xl font-bold">{String(analytics.conversion_rate ?? 0)}%</p>
+            <p className="text-xs text-muted-foreground mt-0.5">of decided leads</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-xs text-muted-foreground">Open leads</p>
+            <p className="text-2xl font-bold">
+              {Number((analytics.by_status as Record<string, number> | undefined)?.new ?? 0)
+                + Number((analytics.by_status as Record<string, number> | undefined)?.contacted ?? 0)
+                + Number((analytics.by_status as Record<string, number> | undefined)?.quoted ?? 0)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">new · contacted · quoted</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-xs text-muted-foreground">Spam blocked</p>
+            <p className="text-2xl font-bold">{String(analytics.spam_caught ?? 0)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">caught by the spam filter</p>
+          </Card>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -204,7 +250,209 @@ function EnquiriesContent() {
           }}
         />
       )}
+
+      <BlocklistDialog open={showBlocklist} onOpenChange={setShowBlocklist} />
     </div>
+  );
+}
+
+function BlocklistDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { profile } = useAuth();
+  const isSuperAdmin = profile?.role === "super_admin";
+  const [type, setType] = useState<"email" | "domain" | "ip">("email");
+  const [value, setValue] = useState("");
+  const [note, setNote] = useState("");
+  const [platform, setPlatform] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const { data: entries = [], isLoading } = useQuery<Array<Record<string, unknown>>>({
+    queryKey: ["form-blocklist"],
+    queryFn: async () => {
+      const res = await fetch("/api/form-blocklist");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  const { data: quarantine = [] } = useQuery<Array<Record<string, unknown>>>({
+    queryKey: ["form-quarantine"],
+    queryFn: async () => {
+      const res = await fetch("/api/form-blocklist/quarantine");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  const restoreQuarantine = async (entryId: string) => {
+    try {
+      const res = await fetch(`/api/form-blocklist/quarantine/${entryId}/restore`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to restore");
+      qc.invalidateQueries({ queryKey: ["form-quarantine"] });
+      qc.invalidateQueries({ queryKey: ["enquiries"] });
+      qc.invalidateQueries({ queryKey: ["me-init"] });
+      toast({ title: "Restored", description: "The submission was turned into an enquiry." });
+    } catch (e) {
+      toast({ title: "Failed", description: e instanceof Error ? e.message : "Failed to restore", variant: "destructive" });
+    }
+  };
+
+  const deleteQuarantine = async (entryId: string) => {
+    try {
+      const res = await fetch(`/api/form-blocklist/quarantine/${entryId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      qc.invalidateQueries({ queryKey: ["form-quarantine"] });
+    } catch (e) {
+      toast({ title: "Failed", description: e instanceof Error ? e.message : "Failed to delete", variant: "destructive" });
+    }
+  };
+
+  const handleAdd = async () => {
+    if (!value.trim()) {
+      toast({ title: "Enter a value", description: "Add the email, domain or IP to block.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/form-blocklist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, value: value.trim(), note: note.trim(), platform: isSuperAdmin ? platform : false }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to add entry");
+      }
+      setValue("");
+      setNote("");
+      qc.invalidateQueries({ queryKey: ["form-blocklist"] });
+      toast({ title: "Added to blocklist" });
+    } catch (e) {
+      toast({ title: "Failed", description: e instanceof Error ? e.message : "Failed to add entry", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (entryId: string) => {
+    try {
+      const res = await fetch(`/api/form-blocklist/${entryId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to remove entry");
+      qc.invalidateQueries({ queryKey: ["form-blocklist"] });
+    } catch (e) {
+      toast({ title: "Failed", description: e instanceof Error ? e.message : "Failed to remove entry", variant: "destructive" });
+    }
+  };
+
+  const placeholder = type === "email" ? "spammer@example.com" : type === "domain" ? "example.com" : "203.0.113.4";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle>Website Form Spam Filter</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Block a specific email address, a whole email domain, or an IP address from submitting your website enquiry form. Blocked submissions are discarded silently. Obvious bot spam is already filtered automatically.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+            <div className="space-y-1">
+              <Label>Type</Label>
+              <select
+                className="w-full sm:w-32 border border-border rounded-lg px-3 py-2 text-sm bg-background h-10"
+                value={type}
+                onChange={e => setType(e.target.value as "email" | "domain" | "ip")}
+              >
+                <option value="email">Email</option>
+                <option value="domain">Domain</option>
+                <option value="ip">IP address</option>
+              </select>
+            </div>
+            <div className="flex-1 space-y-1">
+              <Label>Value</Label>
+              <Input value={value} onChange={e => setValue(e.target.value)} placeholder={placeholder} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } }} />
+            </div>
+            <Button onClick={handleAdd} disabled={saving} className="gap-1">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Add
+            </Button>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Note (optional)</Label>
+            <Input value={note} onChange={e => setNote(e.target.value)} placeholder="Why is this blocked?" />
+          </div>
+          {isSuperAdmin && (
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={platform} onChange={e => setPlatform(e.target.checked)} />
+              Apply across all tenants (platform-wide)
+            </label>
+          )}
+
+          <div className="border-t pt-3 max-h-[320px] overflow-y-auto">
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Loading...</p>
+            ) : entries.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Nothing blocked yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {entries.map((entry) => (
+                  <div key={entry.id as string} className="flex items-center gap-2 text-sm bg-muted/30 rounded-md px-3 py-2">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-slate-200 text-slate-700">{String(entry.type)}</span>
+                    <span className="font-medium truncate flex-1">{String(entry.value)}</span>
+                    {entry.platform ? <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-indigo-100 text-indigo-700" title="Applies to all tenants">Platform</span> : null}
+                    {entry.note ? <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={String(entry.note)}>{String(entry.note)}</span> : null}
+                    {entry.can_delete !== false && (
+                      <button
+                        onClick={() => handleDelete(entry.id as string)}
+                        className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                        title="Remove"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {quarantine.length > 0 && (
+            <div className="border-t pt-3">
+              <p className="text-sm font-semibold mb-2">Quarantined submissions ({quarantine.length})</p>
+              <p className="text-xs text-muted-foreground mb-2">Caught by your blocklist. Restore anything that isn't actually spam.</p>
+              <div className="space-y-2 max-h-[240px] overflow-y-auto">
+                {quarantine.map((entry) => {
+                  const data = (entry.data as Record<string, unknown>) || {};
+                  const name = String(data.name || data.full_name || data.contact_name || "Unknown");
+                  const email = String(data.email || data.contact_email || "");
+                  return (
+                    <div key={entry.id as string} className="flex items-center gap-2 text-sm bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{name}{email ? ` · ${email}` : ""}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(entry.created_at as string).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                      <Button variant="outline" size="sm" className="h-7" onClick={() => restoreQuarantine(entry.id as string)}>Not spam</Button>
+                      <button
+                        onClick={() => deleteQuarantine(entry.id as string)}
+                        className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

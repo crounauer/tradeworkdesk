@@ -34,7 +34,7 @@
 
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
-import { geocodeAddress } from "../lib/geocode";
+import { geocodeAddress, getIdealPostcodesKey, idealPostcodesLookup, normalizeUKPostcode } from "../lib/geocode";
 import rateLimit from "express-rate-limit";
 import multer from "multer";
 import {
@@ -51,7 +51,7 @@ import { sendSimpleNotification } from "../lib/email";
 import { sendEnquiryAcknowledgementEmail, type EmailCompanyDetails } from "../lib/email";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { isContactLikeBlockType } from "../lib/contact-block-type";
-import { hasActiveAddon, getAddonCredits, deductAddonCreditsAmount } from "../lib/tenant-limits";
+import { hasActiveAddon, getAddonCredits, deductAddonCreditsAmount, deductAddonCredit } from "../lib/tenant-limits";
 import { runBlogAi, generateBlogFeaturedImage, generateBlogInlineImage, BLOG_IMAGE_CREDITS_ESTIMATE, type BlogAiOperation } from "../lib/blog-ai";
 import { triggerTenantIndexNowAutoSubmit } from "../lib/indexnow-tenant";
 import { triggerRendererRevalidate } from "../lib/renderer-revalidate";
@@ -1621,6 +1621,159 @@ router.patch(
   }
 );
 
+const SPAM_SIGNAL_KEYS = ["_hp", "_elapsed_ms", "_turnstile"];
+const MIN_SUBMIT_MS = 2000;
+
+function isHoneypotTripped(data: Record<string, unknown>): boolean {
+  const hp = data._hp;
+  if (typeof hp === "string" && hp.trim() !== "") return true;
+  const elapsed = Number(data._elapsed_ms);
+  if (Number.isFinite(elapsed) && elapsed >= 0 && elapsed < MIN_SUBMIT_MS) return true;
+  return false;
+}
+
+// Verifies a Cloudflare Turnstile token when TURNSTILE_SECRET_KEY is configured.
+// Returns true (skips the check) when Turnstile is not configured, so the form
+// keeps working until the tenant opts in.
+async function verifyTurnstile(token: string, remoteIp: string | null): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) return true;
+  if (!token) return false;
+  try {
+    const body = new URLSearchParams({ secret, response: token });
+    if (remoteIp) body.set("remoteip", remoteIp);
+    const resp = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    const json = (await resp.json()) as { success?: boolean };
+    return Boolean(json.success);
+  } catch (err) {
+    console.error("[website-form] Turnstile verification error:", err);
+    return false;
+  }
+}
+
+function stripSpamSignals(data: Record<string, unknown>): Record<string, unknown> {
+  const clean: Record<string, unknown> = { ...data };
+  for (const key of SPAM_SIGNAL_KEYS) delete clean[key];
+  return clean;
+}
+
+function extractSubmissionEmail(data: Record<string, unknown>): string {
+  return String(data.email || data.contact_email || "").trim().toLowerCase();
+}
+
+async function isSubmissionBlocked(
+  tenantId: string,
+  email: string,
+  ip: string | null,
+): Promise<boolean> {
+  const { data: rules } = await db
+    .from("form_blocklist")
+    .select("type, value")
+    .or(`tenant_id.eq.${tenantId},tenant_id.is.null`) as { data: Array<{ type: string; value: string }> | null };
+
+  if (!rules || rules.length === 0) return false;
+
+  const normalizedEmail = email.toLowerCase();
+  const domain = normalizedEmail.includes("@") ? normalizedEmail.split("@")[1] : "";
+  const normalizedIp = (ip || "").trim();
+
+  for (const rule of rules) {
+    const value = String(rule.value || "").trim().toLowerCase();
+    if (!value) continue;
+    if (rule.type === "email" && normalizedEmail && normalizedEmail === value) return true;
+    if (rule.type === "domain" && domain && (domain === value || domain.endsWith(`.${value}`))) return true;
+    if (rule.type === "ip" && normalizedIp && normalizedIp === value) return true;
+  }
+  return false;
+}
+
+async function quarantineSpamSubmission(args: {
+  formId: string;
+  websiteId: string;
+  tenantId: string;
+  data: Record<string, unknown>;
+  reason: string;
+  ip: string | null;
+  userAgent: string | null;
+}): Promise<void> {
+  await db.from("website_form_submissions").insert({
+    form_id: args.formId,
+    website_id: args.websiteId,
+    tenant_id: args.tenantId,
+    data: { ...stripSpamSignals(args.data), _spam_reason: args.reason },
+    status: "spam",
+    ip_address: args.ip,
+    user_agent: args.userAgent,
+  });
+}
+
+const postcodeLookupLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many address lookups. Please try again later." },
+});
+
+// ─── Public: UK postcode → address lookup for the website contact form ─────────
+router.post("/public/website/:websiteId/postcode-lookup", postcodeLookupLimiter, async (req, res): Promise<void> => {
+  const { websiteId } = req.params;
+  const { data: website } = await db
+    .from("websites")
+    .select("tenant_id, status")
+    .eq("id", websiteId)
+    .maybeSingle() as { data: { tenant_id: string; status: string | null } | null };
+  if (!website || website.status !== "published") { res.status(404).json({ error: "Website not found" }); return; }
+
+  const { postcode } = req.body as { postcode?: string };
+  if (!postcode || typeof postcode !== "string") { res.status(400).json({ error: "Postcode is required" }); return; }
+
+  const tenantId = String(website.tenant_id);
+  const normalizedPostcode = normalizeUKPostcode(postcode);
+
+  // Gated feature: mirror the canonical staff-side gating — require an active
+  // uk_address_lookup addon, then (for usage-based addons) credits remaining.
+  // Returns 402 so the form hides the lookup and falls back to manual entry.
+  const addonActive = await hasActiveAddon(tenantId, "uk_address_lookup");
+  if (!addonActive) {
+    res.status(402).json({ error: "Address lookup not available", available: false });
+    return;
+  }
+  const creditInfo = await getAddonCredits(tenantId, "uk_address_lookup");
+  if (creditInfo !== null && creditInfo.credits_remaining <= 0) {
+    res.status(402).json({ error: "Address lookup not available", available: false });
+    return;
+  }
+
+  try {
+    const apiKey = await getIdealPostcodesKey();
+    if (!apiKey) { res.status(404).json({ error: "Address lookup not configured", available: false }); return; }
+
+    const addresses = await idealPostcodesLookup(normalizedPostcode, apiKey);
+    if (addresses.length === 0) { res.status(404).json({ error: "No addresses found for this postcode" }); return; }
+
+    const results = addresses.map((a) => ({
+      line_1: a.line_1,
+      line_2: a.line_2,
+      post_town: a.post_town,
+      county: a.county,
+      postcode: a.postcode,
+      display: [a.line_1, a.line_2, a.line_3, a.county, a.post_town].filter(Boolean).join(", "),
+    }));
+
+    res.json({ addresses: results });
+
+    await deductAddonCredit(tenantId, "uk_address_lookup");
+  } catch (err) {
+    console.error("[website-form] postcode lookup failed:", err);
+    res.status(500).json({ error: "Postcode lookup failed" });
+  }
+});
+
 router.post(
   "/website/forms/:id/submissions",
   formSubmitLimiter,
@@ -1651,13 +1804,39 @@ router.post(
       return;
     }
 
+    // Spam protection: honeypot/time-trap are near-certain bots — drop silently.
+    // Blocklist matches are user-controlled and reversible, so quarantine them
+    // for review instead of discarding.
+    if (isHoneypotTripped(submissionData)) {
+      res.json({ ok: true });
+      return;
+    }
+    if (!(await verifyTurnstile(String(submissionData._turnstile || ""), req.ip || null))) {
+      res.status(400).json({ error: "Verification failed. Please try again." });
+      return;
+    }
+    if (await isSubmissionBlocked(String(form.tenant_id), extractSubmissionEmail(submissionData), req.ip || null)) {
+      await quarantineSpamSubmission({
+        formId: String(form.id),
+        websiteId: String(form.website_id),
+        tenantId: String(form.tenant_id),
+        data: submissionData,
+        reason: "Matched spam blocklist",
+        ip: req.ip || null,
+        userAgent: req.headers["user-agent"] || null,
+      });
+      res.json({ ok: true });
+      return;
+    }
+    const cleanData = stripSpamSignals(submissionData);
+
     const { data: submission, error } = await db
       .from("website_form_submissions")
       .insert({
         form_id: formId,
         website_id: form.website_id,
         tenant_id: form.tenant_id,
-        data: submissionData,
+        data: cleanData,
         status: "new",
         ip_address: req.ip || null,
         user_agent: req.headers["user-agent"] || null,
@@ -1680,7 +1859,7 @@ router.post(
         String(form.tenant_id),
         submission!.id,
         effectiveFormType,
-        submissionData,
+        cleanData,
       );
     }
 
@@ -1689,7 +1868,7 @@ router.post(
       String(form.tenant_id),
       String(form.notify_email || ""),
       effectiveFormType,
-      submissionData,
+      cleanData,
       submission!.id,
       enquiryId,
     );
@@ -1725,6 +1904,18 @@ router.post(
       res.status(400).json({ error: "data is required" });
       return;
     }
+
+    // Spam protection: silently accept honeypot/blocklisted submissions without
+    // Spam protection: honeypot/time-trap are near-certain bots — drop silently.
+    if (isHoneypotTripped(submissionData)) {
+      res.json({ ok: true });
+      return;
+    }
+    if (!(await verifyTurnstile(String(submissionData._turnstile || ""), req.ip || null))) {
+      res.status(400).json({ error: "Verification failed. Please try again." });
+      return;
+    }
+    const cleanData = stripSpamSignals(submissionData);
 
     let { data: form } = await db
       .from("website_forms")
@@ -1770,13 +1961,28 @@ router.post(
       form = createdForm;
     }
 
+    // Blocklist matches are reversible, so quarantine for review rather than drop.
+    if (await isSubmissionBlocked(String(website.tenant_id), extractSubmissionEmail(submissionData), req.ip || null)) {
+      await quarantineSpamSubmission({
+        formId: String(form.id),
+        websiteId: String(website.id),
+        tenantId: String(website.tenant_id),
+        data: submissionData,
+        reason: "Matched spam blocklist",
+        ip: req.ip || null,
+        userAgent: req.headers["user-agent"] || null,
+      });
+      res.json({ ok: true });
+      return;
+    }
+
     const { data: submission, error } = await db
       .from("website_form_submissions")
       .insert({
         form_id: form.id,
         website_id: website.id,
         tenant_id: website.tenant_id,
-        data: submissionData,
+        data: cleanData,
         status: "new",
         ip_address: req.ip || null,
         user_agent: req.headers["user-agent"] || null,
@@ -1797,7 +2003,7 @@ router.post(
         String(website.tenant_id),
         submission.id,
         effectiveFormType,
-        submissionData,
+        cleanData,
       );
     }
 
@@ -1805,7 +2011,7 @@ router.post(
       String(website.tenant_id),
       String(form.notify_email || ""),
       effectiveFormType,
-      submissionData,
+      cleanData,
       submission.id,
       enquiryId,
     );
@@ -2507,7 +2713,7 @@ async function sendFormSubmissionNotifications(
 
 // ─── Helper: create enquiry from form submission ──────────────────────────────
 
-async function createEnquiryFromFormSubmission(
+export async function createEnquiryFromFormSubmission(
   tenantId: string,
   submissionId: string,
   formType: string,
@@ -2529,7 +2735,7 @@ async function createEnquiryFromFormSubmission(
     const phone = String(data.phone || data.mobile || data.contact_phone || "").trim() || null;
 
     // Build a rich description from all submitted fields
-    const skip = new Set(["name", "full_name", "contact_name", "email", "contact_email", "phone", "mobile", "contact_phone", "photos", "form_kind"]);
+    const skip = new Set(["name", "full_name", "contact_name", "email", "contact_email", "phone", "mobile", "contact_phone", "photos", "form_kind", "address", "address_line1", "address_line2", "city", "town", "postcode", "_hp", "_elapsed_ms"]);
     const extraLines: string[] = [];
     for (const [key, val] of Object.entries(data)) {
       if (skip.has(key) || !val) continue;
@@ -2540,7 +2746,11 @@ async function createEnquiryFromFormSubmission(
       ? `Website enquiry (${formType})\n\n${extraLines.join("\n")}`
       : `Website enquiry (${formType})`;
 
-    const postcode = String(data.postcode || data.address || "").trim() || null;
+    const addressLine1 = String(data.address_line1 || data.address || "").trim() || null;
+    const addressLine2 = String(data.address_line2 || "").trim() || null;
+    const city = String(data.city || data.town || "").trim() || null;
+    const postcode = String(data.postcode || "").trim() || null;
+    const combinedAddress = [addressLine1, addressLine2, city, postcode].filter(Boolean).join(", ") || null;
 
     const { data: enquiry, error } = await (supabaseAdmin as any)
       .from("enquiries")
@@ -2551,7 +2761,11 @@ async function createEnquiryFromFormSubmission(
         contact_phone: phone,
         source,
         description,
-        address: postcode,
+        address: combinedAddress,
+        address_line1: addressLine1,
+        address_line2: addressLine2,
+        city,
+        postcode,
         status: "new",
         notes: `Submitted via website ${formKind === "free_survey" ? "free survey" : "contact form"} (submission ID: ${submissionId})`,
       })

@@ -3,6 +3,8 @@ import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middle
 import { hasActiveAddon, deductAddonCredit, getAddonCredits } from "../lib/tenant-limits";
 import { supabaseAdmin } from "../lib/supabase";
 import { notifyUsersForEvent } from "../lib/push-events";
+import { z } from "zod";
+import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
 
 const router: IRouter = Router();
 
@@ -46,12 +48,13 @@ async function getSmsWorksJwt(key: string, secret: string): Promise<string> {
 // POST /api/sms/send
 // ──────────────────────────────────────────────────────────────
 router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { destination, content, sender_id, job_id, customer_id } = req.body as {
+  const { destination, content, sender_id, job_id, customer_id, enquiry_id } = req.body as {
     destination?: string;
     content?: string;
     sender_id?: string;
     job_id?: string;
     customer_id?: string;
+    enquiry_id?: string;
   };
 
   if (!destination || typeof destination !== "string") {
@@ -79,6 +82,39 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
       bundle_size: creditInfo.bundle_size,
       bundle_price: creditInfo.bundle_price,
     });
+    return;
+  }
+
+  const links = z.object({
+    enquiry_id: z.string().uuid().optional(),
+    job_id: z.string().uuid().optional(),
+    customer_id: z.string().uuid().optional(),
+  }).safeParse({ enquiry_id, job_id, customer_id });
+  if (!links.success) {
+    res.status(400).json({ error: "Invalid enquiry, job or customer id." });
+    return;
+  }
+
+  let linkedJobId = job_id;
+  let linkedCustomerId = customer_id;
+  if (enquiry_id) {
+    const { data: enquiry, error } = await supabaseAdmin
+      .from("enquiries")
+      .select("linked_job_id, linked_customer_id")
+      .eq("id", enquiry_id)
+      .eq("tenant_id", req.tenantId!)
+      .maybeSingle();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    if (!enquiry) { res.status(404).json({ error: "Enquiry not found" }); return; }
+    linkedJobId = enquiry.linked_job_id || undefined;
+    linkedCustomerId = enquiry.linked_customer_id || undefined;
+  }
+  const ownership = await verifyMultipleTenantOwnership([
+    { table: "jobs", id: linkedJobId },
+    { table: "customers", id: linkedCustomerId },
+  ], req.tenantId);
+  if (!ownership.valid) {
+    res.status(403).json({ error: "Job or customer does not belong to your company." });
     return;
   }
 
@@ -138,8 +174,9 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
       sms_works_message_id: messageId,
       status,
       credits_used: creditsUsed,
-      job_id: job_id || null,
-      customer_id: customer_id || null,
+      job_id: linkedJobId || null,
+      customer_id: linkedCustomerId || null,
+      ...(enquiry_id ? { enquiry_id } : {}),
     } as Record<string, unknown>)
     .select("id, status, sms_works_message_id")
     .single();
@@ -182,11 +219,44 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
 // GET /api/sms/messages — paginated history for this tenant
 // ──────────────────────────────────────────────────────────────
 router.get("/sms/messages", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  if (!(await hasActiveAddon(req.tenantId!, "sms_messaging"))) {
+    res.status(402).json({ error: "SMS Messaging add-on required." });
+    return;
+  }
+  const filters = z.object({
+    job_id: z.string().uuid().optional(),
+    customer_id: z.string().uuid().optional(),
+    enquiry_id: z.string().uuid().optional(),
+  }).safeParse(req.query);
+  if (!filters.success) {
+    res.status(400).json({ error: "Invalid enquiry, job or customer id." });
+    return;
+  }
   const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
   const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || "50", 10)));
   const offset = (page - 1) * limit;
-  const jobId = req.query.job_id as string | undefined;
-  const customerId = req.query.customer_id as string | undefined;
+  const { job_id: jobId, customer_id: customerId, enquiry_id: enquiryId } = filters.data;
+
+  const ownership = await verifyMultipleTenantOwnership([
+    { table: "jobs", id: jobId },
+    { table: "customers", id: customerId },
+    { table: "enquiries", id: enquiryId },
+  ], req.tenantId);
+  if (!ownership.valid) {
+    res.status(404).json({ error: "Enquiry, job or customer not found." });
+    return;
+  }
+
+  let linkedEnquiryIds: string[] = [];
+  if (jobId) {
+    const { data, error } = await supabaseAdmin
+      .from("enquiries")
+      .select("id")
+      .eq("tenant_id", req.tenantId!)
+      .eq("linked_job_id", jobId);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    linkedEnquiryIds = (data || []).map(enquiry => enquiry.id);
+  }
 
   let query = supabaseAdmin
     .from("sms_messages")
@@ -195,8 +265,13 @@ router.get("/sms/messages", requireAuth, requireTenant, async (req: Authenticate
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (jobId) query = query.eq("job_id", jobId);
+  if (jobId) {
+    query = linkedEnquiryIds.length > 0
+      ? query.or(`job_id.eq.${jobId},enquiry_id.in.(${linkedEnquiryIds.join(",")})`)
+      : query.eq("job_id", jobId);
+  }
   if (customerId) query = query.eq("customer_id", customerId);
+  if (enquiryId) query = query.eq("enquiry_id", enquiryId);
 
   const { data, error, count } = await query;
   if (error) { res.status(500).json({ error: error.message }); return; }
