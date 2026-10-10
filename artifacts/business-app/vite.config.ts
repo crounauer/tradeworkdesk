@@ -81,15 +81,16 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom"],
-          "vendor-query": ["@tanstack/react-query"],
-          "vendor-supabase": ["@supabase/supabase-js"],
-          "vendor-ui": ["@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-select", "@radix-ui/react-tabs", "@radix-ui/react-tooltip", "@radix-ui/react-popover", "@radix-ui/react-label", "@radix-ui/react-checkbox"],
-          "vendor-forms": ["react-hook-form", "@hookform/resolvers", "zod"],
-          "vendor-icons": ["lucide-react"],
-          "vendor-charts": ["recharts"],
-          "vendor-map": ["leaflet", "react-leaflet"]
+        manualChunks(id: string) {
+          if (!id.includes("node_modules")) return undefined;
+          // One chunk per top-level npm package. This prevents a small shared
+          // dependency (e.g. react-is, used by both Radix and recharts) from
+          // dragging a heavy library like recharts into every page that uses the
+          // shared util — marketing pages then never load chart/map code.
+          const after = id.split("node_modules/").pop() as string;
+          const parts = after.split("/");
+          const pkg = after.startsWith("@") ? `${parts[0]}/${parts[1]}` : parts[0];
+          return `npm.${pkg.replace("@", "").replace("/", "-")}`;
         }
       }
     }
