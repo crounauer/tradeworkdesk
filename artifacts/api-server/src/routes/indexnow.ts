@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { submitMarketingIndexNow } from "../lib/indexnow-marketing";
+import { submitMarketingIndexNow, submitAllMarketingIndexNow } from "../lib/indexnow-marketing";
 import { submitTenantIndexNow } from "../lib/indexnow-tenant";
 import { requireAuth, requireRole, requireSuperAdmin, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 
@@ -8,6 +8,15 @@ const router = Router();
 router.post("/indexnow/submit", requireAuth, requireSuperAdmin, async (req: Request, res: Response) => {
   const { urls: requestedUrls } = req.body as { urls?: string[] };
   const result = await submitMarketingIndexNow(requestedUrls);
+  if (!result.success) {
+    res.status(result.upstreamStatus >= 400 ? result.upstreamStatus : 500).json(result);
+    return;
+  }
+  res.json(result);
+});
+
+router.post("/indexnow/submit-all", requireAuth, requireSuperAdmin, async (_req: Request, res: Response) => {
+  const result = await submitAllMarketingIndexNow();
   if (!result.success) {
     res.status(result.upstreamStatus >= 400 ? result.upstreamStatus : 500).json(result);
     return;

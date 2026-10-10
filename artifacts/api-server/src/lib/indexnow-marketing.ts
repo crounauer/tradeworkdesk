@@ -40,6 +40,80 @@ export function getDefaultMarketingIndexNowUrls(): string[] {
   return [...DEFAULT_MARKETING_URLS];
 }
 
+const SITEMAP_INDEX_URL = `https://${MARKETING_HOST}/sitemap.xml`;
+
+function extractLocs(xml: string): string[] {
+  const out: string[] = [];
+  const re = /<loc>\s*([^<\s]+)\s*<\/loc>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(xml)) !== null) {
+    out.push(match[1].trim());
+  }
+  return out;
+}
+
+/**
+ * Crawls the live sitemap index and every child sitemap to collect all
+ * indexable marketing + location (town) page URLs. The sitemaps are the source
+ * of truth for what should be indexed, so this automatically includes every new
+ * indexable town page and excludes noindex/doorway pages.
+ */
+export async function fetchMarketingSitemapUrls(): Promise<string[]> {
+  const pageUrls = new Set<string>();
+  try {
+    const idxRes = await fetch(SITEMAP_INDEX_URL, { headers: { accept: "application/xml" } });
+    if (!idxRes.ok) throw new Error(`HTTP ${idxRes.status}`);
+    const childSitemaps = extractLocs(await idxRes.text()).filter((u) => u.endsWith(".xml"));
+
+    for (const sitemapUrl of childSitemaps) {
+      try {
+        const res = await fetch(sitemapUrl, { headers: { accept: "application/xml" } });
+        if (!res.ok) continue;
+        for (const loc of extractLocs(await res.text())) {
+          if (!loc.endsWith(".xml")) pageUrls.add(loc);
+        }
+      } catch {
+        // Skip an unreachable child sitemap rather than failing the whole crawl.
+      }
+    }
+  } catch (err) {
+    console.warn(`[indexnow:marketing] sitemap crawl failed: ${String(err)}`);
+  }
+  return [...pageUrls];
+}
+
+/**
+ * Submits every page in the live sitemaps (core marketing pages, country hubs
+ * and all indexable town pages) to IndexNow. The curated defaults are always
+ * merged in so core pages still submit if a sitemap is temporarily unreachable.
+ */
+export async function submitAllMarketingIndexNow(): Promise<MarketingIndexNowResponse> {
+  const sitemapUrls = await fetchMarketingSitemapUrls();
+  const merged = Array.from(new Set([...getDefaultMarketingIndexNowUrls(), ...sitemapUrls]));
+
+  // IndexNow accepts up to 10,000 URLs per request; batch defensively.
+  const BATCH = 10000;
+  if (merged.length <= BATCH) {
+    const result = await submitMarketingIndexNow(merged);
+    return { ...result, urls: merged, submitted: result.success ? merged.length : result.submitted };
+  }
+
+  let submitted = 0;
+  let lastStatus = 200;
+  let lastBody: string | null = null;
+  for (let i = 0; i < merged.length; i += BATCH) {
+    const chunk = merged.slice(i, i + BATCH);
+    const result = await submitMarketingIndexNow(chunk);
+    lastStatus = result.upstreamStatus;
+    lastBody = result.upstreamBody;
+    if (!result.success) {
+      return { success: false, submitted, urls: merged, upstreamStatus: result.upstreamStatus, upstreamBody: result.upstreamBody, error: result.error };
+    }
+    submitted += chunk.length;
+  }
+  return { success: true, submitted, urls: merged, upstreamStatus: lastStatus, upstreamBody: lastBody };
+}
+
 function areMarketingUrlsValid(urls: string[]) {
   const allowedPrefix = `https://${MARKETING_HOST}/`;
   const exactHost = `https://${MARKETING_HOST}`;

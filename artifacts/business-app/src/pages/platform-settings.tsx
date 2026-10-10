@@ -573,6 +573,8 @@ export default function PlatformSettings() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [indexNowSubmitting, setIndexNowSubmitting] = useState(false);
   const [indexNowSubmitted, setIndexNowSubmitted] = useState(false);
+  const [indexNowAllSubmitting, setIndexNowAllSubmitting] = useState(false);
+  const [indexNowAllSubmitted, setIndexNowAllSubmitted] = useState(false);
   const [lastSubmittedUrls, setLastSubmittedUrls] = useState<string[]>([]);
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -607,11 +609,15 @@ export default function PlatformSettings() {
     }
   };
 
-  const submitIndexNow = async () => {
-    setIndexNowSubmitting(true);
-    setIndexNowSubmitted(false);
+  const submitIndexNow = async (
+    path: string,
+    setSubmitting: (v: boolean) => void,
+    setSubmitted: (v: boolean) => void,
+  ) => {
+    setSubmitting(true);
+    setSubmitted(false);
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/indexnow/submit`, {
+      const res = await fetch(`${import.meta.env.BASE_URL}${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -626,12 +632,12 @@ export default function PlatformSettings() {
       const submittedUrls = Array.isArray(data.urls) ? data.urls : [];
       setLastSubmittedUrls(submittedUrls);
       toast({ title: "IndexNow submitted", description: `${data.submitted ?? submittedUrls.length} URLs submitted` });
-      setIndexNowSubmitted(true);
-      setTimeout(() => setIndexNowSubmitted(false), 5000);
+      setSubmitted(true);
+      setTimeout(() => setSubmitted(false), 5000);
     } catch (e) {
       toast({ title: "IndexNow failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
     } finally {
-      setIndexNowSubmitting(false);
+      setSubmitting(false);
     }
   };
 
@@ -970,16 +976,27 @@ export default function PlatformSettings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button onClick={submitIndexNow} disabled={indexNowSubmitting || indexNowSubmitted}>
-                {indexNowSubmitting ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting...</>
-                ) : indexNowSubmitted ? (
-                  <><CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />Submitted!</>
-                ) : (
-                  <><Globe className="w-4 h-4 mr-2" />Manual Re-submit Marketing URLs</>
-                )}
-              </Button>
-              <p className="text-xs text-muted-foreground">Uses the platform IndexNow key and submits URLs for www.tradeworkdesk.co.uk.</p>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => submitIndexNow("api/indexnow/submit", setIndexNowSubmitting, setIndexNowSubmitted)} disabled={indexNowSubmitting || indexNowAllSubmitting}>
+                  {indexNowSubmitting ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting...</>
+                  ) : indexNowSubmitted ? (
+                    <><CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />Submitted!</>
+                  ) : (
+                    <><Globe className="w-4 h-4 mr-2" />Re-submit Core Marketing URLs</>
+                  )}
+                </Button>
+                <Button variant="outline" onClick={() => submitIndexNow("api/indexnow/submit-all", setIndexNowAllSubmitting, setIndexNowAllSubmitted)} disabled={indexNowSubmitting || indexNowAllSubmitting}>
+                  {indexNowAllSubmitting ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting all pages...</>
+                  ) : indexNowAllSubmitted ? (
+                    <><CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />Submitted!</>
+                  ) : (
+                    <><Globe className="w-4 h-4 mr-2" />Submit All Pages (incl. town pages)</>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Uses the platform IndexNow key for www.tradeworkdesk.co.uk. "Submit All Pages" crawls the live sitemaps and submits every indexable marketing and town/location page.</p>
 
               {lastSubmittedUrls.length > 0 && (
                 <div className="rounded-md border bg-slate-50 p-3">
