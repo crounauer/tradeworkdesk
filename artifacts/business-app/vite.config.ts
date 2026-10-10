@@ -86,15 +86,20 @@ export default defineConfig({
           const after = id.split("node_modules/").pop() as string;
           const parts = after.split("/");
           const pkg = after.startsWith("@") ? `${parts[0]}/${parts[1]}` : parts[0];
-          // Isolate heavy, lazy-only visualisation libraries (charts + maps) into
-          // their own chunk so they never ride along in the shared vendor chunk
-          // and load on marketing/location pages that render no charts or maps.
+          // Heavy, lazy-only visualisation libs — kept out of every other chunk so
+          // marketing/location pages (no charts/maps) never load them.
           if (/^(recharts|recharts-scale|victory-vendor|leaflet|react-leaflet)$/.test(pkg) || pkg.startsWith("@react-leaflet") || /^d3-/.test(pkg)) {
             return "vendor-viz";
           }
-          // Everything else the app shares (react, router, query, supabase, radix,
-          // icons, forms, small utils like react-is) goes in one vendor chunk.
-          return "vendor";
+          if (/^(react|react-dom|scheduler)$/.test(pkg)) return "vendor-react";
+          if (pkg.startsWith("@tanstack")) return "vendor-query";
+          if (pkg.startsWith("@supabase")) return "vendor-supabase";
+          if (pkg.startsWith("@radix-ui")) return "vendor-ui";
+          if (pkg === "lucide-react") return "vendor-icons";
+          if (/^(react-hook-form|@hookform|zod)$/.test(pkg)) return "vendor-forms";
+          // Everything else (react-is, clsx, tailwind-merge, etc.) — a neutral
+          // shared chunk so small shared deps never get pulled into vendor-viz.
+          return "vendor-common";
         }
       }
     }
