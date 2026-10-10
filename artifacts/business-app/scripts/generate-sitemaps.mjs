@@ -16,6 +16,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const DIST = resolve(ROOT, "dist", "public");
 const SITE_URL = "https://www.tradeworkdesk.co.uk";
+const LAST_UPDATED = process.env.VITE_BUILD_DATE || new Date().toISOString().slice(0, 10);
 
 const COUNTRY_SLUGS = ["england", "scotland", "ireland"];
 
@@ -47,7 +48,7 @@ const locations = JSON.parse(readFileSync(resolve(ROOT, "src", "data", "location
 
 function urlset(paths) {
   const urls = paths
-    .map((p) => `  <url><loc>${SITE_URL}${p}</loc></url>`)
+    .map((p) => `  <url><loc>${SITE_URL}${p}</loc><lastmod>${LAST_UPDATED}</lastmod></url>`)
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
@@ -62,22 +63,25 @@ function main() {
   write("sitemap-core.xml", urlset(corePaths));
 
   const children = ["sitemap-core.xml"];
+  let townCount = 0;
   for (const cs of COUNTRY_SLUGS) {
+    // Only list towns that are worth indexing (large/featured or with content);
+    // thin long-tail pages are left out of the sitemap and carry a noindex tag.
     const paths = locations
-      .filter((l) => l.countrySlug === cs)
+      .filter((l) => l.countrySlug === cs && l.indexable)
       .map((l) => `/find/${l.countrySlug}/${l.slug}`);
     write(`sitemap-${cs}.xml`, urlset(paths));
     children.push(`sitemap-${cs}.xml`);
+    townCount += paths.length;
   }
 
   const index =
     `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-    children.map((c) => `  <sitemap><loc>${SITE_URL}/${c}</loc></sitemap>`).join("\n") +
+    children.map((c) => `  <sitemap><loc>${SITE_URL}/${c}</loc><lastmod>${LAST_UPDATED}</lastmod></sitemap>`).join("\n") +
     `\n</sitemapindex>\n`;
   write("sitemap.xml", index);
 
-  const total = corePaths.length + locations.length;
-  console.log(`Generated sitemap index + ${children.length} sitemaps (${total} URLs) into ${DIST}`);
+  console.log(`Generated sitemap index + ${children.length} sitemaps (${corePaths.length} core + ${townCount} indexable towns) into ${DIST}`);
 }
 
 main();

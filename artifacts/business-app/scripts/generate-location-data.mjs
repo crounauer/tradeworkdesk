@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CSV = resolve(__dirname, "towns-source.csv");
+const ENRICHMENT = resolve(__dirname, "geo-enrichment.json");
 const OUT = resolve(__dirname, "..", "src", "data", "locations.json");
 
 const COUNTRY_SLUGS = {
@@ -22,6 +23,10 @@ const COUNTRY_SLUGS = {
   England: "england",
   "Republic of Ireland": "ireland",
 };
+
+// `indexable` is decided at build time by apply-coverage.mjs based on whether a
+// real listing covers the town; the generator just seeds it to false. This keeps
+// indexing tied to genuine local value (listings) rather than page count.
 
 function slugify(value) {
   return value
@@ -73,6 +78,13 @@ function main() {
     throw new Error(`CSV must have Town and Country columns, got: ${header.join(", ")}`);
   }
 
+  let enrichment = {};
+  try {
+    enrichment = JSON.parse(readFileSync(ENRICHMENT, "utf8"));
+  } catch {
+    console.warn(`No geo-enrichment.json found at ${ENRICHMENT}; towns will have no coordinates.`);
+  }
+
   const seen = new Map(); // countrySlug -> Set(slug)
   const out = [];
   let skipped = 0;
@@ -99,7 +111,21 @@ function main() {
       continue; // duplicate town within the same country
     }
     slugSet.add(slug);
-    out.push({ country, countrySlug, region: null, town, slug });
+
+    const geo = enrichment[`${countrySlug}/${slug}`] || null;
+    const population = geo?.population ?? null;
+
+    out.push({
+      country,
+      countrySlug,
+      region: geo?.region ?? null,
+      town,
+      slug,
+      lat: geo?.lat ?? null,
+      lng: geo?.lng ?? null,
+      population,
+      indexable: false,
+    });
     counts[country] = (counts[country] || 0) + 1;
   }
 
@@ -112,7 +138,9 @@ function main() {
   mkdirSync(dirname(OUT), { recursive: true });
   writeFileSync(OUT, JSON.stringify(out, null, 0) + "\n");
 
-  for (const [c, n] of Object.entries(counts)) console.log(`${c}: ${n}`);
+  for (const [c, n] of Object.entries(counts)) {
+    console.log(`${c}: ${n}`);
+  }
   console.log(`Total:   ${out.length}`);
   console.log(`Skipped: ${skipped}`);
   console.log(`Written: ${OUT}`);

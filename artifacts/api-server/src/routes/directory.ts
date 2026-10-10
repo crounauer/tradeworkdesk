@@ -85,6 +85,8 @@ interface ListingRow {
   coverage_radius_miles: number | null;
   listing_latitude: number | null;
   listing_longitude: number | null;
+  gas_safe_number: string | null;
+  oftec_number: string | null;
   tenant_id: string;
 }
 
@@ -132,7 +134,7 @@ router.get("/directory", async (req: Request, res: Response): Promise<void> => {
 
   let query = supabaseAdmin
     .from("company_settings")
-    .select("id, name, trading_name, phone, email, website, address_line1, city, county, postcode, logo_url, listing_slug, public_description, trade_types, service_area, tenant_id, listing_latitude, listing_longitude")
+    .select("id, name, trading_name, phone, email, website, address_line1, city, county, postcode, logo_url, listing_slug, public_description, trade_types, service_area, tenant_id, listing_latitude, listing_longitude, gas_safe_number, oftec_number")
     .eq("is_publicly_listed", true)
     .not("listing_slug", "is", null)
     .order("name");
@@ -223,6 +225,10 @@ router.get("/directory", async (req: Request, res: Response): Promise<void> => {
     email: r.email,
     website: r.website,
     logo_url: r.logo_url,
+    latitude: r.listing_latitude,
+    longitude: r.listing_longitude,
+    gas_safe_registered: Boolean(r.gas_safe_number),
+    oftec_registered: Boolean(r.oftec_number),
     distance_miles: distanceByTenantId?.get(r.tenant_id) != null ? Math.round(distanceByTenantId.get(r.tenant_id)! * 10) / 10 : null,
     rating_average: ratingByTenantId.get(r.tenant_id) ? Math.round(ratingByTenantId.get(r.tenant_id)!.average * 10) / 10 : null,
     rating_count: ratingByTenantId.get(r.tenant_id)?.count ?? 0,
