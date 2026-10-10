@@ -135,9 +135,14 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
               <h4 className="font-display font-semibold text-white mb-4 text-sm">Product</h4>
               <ul className="space-y-2.5 text-sm">
                 <li><Link href="/features" className="hover:text-white transition-colors">Features</Link></li>
+                <li><Link href="/job-management-software-heating-engineers" className="hover:text-white transition-colors">Job Management</Link></li>
+                <li><Link href="/quoting-software" className="hover:text-white transition-colors">Quoting</Link></li>
+                <li><Link href="/invoicing-software" className="hover:text-white transition-colors">Invoicing</Link></li>
+                <li><Link href="/scheduling-software" className="hover:text-white transition-colors">Scheduling</Link></li>
                 <li><Link href="/tools" className="hover:text-white transition-colors">Free Tools</Link></li>
                 <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
                 <li><Link href="/industries" className="hover:text-white transition-colors">Industries</Link></li>
+                <li><Link href="/best-job-management-software-for-trades" className="hover:text-white transition-colors">Best for Trades</Link></li>
                 <li><Link href="/alternatives" className="hover:text-white transition-colors">Alternatives</Link></li>
               </ul>
             </div>

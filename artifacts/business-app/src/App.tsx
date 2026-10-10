@@ -995,6 +995,8 @@ function MarketingSiteGoogleAnalytics() {
 
   return null;
 }
+
+function TwdAnalyticsBridge() {
   useEffect(() => {
     const handler = (rawEvent: Event) => {
       const customEvent = rawEvent as CustomEvent<{ event?: string; source?: string; ts?: number }>;

@@ -450,6 +450,190 @@ const tradePages: Record<string, TradePageConfig> = {
       },
     ],
   },
+  "invoicing-software": {
+    slug: "invoicing-software",
+    h1: "Invoicing Software for Trades",
+    title: "Invoicing Software for Trades — Invoice & Get Paid Faster",
+    description:
+      "Invoicing and payment tracking for heating engineers, gas engineers and plumbers. Raise invoices from completed jobs, track what's owed, and take card payments.",
+    intro:
+      "Stop chasing paperwork at the end of the day. TradeWorkDesk turns a completed job into a professional invoice in a couple of taps, tracks what every customer owes you, and lets you take card payments online — so you get paid faster without leaving the tools.",
+    features: [
+      "Create invoices directly from jobs and quotes",
+      "Itemised line items for labour, parts and materials",
+      "Track invoice status — draft, sent, paid and overdue",
+      "Take online card payments with Stripe",
+      "Email invoices to customers as branded PDFs",
+      "See outstanding balances across all customers at a glance",
+      "Your company logo, details and VAT number on every invoice",
+      "Works on mobile — invoice from the van or the customer's doorstep",
+    ],
+    credentials: [
+      { label: "Secure Payments", body: "Card payments are handled by Stripe, so sensitive card details never touch TradeWorkDesk and payouts go straight to your bank." },
+      { label: "Accurate Records", body: "Invoices link back to the job, customer and property, giving you a clear financial trail alongside your service history." },
+      { label: "Built by a Tradesperson", body: "TradeWorkDesk was created by a working plumber, so invoicing is designed around how trades actually bill — jobs first, paperwork second." },
+    ],
+    faqs: [
+      {
+        question: "Can I turn a completed job into an invoice?",
+        answer:
+          "Yes. Once a job is done you can raise an invoice from it in a couple of taps, with the customer and line items already filled in. You can also create invoices from scratch or from an accepted quote.",
+      },
+      {
+        question: "Can customers pay online?",
+        answer:
+          "Yes. Connect Stripe and your invoices can include a secure card payment link, so customers can pay online and the payment is tracked automatically against the invoice.",
+      },
+      {
+        question: "Can I see who still owes me money?",
+        answer:
+          "Yes. Invoice status shows what's draft, sent, paid and overdue, and you can see outstanding balances across your customers so nothing slips through the cracks.",
+      },
+      {
+        question: "How much does it cost?",
+        answer:
+          "Invoicing is part of TradeWorkDesk. The Base Plan starts at £8.50/month with a 30-day free trial — no contracts and no per-invoice fees from us.",
+      },
+    ],
+  },
+  "scheduling-software": {
+    slug: "scheduling-software",
+    h1: "Scheduling & Appointment Software for Trades",
+    title: "Scheduling Software for Trades — Plan Jobs & Sync Your Calendar",
+    description:
+      "Job scheduling and appointment software for heating engineers and plumbers. Plan your week, assign jobs to engineers, sync with Google Calendar and never miss a service.",
+    intro:
+      "Keep your whole week in one place. TradeWorkDesk lets you schedule jobs and appointments, assign them to the right engineer, and sync everything with Google Calendar — so your diary on your phone always matches the office.",
+    features: [
+      "Schedule jobs and appointments across your team",
+      "Assign work to specific engineers and balance workloads",
+      "Two-way Google Calendar sync",
+      "Schedule recurring maintenance and annual service visits",
+      "See the day or week at a glance with job status",
+      "Automatic reminders so annual services aren't missed",
+      "Reassign jobs quickly when plans change",
+      "Works on mobile — check and update your schedule on site",
+    ],
+    credentials: [
+      { label: "Google Calendar Sync", body: "Jobs scheduled in TradeWorkDesk appear in your Google Calendar and stay in sync, so there's one diary for the whole business." },
+      { label: "Recurring Services", body: "Set up annual gas safety checks and maintenance visits once, and let reminders keep customers on schedule — great for recurring revenue." },
+      { label: "Built for the Field", body: "Designed for engineers who are rarely at a desk, so the schedule works just as well from the van as from the office." },
+    ],
+    faqs: [
+      {
+        question: "Does it sync with Google Calendar?",
+        answer:
+          "Yes. TradeWorkDesk offers two-way Google Calendar sync, so jobs you schedule appear in your calendar and stay up to date across your devices.",
+      },
+      {
+        question: "Can I schedule recurring maintenance visits?",
+        answer:
+          "Yes. You can schedule recurring maintenance and annual service visits, with reminders so regular customers are booked back in and nothing is missed.",
+      },
+      {
+        question: "Can I assign jobs to different engineers?",
+        answer:
+          "Yes. On team plans you can assign jobs to specific engineers, balance workloads across the week, and reassign quickly when plans change.",
+      },
+      {
+        question: "How much does it cost?",
+        answer:
+          "Scheduling is included in TradeWorkDesk. The Base Plan starts at £8.50/month with a 30-day free trial — no contracts and no credit card required to start.",
+      },
+    ],
+  },
+  "quoting-software": {
+    slug: "quoting-software",
+    h1: "Quoting Software for Trades",
+    title: "Quoting Software for Trades — Win More Work, Quote Faster",
+    description:
+      "Quoting software for heating engineers, gas engineers and plumbers. Capture enquiries, send professional quotes and turn accepted quotes into booked jobs and invoices.",
+    intro:
+      "Turn enquiries into booked work without the back-and-forth. TradeWorkDesk captures quote requests from your website, helps you send professional quotes, and converts the ones customers accept straight into jobs and invoices — so nothing falls through the cracks.",
+    features: [
+      "Capture enquiries and quote requests from your website",
+      "Create itemised quotes for labour, parts and materials",
+      "Email branded quotes to customers",
+      "Track enquiry status — new, contacted, quoted and won",
+      "Quote follow-up email templates to chase pending work",
+      "Convert accepted quotes into jobs and invoices in a tap",
+      "Keep every quote linked to the customer and property",
+      "Quote from anywhere — mobile friendly",
+    ],
+    credentials: [
+      { label: "Capture Every Lead", body: "Contact and quote forms on your TradeWorkDesk website feed straight into your enquiries, so no request is lost in an inbox." },
+      { label: "Faster Follow-up", body: "Built-in quote follow-up templates make it easy to chase outstanding quotes and win work that would otherwise go cold." },
+      { label: "No Double Entry", body: "An accepted quote becomes a job and then an invoice without re-typing details, keeping your pipeline and your records in sync." },
+    ],
+    faqs: [
+      {
+        question: "Can I send quotes to customers?",
+        answer:
+          "Yes. You can create itemised quotes and email them to customers as branded documents, then track whether each quote is still pending, won or lost.",
+      },
+      {
+        question: "Where do quote requests come from?",
+        answer:
+          "Contact and quote forms on your TradeWorkDesk website capture enquiries directly, so quote requests land in your enquiries list ready to action.",
+      },
+      {
+        question: "What happens when a customer accepts a quote?",
+        answer:
+          "You can convert an accepted quote into a job to schedule the work, and into an invoice to get paid — without re-entering the customer's details.",
+      },
+      {
+        question: "How much does it cost?",
+        answer:
+          "Quoting is part of TradeWorkDesk. The Base Plan starts at £8.50/month with a 30-day free trial — no contracts and no per-quote fees.",
+      },
+    ],
+  },
+  "best-job-management-software-for-trades": {
+    slug: "best-job-management-software-for-trades",
+    h1: "The Best Job Management Software for Trades",
+    title: "Best Job Management Software for Trades — What to Look For",
+    description:
+      "What to look for in job management software for heating engineers, gas engineers and plumbers — and how TradeWorkDesk delivers trade-specific forms, mobile and fair pricing.",
+    intro:
+      "There are plenty of field service tools, but most are generic platforms adapted for trades. If you're a heating engineer, gas engineer or plumber, the best job management software is the one built around your jobs, your compliance forms and the way you actually work on site. Here's what matters — and how TradeWorkDesk measures up.",
+    features: [
+      "Trade-specific compliance forms — not generic job sheets",
+      "Gas Safe, OFTEC and MCS ready documentation",
+      "Works on mobile, even with poor signal in boiler cupboards",
+      "Customer, property and appliance history in one place",
+      "Scheduling with Google Calendar sync and recurring services",
+      "Quoting and invoicing with online card payments",
+      "Clear, flat pricing with no per-job fees",
+      "UK-built and supported, with a 30-day free trial",
+    ],
+    credentials: [
+      { label: "Built for Trades, Not Adapted", body: "TradeWorkDesk is designed around gas, oil, heat pump and plumbing work, so the forms and workflows match your trade instead of a generic template." },
+      { label: "Fair, Predictable Pricing", body: "The Base Plan starts at £8.50/month with add-ons only for what you need — no per-job fees and no long contracts." },
+      { label: "Made in the UK", body: "Built and supported in the UK by a team that understands UK compliance, from Gas Safe records to landlord certificates." },
+    ],
+    faqs: [
+      {
+        question: "What should trades look for in job management software?",
+        answer:
+          "Look for trade-specific compliance forms, strong mobile support for on-site work, customer and appliance history, scheduling, quoting and invoicing, and transparent pricing without per-job fees.",
+      },
+      {
+        question: "Why is generic field service software not ideal for trades?",
+        answer:
+          "Generic tools often lack the compliance forms gas, oil and heat pump engineers need, so you end up adapting your workflow to the software. TradeWorkDesk is built around trade documentation instead.",
+      },
+      {
+        question: "Is TradeWorkDesk suitable for sole traders and teams?",
+        answer:
+          "Yes. The Base Plan suits sole traders, and add-ons for extra users and job capacity let multi-engineer companies scale up without changing systems.",
+      },
+      {
+        question: "Can I try it before committing?",
+        answer:
+          "Yes. Start a 30-day free trial — no credit card required and no contract — so you can test it on real jobs before deciding.",
+      },
+    ],
+  },
 };
 
 export default function TradeLandingPage({ slug }: { slug: string }) {

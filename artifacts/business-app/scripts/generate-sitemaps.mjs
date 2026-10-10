@@ -40,6 +40,10 @@ const CORE_PATHS = [
   "/heating-company-software",
   "/boiler-service-management-software",
   "/job-management-software-heating-engineers",
+  "/invoicing-software",
+  "/scheduling-software",
+  "/quoting-software",
+  "/best-job-management-software-for-trades",
   "/privacy-policy",
   "/terms-of-service",
 ];

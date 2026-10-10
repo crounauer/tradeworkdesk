@@ -228,7 +228,14 @@ function hubSchema(countrySlug) {
 function main() {
   const indexPath = resolve(DIST, "index.html");
   let template = readFileSync(indexPath, "utf8");
-  template = template.replace(/<title>[\s\S]*?<\/title>/, "").replace(/<meta name="description"[^>]*>/, "");
+  template = template
+    .replace(/<title>[\s\S]*?<\/title>/, "")
+    .replace(/<meta name="description"[^>]*>/, "")
+    // Drop the SPA's modulepreload hints on these content-first marketing pages.
+    // They eagerly fetch large chunks (e.g. charts) the location page never uses,
+    // starving the CSS/first paint on slow connections. The chunks still load on
+    // demand when the app boots; dropping the hints improves LCP/FCP.
+    .replace(/\s*<link rel="modulepreload"[^>]*>/g, "");
 
   function render(pathname, headHtml, bodyHtml) {
     let html = template.replace("</head>", `    ${headHtml}\n  </head>`);
