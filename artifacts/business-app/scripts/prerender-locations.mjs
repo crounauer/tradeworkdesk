@@ -121,8 +121,11 @@ function chip(href, label, extra = "") {
   return `<a href="${esc(href)}" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-sm text-slate-600 hover:border-primary/40 hover:text-primary transition-colors">${esc(label)}${extra}</a>`;
 }
 
-function fact(label, value) {
-  return `<div class="rounded-lg border border-slate-200 bg-white p-3"><dt class="text-xs uppercase tracking-wide text-slate-400">${esc(label)}</dt><dd class="text-sm font-semibold text-slate-800 mt-0.5">${esc(value)}</dd></div>`;
+function fact(label, value, href, hint) {
+  const inner = `<dt class="text-xs uppercase tracking-wide text-slate-400">${esc(label)}</dt><dd class="text-sm font-semibold mt-0.5"><span class="${href ? "text-primary" : "text-slate-800"}">${esc(value)}</span>${hint ? ` <span class="text-slate-400 font-normal">${esc(hint)}</span>` : ""}</dd>`;
+  return href
+    ? `<a href="${esc(href)}" class="block rounded-lg border border-slate-200 bg-white p-3">${inner}</a>`
+    : `<div class="rounded-lg border border-slate-200 bg-white p-3">${inner}</div>`;
 }
 
 function townBody(loc) {
@@ -134,7 +137,7 @@ function townBody(loc) {
     fact("Country", countryLabel),
     loc.region ? fact("Area", loc.region) : "",
     loc.population != null ? fact("Population", loc.population.toLocaleString()) : "",
-    nearest && near[0]?.distanceMiles != null ? fact("Nearest town", `${nearest} (${near[0].distanceMiles} mi)`) : "",
+    nearest && near[0]?.distanceMiles != null ? fact("Nearest town", nearest, `/find/${near[0].countrySlug}/${near[0].slug}`, `(${near[0].distanceMiles} mi)`) : "",
   ].filter(Boolean).join("");
   return `
 <nav class="text-sm"><a href="/find">Find a Tradesperson</a> / <a href="/find/${loc.countrySlug}">${esc(countryLabel)}</a> / <span>${esc(loc.town)}</span></nav>

@@ -161,7 +161,12 @@ export default function LocationPage() {
           {location.region && <Fact label="Area" value={location.region} />}
           {location.population != null && <Fact label="Population" value={location.population.toLocaleString()} />}
           {nearestTown && nearby[0]?.distanceMiles != null && (
-            <Fact label="Nearest town" value={`${nearestTown} (${nearby[0].distanceMiles} mi)`} />
+            <Fact
+              label="Nearest town"
+              value={nearestTown}
+              hint={`(${nearby[0].distanceMiles} mi)`}
+              href={`/find/${nearby[0].countrySlug}/${nearby[0].slug}`}
+            />
           )}
         </dl>
       </section>
@@ -369,13 +374,24 @@ function region(r: string | null): r is string {
   return Boolean(r);
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
+function Fact({ label, value, href, hint }: { label: string; value: string; href?: string; hint?: string }) {
+  const body = (
+    <>
       <dt className="text-xs uppercase tracking-wide text-slate-400">{label}</dt>
-      <dd className="text-sm font-semibold text-slate-800 mt-0.5">{value}</dd>
-    </div>
+      <dd className="text-sm font-semibold mt-0.5">
+        <span className={href ? "text-primary" : "text-slate-800"}>{value}</span>
+        {hint ? <span className="text-slate-400 font-normal"> {hint}</span> : null}
+      </dd>
+    </>
   );
+  if (href) {
+    return (
+      <Link href={href} className="block rounded-lg border border-slate-200 bg-white p-3 hover:border-primary/40 transition-colors">
+        {body}
+      </Link>
+    );
+  }
+  return <div className="rounded-lg border border-slate-200 bg-white p-3">{body}</div>;
 }
 
 function faqItems(location: { town: string; region: string | null }, countryLabel: string) {
