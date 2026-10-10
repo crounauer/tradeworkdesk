@@ -479,6 +479,10 @@ const PlumberRoute = pub(TradeLandingPage, { slug: "plumber-software" });
 const LandlordGasRoute = pub(TradeLandingPage, { slug: "landlord-gas-safety-software" });
 const SoleTraderRoute = pub(TradeLandingPage, { slug: "sole-trader-software" });
 const HeatingCompanyRoute = pub(TradeLandingPage, { slug: "heating-company-software" });
+const InvoicingSoftwareRoute = pub(TradeLandingPage, { slug: "invoicing-software" });
+const SchedulingSoftwareRoute = pub(TradeLandingPage, { slug: "scheduling-software" });
+const QuotingSoftwareRoute = pub(TradeLandingPage, { slug: "quoting-software" });
+const BestJobMgmtRoute = pub(TradeLandingPage, { slug: "best-job-management-software-for-trades" });
 const IndustriesRoute = pub(IndustriesPage);
 const AlternativesRoute = pub(AlternativesPage);
 const FindRoute = pub(DirectoryPage);
@@ -738,6 +742,10 @@ function AppRouter() {
         <Route path="/landlord-gas-safety-software" component={LandlordGasRoute} />
         <Route path="/sole-trader-software" component={SoleTraderRoute} />
         <Route path="/heating-company-software" component={HeatingCompanyRoute} />
+        <Route path="/invoicing-software" component={InvoicingSoftwareRoute} />
+        <Route path="/scheduling-software" component={SchedulingSoftwareRoute} />
+        <Route path="/quoting-software" component={QuotingSoftwareRoute} />
+        <Route path="/best-job-management-software-for-trades" component={BestJobMgmtRoute} />
         <Route path="/industries" component={IndustriesRoute} />
         <Route path="/alternatives" component={AlternativesRoute} />
         <Route path="/find" component={FindRoute} />
@@ -915,7 +923,78 @@ function MarketingSiteTracker() {
   return null;
 }
 
-function TwdAnalyticsBridge() {
+function extractMeasurementId(raw: string): string | null {
+  const match = String(raw || "").match(/\b(G-[A-Z0-9]+|AW-[A-Z0-9]+|GT-[A-Z0-9]+|GTM-[A-Z0-9]+|UA-\d+-\d+)\b/i);
+  return match ? match[1] : null;
+}
+
+function MarketingSiteGoogleAnalytics() {
+  const [location] = useLocation();
+  const { session } = useAuth();
+  const measurementId = useRef<string | null>(null);
+  const fetched = useRef(false);
+  const injected = useRef(false);
+  const [consentTick, setConsentTick] = useState(0);
+
+  useEffect(() => {
+    const onConsentChange = () => setConsentTick((t) => t + 1);
+    window.addEventListener("twd-consent-change", onConsentChange);
+    return () => window.removeEventListener("twd-consent-change", onConsentChange);
+  }, []);
+
+  useEffect(() => {
+    if (session) return;
+    if (!isMarketingSitePath(location)) return;
+    if (getStoredConsent() !== "granted") return;
+
+    let cancelled = false;
+
+    (async () => {
+      if (!fetched.current) {
+        fetched.current = true;
+        try {
+          const res = await fetch(`${import.meta.env.BASE_URL}api/public/marketing-site/config`);
+          const data = res.ok ? await res.json() : null;
+          measurementId.current = extractMeasurementId(String(data?.google_analytics_id || ""));
+        } catch {
+          measurementId.current = null;
+        }
+      }
+
+      if (cancelled) return;
+      const id = measurementId.current;
+      if (!id) return;
+
+      const w = window as typeof window & {
+        dataLayer?: unknown[];
+        gtag?: (...args: unknown[]) => void;
+      };
+
+      if (!injected.current) {
+        injected.current = true;
+        const script = document.createElement("script");
+        script.async = true;
+        script.src = `https://www.googletagmanager.com/gtag/js?id=${id}`;
+        document.head.appendChild(script);
+
+        w.dataLayer = w.dataLayer || [];
+        w.gtag = function gtag() {
+          w.dataLayer!.push(arguments);
+        };
+        w.gtag("js", new Date());
+        w.gtag("config", id, { page_path: location });
+      } else if (typeof w.gtag === "function") {
+        w.gtag("config", id, { page_path: location });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location, session, consentTick]);
+
+  return null;
+}
   useEffect(() => {
     const handler = (rawEvent: Event) => {
       const customEvent = rawEvent as CustomEvent<{ event?: string; source?: string; ts?: number }>;
@@ -1164,6 +1243,7 @@ function App() {
             <ChunkErrorBoundary>
               <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                 <MarketingSiteTracker />
+                <MarketingSiteGoogleAnalytics />
                 <TwdAnalyticsBridge />
                 <ServiceWorkerPushBridge />
                 <AppUpdatePrompt />

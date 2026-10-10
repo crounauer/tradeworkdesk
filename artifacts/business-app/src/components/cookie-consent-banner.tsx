@@ -18,6 +18,7 @@ export function CookieConsentBanner() {
   function choose(value: CookieConsent) {
     setStoredConsent(value);
     setConsent(value);
+    window.dispatchEvent(new Event("twd-consent-change"));
   }
 
   return (

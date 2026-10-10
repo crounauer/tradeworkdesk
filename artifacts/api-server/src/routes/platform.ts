@@ -680,6 +680,16 @@ router.post("/public/marketing-site/analytics/track", async (req, res): Promise<
   res.json({ ok: true });
 });
 
+router.get("/public/marketing-site/config", async (_req, res): Promise<void> => {
+  const { data } = await supabaseAdmin
+    .from("platform_settings")
+    .select("value")
+    .eq("key", "marketing_site_google_analytics_id")
+    .maybeSingle();
+  const raw = typeof data?.value === "string" ? data.value.trim() : "";
+  res.json({ google_analytics_id: raw || null });
+});
+
 router.get("/platform/stats", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
   const [tenantsRes, usersRes, activeTenantsRes, trialTenantsRes, plansRes] = await Promise.all([
     supabaseAdmin.from("tenants").select("id", { count: "exact", head: true }),

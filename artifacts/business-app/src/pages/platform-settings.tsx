@@ -264,13 +264,15 @@ function PlatformSocialMarketingTenantSetting() {
   );
 }
 
-function PlatformSettingField({ settingKey, label, description, placeholder, helpContent, icon }: {
+function PlatformSettingField({ settingKey, label, description, placeholder, helpContent, icon, secret = true, helperText }: {
   settingKey: string;
   label: string;
   description: string;
   placeholder: string;
   helpContent?: React.ReactNode;
   icon?: React.ReactNode;
+  secret?: boolean;
+  helperText?: string;
 }) {
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(true);
@@ -337,24 +339,26 @@ function PlatformSettingField({ settingKey, label, description, placeholder, hel
             <div className="relative flex-1">
               <Input
                 id={settingKey}
-                type={showValue ? "text" : "password"}
+                type={secret && !showValue ? "password" : "text"}
                 placeholder={placeholder}
                 value={value}
                 onChange={e => setValue(e.target.value)}
               />
-              <button
-                type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                onClick={() => setShowValue(!showValue)}
-              >
-                {showValue ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+              {secret && (
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowValue(!showValue)}
+                >
+                  {showValue ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              )}
             </div>
             <Button onClick={handleSave} disabled={saving} size="sm">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : "Save"}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">This key is stored securely and used platform-wide for all tenants.</p>
+          <p className="text-xs text-muted-foreground">{helperText ?? "This key is stored securely and used platform-wide for all tenants."}</p>
         </div>
       </CardContent>
     </Card>
@@ -946,6 +950,15 @@ export default function PlatformSettings() {
         </TabsContent>
 
         <TabsContent value="seo" className="space-y-4">
+          <PlatformSettingField
+            settingKey="marketing_site_google_analytics_id"
+            label="Google Analytics"
+            description="GA4 Measurement ID for the TradeWorkDesk marketing website (tradeworkdesk.co.uk). The tag loads on marketing pages once a visitor accepts analytics cookies."
+            placeholder="G-XXXXXXXXXX"
+            secret={false}
+            helperText="Paste your GA4 Measurement ID (starts with G-). Leave blank to disable Google Analytics on the marketing site."
+            icon={<Globe className="w-4 h-4" />}
+          />
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
