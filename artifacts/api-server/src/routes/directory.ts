@@ -128,7 +128,7 @@ function parseTradeTypes(value: string | null): string[] {
 // Optional query params: ?q=search&trade=Gas+Engineer&location=AB10+1AB&radius=20
 // ---------------------------------------------------------------------------
 router.get("/directory", async (req: Request, res: Response): Promise<void> => {
-  const { q, trade, location, radius } = req.query as { q?: string; trade?: string; location?: string; radius?: string };
+  const { q, trade, location, radius, country } = req.query as { q?: string; trade?: string; location?: string; radius?: string; country?: string };
 
   let query = supabaseAdmin
     .from("company_settings")
@@ -168,7 +168,14 @@ router.get("/directory", async (req: Request, res: Response): Promise<void> => {
   // Location search: geocode the requested location and sort/filter listings by distance.
   let distanceByTenantId: Map<string, number> | null = null;
   if (location && location.trim()) {
-    const origin = await geocodeAddress(location.trim()).catch(() => null);
+    // Search both Great Britain and the Republic of Ireland by default; a town
+    // landing page can pass ?country=gb|ie to disambiguate same-named places.
+    const normalizedCountry = (country || "").trim().toLowerCase();
+    const countryCodes =
+      normalizedCountry === "ie" ? ["ie"] :
+      normalizedCountry === "gb" ? ["gb"] :
+      ["gb", "ie"];
+    const origin = await geocodeAddress(location.trim(), undefined, countryCodes).catch(() => null);
     if (origin) {
       const radiusMiles = radius ? Number(radius) : null;
       distanceByTenantId = new Map();

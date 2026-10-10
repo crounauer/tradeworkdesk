@@ -1,6 +1,6 @@
 import { lazy, Suspense, Component as ReactComponent, useEffect, useRef, useState } from "react";
 import type { ReactNode, ErrorInfo } from "react";
-import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation, useParams } from "wouter";
 import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +13,7 @@ import { OfflineProvider } from "@/contexts/offline-context";
 import { toast } from "@/hooks/use-toast";
 import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 import { getStoredConsent, isMarketingSitePath } from "@/lib/cookie-consent";
+import { COUNTRY_SLUGS } from "@/data/locations";
 
 const CHUNK_RELOAD_ATTEMPTS_KEY = "chunk_reload_attempts";
 const ACTIVE_SW_SCRIPT_KEY = "active_sw_script_url";
@@ -230,6 +231,8 @@ const PrivacyPolicyPage = lazyRetry(() => import("@/pages/marketing/privacy-poli
 const TermsOfServicePage = lazyRetry(() => import("@/pages/marketing/terms-of-service"));
 const DirectoryPage = lazyRetry(() => import("@/pages/marketing/directory"));
 const BusinessProfilePage = lazyRetry(() => import("@/pages/marketing/business-profile"));
+const LocationPage = lazyRetry(() => import("@/pages/marketing/location"));
+const LocationHubPage = lazyRetry(() => import("@/pages/marketing/location-hub"));
 
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -479,7 +482,16 @@ const HeatingCompanyRoute = pub(TradeLandingPage, { slug: "heating-company-softw
 const IndustriesRoute = pub(IndustriesPage);
 const AlternativesRoute = pub(AlternativesPage);
 const FindRoute = pub(DirectoryPage);
-const FindSlugRoute = pub(BusinessProfilePage);
+const LocationRoute = pub(LocationPage);
+function FindSlugRoute() {
+  const params = useParams();
+  const slug = params.slug ?? "";
+  // Single-segment /find/:slug is either a country hub (/find/england) or a
+  // business profile. Country slugs take precedence.
+  return COUNTRY_SLUGS.includes(slug)
+    ? <PublicPage component={LocationHubPage} />
+    : <PublicPage component={BusinessProfilePage} />;
+}
 const PrivacyRoute = pub(PrivacyPolicyPage);
 const TermsRoute = pub(TermsOfServicePage);
 
@@ -729,6 +741,7 @@ function AppRouter() {
         <Route path="/industries" component={IndustriesRoute} />
         <Route path="/alternatives" component={AlternativesRoute} />
         <Route path="/find" component={FindRoute} />
+        <Route path="/find/:country/:town" component={LocationRoute} />
         <Route path="/find/:slug" component={FindSlugRoute} />
         <Route path="/privacy-policy" component={PrivacyRoute} />
         <Route path="/terms-of-service" component={TermsRoute} />

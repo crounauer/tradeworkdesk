@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://boilertech.replit.app/sitemap.xml
+Sitemap: https://www.tradeworkdesk.co.uk/sitemap.xml

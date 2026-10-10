@@ -77,8 +77,9 @@ export async function idealPostcodesLookup(postcode: string, apiKey: string): Pr
   return data.result;
 }
 
-export async function googleGeocode(address: string, apiKey: string): Promise<GeoResult | null> {
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&components=country:GB&key=${apiKey}`;
+export async function googleGeocode(address: string, apiKey: string, countryCodes: string[] = ["gb"]): Promise<GeoResult | null> {
+  const components = countryCodes.map((c) => `country:${c.toUpperCase()}`).join("|");
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&components=${encodeURIComponent(components)}&key=${apiKey}`;
   const response = await fetch(url);
   if (!response.ok) return null;
   const data = await response.json() as { status: string; results: Array<{ geometry: { location: { lat: number; lng: number } }; formatted_address: string }> };
@@ -91,8 +92,9 @@ export async function googleGeocode(address: string, apiKey: string): Promise<Ge
   };
 }
 
-export async function mapboxGeocode(address: string, apiKey: string): Promise<GeoResult | null> {
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${apiKey}&limit=1&country=gb`;
+export async function mapboxGeocode(address: string, apiKey: string, countryCodes: string[] = ["gb"]): Promise<GeoResult | null> {
+  const country = countryCodes.map((c) => c.toLowerCase()).join(",");
+  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${apiKey}&limit=1&country=${country}`;
   const response = await fetch(url);
   if (!response.ok) return null;
   const data = await response.json() as { features: Array<{ center: [number, number]; place_name: string }> };
@@ -105,8 +107,9 @@ export async function mapboxGeocode(address: string, apiKey: string): Promise<Ge
   };
 }
 
-export async function nominatimSearch(query: string): Promise<Array<{ lat: string; lon: string; display_name: string }>> {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=gb`;
+export async function nominatimSearch(query: string, countryCodes: string[] = ["gb"]): Promise<Array<{ lat: string; lon: string; display_name: string }>> {
+  const country = countryCodes.map((c) => c.toLowerCase()).join(",");
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=${country}`;
   const response = await fetch(url, {
     headers: { "User-Agent": "TradeWorkDesk/1.0" },
   });
@@ -115,7 +118,7 @@ export async function nominatimSearch(query: string): Promise<Array<{ lat: strin
   return Array.isArray(results) ? results : [];
 }
 
-export async function geocodeAddress(address: string, _tenantId?: string): Promise<GeoResult | null> {
+export async function geocodeAddress(address: string, _tenantId?: string, countryCodes: string[] = ["gb"]): Promise<GeoResult | null> {
   try {
     const idealKey = await getIdealPostcodesKey().catch(() => null);
     if (idealKey) {
@@ -142,22 +145,22 @@ export async function geocodeAddress(address: string, _tenantId?: string): Promi
 
     const googleApiKey = process.env.GOOGLE_GEOCODE_API_KEY;
     if (googleApiKey) {
-      const result = await googleGeocode(address, googleApiKey);
+      const result = await googleGeocode(address, googleApiKey, countryCodes);
       if (result) return result;
     }
 
     const mapboxApiKey = process.env.GEOCODE_API_KEY;
     if (mapboxApiKey) {
-      const result = await mapboxGeocode(address, mapboxApiKey);
+      const result = await mapboxGeocode(address, mapboxApiKey, countryCodes);
       if (result) return result;
     }
 
-    let results = await nominatimSearch(address);
+    let results = await nominatimSearch(address, countryCodes);
 
     if (results.length === 0) {
       const postcode = extractPostcode(address);
       if (postcode) {
-        results = await nominatimSearch(postcode);
+        results = await nominatimSearch(postcode, countryCodes);
       }
     }
 

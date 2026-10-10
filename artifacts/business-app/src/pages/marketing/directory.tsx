@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Phone, Globe, Wrench, Star } from "lucide-react";
+import { Search, MapPin, Phone, Globe, Wrench, Star, ArrowRight } from "lucide-react";
+import { COUNTRY_LABELS, COUNTRY_SLUGS, getCountryLocations, getFeaturedLocations } from "@/data/locations";
 
 interface BusinessListing {
   slug: string;
@@ -241,6 +242,47 @@ export default function DirectoryPage() {
             </div>
           </>
         )}
+      </section>
+
+      {/* Browse by location */}
+      <section className="border-t border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <h2 className="text-xl font-bold text-slate-900 mb-1">Browse tradespeople by area</h2>
+          <p className="text-slate-600 mb-8">
+            Find a local heating engineer, gas engineer or plumber in your town across the UK and Ireland.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {COUNTRY_SLUGS.map((cs) => {
+              const featured = getFeaturedLocations(cs);
+              const total = getCountryLocations(cs).length;
+              return (
+                <div key={cs} className="rounded-xl border border-slate-200 bg-white p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-slate-900">{COUNTRY_LABELS[cs]}</h3>
+                    <span className="text-xs text-slate-400">{total} towns</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {featured.map((f) => (
+                      <Link
+                        key={f.slug}
+                        href={`/find/${f.countrySlug}/${f.slug}`}
+                        className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-sm text-slate-600 hover:border-primary/40 hover:text-primary transition-colors"
+                      >
+                        {f.town}
+                      </Link>
+                    ))}
+                  </div>
+                  <Link
+                    href={`/find/${cs}`}
+                    className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                  >
+                    See all {COUNTRY_LABELS[cs]} towns <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </section>
 
       {/* CTA for businesses */}

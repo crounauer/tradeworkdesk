@@ -160,6 +160,9 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
               <ul className="space-y-2.5 text-sm">
                 <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
                 <li><Link href="/find" className="hover:text-white transition-colors">Find a Tradesperson</Link></li>
+                <li><Link href="/find/england" className="hover:text-white transition-colors">Tradespeople in England</Link></li>
+                <li><Link href="/find/scotland" className="hover:text-white transition-colors">Tradespeople in Scotland</Link></li>
+                <li><Link href="/find/ireland" className="hover:text-white transition-colors">Tradespeople in Ireland</Link></li>
                 <li><Link href="/about" className="hover:text-white transition-colors">About</Link></li>
                 <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
                 <li><Link href="/portal/login" className="hover:text-white transition-colors">Customer Portal</Link></li>
