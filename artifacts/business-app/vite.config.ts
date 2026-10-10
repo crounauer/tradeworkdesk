@@ -83,14 +83,18 @@ export default defineConfig({
       output: {
         manualChunks(id: string) {
           if (!id.includes("node_modules")) return undefined;
-          // One chunk per top-level npm package. This prevents a small shared
-          // dependency (e.g. react-is, used by both Radix and recharts) from
-          // dragging a heavy library like recharts into every page that uses the
-          // shared util — marketing pages then never load chart/map code.
           const after = id.split("node_modules/").pop() as string;
           const parts = after.split("/");
           const pkg = after.startsWith("@") ? `${parts[0]}/${parts[1]}` : parts[0];
-          return `npm.${pkg.replace("@", "").replace("/", "-")}`;
+          // Isolate heavy, lazy-only visualisation libraries (charts + maps) into
+          // their own chunk so they never ride along in the shared vendor chunk
+          // and load on marketing/location pages that render no charts or maps.
+          if (/^(recharts|recharts-scale|victory-vendor|leaflet|react-leaflet)$/.test(pkg) || pkg.startsWith("@react-leaflet") || /^d3-/.test(pkg)) {
+            return "vendor-viz";
+          }
+          // Everything else the app shares (react, router, query, supabase, radix,
+          // icons, forms, small utils like react-is) goes in one vendor chunk.
+          return "vendor";
         }
       }
     }
