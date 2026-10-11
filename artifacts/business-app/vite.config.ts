@@ -60,7 +60,7 @@ export default defineConfig({
         }
       }],
       navigateFallback: "index.html",
-      navigateFallbackDenylist: [/^\/api\//],
+      navigateFallbackDenylist: [/^\/api\//, /^\/sitemap.*\.xml$/, /^\/robots\.txt$/, /^\/[0-9a-f]{32}\.txt$/],
       importScripts: ["sw-custom.js"]
     },
     devOptions: {
