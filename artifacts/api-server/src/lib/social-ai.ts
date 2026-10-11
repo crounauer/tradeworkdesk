@@ -9,6 +9,7 @@ export interface SuggestionItem {
   entityId: string;
   title: string;
   description?: string;
+  url?: string;
 }
 
 export interface PostSuggestion {
@@ -27,7 +28,7 @@ export async function generatePostSuggestions(
   if (items.length === 0) return [];
 
   const itemDescriptions = items
-    .map((item, i) => `${i + 1}. [${item.entityType}] "${item.title}"${item.description ? ` - ${item.description}` : ""}`)
+    .map((item, i) => `${i + 1}. [${item.entityType}] "${item.title}"${item.description ? ` - ${item.description}` : ""}${item.url ? ` (link: ${item.url})` : ""}`)
     .join("\n");
 
   const response = await openai.chat.completions.create({
@@ -37,10 +38,16 @@ export async function generatePostSuggestions(
       {
         role: "system",
         content: `You are a social media marketing expert for TradeWorkDesk, a boiler service management software company.
-Generate engaging social media posts for each item provided.
+Write social media posts for each item provided, for working tradespeople (plumbers, heating engineers, gas and oil boiler engineers).
 For each item, create one post per requested platform.
-Include relevant emojis and 2-3 hashtags.
-Keep Twitter/X posts under 280 characters.
+Rules:
+- Use ONLY facts given in the item. Never invent statistics, testimonials, customer names, prices, awards, or product features.
+- No filler or hype ("revolutionise", "say goodbye to paperwork", "efficiency has never been easier"). Be specific and practical, and write in plain UK English.
+- Open with a concrete situation or question a tradesperson would recognise, not a slogan.
+- If the item has a link, end the post with that exact URL.
+- Use at most 2 hashtags and at most 1 emoji.
+- Vary the wording and opening between posts; do not reuse the same structure.
+Keep Twitter/X posts under 280 characters including the link.
 Facebook and Instagram posts can be longer (up to 500 chars).
 Return a JSON array of objects with: entityType, entityId, platform, content.
 Only return valid JSON, no markdown.`,

@@ -2962,6 +2962,33 @@ router.post(
   },
 );
 
+// The live sitemaps list only towns with real nearby listings, so we never promote noindex pages.
+async function pickIndexableTownItems(site: string, count: number): Promise<SuggestionItem[]> {
+  const urls: string[] = [];
+  for (const country of ["scotland", "england", "ireland"]) {
+    try {
+      const r = await fetch(`${site}/sitemap-${country}.xml`);
+      if (!r.ok) continue;
+      const xml = await r.text();
+      for (const m of xml.matchAll(/<loc>([^<]*\/find\/[^<]+\/[^<]+)<\/loc>/g)) urls.push(m[1]);
+    } catch {
+      // Town pages are optional; skip on failure.
+    }
+  }
+  const picked = urls.sort(() => Math.random() - 0.5).slice(0, count);
+  return picked.map((url) => {
+    const [country, slug] = url.split("/find/")[1].split("/");
+    const town = slug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    return {
+      entityType: "article" as const,
+      entityId: `town-${country}-${slug}`,
+      title: `Find a heating and plumbing tradesperson in ${town}`,
+      description: `Local page for customers in ${town} to find listed heating and plumbing businesses nearby, and for tradespeople in the area to get listed`,
+      url,
+    };
+  });
+}
+
 router.get(
   "/admin/social/suggestions",
   requireAuth,
@@ -3019,19 +3046,44 @@ router.get(
       }
 
       if (items.length === 0) {
+        const site = "https://www.tradeworkdesk.co.uk";
         items.push(
           {
             entityType: "product",
-            entityId: "tradeworkdesk-platform",
-            title: "TradeWorkDesk Platform",
-            description: "Manage jobs, create certificates, and track service records digitally",
+            entityId: "page-invoicing",
+            title: "Invoicing software for trades",
+            description: "Create and send invoices from the job, and take card payments through Stripe",
+            url: `${site}/invoicing-software`,
+          },
+          {
+            entityType: "product",
+            entityId: "page-scheduling",
+            title: "Scheduling and appointment software",
+            description: "Book visits, set up recurring service visits, and sync with Google Calendar",
+            url: `${site}/scheduling-software`,
+          },
+          {
+            entityType: "product",
+            entityId: "page-quoting",
+            title: "Quoting software",
+            description: "Build and send quotes for gas, oil, heat pump and plumbing work",
+            url: `${site}/quoting-software`,
+          },
+          {
+            entityType: "product",
+            entityId: "page-job-management",
+            title: "Job management software for trades",
+            description: "Jobs, customers, certificates and service records in one place. Base Plan is £8.50/month with a 30-day free trial",
+            url: `${site}/best-job-management-software-for-trades`,
           },
           {
             entityType: "article",
-            entityId: "boiler-service-tips",
-            title: "Essential Boiler Maintenance Tips",
-            description: "Key maintenance tips to keep boilers running efficiently",
+            entityId: "page-find-tradesperson",
+            title: "Find a tradesperson directory",
+            description: "Customers can find local heating and plumbing businesses, and tradespeople can be listed",
+            url: `${site}/find`,
           },
+          ...(await pickIndexableTownItems(site, 3)),
         );
       }
 
