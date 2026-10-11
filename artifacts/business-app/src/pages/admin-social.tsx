@@ -2322,6 +2322,7 @@ function PostsTab() {
 function SuggestionsTab() {
   const queryClient = useQueryClient();
   const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(new Set());
+  const [usedSuggestions, setUsedSuggestions] = useState<Set<number>>(new Set());
   const [bulkInterval, setBulkInterval] = useState("60");
   const [showBulkDialog, setShowBulkDialog] = useState(false);
   const { toast } = useToast();
@@ -2331,6 +2332,15 @@ function SuggestionsTab() {
     queryFn: () => apiFetch("/admin/social/suggestions"),
     enabled: false,
   });
+
+  // Indices are only valid for the current list, so reset when a new list arrives
+  useEffect(() => {
+    setUsedSuggestions(new Set());
+    setSelectedSuggestions(new Set());
+  }, [suggestions]);
+
+  const markUsed = (indices: number[]) =>
+    setUsedSuggestions((prev) => new Set([...prev, ...indices]));
 
   const bulkMutation = useMutation({
     mutationFn: async () => {
@@ -2350,6 +2360,7 @@ function SuggestionsTab() {
     },
     onSuccess: (data: { scheduled: number }) => {
       toast({ title: `${data.scheduled} posts scheduled` });
+      markUsed([...selectedSuggestions]);
       setSelectedSuggestions(new Set());
       setShowBulkDialog(false);
       queryClient.invalidateQueries({ queryKey: ["social-posts"] });
@@ -2360,7 +2371,7 @@ function SuggestionsTab() {
   });
 
   const createFromSuggestion = useMutation({
-    mutationFn: async (suggestion: Record<string, string>) => {
+    mutationFn: async ({ suggestion }: { suggestion: Record<string, string>; index: number }) => {
       return apiFetch("/admin/social/post", {
         method: "POST",
         body: JSON.stringify({
@@ -2369,7 +2380,8 @@ function SuggestionsTab() {
         }),
       });
     },
-    onSuccess: () => {
+    onSuccess: (_data, { index }) => {
+      markUsed([index]);
       toast({ title: "Post created" });
       queryClient.invalidateQueries({ queryKey: ["social-posts"] });
     },
@@ -2457,7 +2469,7 @@ function SuggestionsTab() {
         </Card>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {suggestions.map((suggestion: Record<string, string>, index: number) => (
+          {suggestions.map((suggestion: Record<string, string>, index: number) => usedSuggestions.has(index) ? null : (
             <Card key={index} className={selectedSuggestions.has(index) ? "ring-2 ring-primary" : ""}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
@@ -2481,14 +2493,17 @@ function SuggestionsTab() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => createFromSuggestion.mutate(suggestion)}
+                    onClick={() => createFromSuggestion.mutate({ suggestion, index })}
                     disabled={createFromSuggestion.isPending}
                   >
                     <Send className="w-3 h-3 mr-1" />
                     Post Now
                   </Button>
                   <CreatePostDialog
-                    onCreated={() => queryClient.invalidateQueries({ queryKey: ["social-posts"] })}
+                    onCreated={() => {
+                      markUsed([index]);
+                      queryClient.invalidateQueries({ queryKey: ["social-posts"] });
+                    }}
                     initialContent={suggestion.content}
                     initialPlatform={suggestion.platform}
                     initialScheduled={true}
