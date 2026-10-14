@@ -12,6 +12,8 @@ interface ContactInfo {
   hours?: string;
 }
 
+const combinedNameFields = new Set(["name", "full_name", "contact_name"]);
+
 interface Props {
   content: {
     form_id?: string;
@@ -57,7 +59,8 @@ export default function ContactFormBlock({ content }: Props) {
     contact_info,
     allow_photos = true,
     fields = [
-      { name: "name", label: "Full Name", type: "text", required: true },
+      { name: "first_name", label: "First Name", type: "text", required: true },
+      { name: "last_name", label: "Surname", type: "text", required: true },
       { name: "phone", label: "Phone Number", type: "tel", required: true },
       { name: "email", label: "Email Address", type: "email", required: true },
       { name: "message", label: "Message", type: "textarea" },
@@ -215,12 +218,22 @@ export default function ContactFormBlock({ content }: Props) {
   }, [turnstileSiteKey]);
 
   const collectAddress = content.collect_address !== false;
+  const fieldNames = new Set(fields.map((field) => field.name));
+  const nameFields = fields.flatMap((field) => {
+    if (!combinedNameFields.has(field.name)) return [field];
+    const replacements = [
+      { name: "first_name", label: "First Name", type: "text", required: field.required },
+      { name: "last_name", label: "Surname", type: "text", required: field.required },
+    ].filter((replacement) => !fieldNames.has(replacement.name));
+    replacements.forEach((replacement) => fieldNames.add(replacement.name));
+    return replacements;
+  });
   const renderedFields = (() => {
-    if (!collectAddress) return fields;
-    const names = new Set(fields.map((f) => f.name));
-    if (names.has("address_line1") || names.has("address") || names.has("postcode")) return fields;
+    if (!collectAddress) return nameFields;
+    const names = new Set(nameFields.map((f) => f.name));
+    if (names.has("address_line1") || names.has("address") || names.has("postcode")) return nameFields;
     return [
-      ...fields,
+      ...nameFields,
       { name: "address_line1", label: "Address", type: "text" },
       { name: "city", label: "Town / City", type: "text" },
       { name: "postcode", label: "Postcode", type: "text" },
@@ -286,9 +299,18 @@ export default function ContactFormBlock({ content }: Props) {
     }
 
     const spamSignals = { _hp: honeypot, _elapsed_ms: Date.now() - renderedAtRef.current, ...(turnstileSiteKey ? { _turnstile: turnstileToken } : {}) };
+    const fullName = [values.first_name?.trim(), values.last_name?.trim()].filter(Boolean).join(" ");
+    // Keep the combined name for existing enquiry and notification consumers.
+    const submissionValues = fullName
+      ? {
+          ...values,
+          name: fullName,
+          ...Object.fromEntries(fields.filter((field) => combinedNameFields.has(field.name)).map((field) => [field.name, fullName])),
+        }
+      : values;
     const payload = photoUrls.length > 0
-      ? { ...values, ...spamSignals, photos: photoUrls, form_kind: form_kind || "contact" }
-      : { ...values, ...spamSignals, form_kind: form_kind || "contact" };
+      ? { ...submissionValues, ...spamSignals, photos: photoUrls, form_kind: form_kind || "contact" }
+      : { ...submissionValues, ...spamSignals, form_kind: form_kind || "contact" };
 
     const result = websiteId
       ? await submitWebsiteForm(websiteId, payload)
@@ -506,6 +528,7 @@ export default function ContactFormBlock({ content }: Props) {
                       type={field.type}
                       name={field.name}
                       required={field.required}
+                      autoComplete={field.name === "first_name" ? "given-name" : field.name === "last_name" ? "family-name" : undefined}
                       value={values[field.name] || ""}
                       onChange={(e) => setValues({ ...values, [field.name]: e.target.value })}
                       style={{ width: "100%", padding: "10px 12px", border: `1px solid ${borderColor}`, borderRadius: 6, fontSize: "0.9375rem", boxSizing: "border-box", color: headingColor, fontFamily: bodyFont }}

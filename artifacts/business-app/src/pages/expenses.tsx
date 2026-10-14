@@ -565,14 +565,16 @@ export default function Expenses() {
               <Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="e.g. Screwfix - fittings" />
             </div>
             <div className="space-y-1">
-              <Label>Category</Label>
-              <Select value={form.category || "none"} onValueChange={(v) => setForm((f) => ({ ...f, category: v === "none" ? "" : v }))}>
-                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Uncategorised</SelectItem>
-                  {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="expense-category">Category</Label>
+              <select
+                id="expense-category"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                value={form.category}
+                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+              >
+                <option value="">Uncategorised</option>
+                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
             <div className="flex items-center gap-2">
               <Checkbox checked={form.vat_reclaimable} onCheckedChange={(v) => setForm((f) => ({ ...f, vat_reclaimable: !!v }))} />

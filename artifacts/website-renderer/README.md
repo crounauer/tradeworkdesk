@@ -93,6 +93,14 @@ Headers:
 
 - `x-renderer-secret: <RENDERER_SECRET>` (required when `RENDERER_SECRET` is set)
 
+## Contact forms
+
+The shared contact form uses separate First Name (`first_name`) and Surname
+(`last_name`) inputs. Legacy `name`, `full_name`, and `contact_name` fields are
+split at render time, so existing tenant forms do not need to be regenerated.
+Submissions retain the separate fields and a combined `name` (plus any configured
+legacy name aliases) for compatibility with enquiry creation and notifications.
+
 ## Development
 
 ```bash
