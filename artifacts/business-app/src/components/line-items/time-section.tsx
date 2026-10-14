@@ -430,7 +430,6 @@ export function TimeSection({
                           className="w-full border border-border rounded-lg px-3 py-1.5 text-sm bg-background"
                           value={editRateId}
                           onChange={(e) => setEditRateId(e.target.value)}
-                          disabled={editWaiveCallout}
                         >
                           <option value="auto">Auto (based on time of day)</option>
                           {calloutRates.map(r => (

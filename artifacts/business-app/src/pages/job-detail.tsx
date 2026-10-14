@@ -636,6 +636,7 @@ export default function JobDetail() {
     id?: string | null;
     status?: string | null;
     new_job_id?: string | null;
+    billing_follow_up_job_id?: string | null;
     parts_required?: boolean;
   }>({
     queryKey: ["job-follow-up-summary", job?.id ?? id ?? ""],
@@ -647,6 +648,7 @@ export default function JobDetail() {
         id?: string | null;
         status?: string | null;
         new_job_id?: string | null;
+        billing_follow_up_job_id?: string | null;
         parts_required?: boolean;
       };
       return response;
@@ -656,6 +658,8 @@ export default function JobDetail() {
   const hasFollowUpLabel = Boolean(followUpSummary?.has_follow_up) || Number(followUpSummary?.count || 0) > 0;
   const hasFollowUpScheduled = followUpSummary?.status === "booked";
   const followUpJobId = followUpSummary?.new_job_id;
+  const billingFollowUpJobId = followUpSummary?.billing_follow_up_job_id || (hasFollowUpScheduled ? followUpJobId : null);
+  const billingReadOnly = followUpLoading || followUpError || Boolean(billingFollowUpJobId);
   const followUpNeedsParts = followUpSummary?.status === "awaiting_parts" && followUpSummary.parts_required;
   const followUpWaitingToBeScheduled = followUpSummary?.status === "parts_arrived";
   const followUpCanBeBooked = hasFollowUpLabel && !followUpNeedsParts && followUpSummary?.status !== "booked";
@@ -886,7 +890,7 @@ export default function JobDetail() {
           </div>
         </div>
         <div className="flex w-full min-w-0 flex-wrap gap-2 sm:w-auto [&>a]:max-w-full [&>button]:max-w-full">
-          {hasFollowUpScheduled && followUpJobId ? (
+          {billingFollowUpJobId ? (
             <Link href={`/jobs/${followUpJobId}`}>
               <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white">
                 <ExternalLink className="w-4 h-4 mr-2" /> View Follow-up Job
@@ -1209,13 +1213,29 @@ export default function JobDetail() {
               )}
             </Card>
 
-            <TimeAttendedSection jobId={job.id} calloutRateId={(job as unknown as Record<string, unknown>).callout_rate_id as string | null} legacyArrival={(job as unknown as Record<string, unknown>).arrival_time as string | null} legacyDeparture={(job as unknown as Record<string, unknown>).departure_time as string | null} onChanged={() => setPricingRefresh(k => k + 1)} />
+            {hasFollowUpScheduled && followUpJobId ? (
+              <div role="note" className="rounded-lg border border-teal-200 bg-teal-50 p-4 space-y-2">
+                <p className="font-medium">Billing entries are read-only</p>
+                <p className="text-sm">A follow-up job has been created. Add or correct time, parts and services on the follow-up job so they are included in its eventual invoice. Entries on this job are retained for reference and are not synchronised.</p>
+                <p className="text-sm">Check the follow-up's entries before invoicing: time and services not selected for carry-forward are not included automatically.</p>
+                <Link href={`/jobs/${billingFollowUpJobId}`} className="text-sm font-medium text-primary underline">View Follow-up Job</Link>
+              </div>
+            ) : followUpError ? (
+              <div role="alert" className="rounded-lg border border-destructive p-4">
+                <p className="text-sm">Unable to check whether billing entries are locked. Editing is unavailable until this check succeeds.</p>
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => qc.invalidateQueries({ queryKey: ["job-follow-up-summary", job.id] })}>Retry</Button>
+              </div>
+            ) : followUpLoading ? (
+              <p className="text-sm text-muted-foreground">Checking whether billing entries can be edited...</p>
+            ) : null}
+
+            <TimeAttendedSection jobId={job.id} readOnly={billingReadOnly} calloutRateId={(job as unknown as Record<string, unknown>).callout_rate_id as string | null} legacyArrival={(job as unknown as Record<string, unknown>).arrival_time as string | null} legacyDeparture={(job as unknown as Record<string, unknown>).departure_time as string | null} onChanged={() => setPricingRefresh(k => k + 1)} />
 
             <ScheduleHistorySection jobId={job.id} />
 
-            <PartsUsedSection jobId={job.id} onChanged={() => setPricingRefresh(k => k + 1)} />
+            <PartsUsedSection jobId={job.id} readOnly={billingReadOnly} onChanged={() => setPricingRefresh(k => k + 1)} />
 
-            <ServicesUsedSection jobId={job.id} onChanged={() => setPricingRefresh(k => k + 1)} />
+            <ServicesUsedSection jobId={job.id} readOnly={billingReadOnly} onChanged={() => setPricingRefresh(k => k + 1)} />
 
             {(profile?.role === "admin" || profile?.role === "office_staff") && (
               <PricingSummarySection jobId={job.id} jobStatus={job.status} externalInvoiceId={job.external_invoice_id} externalInvoiceProvider={job.external_invoice_provider} externalInvoiceSentAt={job.external_invoice_sent_at} refreshKey={pricingRefresh} />
@@ -1967,7 +1987,7 @@ export default function JobDetail() {
   );
 }
 
-function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDeparture, onChanged }: { jobId: string; calloutRateId?: string | null; legacyArrival: string | null; legacyDeparture: string | null; onChanged?: () => void }) {
+function TimeAttendedSection({ jobId, readOnly = false, calloutRateId, legacyArrival, legacyDeparture, onChanged }: { jobId: string; readOnly?: boolean; calloutRateId?: string | null; legacyArrival: string | null; legacyDeparture: string | null; onChanged?: () => void }) {
   const { toast } = useToast();
   const { profile } = useAuth();
   const qc = useQueryClient();
@@ -2104,6 +2124,8 @@ function TimeAttendedSection({ jobId, calloutRateId, legacyArrival, legacyDepart
 
   return (
     <TimeSection
+      key={readOnly ? "locked" : "editable"}
+      readOnly={readOnly}
       entries={timeLines}
       calloutRates={calloutRates}
       defaultCalloutRateId={calloutRateId}
@@ -2209,7 +2231,7 @@ function ScheduleHistorySection({ jobId }: { jobId: string }) {
   );
 }
 
-function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () => void }) {
+function ServicesUsedSection({ jobId, readOnly = false, onChanged }: { jobId: string; readOnly?: boolean; onChanged?: () => void }) {
   const { toast } = useToast();
   const { profile } = useAuth();
   const canAddToCatalogue = ["admin", "office_staff", "super_admin"].includes(profile?.role ?? "");
@@ -2294,6 +2316,8 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
 
   return (
     <ServicesSection
+      key={readOnly ? "locked" : "editable"}
+      readOnly={readOnly}
       services={services.map(s => ({
         key: s.id,
         name: s.service_name,
@@ -2312,7 +2336,7 @@ function ServicesUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: 
   );
 }
 
-function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () => void }) {
+function PartsUsedSection({ jobId, readOnly = false, onChanged }: { jobId: string; readOnly?: boolean; onChanged?: () => void }) {
   const { toast } = useToast();
   const { isOnline, queueJobPart } = useOffline();
   const { profile } = useAuth();
@@ -2411,6 +2435,8 @@ function PartsUsedSection({ jobId, onChanged }: { jobId: string; onChanged?: () 
 
   return (
     <PartsSection
+      key={readOnly ? "locked" : "editable"}
+      readOnly={readOnly}
       parts={parts.map(p => ({
         key: p.id,
         name: p.part_name,

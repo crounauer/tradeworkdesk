@@ -15,7 +15,7 @@ const pinIcon = L.divIcon({
 
 export default function PropertyMapPreview({ latitude, longitude }: { latitude: number; longitude: number }) {
   return (
-    <div className="rounded-lg overflow-hidden border border-border" style={{ height: 150 }}>
+    <div className="isolate rounded-lg overflow-hidden border border-border" style={{ height: 150 }}>
       <MapContainer
         center={[latitude, longitude]}
         zoom={16}

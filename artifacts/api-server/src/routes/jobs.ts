@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
+import { jobBillingLock } from "../middlewares/job-billing-lock";
 import { getEffectiveLimits, getJobsThisMonth } from "../lib/tenant-limits";
 import crypto from "crypto";
 
@@ -35,6 +36,7 @@ import { notifyUsersForEvent } from "../lib/push-events";
 import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
 
 const router: IRouter = Router();
+const requireEditableBilling = jobBillingLock(supabaseAdmin);
 
 interface SupabaseJobRow {
   id: string;
@@ -1522,17 +1524,25 @@ router.get("/jobs/:id/follow-ups/count", requireAuth, requireTenant, requirePlan
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   const latestFollowUp = (followUps?.[0] as { id?: string; status?: string | null; parts_description?: string | null; new_job_id?: string | null } | undefined) ?? null;
+  const billingFollowUp = followUps?.find(followUp => followUp.status === "booked" && followUp.new_job_id);
   res.json({
     count: count ?? 0,
     has_follow_up: (count ?? 0) > 0,
     id: latestFollowUp?.id ?? null,
     status: latestFollowUp?.status ?? null,
     new_job_id: latestFollowUp?.new_job_id ?? null,
+    billing_follow_up_job_id: billingFollowUp?.new_job_id ?? null,
     parts_required: Boolean(latestFollowUp?.parts_description?.trim()),
   });
 });
 
-router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res, next): Promise<void> => {
+  if (["arrival_time", "departure_time", "callout_rate_id", "service_catalogue_id"].some(field => req.body[field] !== undefined)) {
+    await requireEditableBilling(req, res, next);
+    return;
+  }
+  next();
+}, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdateJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const body = UpdateJobBody.safeParse(req.body);
@@ -1900,7 +1910,7 @@ router.get("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("jo
   res.json(data || []);
 });
 
-router.post("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("job_management"), requireEditableBilling, async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = toSingleParam(req.params.id);
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
@@ -1942,7 +1952,7 @@ router.post("/jobs/:id/parts", requireAuth, requireTenant, requirePlanFeature("j
   res.status(201).json(data);
 });
 
-router.delete("/jobs/:id/parts/:partId", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.delete("/jobs/:id/parts/:partId", requireAuth, requireTenant, requirePlanFeature("job_management"), requireEditableBilling, async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = toSingleParam(req.params.id);
   const partId = toSingleParam(req.params.partId);
   if (!jobId || !partId) { res.status(400).json({ error: "Missing ids" }); return; }
@@ -2016,7 +2026,7 @@ router.get("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFeat
   res.json(entries);
 });
 
-router.post("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFeature("job_management"), requireEditableBilling, async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = toSingleParam(req.params.id);
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
@@ -2050,7 +2060,7 @@ router.post("/jobs/:id/time-entries", requireAuth, requireTenant, requirePlanFea
   res.status(201).json(data);
 });
 
-router.patch("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, requirePlanFeature("job_management"), requireEditableBilling, async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = toSingleParam(req.params.id);
   const entryId = toSingleParam(req.params.entryId);
   if (!jobId || !entryId) { res.status(400).json({ error: "Missing ids" }); return; }
@@ -2088,7 +2098,7 @@ router.patch("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, requ
   res.json(data);
 });
 
-router.delete("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.delete("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, requirePlanFeature("job_management"), requireEditableBilling, async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = toSingleParam(req.params.id);
   const entryId = toSingleParam(req.params.entryId);
   if (!jobId || !entryId) { res.status(400).json({ error: "Missing ids" }); return; }
@@ -2115,7 +2125,7 @@ router.delete("/jobs/:id/time-entries/:entryId", requireAuth, requireTenant, req
   res.sendStatus(204);
 });
 
-router.patch("/jobs/:id/parts/:partId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/jobs/:id/parts/:partId", requireAuth, requireTenant, requireEditableBilling, async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = toSingleParam(req.params.id);
   const partId = toSingleParam(req.params.partId);
   if (!jobId || !partId) { res.status(400).json({ error: "Missing ids" }); return; }
@@ -2209,7 +2219,7 @@ router.get("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature(
   res.json(data || []);
 });
 
-router.post("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature("job_management"), requireEditableBilling, async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = toSingleParam(req.params.id);
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
@@ -2247,7 +2257,7 @@ router.post("/jobs/:id/services", requireAuth, requireTenant, requirePlanFeature
   res.status(201).json(data);
 });
 
-router.delete("/jobs/:id/services/:serviceId", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+router.delete("/jobs/:id/services/:serviceId", requireAuth, requireTenant, requirePlanFeature("job_management"), requireEditableBilling, async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = toSingleParam(req.params.id);
   const serviceId = toSingleParam(req.params.serviceId);
   if (!jobId || !serviceId) { res.status(400).json({ error: "Missing ids" }); return; }
@@ -2263,7 +2273,7 @@ router.delete("/jobs/:id/services/:serviceId", requireAuth, requireTenant, requi
   res.sendStatus(204);
 });
 
-router.patch("/jobs/:id/services/:serviceId", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/jobs/:id/services/:serviceId", requireAuth, requireTenant, requireEditableBilling, async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = toSingleParam(req.params.id);
   const serviceId = toSingleParam(req.params.serviceId);
   if (!jobId || !serviceId) { res.status(400).json({ error: "Missing ids" }); return; }
