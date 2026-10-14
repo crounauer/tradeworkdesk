@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { customFetch } from "@workspace/api-client-react";
+import { customFetch, useUpdateCustomer } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation, useSearch } from "wouter";
 import {
@@ -319,6 +319,9 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [deletingPayment, setDeletingPayment] = useState<InvoicePayment | null>(null);
   const [sendReceiptOnPayment, setSendReceiptOnPayment] = useState(false);
   const [sendEmail, setSendEmail] = useState(invoice.customer?.email || "");
+  const [emailToSave, setEmailToSave] = useState<string | null>(null);
+  const [savingCustomerEmail, setSavingCustomerEmail] = useState(false);
+  const updateCustomer = useUpdateCustomer();
   const [ccAdminOnSend, setCcAdminOnSend] = useState(false);
   const [showBookJob, setShowBookJob] = useState(false);
   const [showCreateJob, setShowCreateJob] = useState(false);
@@ -378,6 +381,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
 
   const money = (amount: number) => formatCurrency(amount, currency);
   const canEditCatalogue = ["admin", "office_staff", "super_admin"].includes(profile?.role ?? "");
+  const canUpdateCustomer = ["admin", "office_staff", "super_admin"].includes(profile?.role ?? "");
   const defaultHourlyRate = Number(settings?.default_hourly_rate) || 0;
   const defaultCalloutFee = Number(settings?.call_out_fee) || 0;
   const documentLabel = isInvoice ? "Invoice" : "Quotation";
@@ -546,8 +550,37 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       });
       setSendOpen(false);
       setEmailLogRefresh(n => n + 1);
+      if (!invoice.customer?.email?.trim() && result.sent_to) {
+        setEmailToSave(result.sent_to);
+      }
     } catch (e) {
       toast({ title: "Send failed", description: (e as Error).message, variant: "destructive" });
+    }
+  }
+
+  async function handleSaveCustomerEmail() {
+    if (!emailToSave || savingCustomerEmail || !canUpdateCustomer) return;
+    setSavingCustomerEmail(true);
+    try {
+      const customer = await customFetch(`${import.meta.env.BASE_URL}api/customers/${invoice.customer_id}`) as { email?: string | null };
+      if (customer.email?.trim()) {
+        toast({ title: "Customer already has an email", description: "The saved email has changed since this invoice was opened. It has not been overwritten." });
+      } else {
+        await updateCustomer.mutateAsync({ id: invoice.customer_id, data: { email: emailToSave } });
+        toast({ title: "Customer updated", description: `Email saved as ${emailToSave}.` });
+      }
+      qc.invalidateQueries({ queryKey: [`/api/customers/${invoice.customer_id}`] });
+      qc.invalidateQueries({ queryKey: ["/api/customers"] });
+      qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
+      setEmailToSave(null);
+    } catch (e) {
+      toast({
+        title: "Email sent, but customer update failed",
+        description: e instanceof Error ? e.message : "Unable to save the email. You can retry without sending the invoice again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingCustomerEmail(false);
     }
   }
 
@@ -1297,6 +1330,30 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               {sendMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               <Send className="w-4 h-4 mr-2" />
               Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save recipient email */}
+      <Dialog open={emailToSave !== null} onOpenChange={(open) => {
+        if (!open && !savingCustomerEmail) setEmailToSave(null);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save email to customer details?</DialogTitle>
+            <DialogDescription>
+              The {isInvoice ? "invoice" : "quote"} has been sent to {emailToSave}. This customer has no saved email address. Would you like to save this address for future use?
+            </DialogDescription>
+          </DialogHeader>
+          {!canUpdateCustomer && (
+            <p className="text-sm text-muted-foreground">An admin or office staff member must update customer details.</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" disabled={savingCustomerEmail} onClick={() => setEmailToSave(null)}>Not now</Button>
+            <Button disabled={!canUpdateCustomer || savingCustomerEmail} onClick={handleSaveCustomerEmail}>
+              {savingCustomerEmail && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save to Customer
             </Button>
           </DialogFooter>
         </DialogContent>
