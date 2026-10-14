@@ -672,7 +672,7 @@ export default function JobDetail() {
   const completeAndInvoiceButton = (
     <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white" onClick={() => handleJobInvoice(true)} disabled={invoiceActionDisabled}>
       {invoiceWorkflowBusy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Receipt className="w-4 h-4 mr-2" />}
-      {invoiceWorkflowBusy ? "Opening Invoice..." : "Complete & Create Invoice"}
+      {invoiceWorkflowBusy ? "Opening Invoice..." : "Complete & Invoice"}
     </Button>
   );
   const completeButton = (
