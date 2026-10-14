@@ -539,7 +539,11 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         override_email: sendEmail !== invoice.customer?.email ? sendEmail : undefined,
         cc_admin: ccAdminOnSend,
       });
-      toast({ title: `${isInvoice ? "Invoice" : "Quote"} sent`, description: `Sent to ${result.sent_to}` });
+      toast({
+        title: `${isInvoice ? "Invoice" : "Quote"} sent${result.job_marked_invoiced ? " - job marked as invoiced" : ""}`,
+        description: result.job_status_warning || `Sent to ${result.sent_to}`,
+        variant: result.job_status_warning ? "destructive" : "default",
+      });
       setSendOpen(false);
       setEmailLogRefresh(n => n + 1);
     } catch (e) {
@@ -715,6 +719,11 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {invoice.job_id && (
+            <Button variant="outline" size="sm" onClick={() => navigate(`/jobs/${invoice.job_id}`)}>
+              <ArrowLeft className="w-4 h-4 mr-1" /> Back to Job
+            </Button>
+          )}
           {isDraft && !editing && (
             <Button variant="outline" size="sm" onClick={beginEditing}>
               <Edit3 className="w-4 h-4 mr-1" /> Edit
@@ -746,8 +755,12 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
           {isDraft && (
             <Button variant="outline" onClick={async () => {
               try {
-                await markSentMut.mutateAsync();
-                toast({ title: `${isInvoice ? "Invoice" : "Quote"} marked as sent` });
+                const result = await markSentMut.mutateAsync();
+                toast({
+                  title: `${isInvoice ? "Invoice" : "Quote"} marked as sent${result.job_marked_invoiced ? " - job marked as invoiced" : ""}`,
+                  description: result.job_status_warning,
+                  variant: result.job_status_warning ? "destructive" : "default",
+                });
               } catch (e) {
                 toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
               }

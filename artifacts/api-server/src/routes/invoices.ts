@@ -17,6 +17,7 @@ import { notifyUsersForEvent } from "../lib/push-events";
 import { amendInvoicePayment, deleteInvoicePayment, loadInvoicePayments, recordInvoicePayment } from "../lib/invoice-payments";
 import { getQuoteAdditionalText } from "../lib/quote-terms";
 import { createQuoteAcceptToken, verifyQuoteAcceptToken } from "../lib/quote-action-token";
+import { syncSentInvoiceJob } from "../lib/invoice-job-status";
 
 const router: IRouter = Router();
 
@@ -1063,6 +1064,8 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
 
   if (updateErr) { res.status(500).json({ error: updateErr.message }); return; }
 
+  const jobStatusResult = await syncSentInvoiceJob(supabaseAdmin, req.tenantId!, updated);
+
   if (invoice.type === "invoice" && customer?.email && invoice.job_id) {
     const { data: activeFollowUps, error: followUpErr } = await supabaseAdmin
       .from("follow_ups")
@@ -1385,7 +1388,7 @@ router.post("/invoices/:id/send", ...protect, async (req: AuthenticatedRequest, 
     if (logErr) console.error("[invoices] Failed to log email:", logErr.message);
   }
 
-  res.json({ ...updated, sent_to: toEmail });
+  res.json({ ...updated, ...jobStatusResult, sent_to: toEmail });
 });
 
 // ─── SEND REMINDER ─────────────────────────────────────────────────────────
@@ -1564,6 +1567,8 @@ router.post("/invoices/:id/mark-sent", ...protect, async (req: AuthenticatedRequ
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
+  const jobStatusResult = await syncSentInvoiceJob(supabaseAdmin, req.tenantId!, updated);
+
   void notifyUsersForEvent({
     tenantId: req.tenantId!,
     eventType: "payment_alerts",
@@ -1575,7 +1580,7 @@ router.post("/invoices/:id/mark-sent", ...protect, async (req: AuthenticatedRequ
     data: { invoiceId: updated.id },
   }).catch((err) => console.error("[push-events] invoice_sent failed:", err));
 
-  res.json(updated);
+  res.json({ ...updated, ...jobStatusResult });
 });
 
 // ─── MARK PAID ─────────────────────────────────────────────────────────────
@@ -2306,6 +2311,23 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
   if (!jobRow) { res.status(404).json({ error: "Job not found" }); return; }
   if (jobRow.status !== "completed" && jobRow.status !== "invoiced") {
     res.status(400).json({ error: "Only completed or invoiced jobs can be invoiced" }); return;
+  }
+
+  if (req.body?.reuse_existing === true) {
+    const { data: existingInvoices, error: existingError } = await supabaseAdmin
+      .from("invoices")
+      .select("id, invoice_number, status")
+      .eq("tenant_id", req.tenantId!)
+      .eq("job_id", jobId)
+      .eq("type", "invoice")
+      .in("status", ["draft", "sent", "overdue", "paid"])
+      .order("created_at", { ascending: false });
+    if (existingError) { res.status(500).json({ error: existingError.message }); return; }
+    const existing = existingInvoices?.find((doc) => doc.status === "draft") || existingInvoices?.[0];
+    if (existing) {
+      res.json({ id: existing.id, invoice_number: existing.invoice_number, reused: true });
+      return;
+    }
   }
 
   const invoiceData = await buildInvoiceData(jobId, req.tenantId);

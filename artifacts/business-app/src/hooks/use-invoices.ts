@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -128,6 +128,11 @@ export interface InvoiceListResponse {
   };
 }
 
+export interface InvoiceSendResult extends Invoice {
+  job_marked_invoiced: boolean;
+  job_status_warning?: string;
+}
+
 export interface InvoiceFilters {
   type?: InvoiceType;
   status?: InvoiceStatus;
@@ -219,15 +224,23 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+function invalidateInvoicedJob(qc: QueryClient, jobId: string | null) {
+  if (!jobId) return;
+  qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}`] });
+  qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+  qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+}
+
 // ─── Hooks ───────────────────────────────────────────────────────────────
 
-export function useListInvoices(filters: InvoiceFilters = {}) {
+export function useListInvoices(filters: InvoiceFilters = {}, enabled = true) {
   return useQuery<InvoiceListResponse>({
     queryKey: invoiceKeys.list(filters),
     queryFn: () => apiFetch<InvoiceListResponse>(buildInvoiceUrl(filters)),
     staleTime: 0,
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: true,
+    enabled,
   });
 }
 
@@ -247,6 +260,21 @@ export function useCreateInvoice() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: invoiceKeys.all });
+    },
+  });
+}
+
+export function useCreateJobInvoice(jobId: string) {
+  const qc = useQueryClient();
+  return useMutation<{ id: string; invoice_number: string; refreshed?: boolean; reused?: boolean }, Error, { reuseExisting?: boolean }>({
+    mutationFn: ({ reuseExisting = false }) =>
+      apiFetch(`/api/jobs/${jobId}/create-internal-invoice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reuse_existing: reuseExisting }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: invoiceKeys.all });
@@ -282,16 +310,17 @@ export function useDeleteInvoice() {
 
 export function useSendInvoice(id: string) {
   const qc = useQueryClient();
-  return useMutation<Invoice & { sent_to: string }, Error, { override_email?: string; send_note?: string; cc_admin?: boolean }>({
+  return useMutation<InvoiceSendResult & { sent_to: string }, Error, { override_email?: string; send_note?: string; cc_admin?: boolean }>({
     mutationFn: (input) =>
       apiFetch(`/api/invoices/${id}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       }),
-    onSuccess: () => {
+    onSuccess: (invoice) => {
       qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
       qc.invalidateQueries({ queryKey: invoiceKeys.all });
+      invalidateInvoicedJob(qc, invoice.job_id);
     },
   });
 }
@@ -404,12 +433,13 @@ export function useConvertToInvoice(quoteId: string) {
 
 export function useMarkInvoiceSent(id: string) {
   const qc = useQueryClient();
-  return useMutation<Invoice, Error, void>({
+  return useMutation<InvoiceSendResult, Error, void>({
     mutationFn: () =>
-      apiFetch<Invoice>(`/api/invoices/${id}/mark-sent`, { method: "POST" }),
-    onSuccess: () => {
+      apiFetch<InvoiceSendResult>(`/api/invoices/${id}/mark-sent`, { method: "POST" }),
+    onSuccess: (invoice) => {
       qc.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
       qc.invalidateQueries({ queryKey: invoiceKeys.all });
+      invalidateInvoicedJob(qc, invoice.job_id);
     },
   });
 }

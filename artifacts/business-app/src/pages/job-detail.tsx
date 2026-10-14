@@ -19,8 +19,9 @@ import { useOffline } from "@/contexts/offline-context";
 import { cacheJob, getCachedJob } from "@/lib/offline-db";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { useState, useEffect, useRef, useCallback, Suspense, lazy } from "react";
+import { createPortal } from "react-dom";
 const PropertyMapPreview = lazy(() => import("@/components/property-map-preview"));
-import { useCreateInvoice, useListInvoices, type InvoiceStatus } from "@/hooks/use-invoices";
+import { useCreateInvoice, useCreateJobInvoice, useListInvoices, type InvoiceStatus } from "@/hooks/use-invoices";
 import { useForm } from "react-hook-form";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -217,7 +218,16 @@ export default function JobDetail() {
   const { toast } = useToast();
   const { profile } = useAuth();
   const { currentUsers } = useAutoAssign();
-  const { hasAddon, isLoading: addonsLoading } = usePlanFeatures();
+  const { hasAddon, hasFeature, isLoading: addonsLoading } = usePlanFeatures();
+  const { data: billingSettings } = useCompanySettings();
+  const invoiceRoleAllowed = ["admin", "super_admin", "office_staff", "bookkeeper", "accountant"].includes(profile?.role || "");
+  const nativeInvoicingEnabled = invoiceRoleAllowed && !addonsLoading && hasFeature("invoicing")
+    && !!billingSettings && billingSettings.invoices_enabled !== false
+    && billingSettings.invoicing_provider !== "external";
+  const linkedInvoiceQuery = useListInvoices({ job_id: id, type: "invoice", statuses: ["draft", "sent", "overdue", "paid"], limit: 100 }, nativeInvoicingEnabled && !!id);
+  const createJobInvoice = useCreateJobInvoice(id);
+  const [invoiceWorkflowBusy, setInvoiceWorkflowBusy] = useState(false);
+  const invoiceWorkflowLock = useRef(false);
   const [editing, setEditing] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailLogRefresh, setEmailLogRefresh] = useState(0);
@@ -535,6 +545,42 @@ export default function JobDetail() {
   const canInvoice = job?.status === "completed";
   const canUndoInvoiced = job?.status === "invoiced" && isAdmin;
   const canCreateFollowUp = !!job && isOfficeOrAdmin && (job.status === "completed" || job.status === "invoiced" || job.status === "awaiting_parts" || job.status === "requires_follow_up");
+  const linkedInvoice = linkedInvoiceQuery.data?.invoices.find((doc) => doc.status === "draft")
+    || linkedInvoiceQuery.data?.invoices[0];
+  const invoiceActionLabel = linkedInvoice
+    ? linkedInvoice.status === "draft" ? "Continue Invoice" : "View Invoice"
+    : "Create Invoice";
+  const handleJobInvoice = async (completeFirst = false) => {
+    if (invoiceWorkflowLock.current) return;
+    if (!isOnline || linkedInvoiceQuery.isError) {
+      toast({
+        title: "Invoice unavailable",
+        description: !isOnline ? "Connect to the internet to create or open an invoice." : "Linked invoices could not be loaded. Please retry before creating an invoice.",
+        variant: "destructive",
+      });
+      return;
+    }
+    invoiceWorkflowLock.current = true;
+    setInvoiceWorkflowBusy(true);
+    try {
+      if (completeFirst && !(await handleStatusChange("completed", "Complete"))) return;
+      if (linkedInvoice) {
+        navigate(`/invoices/${linkedInvoice.id}`);
+        return;
+      }
+      const invoice = await createJobInvoice.mutateAsync({ reuseExisting: true });
+      navigate(`/invoices/${invoice.id}`);
+    } catch (error) {
+      toast({
+        title: "Could not open invoice",
+        description: `${completeFirst ? "The job is complete. " : ""}${error instanceof Error ? error.message : "Please try again."}`,
+        variant: "destructive",
+      });
+    } finally {
+      invoiceWorkflowLock.current = false;
+      setInvoiceWorkflowBusy(false);
+    }
+  };
 
   const expectedRebookDate = (() => {
     const raw = String(job?.scheduled_date || "").slice(0, 10);
@@ -584,7 +630,7 @@ export default function JobDetail() {
   });
   const hasRebookBeenUsed = hasYearRebookScheduled || hasRebookBeenUsedLocal;
 
-  const { data: followUpSummary } = useQuery<{
+  const { data: followUpSummary, isPending: followUpLoading, isError: followUpError } = useQuery<{
     has_follow_up?: boolean;
     count?: number;
     id?: string | null;
@@ -613,6 +659,27 @@ export default function JobDetail() {
   const followUpNeedsParts = followUpSummary?.status === "awaiting_parts" && followUpSummary.parts_required;
   const followUpWaitingToBeScheduled = followUpSummary?.status === "parts_arrived";
   const followUpCanBeBooked = hasFollowUpLabel && !followUpNeedsParts && followUpSummary?.status !== "booked";
+  const showJobInvoiceAction = nativeInvoicingEnabled && (job?.status === "completed" || job?.status === "invoiced") && !hasFollowUpLabel;
+  const showCompleteAction = canComplete && !hasFollowUpLabel;
+  const invoiceActionDisabled = !isOnline || invoiceWorkflowBusy || updateJob.isPending
+    || linkedInvoiceQuery.isPending || linkedInvoiceQuery.isError || followUpLoading || followUpError;
+  const invoiceButton = (
+    <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white" onClick={() => handleJobInvoice()} disabled={invoiceActionDisabled}>
+      {invoiceWorkflowBusy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Receipt className="w-4 h-4 mr-2" />}
+      {invoiceWorkflowBusy ? "Opening Invoice..." : invoiceActionLabel}
+    </Button>
+  );
+  const completeAndInvoiceButton = (
+    <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white" onClick={() => handleJobInvoice(true)} disabled={invoiceActionDisabled}>
+      {invoiceWorkflowBusy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Receipt className="w-4 h-4 mr-2" />}
+      {invoiceWorkflowBusy ? "Opening Invoice..." : "Complete & Create Invoice"}
+    </Button>
+  );
+  const completeButton = (
+    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleStatusChange("completed", "Complete")} disabled={updateJob.isPending || invoiceWorkflowBusy}>
+      <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
+    </Button>
+  );
 
   const handlePartsArrived = async () => {
     if (!followUpSummary?.id) return;
@@ -686,7 +753,17 @@ export default function JobDetail() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in pb-20 max-w-full min-w-0">
+    <div className="space-y-6 animate-in fade-in pb-40 md:pb-20 max-w-full min-w-0">
+      {(showCompleteAction || showJobInvoiceAction) && createPortal(
+        <div role="region" aria-label="Job quick actions" className="md:hidden fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 border-t border-border bg-card/95 p-3 shadow-lg backdrop-blur">
+          <div className="flex flex-wrap gap-2 [&>button]:min-h-11 [&>button]:flex-1 [&>button]:whitespace-normal [&>button]:h-auto [&>button]:py-2">
+            {showCompleteAction && completeButton}
+            {showCompleteAction && nativeInvoicingEnabled && completeAndInvoiceButton}
+            {showJobInvoiceAction && invoiceButton}
+          </div>
+        </div>,
+        document.body,
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <Link href="/jobs" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
@@ -715,6 +792,16 @@ export default function JobDetail() {
           </button>
         </div>
       </div>
+
+      {nativeInvoicingEnabled && (linkedInvoiceQuery.isError || followUpError) && (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          {linkedInvoiceQuery.isError ? "Linked invoices could not be loaded." : "Follow-up status could not be loaded."} Invoice actions are disabled until this is checked.
+          <Button variant="outline" size="sm" className="ml-2" onClick={() => {
+            void linkedInvoiceQuery.refetch();
+            void qc.invalidateQueries({ queryKey: ["job-follow-up-summary", job.id] });
+          }}>Retry</Button>
+        </div>
+      )}
 
       {isFromCache && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-2 text-sm text-amber-800">
@@ -807,11 +894,9 @@ export default function JobDetail() {
             </Link>
           ) : (
             <>
-          {canComplete && !hasFollowUpLabel && (
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleStatusChange("completed", "Complete")} disabled={updateJob.isPending}>
-              <ClipboardCheck className="w-4 h-4 mr-2" /> Mark Complete
-            </Button>
-          )}
+          {showCompleteAction && completeButton}
+          {showCompleteAction && nativeInvoicingEnabled && completeAndInvoiceButton}
+          {showJobInvoiceAction && invoiceButton}
           {canComplete && job.status !== "requires_follow_up" && (
             <Button size="sm" variant="outline" className="border-indigo-300 text-indigo-800 hover:bg-indigo-50" onClick={handleVisitOutcome} disabled={updateJob.isPending}>
               <CalendarPlus className="w-4 h-4 mr-2" /> Needs Another Visit
@@ -862,7 +947,7 @@ export default function JobDetail() {
             </AlertDialog>
           )}
           {canInvoice && isAdmin && !hasFollowUpLabel && (
-            <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white" onClick={() => handleStatusChange("invoiced", "Invoiced")} disabled={updateJob.isPending}>
+            <Button size="sm" variant="outline" onClick={() => handleStatusChange("invoiced", "Invoiced")} disabled={updateJob.isPending || invoiceWorkflowBusy} title="For invoices sent outside the app">
               <FileText className="w-4 h-4 mr-2" /> Mark as Invoiced
             </Button>
           )}
@@ -1466,7 +1551,12 @@ export default function JobDetail() {
               );
             })()}
 
-            <JobInvoicesSection jobId={job.id} />
+            <JobInvoicesSection
+              jobId={job.id}
+              onInvoice={showJobInvoiceAction ? () => handleJobInvoice() : undefined}
+              invoiceLabel={showJobInvoiceAction ? invoiceActionLabel : undefined}
+              invoiceDisabled={showJobInvoiceAction && invoiceActionDisabled}
+            />
             <EmailLogSection jobId={job.id} refreshKey={emailLogRefresh} />
             {!addonsLoading && hasAddon("sms_messaging") && (
               <SmsLogSection jobId={job.id} refreshKey={smsLogRefresh} />
@@ -2381,8 +2471,8 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
   const [, navigate] = useLocation();
   const { hasFeature } = usePlanFeatures();
   const { data: companySettings } = useCompanySettings();
-  const qc = useQueryClient();
-  const [creatingInternalInvoice, setCreatingInternalInvoice] = useState(false);
+  const createJobInvoice = useCreateJobInvoice(jobId);
+  const creatingInternalInvoice = createJobInvoice.isPending;
   const [internalInvoiceResult, setInternalInvoiceResult] = useState<{ id: string; invoice_number: string } | null>(null);
   const { data: linkedInvoicesData } = useListInvoices({ job_id: jobId });
   const linkedInvoices = linkedInvoicesData?.invoices ?? [];
@@ -2441,25 +2531,22 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
     }
   };
 
-  const handleCreateInternalInvoice = async () => {
-    setCreatingInternalInvoice(true);
+  const handleCreateInternalInvoice = async (reuseExisting = true) => {
     try {
-      const result = await customFetch(`${import.meta.env.BASE_URL}api/jobs/${jobId}/create-internal-invoice`, {
-        method: "POST",
-      }) as { id: string; invoice_number: string; refreshed?: boolean };
+      const result = await createJobInvoice.mutateAsync({ reuseExisting });
       setInternalInvoiceResult(result);
-      await qc.invalidateQueries({ queryKey: ["/api/invoices"] });
       toast({
-        title: result.refreshed ? "Invoice refreshed" : "Invoice created",
+        title: result.reused ? "Invoice opened" : result.refreshed ? "Invoice refreshed" : "Invoice created",
         description: result.refreshed
           ? `Linked draft ${result.invoice_number} was updated from the latest job pricing.`
-          : `Final invoice ${result.invoice_number} created in your invoice facility.`,
+          : result.reused
+            ? `Opening existing invoice ${result.invoice_number}. Your invoice edits are preserved.`
+            : `Final invoice ${result.invoice_number} created in your invoice facility.`,
       });
+      if (reuseExisting) navigate(`/invoices/${result.id}`);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to create invoice";
       toast({ title: "Error", description: msg, variant: "destructive" });
-    } finally {
-      setCreatingInternalInvoice(false);
     }
   };
 
@@ -2649,7 +2736,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
                         size="sm"
                         variant="outline"
                         disabled={creatingInternalInvoice}
-                        onClick={handleCreateInternalInvoice}
+                        onClick={() => handleCreateInternalInvoice(false)}
                         className="gap-1.5 text-violet-600 border-violet-200 hover:bg-violet-50"
                       >
                         {creatingInternalInvoice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Receipt className="w-3.5 h-3.5" />} Refresh from Job
@@ -2675,7 +2762,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
                   <Button
                     size="sm"
                     disabled={creatingInternalInvoice}
-                    onClick={handleCreateInternalInvoice}
+                    onClick={() => handleCreateInternalInvoice()}
                     className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
                   >
                     {creatingInternalInvoice ? (
@@ -2733,7 +2820,7 @@ function PricingSummarySection({ jobId, jobStatus, externalInvoiceId, externalIn
               <Button
                 size="sm"
                 disabled={creatingInternalInvoice}
-                onClick={handleCreateInternalInvoice}
+                onClick={() => handleCreateInternalInvoice()}
                 className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
               >
                 {creatingInternalInvoice ? (
@@ -4202,7 +4289,14 @@ const STATUS_CLASS: Record<InvoiceStatus, string> = {
   converted: "bg-purple-100 text-purple-700",
 };
 
-function JobInvoicesSection({ jobId }: { jobId: string }) {
+type JobInvoiceSectionProps = {
+  jobId: string;
+  onInvoice?: () => void;
+  invoiceLabel?: string;
+  invoiceDisabled?: boolean;
+};
+
+function JobInvoicesSection({ jobId, ...props }: JobInvoiceSectionProps) {
   const [, navigate] = useLocation();
   const { hasFeature } = usePlanFeatures();
   const { data: settings } = useCompanySettings();
@@ -4210,14 +4304,16 @@ function JobInvoicesSection({ jobId }: { jobId: string }) {
   // Only render if plan feature enabled AND company toggle on
   if (!hasFeature("invoicing") || settings?.invoices_enabled === false) return null;
 
-  return <JobInvoicesSectionInner jobId={jobId} navigate={navigate} />;
+  return <JobInvoicesSectionInner jobId={jobId} navigate={navigate} {...props} />;
 }
 
 function JobInvoicesSectionInner({
   jobId,
   navigate,
-}: {
-  jobId: string;
+  onInvoice,
+  invoiceLabel,
+  invoiceDisabled,
+}: JobInvoiceSectionProps & {
   navigate: (to: string) => void;
 }) {
   const { data, isLoading } = useListInvoices({ job_id: jobId, limit: 20 });
@@ -4263,10 +4359,10 @@ function JobInvoicesSectionInner({
           <Button
             size="sm"
             className="text-xs h-7"
-            onClick={() => createDocument("invoice")}
-            disabled={createInvoice.isPending}
+            onClick={() => onInvoice ? onInvoice() : createDocument("invoice")}
+            disabled={createInvoice.isPending || invoiceDisabled}
           >
-            {createInvoice.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Plus className="w-3.5 h-3.5 mr-1" />} Invoice
+            {createInvoice.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Plus className="w-3.5 h-3.5 mr-1" />} {invoiceLabel || "Invoice"}
           </Button>
         </div>
       </div>
