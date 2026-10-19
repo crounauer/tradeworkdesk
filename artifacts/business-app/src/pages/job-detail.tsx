@@ -31,6 +31,7 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useAutoAssign } from "@/hooks/use-auto-assign";
 import { SmsSendDialog } from "@/components/sms-send-dialog";
 import { RebookDialog } from "@/components/rebook-dialog";
+import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
 import { PartsSection } from "@/components/line-items/parts-section";
 import { ServicesSection } from "@/components/line-items/services-section";
 import { TimeSection } from "@/components/line-items/time-section";
@@ -1891,17 +1892,27 @@ export default function JobDetail() {
       )}
 
       <Dialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Mail className="w-4 h-4 text-blue-600" /> Email Appointment Confirmation
+              Send Booking Confirmation?
             </DialogTitle>
             <DialogDescription>
               Check the details below, then send. The customer also gets Confirm and Request date change buttons.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-1">
+          <EmailConfirmationPanel
+            customerName={job.customer ? `${job.customer.first_name} ${job.customer.last_name}` : undefined}
+            customerEmail={confirmationEmail}
+            sending={sendingConfirmation}
+            sendDisabled={!confirmationEmail.trim()}
+            ccAdmin={ccAdminOnConfirmation}
+            onCcAdminChange={setCcAdminOnConfirmation}
+            onSend={handleSendConfirmationDirect}
+            onSkip={() => setConfirmationOpen(false)}
+            skipLabel="Cancel"
+          >
             <div className="space-y-1">
               <Label className="text-xs">Send to</Label>
               <Input
@@ -1946,22 +1957,7 @@ export default function JobDetail() {
               />
               <p className="text-xs text-muted-foreground">Appears near the top of the email, above the appointment details.</p>
             </div>
-
-            <div className="flex items-center gap-2">
-              <Checkbox id="cc-admin-job-confirmation" checked={ccAdminOnConfirmation} onCheckedChange={(v) => setCcAdminOnConfirmation(v === true)} />
-              <Label htmlFor="cc-admin-job-confirmation" className="text-xs font-normal cursor-pointer">Send a copy to me</Label>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmationOpen(false)} disabled={sendingConfirmation}>
-              Cancel
-            </Button>
-            <Button onClick={handleSendConfirmationDirect} disabled={sendingConfirmation || !confirmationEmail.trim()}>
-              {sendingConfirmation ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-              {sendingConfirmation ? "Sending…" : "Send Confirmation"}
-            </Button>
-          </DialogFooter>
+          </EmailConfirmationPanel>
         </DialogContent>
       </Dialog>
 
@@ -3519,33 +3515,16 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
     return (
       <Card className="p-6 border-primary/20 shadow-lg">
         <h3 className="font-bold text-lg mb-4">Send Updated Confirmation?</h3>
-        <div className="space-y-4">
-          <div className="flex items-start gap-4 p-4 rounded-lg bg-blue-50 border border-blue-200">
-            <Mail className="w-8 h-8 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                Would you like to send an updated booking confirmation email to the customer?
-              </p>
-              <div className="mt-2 text-sm text-muted-foreground space-y-1">
-                <p><strong>To:</strong> {customerName}</p>
-                <p><strong>Email:</strong> {customerEmail}</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox id="cc-admin-edit-confirmation" checked={ccAdminOnConfirmation} onCheckedChange={(v) => setCcAdminOnConfirmation(v === true)} />
-            <Label htmlFor="cc-admin-edit-confirmation" className="text-xs font-normal cursor-pointer">Send a copy to me</Label>
-          </div>
-          <div className="flex gap-3">
-            <Button onClick={handleSendConfirmation} disabled={sendingConfirmation} className="gap-2">
-              <Send className="w-4 h-4" />
-              {sendingConfirmation ? "Sending..." : "Send Confirmation"}
-            </Button>
-            <Button type="button" variant="outline" onClick={onClose} disabled={sendingConfirmation}>
-              Skip
-            </Button>
-          </div>
-        </div>
+        <EmailConfirmationPanel
+          customerName={customerName}
+          customerEmail={customerEmail}
+          message="Would you like to send an updated booking confirmation email to the customer?"
+          sending={sendingConfirmation}
+          ccAdmin={ccAdminOnConfirmation}
+          onCcAdminChange={setCcAdminOnConfirmation}
+          onSend={handleSendConfirmation}
+          onSkip={onClose}
+        />
       </Card>
     );
   }

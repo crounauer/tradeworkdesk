@@ -14,6 +14,7 @@ import { useCompanySettings } from "@/hooks/use-company-settings";
 import { SmsSendDialog } from "@/components/sms-send-dialog";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { createJobType } from "@/lib/create-job-type";
+import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
 import {
   ArrowLeft, Phone, Mail, MapPin, MessageSquare, Send,
   Briefcase, Clock, Edit, Check, X, Trash2,
@@ -179,7 +180,7 @@ function EnquiryPhotosCard({ enquiryId, canEdit, userId, isAdmin }: {
   return (
     <>
       <Card className="p-6 border border-border/50 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h3 className="font-bold text-lg flex items-center gap-2">
             <Camera className="w-5 h-5 text-blue-500" /> Photos
             {allImagePhotos.length > 0 && (
@@ -855,13 +856,13 @@ function EnquiryDetailContent() {
   const canConvert = canEdit && enquiry.status !== "converted";
 
   return (
-    <div className="space-y-6 animate-in fade-in pb-20">
+    <div className="min-w-0 w-full space-y-6 animate-in fade-in pb-20 [overflow-wrap:anywhere]">
       <Link href="/enquiries" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Enquiries
       </Link>
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-3 mb-2 flex-wrap">
             <h1 className="text-3xl font-display font-bold">{enquiry.contact_name}</h1>
             <span className={`px-3 py-1 rounded-md text-sm font-bold uppercase tracking-wider ${statusOpt?.color || "bg-slate-100"}`}>
@@ -1023,13 +1024,13 @@ function EnquiryDetailContent() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="min-w-0 lg:col-span-2 space-y-6">
           {editing ? (
             <EditEnquiryForm enquiry={enquiry} onClose={() => { setEditing(false); qc.invalidateQueries({ queryKey: ["enquiry", id] }); qc.invalidateQueries({ queryKey: ["enquiries"] }); }} />
           ) : (
             <Card className="p-6 border border-border/50 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                 <h3 className="font-bold text-lg">Enquiry Details</h3>
                 {canEdit && (
                   <div className="flex items-center gap-2">
@@ -1044,7 +1045,7 @@ function EnquiryDetailContent() {
                   </div>
                 )}
               </div>
-              <div className="grid sm:grid-cols-2 gap-y-4 gap-x-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
                 {enquiry.contact_phone && (
                   <div>
                     <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><Phone className="w-4 h-4" /> Phone</p>
@@ -1123,7 +1124,7 @@ function EnquiryDetailContent() {
                   const canDeleteNote = isAdmin || noteAuthorId === profile?.id;
                   return (
                     <div key={note.id as string} className="border-l-2 border-primary/30 pl-4 py-1 group/note">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
                         <span className="text-sm font-bold">{(note.author as Record<string, string>)?.full_name || "Unknown"}</span>
                         <span className="text-xs text-muted-foreground">
                           {new Date(note.created_at as string).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
@@ -1222,7 +1223,7 @@ function EnquiryDetailContent() {
           </Card>
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card className="p-6 border border-border/50 shadow-sm bg-slate-50/50">
             <h3 className="font-bold mb-4">Update Status</h3>
             <div className="space-y-2">
@@ -1244,9 +1245,9 @@ function EnquiryDetailContent() {
           </Card>
 
           <Card className="p-6 border border-border/50 shadow-sm bg-slate-50/50">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
               <h3 className="font-bold flex items-center gap-2"><Mail className="w-4 h-4 text-blue-500" /> Conversation</h3>
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 {canEdit && smsEnabled && enquiry.contact_phone && (
                   <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowSms(true)}>
                     <MessageSquare className="w-3.5 h-3.5" /> SMS
@@ -1528,8 +1529,18 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
   const [priority, setPriority] = useState((enquiry.priority as string) || "medium");
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split("T")[0]);
   const [scheduledTime, setScheduledTime] = useState("");
+  const [assignedTechnicianId, setAssignedTechnicianId] = useState("");
   const [description, setDescription] = useState((enquiry.description as string) || "");
 
+  const { data: technicians = [], isLoading: loadingTechnicians, error: techniciansError } = useQuery<Array<{ id: string; full_name: string }>>({
+    queryKey: ["/api/admin/assignable-users"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/assignable-users");
+      if (!res.ok) throw new Error("Failed to load engineers. Please try again.");
+      return res.json();
+    },
+    enabled: open,
+  });
   const { data: customers } = useListCustomers();
   const { data: properties } = useListProperties();
   const { data: jobTypes = [] } = useQuery<JobType[]>({
@@ -1579,6 +1590,7 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
         priority,
         scheduled_date: scheduledDate,
         scheduled_time: scheduledTime || undefined,
+        assigned_technician_id: assignedTechnicianId || undefined,
         description: description || undefined,
       };
 
@@ -1698,34 +1710,20 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
       }
       onOpenChange(v);
     }}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className={`${emailPrompt ? "sm:max-w-2xl" : "sm:max-w-[600px]"} max-h-[90vh] overflow-y-auto`}>
         <DialogHeader>
-          <DialogTitle>{emailPrompt ? "Send Confirmation Email?" : "Convert Enquiry to Job"}</DialogTitle>
+          <DialogTitle className={emailPrompt ? "text-xl" : undefined}>{emailPrompt ? "Send Booking Confirmation?" : "Convert Enquiry to Job"}</DialogTitle>
         </DialogHeader>
         {emailPrompt ? (
-          <div className="text-center space-y-4 py-4">
-            <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <Mail className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Send an appointment confirmation to <strong>{emailPrompt.customerName}</strong> at{" "}
-                <span className="text-primary">{emailPrompt.customerEmail}</span>
-              </p>
-            </div>
-            <div className="flex items-center justify-center gap-2">
-              <Checkbox id="cc-admin-enquiry-confirmation" checked={ccAdminOnConfirmation} onCheckedChange={(v) => setCcAdminOnConfirmation(v === true)} />
-              <Label htmlFor="cc-admin-enquiry-confirmation" className="text-sm font-normal cursor-pointer">Send a copy to me</Label>
-            </div>
-            <div className="flex gap-3 justify-center">
-              <Button onClick={handleSendConfirmation} disabled={sendingEmail}>
-                {sendingEmail ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</> : <><Mail className="w-4 h-4 mr-2" /> Send Email</>}
-              </Button>
-              <Button variant="outline" onClick={() => { const jobId = emailPrompt.jobId; setEmailPrompt(null); onConverted(jobId); }} disabled={sendingEmail}>
-                Skip
-              </Button>
-            </div>
-          </div>
+          <EmailConfirmationPanel
+            customerName={emailPrompt.customerName}
+            customerEmail={emailPrompt.customerEmail}
+            sending={sendingEmail}
+            ccAdmin={ccAdminOnConfirmation}
+            onCcAdminChange={setCcAdminOnConfirmation}
+            onSend={handleSendConfirmation}
+            onSkip={() => { const jobId = emailPrompt.jobId; setEmailPrompt(null); onConverted(jobId); }}
+          />
         ) : null}
         {!emailPrompt ? (
         <form onSubmit={handleConvert} className="space-y-5">
@@ -1902,6 +1900,20 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
                 <Label>Time</Label>
                 <Input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="convert-assigned-engineer">Assign Engineer</Label>
+              <select
+                id="convert-assigned-engineer"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                value={assignedTechnicianId}
+                onChange={e => setAssignedTechnicianId(e.target.value)}
+                disabled={loadingTechnicians || !!techniciansError}
+              >
+                <option value="">{loadingTechnicians ? "Loading engineers..." : "Unassigned"}</option>
+                {technicians.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+              </select>
+              {techniciansError && <p role="alert" className="text-sm text-destructive">{techniciansError.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label>Notes</Label>

@@ -3,7 +3,10 @@ import type { StorybookConfig } from '@storybook/react-vite';
 process.env.STORYBOOK = 'true';
 
 const config: StorybookConfig = {
-  stories: ['../src/twd/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
+  stories: [
+    '../src/twd/**/*.stories.@(js|jsx|mjs|ts|tsx)',
+    '../src/components/**/*.stories.@(js|jsx|mjs|ts|tsx)',
+  ],
 
   framework: {
     name: '@storybook/react-vite',

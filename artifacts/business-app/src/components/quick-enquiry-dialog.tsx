@@ -7,6 +7,7 @@ import { useState, lazy, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
 
 const PostcodeAddressFinder = lazy(() =>
   import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder }))
@@ -24,6 +25,8 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
   const { toast } = useToast();
   const { hasFeature } = usePlanFeatures();
   const [submitting, setSubmitting] = useState(false);
+  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
+  const [ccAdmin, setCcAdmin] = useState(false);
   const [customerMode, setCustomerMode] = useState<"new" | "existing">("new");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
@@ -91,8 +94,8 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, sendAcknowledgementEmail?: boolean) => {
+    e?.preventDefault();
     const contactName = customerMode === "new"
       ? `${form.new_first_name} ${form.new_last_name}`.trim()
       : form.contact_name.trim();
@@ -106,21 +109,21 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
       toast({ title: "Missing info", description: "Please enter the job location address and postcode.", variant: "destructive" });
       return;
     }
+    if (contactEmail && sendAcknowledgementEmail === undefined) {
+      setCcAdmin(false);
+      setShowEmailPrompt(true);
+      return;
+    }
+
     setSubmitting(true);
     try {
-      let sendAcknowledgementEmail = false;
-      if (contactEmail) {
-        sendAcknowledgementEmail = window.confirm(
-          `Send an acknowledgement email to ${contactName} at ${contactEmail}?`,
-        );
-      }
-
       const payload: Record<string, unknown> = {
         ...form,
         contact_name: contactName,
         description: form.description.trim(),
         notes: undefined,
-        send_acknowledgement_email: sendAcknowledgementEmail,
+        send_acknowledgement_email: sendAcknowledgementEmail === true,
+        cc_admin: sendAcknowledgementEmail === true && ccAdmin,
         linked_customer_id: selectedCustomerId || undefined,
         force_new_customer: customerMode === "new",
       };
@@ -143,6 +146,7 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
           ? `Enquiry for ${contactName} created and acknowledgement email sent.`
           : `Enquiry for ${contactName} created.`,
       });
+      setShowEmailPrompt(false);
       onOpenChange(false);
     } catch (err) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
@@ -152,11 +156,27 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[580px] max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={value => {
+      if (submitting) return;
+      setShowEmailPrompt(false);
+      onOpenChange(value);
+    }}>
+      <DialogContent className={`${showEmailPrompt ? "sm:max-w-2xl" : "sm:max-w-[580px]"} max-h-[90vh] overflow-y-auto`}>
         <DialogHeader>
-          <DialogTitle className="text-xl">Quick Add Enquiry</DialogTitle>
+          <DialogTitle className="text-xl">{showEmailPrompt ? "Send Enquiry Confirmation?" : "Quick Add Enquiry"}</DialogTitle>
         </DialogHeader>
+        {showEmailPrompt ? (
+          <EmailConfirmationPanel
+            customerName={customerMode === "new" ? `${form.new_first_name} ${form.new_last_name}`.trim() : form.contact_name.trim()}
+            customerEmail={form.contact_email.trim()}
+            message="Would you like to send an enquiry acknowledgement email to the customer?"
+            sending={submitting}
+            ccAdmin={ccAdmin}
+            onCcAdminChange={setCcAdmin}
+            onSend={() => { void handleSubmit(undefined, true); }}
+            onSkip={() => { void handleSubmit(undefined, false); }}
+          />
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
 
           {/* Customer mode toggle */}
@@ -384,6 +404,7 @@ export function QuickEnquiryDialog({ open, onOpenChange, initialDate }: { open: 
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           </div>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

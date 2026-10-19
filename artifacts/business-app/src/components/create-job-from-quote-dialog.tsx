@@ -10,12 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Briefcase, Package, Wrench, Mail, Send } from "lucide-react";
+import { Loader2, Briefcase, Package, Wrench } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { createJobType } from "@/lib/create-job-type";
 import type { InvoiceLineItem } from "@/hooks/use-invoices";
+import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
 
 interface JobType {
   id: string;
@@ -275,34 +275,22 @@ export function CreateJobFromQuoteDialog({
       }
       onOpenChange(nextOpen);
     }}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className={`${confirmationJob ? "sm:max-w-2xl" : "max-w-lg"} max-h-[90vh] overflow-y-auto`}>
         {confirmationJob ? (
           <>
             <DialogHeader>
-              <DialogTitle>Send Booking Confirmation?</DialogTitle>
+              <DialogTitle className="text-xl">Send Booking Confirmation?</DialogTitle>
               <DialogDescription>Confirm whether to email the customer with their new booking details.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="flex items-start gap-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <Mail className="mt-0.5 h-8 w-8 shrink-0 text-blue-600" />
-                <div className="text-sm">
-                  <p className="font-medium">Would you like to send a booking confirmation email?</p>
-                  <p className="mt-2 text-muted-foreground"><strong>To:</strong> {customerName}</p>
-                  <p className="text-muted-foreground"><strong>Email:</strong> {customerEmail}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox id="cc-admin-quote-confirmation" checked={ccAdminOnConfirmation} onCheckedChange={(value) => setCcAdminOnConfirmation(value === true)} />
-                <Label htmlFor="cc-admin-quote-confirmation" className="cursor-pointer text-sm font-normal">Send a copy to me</Label>
-              </div>
-              <div className="flex gap-3">
-                <Button onClick={handleSendConfirmation} disabled={sendingConfirmation} className="flex-1 gap-2">
-                  {sendingConfirmation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  {sendingConfirmation ? "Sending..." : "Send Confirmation"}
-                </Button>
-                <Button type="button" variant="outline" onClick={finishJobCreation} disabled={sendingConfirmation}>Skip</Button>
-              </div>
-            </div>
+            <EmailConfirmationPanel
+              customerName={customerName}
+              customerEmail={customerEmail}
+              sending={sendingConfirmation}
+              ccAdmin={ccAdminOnConfirmation}
+              onCcAdminChange={setCcAdminOnConfirmation}
+              onSend={handleSendConfirmation}
+              onSkip={finishJobCreation}
+            />
           </>
         ) : (
           <>

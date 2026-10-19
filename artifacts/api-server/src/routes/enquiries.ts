@@ -805,7 +805,7 @@ router.delete("/enquiries/:id/notes/:noteId", requireAuth, requireTenant, requir
 
 router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const { customer_id, new_customer, property_id, new_property, job_type, service_catalogue_id, priority, scheduled_date, scheduled_time, description, visit_intent } = req.body;
+  const { customer_id, new_customer, property_id, new_property, job_type, service_catalogue_id, priority, scheduled_date, scheduled_time, assigned_technician_id, description, visit_intent } = req.body;
 
   let enqQ = supabaseAdmin.from("enquiries").select("*").eq("id", id);
   if (req.tenantId) enqQ = enqQ.eq("tenant_id", req.tenantId);
@@ -816,6 +816,7 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
   const ownershipChecks: { table: string; id: string }[] = [];
   if (customer_id) ownershipChecks.push({ table: "customers", id: customer_id });
   if (property_id) ownershipChecks.push({ table: "properties", id: property_id });
+  if (assigned_technician_id) ownershipChecks.push({ table: "profiles", id: assigned_technician_id });
 
   if (ownershipChecks.length > 0) {
     const ownershipCheck = await verifyMultipleTenantOwnership(ownershipChecks, req.tenantId);
@@ -938,6 +939,7 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
         priority: validPriorities.includes(priority) ? priority : enquiry.priority || "medium",
         scheduled_date: scheduled_date || new Date().toISOString().split("T")[0],
         scheduled_time: scheduled_time || null,
+        assigned_technician_id: assigned_technician_id || null,
         visit_intent: visit_intent === "estimate" ? "estimate" : "standard",
         description: description || enquiry.description || null,
         status: "scheduled",
@@ -957,6 +959,19 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
 
     if (updateErr || updateCount === 0) {
       throw new Error("Failed to mark enquiry as converted");
+    }
+
+    if (job.assigned_technician_id) {
+      void notifyUsersForEvent({
+        tenantId: req.tenantId!,
+        eventType: "assignment_changes",
+        title: "New Job Assignment",
+        body: `You were assigned job ${job.job_ref || job.id}.`,
+        url: `/jobs/${job.id}`,
+        eventKey: `job_assigned:${job.id}:${job.assigned_technician_id}`,
+        targetUserIds: [job.assigned_technician_id],
+        data: { jobId: job.id },
+      }).catch((err) => console.error("[push-events] enquiry conversion assignment failed:", err));
     }
 
     res.status(201).json({ enquiry_id: id, job_id: job.id, customer_id: finalCustomerId, property_id: finalPropertyId });

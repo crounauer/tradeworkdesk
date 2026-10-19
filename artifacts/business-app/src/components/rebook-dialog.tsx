@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, MapPin, User, Loader2, CalendarCheck, AlertCircle, Mail, CheckCircle2 } from "lucide-react";
+import { Clock, MapPin, User, Loader2, CalendarCheck, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
 
 interface CalendarJob {
   id: string;
@@ -120,6 +121,7 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
   const [selectedTime, setSelectedTime] = useState(originalTime ? originalTime.slice(0, 5) : "");
   const [confirming, setConfirming] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [ccAdmin, setCcAdmin] = useState(false);
   const [leaveConflict, setLeaveConflict] = useState<LeaveConflict | null>(null);
   // After rebook succeeds, hold the new job and show email prompt
   const [newJob, setNewJob] = useState<{ id: string; job_ref?: string | null } | null>(null);
@@ -135,6 +137,7 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
       setDateInputValue(nextDefaultDate);
       setSelectedTime(originalTime ? originalTime.slice(0, 5) : "");
       setNewJob(null);
+      setCcAdmin(false);
       setLeaveConflict(null);
     }
   }, [open, originalDate, originalTime]);
@@ -202,6 +205,8 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
     try {
       const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${newJob.id}/send-confirmation`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cc_admin: ccAdmin }),
         credentials: "include",
       });
       if (!res.ok) {
@@ -209,6 +214,7 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
         throw new Error(body.error || "Failed to send confirmation");
       }
       toast({ title: "Confirmation sent", description: "Appointment confirmation emailed to customer." });
+      onOpenChange(false);
     } catch (err) {
       toast({
         title: "Email failed",
@@ -217,7 +223,6 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
       });
     } finally {
       setSendingEmail(false);
-      onOpenChange(false);
     }
   };
 
@@ -237,11 +242,11 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className={`${newJob ? "sm:max-w-2xl" : "max-w-md"} max-h-[90vh] overflow-y-auto`}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarCheck className="w-5 h-5 text-primary" />
-            {newJob ? "Job Rebooked" : "Rebook Job"}
+            {newJob ? "Send Booking Confirmation?" : "Rebook Job"}
           </DialogTitle>
         </DialogHeader>
 
@@ -264,28 +269,14 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
                   </button>
                 </div>
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg border border-border">
-                <Mail className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium">Send appointment confirmation?</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    This will email the customer with the new appointment date and time.
-                  </p>
-                </div>
-              </div>
+              <EmailConfirmationPanel
+                sending={sendingEmail}
+                ccAdmin={ccAdmin}
+                onCcAdminChange={setCcAdmin}
+                onSend={handleSendEmail}
+                onSkip={handleSkipEmail}
+              />
             </div>
-            <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={handleSkipEmail} disabled={sendingEmail}>
-                Skip
-              </Button>
-              <Button onClick={handleSendEmail} disabled={sendingEmail}>
-                {sendingEmail ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</>
-                ) : (
-                  <><Mail className="w-4 h-4 mr-2" /> Send Email</>
-                )}
-              </Button>
-            </DialogFooter>
           </>
         ) : (
           /* ── Step 1: date/time + availability ── */

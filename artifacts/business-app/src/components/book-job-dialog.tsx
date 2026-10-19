@@ -10,8 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Home, Mail, Send, AlertCircle, Briefcase, ExternalLink } from "lucide-react";
+import { Plus, Home, Mail, AlertCircle, Briefcase, ExternalLink } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +20,7 @@ import { CustomerAutocomplete } from "@/components/customer-autocomplete";
 import { useOffline } from "@/contexts/offline-context";
 import { getCachedCustomers, getCachedProperties, getCachedJobTypes, getCachedTechnicians, useCacheJobTypes } from "@/hooks/use-offline-data";
 import { createJobType } from "@/lib/create-job-type";
+import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
 
 const PostcodeAddressFinder = lazy(() =>
   import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder }))
@@ -762,33 +762,15 @@ export function BookJobDialog({
                 Confirm whether to email the customer with their new booking details.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="flex items-start gap-4 p-4 rounded-lg bg-blue-50 border border-blue-200">
-                <Mail className="w-8 h-8 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Would you like to send a booking confirmation email to the customer?
-                  </p>
-                  <div className="mt-2 text-sm text-muted-foreground space-y-1">
-                    <p><strong>To:</strong> {confirmationState.customerName}</p>
-                    <p><strong>Email:</strong> {confirmationState.customerEmail}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox id="cc-admin-confirmation" checked={ccAdminOnConfirmation} onCheckedChange={(v) => setCcAdminOnConfirmation(v === true)} />
-                <Label htmlFor="cc-admin-confirmation" className="text-sm font-normal cursor-pointer">Send a copy to me</Label>
-              </div>
-              <div className="flex gap-3">
-                <Button onClick={handleSendConfirmation} disabled={sendingConfirmation} className="flex-1 gap-2">
-                  <Send className="w-4 h-4" />
-                  {sendingConfirmation ? "Sending..." : "Send Confirmation"}
-                </Button>
-                <Button type="button" variant="outline" onClick={handleClose} disabled={sendingConfirmation}>
-                  Skip
-                </Button>
-              </div>
-            </div>
+            <EmailConfirmationPanel
+              customerName={confirmationState.customerName}
+              customerEmail={confirmationState.customerEmail}
+              sending={sendingConfirmation}
+              ccAdmin={ccAdminOnConfirmation}
+              onCcAdminChange={setCcAdminOnConfirmation}
+              onSend={handleSendConfirmation}
+              onSkip={handleClose}
+            />
           </>
         ) : (
           <>

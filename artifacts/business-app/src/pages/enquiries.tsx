@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CustomerAutocomplete } from "@/components/customer-autocomplete";
+import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
 
 const PostcodeAddressFinder = lazy(() =>
   import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder }))
@@ -696,6 +697,8 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
     priority: "medium",
   });
 
+  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
+  const [ccAdmin, setCcAdmin] = useState(false);
   const selectedCustomer = customers?.find((customer: { id: string; first_name: string; last_name: string; email?: string | null; phone?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; postcode?: string | null }) => customer.id === selectedCustomerId);
 
   const handleCustomerSelect = (customerId: string) => {
@@ -716,8 +719,8 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, sendAcknowledgementEmail?: boolean) => {
+    e?.preventDefault();
     const contactName = customerMode === "new"
       ? `${form.new_first_name} ${form.new_last_name}`.trim()
       : form.contact_name.trim();
@@ -731,21 +734,21 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
       toast({ title: "Missing info", description: "Please enter the job location address and postcode.", variant: "destructive" });
       return;
     }
+    if (contactEmail && sendAcknowledgementEmail === undefined) {
+      setCcAdmin(false);
+      setShowEmailPrompt(true);
+      return;
+    }
+
     setSubmitting(true);
     try {
-      let sendAcknowledgementEmail = false;
-      if (contactEmail) {
-        sendAcknowledgementEmail = window.confirm(
-          `Send an acknowledgement email to ${contactName} at ${contactEmail}?`,
-        );
-      }
-
       const res = await fetch("/api/enquiries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          send_acknowledgement_email: sendAcknowledgementEmail,
+          send_acknowledgement_email: sendAcknowledgementEmail === true,
+          cc_admin: sendAcknowledgementEmail === true && ccAdmin,
           contact_name: contactName,
           linked_customer_id: customerMode === "existing" ? selectedCustomerId || undefined : undefined,
           force_new_customer: customerMode === "new",
@@ -757,6 +760,7 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
       }
       const result = await res.json() as { acknowledgement_email_sent?: boolean };
       onCreated();
+      setShowEmailPrompt(false);
       onOpenChange(false);
       toast({
         title: "Enquiry created",
@@ -772,11 +776,27 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[980px] max-h-[95vh] overflow-y-auto p-4 sm:p-5">
+    <Dialog open={open} onOpenChange={value => {
+      if (submitting) return;
+      setShowEmailPrompt(false);
+      onOpenChange(value);
+    }}>
+      <DialogContent className={showEmailPrompt ? "sm:max-w-2xl max-h-[90vh] overflow-y-auto" : "sm:max-w-[980px] max-h-[95vh] overflow-y-auto p-4 sm:p-5"}>
         <DialogHeader>
-          <DialogTitle>New Enquiry</DialogTitle>
+          <DialogTitle>{showEmailPrompt ? "Send Enquiry Confirmation?" : "New Enquiry"}</DialogTitle>
         </DialogHeader>
+        {showEmailPrompt ? (
+          <EmailConfirmationPanel
+            customerName={customerMode === "new" ? `${form.new_first_name} ${form.new_last_name}`.trim() : form.contact_name.trim()}
+            customerEmail={form.contact_email.trim()}
+            message="Would you like to send an enquiry acknowledgement email to the customer?"
+            sending={submitting}
+            ccAdmin={ccAdmin}
+            onCcAdminChange={setCcAdmin}
+            onSend={() => { void handleSubmit(undefined, true); }}
+            onSkip={() => { void handleSubmit(undefined, false); }}
+          />
+        ) : (
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           <div className="md:col-span-2 flex rounded-lg border border-border overflow-hidden text-sm font-medium">
             <button
@@ -967,6 +987,7 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           </div>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

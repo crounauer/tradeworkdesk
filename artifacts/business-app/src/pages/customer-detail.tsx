@@ -30,6 +30,7 @@ import { BookJobDialog } from "@/components/book-job-dialog";
 import { SmsSendDialog } from "@/components/sms-send-dialog";
 import { CustomerEmailDialog } from "@/components/customer-email-dialog";
 import { MergeCustomerDialog } from "@/components/merge-customer-dialog";
+import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
 
 const PropertyLocationLookup = lazy(() => import("@/components/property-location-lookup").then(m => ({ default: m.PropertyLocationLookup })));
 const PostcodeAddressFinder = lazy(() => import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder })));
@@ -1209,6 +1210,9 @@ function BookEnquiryDialog({
     priority: "medium",
   });
 
+  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
+  const [ccAdmin, setCcAdmin] = useState(false);
+
   // Populate from customer when dialog opens
   useEffect(() => {
     if (open) {
@@ -1221,29 +1225,29 @@ function BookEnquiryDialog({
     }
   }, [open, initialName, initialPhone, initialEmail]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, sendAcknowledgementEmail?: boolean) => {
+    e?.preventDefault();
     if (!form.contact_name.trim()) {
       toast({ title: "Missing info", description: "Please enter a contact name.", variant: "destructive" });
       return;
     }
     const contactName = form.contact_name.trim();
     const contactEmail = form.contact_email.trim();
+    if (contactEmail && sendAcknowledgementEmail === undefined) {
+      setCcAdmin(false);
+      setShowEmailPrompt(true);
+      return;
+    }
+
     setSubmitting(true);
     try {
-      let sendAcknowledgementEmail = false;
-      if (contactEmail) {
-        sendAcknowledgementEmail = window.confirm(
-          `Send an acknowledgement email to ${contactName} at ${contactEmail}?`,
-        );
-      }
-
       const res = await customFetch("/api/enquiries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          send_acknowledgement_email: sendAcknowledgementEmail,
+          send_acknowledgement_email: sendAcknowledgementEmail === true,
+          cc_admin: sendAcknowledgementEmail === true && ccAdmin,
           linked_customer_id: initialCustomerId,
         }),
       }) as { id?: string; acknowledgement_email_sent?: boolean };
@@ -1254,6 +1258,7 @@ function BookEnquiryDialog({
           : "The enquiry has been logged.",
       });
       onCreated?.();
+      setShowEmailPrompt(false);
       onOpenChange(false);
       if (res?.id) navigate(`/enquiries/${res.id}`);
     } catch (err) {
@@ -1264,11 +1269,27 @@ function BookEnquiryDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[860px] max-h-[92vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={value => {
+      if (submitting) return;
+      setShowEmailPrompt(false);
+      onOpenChange(value);
+    }}>
+      <DialogContent className={`${showEmailPrompt ? "sm:max-w-2xl" : "sm:max-w-[860px]"} max-h-[92vh] overflow-y-auto`}>
         <DialogHeader>
-          <DialogTitle>New Enquiry</DialogTitle>
+          <DialogTitle>{showEmailPrompt ? "Send Enquiry Confirmation?" : "New Enquiry"}</DialogTitle>
         </DialogHeader>
+        {showEmailPrompt ? (
+          <EmailConfirmationPanel
+            customerName={form.contact_name.trim()}
+            customerEmail={form.contact_email.trim()}
+            message="Would you like to send an enquiry acknowledgement email to the customer?"
+            sending={submitting}
+            ccAdmin={ccAdmin}
+            onCcAdminChange={setCcAdmin}
+            onSend={() => { void handleSubmit(undefined, true); }}
+            onSkip={() => { void handleSubmit(undefined, false); }}
+          />
+        ) : (
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="md:col-span-2 space-y-1.5">
             <Label>Contact Name *</Label>
@@ -1345,6 +1366,7 @@ function BookEnquiryDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           </div>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );
