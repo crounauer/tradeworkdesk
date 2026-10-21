@@ -246,7 +246,7 @@ const sections: HelpSection[] = [
       },
       {
         q: "Can I reassign jobs from one technician to another?",
-        a: "Yes — go to Admin → Reassign Jobs. Select the technician, choose a date range, and bulk-move their jobs to another technician. Useful if someone is off sick.",
+        a: "For a single job, admins and office staff can open the job, click Edit Job, choose Assign Technician (or Unassigned), then Save Changes. Changing the technician requires an internet connection and checks for appointment clashes and leave. To bulk-move jobs, go to Admin → Reassign Jobs, select the technician and choose a date range. Useful if someone is off sick.",
       },
       {
         q: "How do I remove a team member?",

@@ -68,6 +68,7 @@ type JobEditData = {
   description?: string;
   job_type_id?: string;
   fuel_category?: string;
+  assigned_technician_id: string;
 };
 
 type JobLike = {
@@ -78,6 +79,8 @@ type JobLike = {
   scheduled_time?: string | null;
   estimated_duration?: number | null;
   description?: string | null;
+  assigned_technician_id?: string | null;
+  technician?: { full_name?: string | null } | null;
   [k: string]: unknown;
 };
 
@@ -3369,7 +3372,9 @@ function ReturnVisitForm({ job, onClose, onScheduled }: { job: { id: string; sta
 function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: JobLike; onClose: () => void; onEmailSent?: () => void; onFollowUpRequested?: () => void }) {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { profile } = useAuth();
   const { isOnline, queueJobUpdate } = useOffline();
+  const canAssignTechnician = ["admin", "super_admin", "office_staff"].includes(profile?.role || "");
   const { register, handleSubmit, reset, setValue, watch } = useForm<JobEditData>();
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
@@ -3392,6 +3397,15 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
     staleTime: 5 * 60_000,
   });
   const activeJobTypes = (jobTypesData || []).filter(jt => jt.is_active);
+  const { data: technicians = [], isLoading: loadingTechnicians, error: techniciansError, refetch: refetchTechnicians } = useQuery<Array<{ id: string; full_name: string }>>({
+    queryKey: ["/api/admin/assignable-users"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/admin/assignable-users`);
+      if (!res.ok) throw new Error("Failed to load technicians. Please try again.");
+      return res.json();
+    },
+    enabled: canAssignTechnician && isOnline,
+  });
 
   const handleJobTypeChange = (jobTypeId: string) => {
     setSelectedJobTypeId(jobTypeId);
@@ -3417,6 +3431,7 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
       all_day: job.estimated_duration == null,
       estimated_duration: job.estimated_duration != null ? String(job.estimated_duration) : "",
       description: (job.description as string) || "",
+      assigned_technician_id: job.assigned_technician_id || "",
     });
     setSelectedJobTypeId(String((job as unknown as { service_catalogue_id?: string | null }).service_catalogue_id || ""));
     setSelectedFuelCategory((job as unknown as { fuel_category?: string | null }).fuel_category || "general");
@@ -3474,6 +3489,9 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
     }
     if (selectedFuelCategory) {
       updatePayload.fuel_category = selectedFuelCategory;
+    }
+    if (canAssignTechnician && typeof data.assigned_technician_id === "string" && data.assigned_technician_id !== (job.assigned_technician_id || "")) {
+      updatePayload.assigned_technician_id = data.assigned_technician_id || null;
     }
 
     setSaving(true);
@@ -3604,6 +3622,31 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
             <Label>Scheduled Time</Label>
             <Input type="time" {...register("scheduled_time")} />
           </div>
+          {canAssignTechnician && (
+            <div className="space-y-2">
+              <Label htmlFor="edit-job-technician">Assign Technician</Label>
+              <select
+                id="edit-job-technician"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                disabled={!isOnline || loadingTechnicians || Boolean(techniciansError)}
+                {...register("assigned_technician_id")}
+              >
+                <option value="">Unassigned</option>
+                {job.assigned_technician_id && !technicians.some(t => t.id === job.assigned_technician_id) && (
+                  <option value={job.assigned_technician_id}>{job.technician?.full_name || "Current technician"}</option>
+                )}
+                {technicians.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+              </select>
+              {loadingTechnicians && <p className="text-xs text-muted-foreground">Loading technicians...</p>}
+              {!isOnline && <p className="text-xs text-muted-foreground">Connect to the internet to change technician.</p>}
+              {techniciansError && (
+                <p role="alert" className="text-xs text-destructive">
+                  {techniciansError.message}{" "}
+                  <button type="button" className="underline" onClick={() => refetchTechnicians()}>Retry</button>
+                </p>
+              )}
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
