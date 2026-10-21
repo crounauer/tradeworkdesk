@@ -7,6 +7,7 @@ import { getEffectiveLimits, getJobsThisMonth } from "../lib/tenant-limits";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { isCcAdminRequested, sendEnquiryAcknowledgementEmail, sendEnquiryNotProceedingEmail, sendEnquiryCustomerEmail, type EmailCompanyDetails } from "../lib/email";
 import { geocodeAddress, normalizeUKPostcode, calculateDistanceMiles } from "../lib/geocode";
+import { findTechnicianJobClash, sendTechnicianJobClash } from "../lib/technician-job-clashes";
 
 const router: IRouter = Router();
 
@@ -828,11 +829,12 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
   let resolvedServiceCatalogueId: string | null = typeof service_catalogue_id === "string" && service_catalogue_id ? service_catalogue_id : null;
 
   let resolvedJobType = validJobTypes.includes(job_type) ? job_type : "service";
+  let estimatedDuration: number | null = null;
 
   if (resolvedServiceCatalogueId && req.tenantId) {
     const { data: svcRows } = await supabaseAdmin
       .from("service_catalogue")
-      .select("id, name, is_active")
+      .select("id, name, is_active, booking_duration_minutes")
       .eq("id", resolvedServiceCatalogueId)
       .eq("tenant_id", req.tenantId)
       .limit(1);
@@ -841,6 +843,8 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
       res.status(403).json({ error: "Invalid reference: service_catalogue does not belong to your organisation" }); return;
     }
     resolvedJobType = "service";
+    const duration = Number(svc.booking_duration_minutes);
+    if (Number.isFinite(duration) && duration > 0) estimatedDuration = duration;
   }
 
   if (!customer_id && !new_customer) {
@@ -853,6 +857,18 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
   const createdIds: { customer?: string; property?: string; job?: string } = {};
 
   try {
+    const clash = await findTechnicianJobClash({
+      tenantId: req.tenantId!,
+      technicianId: assigned_technician_id || null,
+      scheduledDate: scheduled_date || new Date().toISOString().slice(0, 10),
+      scheduledTime: scheduled_time || null,
+      estimatedDuration,
+    });
+    if (clash) {
+      sendTechnicianJobClash(res, clash);
+      return;
+    }
+
     let finalCustomerId = customer_id;
     if (new_customer && !customer_id) {
       const { first_name, last_name, phone, email } = new_customer;
@@ -940,6 +956,7 @@ router.post("/enquiries/:id/convert", requireAuth, requireTenant, requirePlanFea
         scheduled_date: scheduled_date || new Date().toISOString().split("T")[0],
         scheduled_time: scheduled_time || null,
         assigned_technician_id: assigned_technician_id || null,
+        estimated_duration: scheduled_time ? estimatedDuration : null,
         visit_intent: visit_intent === "estimate" ? "estimate" : "standard",
         description: description || enquiry.description || null,
         status: "scheduled",

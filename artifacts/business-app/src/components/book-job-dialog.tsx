@@ -46,7 +46,8 @@ type JobClashConflict = {
   existing_job_id: string;
   existing_job_ref: string | null;
   scheduled_date: string;
-  scheduled_time: string;
+  scheduled_time: string | null;
+  scheduled_end_date?: string;
   estimated_duration: number;
 };
 
@@ -66,7 +67,11 @@ function formatLeaveConflict(conflict: LeaveConflict): string {
 function formatJobClashConflict(conflict: JobClashConflict): string {
   const existingLabel = conflict.existing_job_ref || `#${conflict.existing_job_id.slice(0, 8)}`;
   const dateLabel = new Date(`${conflict.scheduled_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  return `This technician already has job ${existingLabel} at ${conflict.scheduled_time.slice(0, 5)} on ${dateLabel}.`;
+  const time = conflict.scheduled_time ? `at ${conflict.scheduled_time.slice(0, 5)}` : "booked all day";
+  const endDateLabel = conflict.scheduled_end_date
+    ? new Date(`${conflict.scheduled_end_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+    : null;
+  return `This technician already has job ${existingLabel} ${time} ${endDateLabel ? `from ${dateLabel} to ${endDateLabel}` : `on ${dateLabel}`}.`;
 }
 
 type BookJobFormData = {

@@ -11,7 +11,7 @@ const enquiryId = "22222222-2222-4222-8222-222222222222";
 const jobId = "33333333-3333-4333-8333-333333333333";
 const engineerId = "44444444-4444-4444-8444-444444444444";
 
-async function withConversionEndpoint(t: TestContext, foreignEngineer = false) {
+async function withConversionEndpoint(t: TestContext, foreignEngineer = false, clashingJob = false) {
   const writes: Array<{ table: string; body: Record<string, unknown> }> = [];
   const originalFetch = globalThis.fetch;
   t.mock.method(globalThis, "fetch", async (...[input, init]: Parameters<typeof fetch>) => {
@@ -33,7 +33,10 @@ async function withConversionEndpoint(t: TestContext, foreignEngineer = false) {
     } else if (table === "tenants") {
       data = { status: "active", plans: { max_users: 2 } };
     } else if (table === "jobs") {
-      data = init?.method === "POST" ? { id: jobId, ...body } : [];
+      data = init?.method === "POST" ? { id: jobId, ...body } : clashingJob ? [{
+        id: "existing-job", job_ref: "JOB-0026", scheduled_date: "2026-10-26",
+        scheduled_time: "09:00:00", estimated_duration: 180, status: "scheduled",
+      }] : [];
     } else if (table === "tenant_user_push_preferences") {
       data = [];
     } else {
@@ -71,7 +74,8 @@ async function withConversionEndpoint(t: TestContext, foreignEngineer = false) {
         customer_id: "customer-1",
         property_id: "property-1",
         job_type: "service",
-        scheduled_date: "2026-10-20",
+        scheduled_date: "2026-10-26",
+        scheduled_time: "09:00",
         assigned_technician_id: assignedTechnicianId,
       }),
     }),
@@ -105,6 +109,25 @@ test("Enquiry conversion rejects an engineer from another tenant before writing"
   assert.equal(response.status, 403);
   assert.deepEqual(await response.json(), {
     error: "Invalid reference: profiles does not belong to your organisation",
+  });
+
+  assert.equal(writes.length, 0);
+});
+
+test("Enquiry conversion alerts on a 9am clash before creating any records", async t => {
+  const { convert, writes } = await withConversionEndpoint(t, false, true);
+  const response = await convert(engineerId);
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), {
+    error: "This technician already has job JOB-0026 at 09:00 on 2026-10-26.",
+    code: "TECHNICIAN_JOB_CLASH",
+    conflict: {
+      existing_job_id: "existing-job",
+      existing_job_ref: "JOB-0026",
+      scheduled_date: "2026-10-26",
+      scheduled_time: "09:00:00",
+      estimated_duration: 180,
+    },
   });
   assert.equal(writes.length, 0);
 });

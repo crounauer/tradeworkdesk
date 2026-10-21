@@ -4,6 +4,7 @@ import { requireAuth, requireTenant, requireRole, requirePlanFeature, type Authe
 import { notifyUsersForEvent } from "../lib/push-events";
 import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
 import { invalidateHomepageCache } from "./homepage";
+import { findTechnicianJobClash, sendTechnicianJobClash } from "../lib/technician-job-clashes";
 
 const router: IRouter = Router();
 
@@ -357,6 +358,18 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
   });
   if (followUpConflict) {
     sendTechnicianLeaveConflict(res, followUpConflict);
+    return;
+  }
+
+  const jobClash = await findTechnicianJobClash({
+    tenantId,
+    technicianId: assigned_technician_id || null,
+    scheduledDate: String(jobInsert.scheduled_date),
+    scheduledTime: scheduledTimeValue,
+    estimatedDuration,
+  });
+  if (jobClash) {
+    sendTechnicianJobClash(res, jobClash);
     return;
   }
 

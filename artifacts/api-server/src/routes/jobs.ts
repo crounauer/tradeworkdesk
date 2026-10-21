@@ -34,6 +34,7 @@ import { invalidateCalendarCache } from "./calendar";
 import { invalidateHomepageCache } from "./homepage";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
+import { findTechnicianJobClash, sendTechnicianJobClash } from "../lib/technician-job-clashes";
 
 const router: IRouter = Router();
 const requireEditableBilling = jobBillingLock(supabaseAdmin);
@@ -137,14 +138,6 @@ type ServiceCatalogueRow = {
   booking_duration_minutes?: number | null;
 };
 
-type TechnicianJobClash = {
-  existing_job_id: string;
-  existing_job_ref: string | null;
-  scheduled_date: string;
-  scheduled_time: string;
-  estimated_duration: number;
-};
-
 type ServiceJobForApplianceSync = {
   appliance_id: string | null;
   job_type: string;
@@ -236,83 +229,6 @@ function deriveJobTypeEnum(
   if (s.includes("breakdown") || s.includes("repair") || s.includes("emergency")) return "breakdown";
   return "service";
 }
-
-function parseMinuteOfDay(timeValue: string | null | undefined): number | null {
-  if (!timeValue) return null;
-  const match = String(timeValue).match(/^(\d{2}):(\d{2})/);
-  if (!match) return null;
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
-  return (hours * 60) + minutes;
-}
-
-async function findTechnicianJobClash(args: {
-  tenantId: string;
-  technicianId: string | null | undefined;
-  scheduledDate: string | null | undefined;
-  scheduledTime: string | null | undefined;
-  estimatedDuration: number | null | undefined;
-  excludeJobId?: string;
-}): Promise<TechnicianJobClash | null> {
-  const { tenantId, technicianId, scheduledDate, scheduledTime, estimatedDuration, excludeJobId } = args;
-  if (!technicianId || !scheduledDate || !scheduledTime) return null;
-
-  const startMinutes = parseMinuteOfDay(scheduledTime);
-  const parsedDuration = Number(estimatedDuration ?? 60);
-  const safeDuration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? Math.round(parsedDuration) : 60;
-  if (startMinutes == null) return null;
-  const endMinutes = startMinutes + safeDuration;
-
-  let q = supabaseAdmin
-    .from("jobs")
-    .select("id, job_ref, scheduled_date, scheduled_time, estimated_duration, status")
-    .eq("tenant_id", tenantId)
-    .eq("assigned_technician_id", technicianId)
-    .eq("scheduled_date", scheduledDate)
-    .eq("is_active", true)
-    .not("scheduled_time", "is", null)
-    .order("scheduled_time", { ascending: true })
-    .limit(200);
-
-  if (excludeJobId) q = q.neq("id", excludeJobId);
-
-  const { data: jobs, error } = await q;
-  if (error || !jobs?.length) return null;
-
-  const clash = jobs.find((job) => {
-    const status = String(job.status || "").toLowerCase();
-    if (status === "cancelled" || status === "completed" || status === "invoiced") return false;
-
-    const existingStart = parseMinuteOfDay(job.scheduled_time);
-    const existingDurationRaw = Number(job.estimated_duration ?? 60);
-    const existingDuration = Number.isFinite(existingDurationRaw) && existingDurationRaw > 0 ? Math.round(existingDurationRaw) : 60;
-    if (existingStart == null) return false;
-    const existingEnd = existingStart + existingDuration;
-
-    return startMinutes < existingEnd && endMinutes > existingStart;
-  });
-
-  if (!clash) return null;
-
-  return {
-    existing_job_id: clash.id,
-    existing_job_ref: clash.job_ref ?? null,
-    scheduled_date: String(clash.scheduled_date),
-    scheduled_time: String(clash.scheduled_time),
-    estimated_duration: Number(clash.estimated_duration ?? 60) || 60,
-  };
-}
-
-function sendTechnicianJobClash(res: Parameters<typeof sendTechnicianLeaveConflict>[0], clash: TechnicianJobClash): void {
-  const existingLabel = clash.existing_job_ref || `#${clash.existing_job_id.slice(0, 8)}`;
-  res.status(409).json({
-    error: `This technician already has job ${existingLabel} at ${clash.scheduled_time.slice(0, 5)} on ${clash.scheduled_date}.`,
-    code: "TECHNICIAN_JOB_CLASH",
-    conflict: clash,
-  });
-}
-
 
 type CustomerConfirmationAction = "confirm" | "request_change";
 
@@ -970,7 +886,7 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   const createConflict = await findTechnicianLeaveConflict({
     tenantId: req.tenantId!,
     technicianId: insertPayload.assigned_technician_id,
-    scheduledDate: String(insertPayload.scheduled_date),
+    scheduledDate: postStartIso,
     scheduledEndDate: insertPayload.scheduled_end_date ?? null,
     scheduledTime: insertPayload.scheduled_time ?? null,
     durationMinutes: insertPayload.estimated_duration ?? null,
@@ -983,7 +899,9 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
   const createJobClash = await findTechnicianJobClash({
     tenantId: req.tenantId!,
     technicianId: insertPayload.assigned_technician_id,
-    scheduledDate: String(insertPayload.scheduled_date),
+    scheduledDate: postStartIso,
+    scheduledEndDate: insertPayload.scheduled_end_date,
+    allDay: isAllDay,
     scheduledTime: insertPayload.scheduled_time ?? null,
     estimatedDuration: insertPayload.estimated_duration ?? null,
   });
@@ -1361,6 +1279,8 @@ router.post("/jobs/:id/duplicate", requireAuth, requireTenant, requireRole("admi
     tenantId: req.tenantId!,
     technicianId: original.assigned_technician_id ?? null,
     scheduledDate: newScheduledDate,
+    scheduledEndDate: newScheduledEndDate,
+    allDay: original.all_day,
     scheduledTime: overrideTime ?? original.scheduled_time ?? null,
     estimatedDuration: original.estimated_duration ?? null,
   });
@@ -1386,6 +1306,7 @@ router.post("/jobs/:id/duplicate", requireAuth, requireTenant, requireRole("admi
       scheduled_date: newScheduledDate,
       scheduled_end_date: newScheduledEndDate,
       scheduled_time: overrideTime ?? original.scheduled_time ?? null,
+      all_day: original.all_day === true,
       estimated_duration: original.estimated_duration ?? null,
       description: original.description ?? null,
       job_ref: newJobRef ?? null,
@@ -1655,12 +1576,13 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
     || updateCoreData.scheduled_date !== undefined
     || updateCoreData.scheduled_end_date !== undefined
     || updateCoreData.scheduled_time !== undefined
-    || updateCoreData.estimated_duration !== undefined;
+    || updateCoreData.estimated_duration !== undefined
+    || rawAllDay !== undefined;
 
   if (assignmentOrScheduleChanging) {
     let currentJobQ = supabaseAdmin
       .from("jobs")
-      .select("assigned_technician_id, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration")
+      .select("assigned_technician_id, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, all_day")
       .eq("id", params.data.id);
     if (req.tenantId) currentJobQ = currentJobQ.eq("tenant_id", req.tenantId);
     const { data: currentJob, error: currentJobErr } = await currentJobQ.maybeSingle();
@@ -1673,7 +1595,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
       ? updateCoreData.assigned_technician_id
       : currentJob.assigned_technician_id;
     const effectiveScheduledDate = updateCoreData.scheduled_date !== undefined
-      ? String(updateCoreData.scheduled_date)
+      ? new Date(updateCoreData.scheduled_date).toISOString().slice(0, 10)
       : currentJob.scheduled_date;
     const effectiveScheduledEndDate = updateCoreData.scheduled_end_date !== undefined
       ? updateCoreData.scheduled_end_date
@@ -1702,6 +1624,8 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
       tenantId: req.tenantId!,
       technicianId: effectiveTechnicianId,
       scheduledDate: effectiveScheduledDate,
+      scheduledEndDate: effectiveScheduledEndDate,
+      allDay: rawAllDay ?? currentJob.all_day,
       scheduledTime: effectiveScheduledTime,
       estimatedDuration: effectiveEstimatedDuration,
       excludeJobId: params.data.id,

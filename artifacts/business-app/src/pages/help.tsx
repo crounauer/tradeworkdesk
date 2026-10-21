@@ -155,6 +155,10 @@ const sections: HelpSection[] = [
         a: "The Schedule page shows all jobs in Day, Week, or Month view. Admins and office staff can drag and drop jobs to reschedule them. Click on a job to open it.",
       },
       {
+        q: "Will I be warned about clashing appointments?",
+        a: "When booking, rebooking, rescheduling, or converting an enquiry or follow-up to a job, overlapping active jobs assigned to the same technician are blocked with a clash message. All-day jobs, including jobs without a start time, reserve the whole day across their date range. Unassigned jobs do not reserve a technician. Cancelled, completed and invoiced jobs do not block new appointments.",
+      },
+      {
         q: "How do I complete a job?",
         a: "Open the job and change the status to Completed. You can also add a service record (e.g. a boiler service certificate), upload photos, get a customer signature, and add notes before closing it.",
       },
