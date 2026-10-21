@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useListProfiles } from "@workspace/api-client-react";
 import { useCompanySettings } from "@/hooks/use-company-settings";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,8 +43,6 @@ interface TeamProfile {
   id: string;
   full_name: string;
   role: string;
-  is_active?: boolean | null;
-  can_be_assigned_jobs?: boolean | null;
 }
 
 async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
@@ -113,20 +110,10 @@ export default function ScheduleHolidayManager() {
     queryFn: () => apiFetch(`/api/calendar/holidays?date_from=${range.from}&date_to=${range.to}`),
   });
 
-  const { data: profiles = [] } = useListProfiles();
-  const technicians = useMemo(() => {
-    const activeProfiles = (profiles as TeamProfile[] || []).filter((p) => p.is_active !== false);
-    const assignable = activeProfiles.filter(
-      (p) => p.role === "technician" || p.can_be_assigned_jobs === true,
-    );
-
-    // Sole-trader fallback: if no explicit technician/assignable flag exists,
-    // allow the single active user to be selected for leave blocks.
-    if (assignable.length === 0 && activeProfiles.length === 1) {
-      return activeProfiles;
-    }
-    return assignable;
-  }, [profiles]);
+  const { data: technicians = [], isPending: loadingTechnicians, error: techniciansError, refetch: refetchTechnicians } = useQuery<TeamProfile[]>({
+    queryKey: ["/api/admin/assignable-users"],
+    queryFn: () => apiFetch("/api/admin/assignable-users"),
+  });
 
   const leaveTypeOptions = useMemo<LeaveTypeOption[]>(() => {
     const customLabels = (companySettings?.custom_leave_types ?? [])
@@ -294,17 +281,27 @@ export default function ScheduleHolidayManager() {
         <div className="space-y-3 rounded-lg border border-border p-3">
           <p className="text-sm font-medium">Block Days Per Technician</p>
           <div className="space-y-1.5">
-            <Label>Technician</Label>
+            <Label htmlFor="leave-technician">Technician</Label>
             <select
+              id="leave-technician"
               value={leaveTech}
               onChange={(e) => setLeaveTech(e.target.value)}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              disabled={loadingTechnicians || Boolean(techniciansError) || technicians.length === 0}
             >
-              <option value="">Select technician</option>
+              <option value="">{loadingTechnicians ? "Loading technicians..." : "Select technician"}</option>
               {technicians.map((t) => (
                 <option key={t.id} value={t.id}>{t.full_name}</option>
               ))}
             </select>
+            {techniciansError ? (
+              <p role="alert" className="text-xs text-destructive">
+                Failed to load technicians: {techniciansError.message}{" "}
+                <button type="button" className="underline" onClick={() => refetchTechnicians()}>Retry</button>
+              </p>
+            ) : !loadingTechnicians && technicians.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No assignable staff found. Enable job assignment for a team member in Admin before adding leave.</p>
+            ) : null}
           </div>
           <div className="space-y-1.5">
             <Label>Type</Label>
@@ -417,7 +414,7 @@ export default function ScheduleHolidayManager() {
                 </span>
               </span>
           </label>
-          <Button onClick={addTechnicianLeave} disabled={submitting !== null || leaveTypeOptions.length === 0 || (recurrenceNeedsWeekdays && recurrenceWeekdays.length === 0)} className="w-full">
+          <Button onClick={addTechnicianLeave} disabled={submitting !== null || !leaveTech || loadingTechnicians || Boolean(techniciansError) || leaveTypeOptions.length === 0 || (recurrenceNeedsWeekdays && recurrenceWeekdays.length === 0)} className="w-full">
             {submitting === "leave" ? "Saving..." : recurrencePattern === "none" ? "Add Technician Leave Block" : "Add Recurring Leave"}
           </Button>
           {leaveTypeOptions.length === 0 ? (
