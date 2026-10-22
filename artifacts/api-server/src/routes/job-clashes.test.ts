@@ -36,7 +36,7 @@ async function requestClashingBooking(
       id: jobId, tenant_id: tenantId, status: "open", customer_id: customerId, property_id: propertyId,
       original_job_id: jobId, original_job: { id: jobId, estimated_duration: 180 },
     };
-    else if (table === "jobs") {
+    else if (table === "jobs" || table === "job_schedule_entries") {
       if (init?.method === "POST" || init?.method === "PATCH") jobWrites++;
       if (url.searchParams.has("assigned_technician_id")) {
         clashChecks++;

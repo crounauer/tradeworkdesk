@@ -80,7 +80,7 @@ export async function findTechnicianLeaveConflict(args: {
   if (!technicianId || !scheduledDate) return null;
 
   const effectiveEndDate = scheduledEndDate || scheduledDate;
-  const { data: holidayRows } = await supabaseAdmin
+  const { data: holidayRows, error } = await supabaseAdmin
     .from("calendar_holidays")
     .select("technician_id, holiday_type, name, start_date, end_date, start_time, end_time, allow_bookings, profiles!calendar_holidays_technician_id_fkey(full_name)")
     .eq("tenant_id", tenantId)
@@ -91,6 +91,10 @@ export async function findTechnicianLeaveConflict(args: {
     .order("start_date", { ascending: true })
     .limit(20);
 
+  if (error) {
+    console.error("[technician-leave-conflicts] Failed to check leave:", error);
+    throw new Error("Unable to check technician leave. Please try again before booking.");
+  }
   const holiday = (holidayRows || []).find((row) => holidayOverlapsScheduledWindow({
     holidayStartDate: row.start_date,
     holidayEndDate: row.end_date,

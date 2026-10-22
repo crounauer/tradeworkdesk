@@ -345,13 +345,31 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
 
       const { data: jobs, error: jobsError } = await jobsQuery;
 
-      if (jobsError) {
-        console.error(`[technician-summary] Failed to load jobs for tenant ${tenantId}:`, jobsError.message);
+      let visitsQuery = supabaseAdmin.from("job_visits")
+        .select("scheduled_date, scheduled_time, all_day, assigned_technician_id, jobs!inner(id, job_ref, status, description, customers(first_name, last_name, business_name), properties(address_line1, postcode))")
+        .eq("tenant_id", tenantId).eq("jobs.tenant_id", tenantId)
+        .eq("jobs.is_active", true).in("jobs.status", ACTIVE_JOB_STATUSES)
+        .eq("scheduled_date", targetDate).order("scheduled_time");
+      if (adminScope !== "company") visitsQuery = visitsQuery.in("assigned_technician_id", techIds);
+      const { data: visits, error: visitsError } = await visitsQuery;
+      if (jobsError || visitsError) {
+        console.error(`[technician-summary] Failed to load jobs for tenant ${tenantId}:`, jobsError?.message || visitsError?.message);
         result.errors += 1;
         continue;
       }
 
-      const matchingJobs = (jobs || []).filter((job) => jobMatchesTargetDate(job, targetDate));
+      type SummaryVisit = {
+        scheduled_date: string; scheduled_time: string | null; all_day: boolean;
+        assigned_technician_id: string | null;
+        jobs: Parameters<typeof buildSummaryBody>[0]["jobs"][number] & { id: string };
+      };
+      const matchingJobs = [
+        ...(jobs || []).filter((job) => jobMatchesTargetDate(job, targetDate)),
+        ...((visits || []) as unknown as SummaryVisit[]).map(v => ({
+          ...v.jobs, scheduled_date: v.scheduled_date, scheduled_time: v.scheduled_time,
+          scheduled_end_date: null, all_day: v.all_day, assigned_technician_id: v.assigned_technician_id,
+        })),
+      ].sort((a, b) => (a.scheduled_time || "24:00").localeCompare(b.scheduled_time || "24:00"));
       const jobsByTech = new Map<string, Array<any>>();
       for (const job of matchingJobs) {
         const key = String((job as { assigned_technician_id?: string | null }).assigned_technician_id || "");

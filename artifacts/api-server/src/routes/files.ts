@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import sharp from "sharp";
 import { supabaseAdmin } from "../lib/supabase";
+import { isAssignedToJob } from "../lib/job-assignment";
 import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { getEffectiveStorageLimit, getStorageUsed } from "../lib/tenant-limits";
 import {
@@ -39,7 +40,7 @@ async function verifyEntityAccess(req: AuthenticatedRequest, entityType: string,
     if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
     const { data: job } = await q.single();
     if (!job) return { allowed: false, error: "Job not found" };
-    if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
+    if (req.userRole === "technician" && !await isAssignedToJob(entityId, req.userId, req.tenantId)) {
       return { allowed: false, error: "Not authorized" };
     }
   } else if (entityType === "enquiry") {

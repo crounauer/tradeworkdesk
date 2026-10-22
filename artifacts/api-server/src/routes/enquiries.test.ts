@@ -32,7 +32,7 @@ async function withConversionEndpoint(t: TestContext, foreignEngineer = false, c
         : [];
     } else if (table === "tenants") {
       data = { status: "active", plans: { max_users: 2 } };
-    } else if (table === "jobs") {
+    } else if (table === "jobs" || table === "job_schedule_entries") {
       data = init?.method === "POST" ? { id: jobId, ...body } : clashingJob ? [{
         id: "existing-job", job_ref: "JOB-0026", scheduled_date: "2026-10-26",
         scheduled_time: "09:00:00", estimated_duration: 180, status: "scheduled",

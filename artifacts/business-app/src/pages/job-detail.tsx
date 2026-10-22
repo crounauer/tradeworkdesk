@@ -31,6 +31,7 @@ import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useAutoAssign } from "@/hooks/use-auto-assign";
 import { SmsSendDialog } from "@/components/sms-send-dialog";
 import { RebookDialog } from "@/components/rebook-dialog";
+import { JobVisits } from "@/components/job-visits";
 import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
 import { PartsSection } from "@/components/line-items/parts-section";
 import { ServicesSection } from "@/components/line-items/services-section";
@@ -1088,6 +1089,17 @@ export default function JobDetail() {
           }}
         />
       )}
+
+      <JobVisits
+        job={{
+          id: job.id, status: job.status, scheduled_date: String(job.scheduled_date),
+          scheduled_time: job.scheduled_time, estimated_duration: job.estimated_duration,
+          scheduled_end_date: typeof job.scheduled_end_date === "string" ? job.scheduled_end_date : null,
+          assigned_technician_id: job.assigned_technician_id,
+          all_day: job.estimated_duration == null,
+        }}
+        canManage={isOfficeOrAdmin}
+      />
 
       {editing ? (
         <EditJobForm

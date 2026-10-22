@@ -497,9 +497,10 @@ async function getAvailableSlots(
       .eq("tenant_id", tenantId)
       .gte("date", fromDate)
       .lte("date", toDate),
-    db.from("jobs")
-      .select("scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, status, assigned_technician_id")
+    db.from("job_schedule_entries")
+      .select("scheduled_date, scheduled_end_date, scheduled_time, all_day, estimated_duration, status, assigned_technician_id")
       .eq("tenant_id", tenantId)
+      .eq("is_active", true)
       .lte("scheduled_date", toDate)
       .or(`scheduled_date.gte.${fromDate},scheduled_end_date.gte.${fromDate}`),
     db.from("profiles")
@@ -514,6 +515,7 @@ async function getAvailableSlots(
       .gte("end_date", fromDate),
   ]);
 
+  if (jobsResult.error) throw new Error(`Unable to check scheduled visits: ${jobsResult.error.message}`);
   const settings = settingsResult.data;
   if (!settings || !settings.is_enabled) return [];
 
@@ -529,7 +531,7 @@ async function getAvailableSlots(
   const minAdvanceMs: number = minAdvanceHours * 60 * 60 * 1000;
 
   const existingBookings: { scheduled_start: string; scheduled_end: string }[] = bookingsResult.data || [];
-  const existingJobs: { scheduled_date: string; scheduled_end_date: string | null; scheduled_time: string | null; estimated_duration: number | null; status: string | null; assigned_technician_id: string | null }[] = jobsResult.data || [];
+  const existingJobs: { scheduled_date: string; scheduled_end_date: string | null; scheduled_time: string | null; all_day?: boolean | null; estimated_duration: number | null; status: string | null; assigned_technician_id: string | null }[] = jobsResult.data || [];
   const overrides: { date: string; start_time: string | null; end_time: string | null; type: string }[] = overridesResult.data || [];
   const assignableEngineers: { id: string }[] = assignableEngineersResult.data || [];
   const holidays: { technician_id: string | null; holiday_type?: string | null; start_date: string; end_date: string; start_time?: string | null; end_time?: string | null }[] = holidaysResult.data || [];
@@ -634,12 +636,12 @@ async function getAvailableSlots(
 
       const overlappingJobs = existingJobs.filter((j) => {
         const status = (j.status || "").toLowerCase();
-        if (status === "cancelled" || status === "completed") return false;
+        if (status === "cancelled" || status === "completed" || status === "invoiced") return false;
 
         if (!jobSpansDate(j, dateStr)) return false;
 
         // Jobs without a start time are treated as all-day and block this entire date.
-        if (!j.scheduled_time) return true;
+        if (j.all_day || !j.scheduled_time) return true;
 
         const spansMultipleDays = Boolean(j.scheduled_end_date && String(j.scheduled_end_date).slice(0, 10) > String(j.scheduled_date).slice(0, 10));
         if (spansMultipleDays) {
@@ -707,13 +709,15 @@ async function selectAvailableEngineerForSlot(args: {
       .eq("tenant_id", tenantId)
       .lte("start_date", dateStr)
       .gte("end_date", dateStr),
-    db.from("jobs")
-      .select("assigned_technician_id, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, status")
+    db.from("job_schedule_entries")
+      .select("assigned_technician_id, scheduled_date, scheduled_end_date, scheduled_time, all_day, estimated_duration, status")
       .eq("tenant_id", tenantId)
+      .eq("is_active", true)
       .lte("scheduled_date", dateStr)
       .or(`scheduled_date.eq.${dateStr},scheduled_end_date.gte.${dateStr}`),
   ]);
 
+  if (jobsResult.error) throw new Error(`Unable to check scheduled visits: ${jobsResult.error.message}`);
   const engineers: Array<{ id: string }> = engineersResult.data || [];
   if (engineers.length === 0) return null;
 
@@ -739,7 +743,7 @@ async function selectAvailableEngineerForSlot(args: {
       .filter((id): id is string => Boolean(id)),
   );
 
-  const jobs: Array<{ assigned_technician_id: string | null; scheduled_date: string; scheduled_end_date: string | null; scheduled_time: string | null; estimated_duration: number | null; status: string | null }> = jobsResult.data || [];
+  const jobs: Array<{ assigned_technician_id: string | null; scheduled_date: string; scheduled_end_date: string | null; scheduled_time: string | null; all_day?: boolean | null; estimated_duration: number | null; status: string | null }> = jobsResult.data || [];
   const slotStartMs = slotStart.getTime();
   const slotEndMs = slotEnd.getTime();
 
@@ -757,12 +761,12 @@ async function selectAvailableEngineerForSlot(args: {
       const hasConflict = jobs.some((job) => {
         if (job.assigned_technician_id !== id) return false;
         const status = (job.status || "").toLowerCase();
-        if (status === "cancelled" || status === "completed") return false;
+        if (status === "cancelled" || status === "completed" || status === "invoiced") return false;
 
         if (!jobSpansDate(job, dateStr)) return false;
 
         // Jobs without a start time are treated as all-day and block this technician for the date.
-        if (!job.scheduled_time) return true;
+        if (job.all_day || !job.scheduled_time) return true;
 
         const spansMultipleDays = Boolean(job.scheduled_end_date && String(job.scheduled_end_date).slice(0, 10) > String(job.scheduled_date).slice(0, 10));
         if (spansMultipleDays) return true;

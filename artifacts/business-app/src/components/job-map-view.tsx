@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { useListJobs, useListProfiles } from "@workspace/api-client-react";
+import { useCalendarData } from "@/hooks/use-calendar-data";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, Navigation, ExternalLink, Route } from "luci
 
 type MapJob = {
   id: string;
+  job_id?: string;
   customer_name?: string | null;
   property_address?: string | null;
   technician_name?: string | null;
@@ -101,16 +102,17 @@ export default function JobMapView() {
 
   const dateStr = toDateStr(selectedDate);
 
-  const { data: jobsResponse } = useListJobs({
+  const { data: calendarData } = useCalendarData({
     date_from: dateStr,
     date_to: dateStr,
-    limit: 500,
-  } as any);
+  });
 
-  const { data: profiles = [] } = useListProfiles();
-  const technicians = useMemo(() => profiles.filter(p => p.role === "technician"), [profiles]);
+  const technicians = useMemo(
+    () => (calendarData?.profiles || []).filter(p => p.role === "technician" || p.can_be_assigned_jobs === true),
+    [calendarData?.profiles],
+  );
 
-  const jobs = ((jobsResponse as any)?.jobs ?? []) as MapJob[];
+  const jobs: MapJob[] = calendarData?.jobs ?? [];
 
   const mappableJobs = useMemo(() => {
     let filtered = jobs.filter(j => j.property_latitude != null && j.property_longitude != null && j.status !== "cancelled");
@@ -244,7 +246,7 @@ export default function JobMapView() {
                   )}
                   <p className="text-xs text-gray-500">Priority: {PRIORITY_LABELS[job.priority] || job.priority}</p>
                   <div className="flex gap-1.5 mt-2">
-                    <Link href={`/jobs/${job.id}`}>
+                    <Link href={`/jobs/${job.job_id || job.id}`}>
                       <button className="flex items-center gap-1 text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600">
                         <ExternalLink className="w-3 h-3" /> View
                       </button>

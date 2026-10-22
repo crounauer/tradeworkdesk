@@ -109,6 +109,12 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
   };
 
   const activeToday = `and(scheduled_date.eq.${today},scheduled_end_date.is.null),and(scheduled_date.lte.${today},scheduled_end_date.gte.${today})`;
+  let visitsQ = supabaseAdmin.from("job_visits")
+    .select(`id, scheduled_date, scheduled_time, estimated_duration, assigned_technician_id, profiles(full_name), jobs!inner(${DASHBOARD_JOB_FIELDS})`)
+    .eq("tenant_id", tenantId!).eq("jobs.tenant_id", tenantId!)
+    .eq("jobs.is_active", true).neq("jobs.status", "cancelled")
+    .gte("scheduled_date", today).lte("scheduled_date", weekAhead);
+  if (techFilter) visitsQ = visitsQ.eq("assigned_technician_id", techFilter);
 
   const buildApplianceQuery = () => {
     let q = supabaseAdmin.from("appliances")
@@ -151,7 +157,7 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
   const [
     todaysRes, upcomingRes, recentRes, followUpRes, overdueRes,
     customerCountRes, todayCountRes, completedCountRes,
-    tenantFeatures, unpaidInvoicesRes,
+    tenantFeatures, unpaidInvoicesRes, visitsRes,
   ] = await Promise.all([
     buildJobQuery().or(activeToday).neq("status", "cancelled").order("scheduled_time").limit(20),
     buildJobQuery().gt("scheduled_date", today).lte("scheduled_date", weekAhead).eq("status", "scheduled").order("scheduled_date").limit(10),
@@ -176,7 +182,34 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
     buildCompletedCountQuery(),
     tenantId ? getTenantFeatures(tenantId) : Promise.resolve(null),
     buildUnpaidInvoicesCountQuery(),
+    visitsQ,
   ]);
+  if (visitsRes.error) throw new Error(`Unable to load scheduled visits: ${visitsRes.error.message}`);
+  const visits = (visitsRes.data || []) as unknown as Array<{
+    scheduled_date: string; scheduled_time: string | null; estimated_duration: number | null;
+    assigned_technician_id: string | null; profiles: { full_name: string } | null; jobs: DashboardJobRow;
+  }>;
+  const visitJobs = visits.map(v => ({
+    ...v.jobs, scheduled_date: v.scheduled_date, scheduled_end_date: null,
+    scheduled_time: v.scheduled_time, estimated_duration: v.estimated_duration,
+    assigned_technician_id: v.assigned_technician_id, profiles: v.profiles,
+  }));
+  const uniqueJobs = (rows: DashboardJobRow[]) => [...new Map(
+    [...rows].sort((a, b) => `${b.scheduled_date}${b.scheduled_time || ""}`.localeCompare(`${a.scheduled_date}${a.scheduled_time || ""}`))
+      .map(j => [j.id, j]),
+  ).values()].sort((a, b) => `${a.scheduled_date}${a.scheduled_time || ""}`.localeCompare(`${b.scheduled_date}${b.scheduled_time || ""}`));
+  const todayVisits = visitJobs.filter(j => j.scheduled_date === today);
+  const todaysJobs = uniqueJobs([...(todaysRes.data as unknown as DashboardJobRow[] || []), ...todayVisits]);
+  const upcomingJobs = uniqueJobs([
+    ...(upcomingRes.data as unknown as DashboardJobRow[] || []),
+    ...visitJobs.filter(j => j.scheduled_date > today && j.status === "scheduled"),
+  ]).slice(0, 10);
+  const additionalTodayIds = new Set(visits.filter(v =>
+    v.scheduled_date === today && !(
+      (!techFilter || v.jobs.assigned_technician_id === techFilter)
+      && v.jobs.scheduled_date <= today && String(v.jobs.scheduled_end_date || v.jobs.scheduled_date) >= today
+    ),
+  ).map(v => v.jobs.id));
 
   const tQueries = Date.now();
   console.log(`[perf] /homepage queries ${tQueries - t0}ms`);
@@ -229,14 +262,14 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
   }));
 
   const dashboard = GetDashboardResponse.parse({
-    todays_jobs: (todaysRes.data as unknown as DashboardJobRow[] || []).map(mapDashboardJob),
-    upcoming_jobs: (upcomingRes.data as unknown as DashboardJobRow[] || []).map(mapDashboardJob),
+    todays_jobs: todaysJobs.map(mapDashboardJob),
+    upcoming_jobs: upcomingJobs.map(mapDashboardJob),
     overdue_services: mappedOverdue,
     recent_completed: (recentRes.data as unknown as DashboardJobRow[] || []).map(mapDashboardJob),
     follow_up_required: mappedFollowUps,
     stats: {
       total_customers: customerCountRes.count || 0,
-      total_jobs_today: todayCountRes.count || 0,
+      total_jobs_today: (todayCountRes.count || 0) + additionalTodayIds.size,
       overdue_count: overdueList.length,  // derived — no extra query needed
       completed_this_week: completedCountRes.count || 0,
       unpaid_invoices_count: unpaidInvoicesRes.count || 0,

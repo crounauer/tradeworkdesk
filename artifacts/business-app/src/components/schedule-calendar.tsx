@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect, DragEvent, MouseEvent } from "react";
-import { useUpdateJob } from "@workspace/api-client-react";
+import { customFetch, useUpdateJob } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { AppointmentConfirmationBadge } from "@/components/appointment-confirmat
 
 type CalendarJob = {
   id: string;
+  job_id?: string;
+  visit_id?: string;
   customer_name?: string | null;
   property_address?: string | null;
   technician_name?: string | null;
@@ -460,7 +462,9 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
         if (!raw) continue;
         const override = next[jobId];
         const allMatch = Object.entries(override).every(
-          ([k, v]) => raw[k as keyof CalendarJob] === v
+          ([k, v]) => k === "scheduled_time"
+            ? (raw.scheduled_time?.slice(0, 5) || null) === (typeof v === "string" ? v.slice(0, 5) : v)
+            : raw[k as keyof CalendarJob] === v
         );
         if (allMatch) { delete next[jobId]; changed = true; }
       }
@@ -471,7 +475,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
   const profiles = (calendarData?.profiles ?? []) as Array<{ id: string; full_name: string; role: string; [k: string]: unknown }>;
 
   const technicians = useMemo(
-    () => profiles.filter((p) => p.role === "technician"),
+    () => profiles.filter((p) => p.role === "technician" || p.can_be_assigned_jobs === true),
     [profiles]
   );
 
@@ -588,9 +592,10 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
         return;
       }
       e.stopPropagation();
-      navigate(`/jobs/${jobId}`);
+      const job = calendarJobs.find(j => j.id === jobId);
+      navigate(`/jobs/${job?.job_id || jobId}`);
     },
-    [navigate]
+    [navigate, calendarJobs]
   );
 
   const openDayView = useCallback((day: Date) => {
@@ -655,15 +660,30 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
       const override: Partial<CalendarJob> = {
         scheduled_date: newDateStr,
         ...(newTime !== undefined ? { scheduled_time: newTime } : {}),
+        ...(job.visit_id && newTime !== undefined ? { all_day: newTime === null, estimated_duration: newTime === null ? null : job.estimated_duration || 60 } : {}),
         ...(updateData.scheduled_end_date != null ? { scheduled_end_date: updateData.scheduled_end_date } : {}),
       };
       setLocalOverrides((prev) => ({ ...prev, [jobId]: override }));
 
       try {
-        await updateJob.mutateAsync({
-          id: jobId,
-          data: updateData as { scheduled_date: string },
-        });
+        if (job.visit_id && job.job_id) {
+          await customFetch(`/api/jobs/${job.job_id}/visits/${job.visit_id}`, {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              scheduled_date: updateData.scheduled_date || oldDateStr,
+              scheduled_time: (newTime !== undefined ? newTime : oldTime)?.slice(0, 5) || null,
+              all_day: newTime === undefined ? job.all_day === true : newTime === null,
+              estimated_duration: newTime ? job.estimated_duration || 60 : job.estimated_duration,
+              assigned_technician_id: job.assigned_technician_id || null,
+            }),
+          });
+          qc.invalidateQueries({ queryKey: ["/api/jobs", job.job_id, "visits"] });
+        } else {
+          await updateJob.mutateAsync({
+            id: jobId,
+            data: updateData as { scheduled_date: string },
+          });
+        }
         qc.invalidateQueries({ queryKey: ["api/jobs"] });
         qc.invalidateQueries({ queryKey: ["/api/calendar"] });
         qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -682,12 +702,12 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
           title: "Job rescheduled",
           description: `Moved to ${parts.join(" at ")}`,
         });
-      } catch {
+      } catch (error) {
         // Roll back — remove override to restore original position
         setLocalOverrides((prev) => { const n = { ...prev }; delete n[jobId]; return n; });
         toast({
           title: "Failed to reschedule",
-          description: "Could not update the job. Please try again.",
+          description: error instanceof Error ? error.message : "Could not update the job. Please try again.",
           variant: "destructive",
         });
       }
@@ -757,10 +777,23 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
       setLocalOverrides((prev) => ({ ...prev, [jobId]: override }));
 
       try {
-        await updateJob.mutateAsync({
-          id: jobId,
-          data: updateData as unknown as { scheduled_date: string },
-        });
+        if (job.visit_id && job.job_id) {
+          await customFetch(`/api/jobs/${job.job_id}/visits/${job.visit_id}`, {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              scheduled_date: updateData.scheduled_date || oldDateStr,
+              scheduled_time: job.scheduled_time?.slice(0, 5) || null, all_day: job.all_day === true,
+              estimated_duration: job.estimated_duration,
+              assigned_technician_id: technicianId,
+            }),
+          });
+          qc.invalidateQueries({ queryKey: ["/api/jobs", job.job_id, "visits"] });
+        } else {
+          await updateJob.mutateAsync({
+            id: jobId,
+            data: updateData as unknown as { scheduled_date: string },
+          });
+        }
         qc.invalidateQueries({ queryKey: ["api/jobs"] });
         qc.invalidateQueries({ queryKey: ["/api/calendar"] });
         qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -770,11 +803,11 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
           title: "Job reassigned",
           description: technicianName ? `Assigned to ${technicianName}` : "Moved to unassigned",
         });
-      } catch {
+      } catch (error) {
         setLocalOverrides((prev) => { const n = { ...prev }; delete n[jobId]; return n; });
         toast({
           title: "Failed to reassign",
-          description: "Could not update the job. Please try again.",
+          description: error instanceof Error ? error.message : "Could not update the job. Please try again.",
           variant: "destructive",
         });
       }
@@ -997,7 +1030,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           onDragStart={(e) => handleDragStart(e, job.id)}
                           onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
                           onClick={(e) => handleJobClick(e, job.id)}
-                          onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.job_id || job.id}`); }}
                           className={`px-3 py-2 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-cyan-50 shadow-sm transition-all cursor-pointer ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-md`}
                         >
                           <CompactJobCardContent job={job} timeLabel="All day" />
@@ -1052,7 +1085,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                               onDragStart={(e) => handleDragStart(e, job.id)}
                               onDragEnd={() => { didDragRef.current = false; setDragOverEngineerLane(null); }}
                               onClick={(e) => handleJobClick(e, job.id)}
-                              onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                              onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.job_id || job.id}`); }}
                               className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
                             >
                               <CompactJobCardContent job={job} timeLabel={getJobTimeRangeLabel(job)} />
@@ -1119,7 +1152,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                         onDragStart={(e) => handleDragStart(e, job.id)}
                         onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
                         onClick={(e) => handleJobClick(e, job.id)}
-                        onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.job_id || job.id}`); }}
                         className={`px-3 py-2 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-cyan-50 shadow-sm transition-all cursor-pointer ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-md`}
                       >
                         <CompactJobCardContent job={job} timeLabel="All day" />
@@ -1208,7 +1241,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                               onDragStart={(e) => handleDragStart(e, job.id)}
                               onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
                               onClick={(e) => handleJobClick(e, job.id)}
-                              onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                              onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.job_id || job.id}`); }}
                               className={`px-3 py-2 rounded-lg border transition-all cursor-pointer min-w-0 ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
                             >
                               <CompactJobCardContent job={job} timeLabel={getJobTimeRangeLabel(job)} />
@@ -1223,7 +1256,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                                 onDragStart={(e) => handleDragStart(e, job.id)}
                                 onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
                                 onClick={(e) => handleJobClick(e, job.id)}
-                                onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                                onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.job_id || job.id}`); }}
                                 className={`px-3 py-1.5 rounded-lg border transition-all cursor-pointer min-w-0 ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm opacity-90`}
                               >
                                 {showContinuationSummary ? (
@@ -1276,7 +1309,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                           onDragStart={(e) => handleDragStart(e, job.id)}
                           onDragEnd={() => { didDragRef.current = false; setDragOverSlot(null); }}
                           onClick={(e) => handleJobClick(e, job.id)}
-                          onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.job_id || job.id}`); }}
                           className={`px-3 py-2 rounded-lg border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
                         >
                               <CompactJobCardContent job={job} timeLabel={getJobTimeRangeLabel(job)} />
@@ -1379,7 +1412,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                               onDragStart={(e) => handleDragStart(e, job.id)}
                               onDragEnd={() => { didDragRef.current = false; setDragOverEngineerLane(null); }}
                               onClick={(e) => handleJobClick(e, job.id)}
-                              onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                              onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.job_id || job.id}`); }}
                               className={`px-1.5 py-1 rounded border transition-all cursor-pointer ${STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"} ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${dragJobId === job.id ? "opacity-50" : ""} hover:shadow-sm`}
                             >
                               <CompactJobCardContent job={job} timeLabel={getJobTimeRangeLabel(job)} />
@@ -1497,7 +1530,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                       onDragStart={(e) => handleDragStart(e, job.id)}
                       onDragEnd={() => { didDragRef.current = false; }}
                       onClick={(e) => handleJobClick(e, job.id)}
-                      onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.job_id || job.id}`); }}
                       className={`block text-[11px] leading-tight px-1.5 py-1 rounded border transition-all cursor-pointer ${
                         STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"
                       } ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""} ${
@@ -1651,7 +1684,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                       onDragStart={(e) => handleDragStart(e, job.id)}
                       onDragEnd={() => { didDragRef.current = false; }}
                       onClick={(e) => handleJobClick(e, job.id)}
-                      onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.id}`); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") navigate(`/jobs/${job.job_id || job.id}`); }}
                       className={`block text-sm px-3 py-2 rounded-lg border transition-all cursor-pointer ${
                         STATUS_COLORS[job.status] || "bg-gray-50 text-gray-700 border-gray-200"
                       } ${canDrag ? "hover:cursor-grab active:cursor-grabbing" : ""}`}

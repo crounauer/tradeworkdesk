@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
+import { isAssignedToJob } from "../lib/job-assignment";
 import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
   ListJobNotesParams,
@@ -27,7 +28,7 @@ router.get("/jobs/:jobId/notes", requireAuth, requireTenant, async (req: Authent
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
   const { data: job } = await jobQ.single();
   if (!job) { res.status(404).json({ error: "Job not found" }); return; }
-  if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
+  if (req.userRole === "technician" && !await isAssignedToJob(params.data.jobId, req.userId, req.tenantId)) {
     res.status(403).json({ error: "Not authorized" }); return;
   }
 
@@ -58,7 +59,7 @@ router.post("/jobs/:jobId/notes", requireAuth, requireTenant, async (req: Authen
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
   const { data: job } = await jobQ.single();
   if (!job) { res.status(404).json({ error: "Job not found" }); return; }
-  if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
+  if (req.userRole === "technician" && !await isAssignedToJob(params.data.jobId, req.userId, req.tenantId)) {
     res.status(403).json({ error: "Not authorized" }); return;
   }
 
@@ -88,7 +89,7 @@ router.patch("/jobs/:jobId/notes/:noteId", requireAuth, requireTenant, async (re
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
   const { data: job } = await jobQ.single();
   if (!job) { res.status(404).json({ error: "Job not found" }); return; }
-  if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
+  if (req.userRole === "technician" && !await isAssignedToJob(String(jobId), req.userId, req.tenantId)) {
     res.status(403).json({ error: "Not authorized" }); return;
   }
 
@@ -120,7 +121,7 @@ router.delete("/jobs/:jobId/notes/:noteId", requireAuth, requireTenant, async (r
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
   const { data: job } = await jobQ.single();
   if (!job) { res.status(404).json({ error: "Job not found" }); return; }
-  if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
+  if (req.userRole === "technician" && !await isAssignedToJob(String(jobId), req.userId, req.tenantId)) {
     res.status(403).json({ error: "Not authorized" }); return;
   }
 

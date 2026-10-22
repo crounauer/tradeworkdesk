@@ -31,6 +31,7 @@ import {
 import { isCcAdminRequested, sendJobFormsEmail, sendJobConfirmationEmail, sendSimpleNotification, type EmailAttachment, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
 import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 import { invalidateCalendarCache } from "./calendar";
+import { isAssignedToJob } from "../lib/job-assignment";
 import { invalidateHomepageCache } from "./homepage";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
@@ -175,10 +176,7 @@ async function verifyTechnicianOwnership(
   userId: string | undefined,
   tenantId: string | undefined | null,
 ): Promise<boolean> {
-  let tq = supabaseAdmin.from("jobs").select("assigned_technician_id").eq("id", jobId);
-  if (tenantId) tq = tq.eq("tenant_id", tenantId);
-  const { data: j } = await tq.single();
-  return !!j && j.assigned_technician_id === userId;
+  return isAssignedToJob(jobId, userId, tenantId);
 }
 
 async function enrichJobsWithTypeNames(
@@ -619,7 +617,7 @@ export function validateJobEmailSendRequest(params: {
 const jobsListCache = new Map<string, { data: unknown; ts: number }>();
 const JOBS_CACHE_TTL_MS = 30_000;
 
-function invalidateJobsCache(tenantId?: string | null) {
+export function invalidateJobsCache(tenantId?: string | null) {
   if (!tenantId) { jobsListCache.clear(); return; }
   for (const key of jobsListCache.keys()) {
     if (key.startsWith(`${tenantId}:`)) jobsListCache.delete(key);
@@ -654,28 +652,26 @@ router.get("/jobs", requireAuth, requireTenant, requirePlanFeature("job_manageme
   if (query.success) {
     if (query.data.status) { q = q.eq("status", query.data.status); countQ = countQ.eq("status", query.data.status); }
     if (query.data.job_type) { q = q.eq("job_type", query.data.job_type); countQ = countQ.eq("job_type", query.data.job_type); }
-    if (query.data.technician_id) { q = q.eq("assigned_technician_id", query.data.technician_id); countQ = countQ.eq("assigned_technician_id", query.data.technician_id); }
     if (query.data.customer_id) { q = q.eq("customer_id", query.data.customer_id); countQ = countQ.eq("customer_id", query.data.customer_id); }
     if (query.data.property_id) { q = q.eq("property_id", query.data.property_id); countQ = countQ.eq("property_id", query.data.property_id); }
-    if (query.data.date_from) {
-      const df = query.data.date_from instanceof Date
-        ? query.data.date_from.toISOString().slice(0, 10)
-        : String(query.data.date_from);
-      q = q.or(`scheduled_date.gte.${df},scheduled_end_date.gte.${df}`);
-      countQ = countQ.or(`scheduled_date.gte.${df},scheduled_end_date.gte.${df}`);
-    }
-    if (query.data.date_to) {
-      const dt = query.data.date_to instanceof Date
-        ? query.data.date_to.toISOString().slice(0, 10)
-        : String(query.data.date_to);
-      q = q.lte("scheduled_date", dt);
-      countQ = countQ.lte("scheduled_date", dt);
-    }
   }
 
-  if (req.userRole === "technician") {
-    q = q.eq("assigned_technician_id", req.userId!);
-    countQ = countQ.eq("assigned_technician_id", req.userId!);
+  const engineerFilter = req.userRole === "technician" ? req.userId : query.success ? query.data.technician_id : undefined;
+  const from = query.success ? query.data.date_from : undefined;
+  const to = query.success ? query.data.date_to : undefined;
+  if (engineerFilter || from || to) {
+    let scheduleQ = supabaseAdmin.from("job_schedule_entries").select("job_id").eq("tenant_id", req.tenantId!);
+    if (engineerFilter) scheduleQ = scheduleQ.eq("assigned_technician_id", engineerFilter);
+    if (from) {
+      const date = new Date(from).toISOString().slice(0, 10);
+      scheduleQ = scheduleQ.or(`scheduled_date.gte.${date},scheduled_end_date.gte.${date}`);
+    }
+    if (to) scheduleQ = scheduleQ.lte("scheduled_date", new Date(to).toISOString().slice(0, 10));
+    const { data: entries, error } = await scheduleQ;
+    if (error) throw new Error(`Unable to load scheduled jobs: ${error.message}`);
+    const ids = [...new Set((entries || []).map(v => v.job_id))];
+    q = q.in("id", ids);
+    countQ = countQ.in("id", ids);
   }
 
   if (searchTerm && searchTerm.trim()) {
@@ -1332,7 +1328,7 @@ router.get("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedReq
   const { data: job, error } = await jobQ.single();
   if (error || !job) { res.status(404).json({ error: "Job not found" }); return; }
 
-  if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
+  if (req.userRole === "technician" && !await isAssignedToJob(job.id, req.userId, req.tenantId)) {
     res.status(403).json({ error: "You can only view jobs assigned to you" });
     return;
   }
@@ -3276,7 +3272,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   const { data: job, error: jobErr } = await jobQ.single();
   if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
 
-  if (req.userRole === "technician" && job.assigned_technician_id !== req.userId) {
+  if (req.userRole === "technician" && !await isAssignedToJob(job.id, req.userId, req.tenantId)) {
     res.status(403).json({ error: "You can only email forms for jobs assigned to you" }); return;
   }
 

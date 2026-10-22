@@ -3,6 +3,8 @@ import { customFetch } from "@workspace/api-client-react";
 
 interface CalendarJob {
   id: string;
+  job_id?: string;
+  visit_id?: string;
   customer_name?: string | null;
   property_address?: string | null;
   technician_name?: string | null;

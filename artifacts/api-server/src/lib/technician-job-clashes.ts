@@ -56,8 +56,8 @@ export async function findTechnicianJobClash(args: {
   const endDate = scheduledEndDate ? dateKey(scheduledEndDate) : startDate;
   const window = bookingWindow(startDate, endDate, scheduledTime, allDay === true, estimatedDuration);
   let query = supabaseAdmin
-    .from("jobs")
-    .select("id, job_ref, scheduled_date, scheduled_end_date, scheduled_time, all_day, estimated_duration, status")
+    .from("job_schedule_entries")
+    .select("id, job_id, job_ref, scheduled_date, scheduled_end_date, scheduled_time, all_day, estimated_duration, status")
     .eq("tenant_id", tenantId)
     .eq("assigned_technician_id", technicianId)
     .lte("scheduled_date", endDate)
@@ -83,7 +83,7 @@ export async function findTechnicianJobClash(args: {
     return window.start < existing.end && window.end > existing.start;
   });
   return clash ? {
-    existing_job_id: clash.id,
+    existing_job_id: clash.job_id ?? clash.id,
     existing_job_ref: clash.job_ref ?? null,
     scheduled_date: clash.scheduled_date,
     scheduled_time: clash.all_day === true ? null : clash.scheduled_time,

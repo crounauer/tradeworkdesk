@@ -7,10 +7,12 @@ const CALENDAR_JOB_FIELDS =
   "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, visit_intent, status, priority, description, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, all_day, arrival_time, departure_time, customer_confirmation_status, customer_confirmed_at, customer_change_requested_at, created_at, updated_at, customers(first_name, last_name), properties(address_line1, latitude, longitude, postcode), profiles(full_name)";
 
 const PROFILE_FIELDS =
-  "id, email, full_name, role, phone, tenant_id, is_active, created_at, updated_at";
+  "id, email, full_name, role, phone, tenant_id, is_active, can_be_assigned_jobs, created_at, updated_at";
 
 interface CalendarJobRow {
   id: string;
+  job_id?: string;
+  visit_id?: string;
   customer_id: string;
   property_id: string;
   appliance_id: string | null;
@@ -294,6 +296,15 @@ router.get("/calendar", requireAuth, requireTenant, async (req: AuthenticatedReq
   if (req.tenantId) jobsQ = jobsQ.eq("tenant_id", req.tenantId);
   if (techFilter) jobsQ = jobsQ.eq("assigned_technician_id", techFilter);
 
+  let visitsQ = supabaseAdmin.from("job_visits")
+    .select(`id, job_id, scheduled_date, scheduled_time, estimated_duration, all_day, assigned_technician_id, profiles(full_name), jobs!inner(${CALENDAR_JOB_FIELDS})`)
+    .eq("tenant_id", req.tenantId!)
+    .eq("jobs.tenant_id", req.tenantId!)
+    .eq("jobs.is_active", true)
+    .gte("scheduled_date", dateFrom).lte("scheduled_date", dateTo)
+    .order("scheduled_date");
+  if (techFilter) visitsQ = visitsQ.eq("assigned_technician_id", techFilter);
+
   let profilesQ = supabaseAdmin
     .from("profiles")
     .select(PROFILE_FIELDS)
@@ -319,20 +330,40 @@ router.get("/calendar", requireAuth, requireTenant, async (req: AuthenticatedReq
     holidaysQ = holidaysQ.or(`technician_id.is.null,technician_id.eq.${techFilter}`);
   }
 
-  const [jobsRes, profilesRes, serviceCatalogueRes, holidaysRes, tenantFeatures] = await Promise.all([
+  const [jobsRes, visitsRes, profilesRes, serviceCatalogueRes, holidaysRes, tenantFeatures] = await Promise.all([
     jobsQ,
+    visitsQ,
     profilesQ,
     serviceCatalogueQ,
     holidaysQ,
     req.tenantId ? getTenantFeatures(req.tenantId) : Promise.resolve(null),
   ]);
+  if (jobsRes.error || visitsRes.error) {
+    throw new Error(`Unable to load schedule: ${jobsRes.error?.message || visitsRes.error?.message}`);
+  }
 
   const hasGeoMapping = !!(tenantFeatures as Record<string, unknown> | null)?.geo_mapping;
   const serviceRows = ((serviceCatalogueRes as { data?: Array<{ id: string; name: string; booking_duration_minutes?: number | null }> }).data || []);
   const serviceMap = new Map(serviceRows.map((s) => [s.id, s.name]));
   const serviceDurationMap = new Map(serviceRows.map((s) => [s.id, s.booking_duration_minutes ?? null]));
 
-  const jobs = ((jobsRes.data as unknown as CalendarJobRow[] || [])).map((j) => {
+  const visitRows = visitsRes.data as unknown as Array<{
+    id: string; job_id: string; scheduled_date: string; scheduled_time: string | null;
+    estimated_duration: number | null; all_day: boolean; assigned_technician_id: string | null;
+    profiles: { full_name: string } | null; jobs: CalendarJobRow;
+  }> | null;
+  const entries: CalendarJobRow[] = [
+    ...(jobsRes.data as unknown as CalendarJobRow[] || []),
+    ...(visitRows || []).map(v => ({
+      ...v.jobs, id: v.id, visit_id: v.id, job_id: v.job_id,
+      scheduled_date: v.scheduled_date, scheduled_end_date: null,
+      scheduled_time: v.scheduled_time, estimated_duration: v.estimated_duration,
+      all_day: v.all_day, assigned_technician_id: v.assigned_technician_id, profiles: v.profiles,
+      customer_confirmation_status: null, customer_confirmed_at: null, customer_change_requested_at: null,
+      arrival_time: null, departure_time: null,
+    })),
+  ];
+  const jobs = entries.map((j) => {
     const isAllDayJob = j.all_day === true || j.estimated_duration == null;
     const mappedDuration = j.service_catalogue_id ? (serviceDurationMap.get(j.service_catalogue_id) ?? null) : null;
     const estimatedDuration = isAllDayJob

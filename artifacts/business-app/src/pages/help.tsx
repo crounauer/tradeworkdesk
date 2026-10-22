@@ -159,6 +159,10 @@ const sections: HelpSection[] = [
         a: "When booking, rebooking, rescheduling, or converting an enquiry or follow-up to a job, overlapping active jobs assigned to the same technician are blocked with a clash message. All-day jobs, including jobs without a start time, reserve the whole day across their date range. Unassigned jobs do not reserve a technician. Cancelled, completed and invoiced jobs do not block new appointments.",
       },
       {
+        q: "Can I schedule separate dates under the same job?",
+        a: "Yes. Open a job and use Scheduled Visits → Add Visit to book non-consecutive dates, each with its own time, duration and technician (or All day). Each visit appears separately in Schedule and opens the same job. Edit or remove additional visits there; use Edit Job for the primary date. Only the chosen dates reserve the engineer, with clash and leave checks. Notes, documents, billing and completion remain shared by the job. Reopen completed, cancelled or invoiced jobs before adding visits. Visit changes do not send confirmation emails automatically; use Email Customer to share the dates. Rebook creates a separate job and does not copy additional visits.",
+      },
+      {
         q: "How do I complete a job?",
         a: "Open the job and change the status to Completed. You can also add a service record (e.g. a boiler service certificate), upload photos, get a customer signature, and add notes before closing it.",
       },

@@ -24,7 +24,7 @@ const appointment = {
   estimatedDuration: 60,
 };
 
-function mockJobs(t: TestContext, jobs: Array<Omit<typeof existingJob, "scheduled_time"> & { scheduled_time: string | null }> = [existingJob], fail = false) {
+function mockJobs(t: TestContext, jobs: Array<Omit<typeof existingJob, "scheduled_time"> & { scheduled_time: string | null; job_id?: string }> = [existingJob], fail = false) {
   const calls: URL[] = [];
   t.mock.method(globalThis, "fetch", async (input: Parameters<typeof fetch>[0]) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
@@ -46,6 +46,7 @@ test("New-job schema dates are normalised before checking Monday's 9am bookings"
   assert.ok(parsed.scheduled_date instanceof Date);
   const clash = await findTechnicianJobClash({ ...appointment, scheduledDate: parsed.scheduled_date });
   assert.equal(clash?.existing_job_id, existingJob.id);
+  assert.equal(calls[0].pathname, "/rest/v1/job_schedule_entries");
   assert.equal(calls[0].searchParams.get("tenant_id"), "eq.tenant-1");
   assert.equal(calls[0].searchParams.get("assigned_technician_id"), "eq.engineer-1");
   assert.equal(calls[0].searchParams.get("is_active"), "eq.true");
@@ -97,6 +98,19 @@ test("Unassigned bookings do not reserve an engineer", async t => {
   const calls = mockJobs(t);
   assert.equal(await findTechnicianJobClash({ ...appointment, technicianId: null }), null);
   assert.equal(calls.length, 0);
+});
+
+test("A clash with an additional visit identifies its parent job", async t => {
+  mockJobs(t, [{ ...existingJob, id: "extra-visit", job_id: "parent-job" }]);
+  assert.equal((await findTechnicianJobClash(appointment))?.existing_job_id, "parent-job");
+});
+
+test("Non-consecutive visit dates do not reserve days between visits", async t => {
+  mockJobs(t, [
+    { ...existingJob, scheduled_date: "2026-11-16" },
+    { ...existingJob, scheduled_date: "2026-12-05" },
+  ]);
+  assert.equal(await findTechnicianJobClash({ ...appointment, scheduledDate: "2026-11-20" }), null);
 });
 
 test("Tuesday 27 October's all-day job clashes with a 2pm appointment", async t => {
