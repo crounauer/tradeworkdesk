@@ -1614,6 +1614,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
         {days.map((day) => {
           const ds = toDateStr(day);
           const dayJobs = jobsByDate[ds] || [];
+          const dayHolidays = holidaysByDate[ds] || [];
           const isToday = isSameDay(ds, todayStr);
 
           if (viewMode === "month" && day.getMonth() !== anchorDate.getMonth()) return null;
@@ -1668,6 +1669,24 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
                     <Plus className="w-3.5 h-3.5 text-primary" />
                     Book Job
                   </button>
+                </div>
+              )}
+
+              {dayHolidays.length > 0 && (
+                <div className="space-y-1.5 mb-2">
+                  {dayHolidays.map((holiday) => (
+                    <div
+                      key={holiday.id}
+                      className={`text-sm px-3 py-2 rounded-lg border [overflow-wrap:anywhere] ${HOLIDAY_STYLES[holiday.holiday_type]}`}
+                    >
+                      <p className="font-medium">{holiday.name}</p>
+                      <p className="text-xs opacity-80">
+                        {holiday.technician_name ? `${holiday.technician_name} · ` : ""}
+                        {isTimedSingleDayHoliday(holiday, ds) ? holidayTimeRangeLabel(holiday) : "All day"}
+                      </p>
+                      {holiday.notes && <p className="text-xs mt-1 whitespace-pre-wrap">{holiday.notes}</p>}
+                    </div>
+                  ))}
                 </div>
               )}
 

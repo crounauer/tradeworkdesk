@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getTransactionalSenderEmail, isCcAdminRequested } from "./email";
+import { getTransactionalSenderEmail, isCcAdminRequested, normalizeAdditionalRecipients } from "./email";
 import { buildSummaryBody, jobMatchesTargetDate } from "./technician-daily-summary";
 import { validateJobEmailSendRequest } from "../routes/jobs";
 
@@ -60,4 +60,10 @@ test("treats true-like cc_admin values as enabled for admin copy sends", () => {
   assert.equal(isCcAdminRequested(1), true);
   assert.equal(isCcAdminRequested(false), false);
   assert.equal(isCcAdminRequested("false"), false);
+});
+
+test("independent copies allow the sender's email while notification CC still excludes reply-to", () => {
+  const emails = [" Owner@Example.com ", "owner@example.com", "customer@example.com", "invalid"];
+  assert.deepEqual(normalizeAdditionalRecipients(emails, "customer@example.com"), ["owner@example.com"]);
+  assert.deepEqual(normalizeAdditionalRecipients(emails, "customer@example.com", "owner@example.com"), []);
 });

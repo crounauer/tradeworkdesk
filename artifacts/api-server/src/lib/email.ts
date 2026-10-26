@@ -404,7 +404,7 @@ export function isCcAdminRequested(value: unknown): boolean {
   return value === 1 || value === "1";
 }
 
-function normalizeAdditionalRecipients(
+export function normalizeAdditionalRecipients(
   extra: string[] | null | undefined,
   to: string,
   replyTo?: string,
@@ -439,7 +439,7 @@ export async function sendAdminCcCopy(opts: {
   emailType: string;
   attachments?: { filename: string; content: Buffer }[];
 }): Promise<void> {
-  const recipients = normalizeAdditionalRecipients(opts.extraCc, opts.to, opts.replyTo);
+  const recipients = normalizeAdditionalRecipients(opts.extraCc, opts.to);
   if (recipients.length === 0 || !resend) return;
   try {
     const sendResult = await sendResendEmailWithRetry({
@@ -447,8 +447,13 @@ export async function sendAdminCcCopy(opts: {
       to: recipients,
       subject: `[Copy] ${opts.subject}`,
       html: opts.html,
-      ...(opts.attachments ? { attachments: opts.attachments } : {}),
-    } as any);
+      ...(opts.attachments ? {
+        attachments: opts.attachments.map(attachment => ({
+          filename: attachment.filename,
+          content: attachment.content.toString("base64"),
+        })),
+      } : {}),
+    });
     await writeTenantEmailAudit({
       tenantId: opts.tenantId,
       status: "accepted",

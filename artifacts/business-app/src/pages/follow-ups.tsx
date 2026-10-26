@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
 import { Link, useLocation } from "wouter";
 import {
   Package, CheckCircle2, CalendarPlus, XCircle, Clock,
@@ -523,6 +524,9 @@ function BookJobDialog({
   const [carryForwardServices, setCarryForwardServices] = useState(true);
   const [carryForwardTimeEntries, setCarryForwardTimeEntries] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmationJobId, setConfirmationJobId] = useState<string | null>(null);
+  const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [ccAdminOnConfirmation, setCcAdminOnConfirmation] = useState(false);
   const [leaveConflict, setLeaveConflict] = useState<LeaveConflict | null>(null);
   const { toast } = useToast();
 
@@ -532,6 +536,35 @@ function BookJobDialog({
     enabled: open,
     staleTime: 60_000,
   });
+
+  const finishBooking = () => {
+    if (!confirmationJobId) return;
+    const jobId = confirmationJobId;
+    setConfirmationJobId(null);
+    onBooked(jobId);
+  };
+
+  const handleSendConfirmation = async () => {
+    if (!confirmationJobId) return;
+    setSendingConfirmation(true);
+    try {
+      const res = await fetch(`/api/jobs/${confirmationJobId}/send-confirmation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cc_admin: ccAdminOnConfirmation }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error || "Failed to send confirmation email");
+      }
+      toast({ title: "Confirmation sent", description: "Appointment confirmation emailed to customer." });
+      finishBooking();
+    } catch (err) {
+      toast({ title: "Email failed", description: err instanceof Error ? err.message : "Could not send confirmation email", variant: "destructive" });
+    } finally {
+      setSendingConfirmation(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -563,7 +596,7 @@ function BookJobDialog({
         throw new Error(body.error || "Failed to book job");
       }
       const data = await res.json();
-      onBooked(data.job_id);
+      setConfirmationJobId(data.job_id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to book job";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -573,82 +606,108 @@ function BookJobDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      if (nextOpen) onOpenChange(true);
+      else if (confirmationJobId) {
+        if (!sendingConfirmation) finishBooking();
+      } else {
+        onOpenChange(false);
+      }
+    }}>
       <DialogContent className="sm:max-w-[450px]">
-        <DialogHeader>
-          <DialogTitle>Book Follow-Up Job</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
-          <div className="rounded-lg bg-muted/50 p-3 space-y-1 text-sm">
-            <p><span className="font-medium">Customer:</span> {followUp.customer_name}</p>
-            <p><span className="font-medium">Property:</span> {followUp.property_address}{followUp.property_postcode ? `, ${followUp.property_postcode}` : ""}</p>
-            {followUp.parts_description && <p><span className="font-medium">Parts:</span> {followUp.parts_description}</p>}
-            {followUp.work_description && <p><span className="font-medium">Work:</span> {followUp.work_description}</p>}
-          </div>
-          {leaveConflict && (
-            <div className="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
-              <div>
-                <p className="font-medium">Selected technician is on leave</p>
-                <p className="mt-1 text-rose-800">{formatLeaveConflict(leaveConflict)}</p>
+        {confirmationJobId ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Send Booking Confirmation?</DialogTitle>
+            </DialogHeader>
+            <EmailConfirmationPanel
+              customerName={followUp.customer_name || undefined}
+              message="Would you like to send a booking confirmation email for this follow-up job?"
+              sending={sendingConfirmation}
+              ccAdmin={ccAdminOnConfirmation}
+              onCcAdminChange={setCcAdminOnConfirmation}
+              onSend={handleSendConfirmation}
+              onSkip={finishBooking}
+            />
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>Book Follow-Up Job</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4 py-2">
+              <div className="rounded-lg bg-muted/50 p-3 space-y-1 text-sm">
+                <p><span className="font-medium">Customer:</span> {followUp.customer_name}</p>
+                <p><span className="font-medium">Property:</span> {followUp.property_address}{followUp.property_postcode ? `, ${followUp.property_postcode}` : ""}</p>
+                {followUp.parts_description && <p><span className="font-medium">Parts:</span> {followUp.parts_description}</p>}
+                {followUp.work_description && <p><span className="font-medium">Work:</span> {followUp.work_description}</p>}
               </div>
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Scheduled Date *</Label>
-              <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Time</Label>
-              <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Technician</Label>
-            <select
-              value={assignedTechnicianId}
-              onChange={(e) => setAssignedTechnicianId(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Leave unassigned</option>
-              {technicians.map((tech) => (
-                <option key={tech.id} value={tech.id}>{tech.full_name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
-            <p className="text-sm font-medium">Carry Forward to New Job</p>
-            <p className="text-sm text-muted-foreground">Parts are always carried forward from the original and follow-up records.</p>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={carryForwardServices}
-                onChange={(e) => {
-                  setCarryForwardServices(e.target.checked);
-                }}
-                className="h-4 w-4 rounded border-border accent-primary"
-              />
-              Copy services
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={carryForwardTimeEntries}
-                onChange={(e) => setCarryForwardTimeEntries(e.target.checked)}
-                className="h-4 w-4 rounded border-border accent-primary"
-              />
-              Copy time entries
-            </label>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" className="flex-1 gap-2" disabled={submitting}>
-              <Briefcase className="w-4 h-4" />
-              {submitting ? "Booking..." : "Book Job"}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
-          </div>
-        </form>
+              {leaveConflict && (
+                <div className="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+                  <div>
+                    <p className="font-medium">Selected technician is on leave</p>
+                    <p className="mt-1 text-rose-800">{formatLeaveConflict(leaveConflict)}</p>
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Scheduled Date *</Label>
+                  <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Time</Label>
+                  <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Technician</Label>
+                <select
+                  value={assignedTechnicianId}
+                  onChange={(e) => setAssignedTechnicianId(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Leave unassigned</option>
+                  {technicians.map((tech) => (
+                    <option key={tech.id} value={tech.id}>{tech.full_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-sm font-medium">Carry Forward to New Job</p>
+                <p className="text-sm text-muted-foreground">Parts are always carried forward from the original and follow-up records.</p>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={carryForwardServices}
+                    onChange={(e) => {
+                      setCarryForwardServices(e.target.checked);
+                    }}
+                    className="h-4 w-4 rounded border-border accent-primary"
+                  />
+                  Copy services
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={carryForwardTimeEntries}
+                    onChange={(e) => setCarryForwardTimeEntries(e.target.checked)}
+                    className="h-4 w-4 rounded border-border accent-primary"
+                  />
+                  Copy time entries
+                </label>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" className="flex-1 gap-2" disabled={submitting}>
+                  <Briefcase className="w-4 h-4" />
+                  {submitting ? "Booking..." : "Book Job"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+              </div>
+            </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
