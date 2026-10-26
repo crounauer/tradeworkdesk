@@ -784,23 +784,9 @@ export default function JobDetail() {
             <Calendar className="w-4 h-4 mr-1" /> Back to Schedule
           </Link>
         </div>
-        <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{jobRef ? `Ref ${jobRef}` : `Ref #${job.id.slice(0, 8)}`}</span>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 hover:text-foreground"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(jobRef || job.id.slice(0, 8));
-                toast({ title: "Copied", description: "Job reference copied" });
-              } catch {
-                toast({ title: "Copy failed", description: "Could not copy job reference", variant: "destructive" });
-              }
-            }}
-          >
-            <Copy className="h-3.5 w-3.5" />
-            Copy
-          </button>
+        <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Calendar className="h-3.5 w-3.5 shrink-0" />
+          <span>{displayScheduledSummary}</span>
         </div>
       </div>
 
@@ -864,7 +850,6 @@ export default function JobDetail() {
             )}
           </div>
           <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-            <span>{displayScheduledSummary}</span>
             {!isAllDayJob && <span>{displayDuration}</span>}
             {completionDateLabel && <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">{completionDateLabel}</span>}
           </div>
@@ -876,13 +861,13 @@ export default function JobDetail() {
               From Quote →
             </button>
           )}
-          <div className="mt-2 flex flex-col items-start gap-1 text-xs sm:flex-row sm:items-center sm:gap-2 sm:text-sm">
-            <span className={`inline-flex items-center rounded-md border px-2.5 py-1 font-semibold ${customerConfirmationUi.classes}`}>
+          <div className="mt-2 flex items-center gap-2 text-xs sm:text-sm">
+            <span className={`inline-flex shrink-0 items-center rounded-md border px-2.5 py-1 font-semibold ${customerConfirmationUi.classes}`}>
               <customerConfirmationUi.icon className="mr-1 h-3.5 w-3.5 shrink-0" />
               <span>{customerConfirmationUi.label}</span>
             </span>
             {customerConfirmationUi.timestamp && (
-              <span className="inline-flex items-start gap-1 text-muted-foreground leading-tight sm:items-center">
+              <span className="inline-flex min-w-0 items-start gap-1 text-muted-foreground leading-tight sm:items-center">
                 <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 sm:mt-0" />
                 <span className="break-words">
                   <span className="sm:hidden">
