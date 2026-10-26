@@ -252,6 +252,7 @@ export default function JobDetail() {
   const [followUpPartsDefault, setFollowUpPartsDefault] = useState(false);
   const [creatingFollowUp, setCreatingFollowUp] = useState(false);
   const [showRebook, setShowRebook] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
   const [hasRebookBeenUsedLocal, setHasRebookBeenUsedLocal] = useState(false);
   const [sendingCertificate, setSendingCertificate] = useState(false);
   const [showExtraForms, setShowExtraForms] = useState(false);
@@ -313,6 +314,7 @@ export default function JobDetail() {
 
   useEffect(() => {
     setHasRebookBeenUsedLocal(false);
+    setShowMobileActions(false);
   }, [id]);
   const effectiveJob = onlineJob || cachedJob;
   const isFromCache = !onlineJob && !!cachedJob;
@@ -762,7 +764,7 @@ export default function JobDetail() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in pb-40 md:pb-20 max-w-full min-w-0">
+    <div className="flex flex-col gap-4 md:gap-6 animate-in fade-in pb-40 md:pb-20 max-w-full min-w-0">
       {(showCompleteAction || showJobInvoiceAction) && createPortal(
         <div role="region" aria-label="Job quick actions" className="md:hidden fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 border-t border-border bg-card/95 p-3 shadow-lg backdrop-blur">
           <div className="flex flex-wrap gap-2 [&>button]:min-h-11 [&>button]:flex-1 [&>button]:whitespace-normal [&>button]:h-auto [&>button]:py-2">
@@ -778,7 +780,7 @@ export default function JobDetail() {
           <Link href="/jobs" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
             <ArrowLeft className="w-4 h-4 mr-1" /> Back to Jobs
           </Link>
-          <Link href="/schedule" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
+          <Link href="/schedule" className="hidden md:inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
             <Calendar className="w-4 h-4 mr-1" /> Back to Schedule
           </Link>
         </div>
@@ -855,7 +857,7 @@ export default function JobDetail() {
               <span className="inline-flex items-center rounded-md border border-teal-200 bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800">Return Visit Scheduled</span>
             )}
             {isAllDayJob && (
-              <span className="inline-flex items-center rounded-md border border-cyan-200 bg-cyan-100 px-2.5 py-1 text-xs font-semibold text-cyan-800">All Day</span>
+              <span className="hidden md:inline-flex items-center rounded-md border border-cyan-200 bg-cyan-100 px-2.5 py-1 text-xs font-semibold text-cyan-800">All Day</span>
             )}
             {job.status === "completed" && (
               <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">Completed</span>
@@ -894,7 +896,19 @@ export default function JobDetail() {
             )}
           </div>
         </div>
-        <div className="flex w-full min-w-0 flex-wrap gap-2 sm:w-auto [&>a]:max-w-full [&>button]:max-w-full">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="md:hidden self-start"
+          aria-expanded={showMobileActions}
+          aria-controls="job-secondary-actions"
+          onClick={() => setShowMobileActions(value => !value)}
+        >
+          {showMobileActions ? <ChevronUp className="w-4 h-4 mr-2" /> : <ChevronDown className="w-4 h-4 mr-2" />}
+          {showMobileActions ? "Hide actions" : "More actions"}
+        </Button>
+        <div id="job-secondary-actions" className={`${showMobileActions ? "flex" : "hidden"} md:flex w-full min-w-0 flex-wrap gap-2 sm:w-auto [&>a]:max-w-full [&>button]:max-w-full`}>
           {billingFollowUpJobId ? (
             <Link href={`/jobs/${followUpJobId}`}>
               <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white">
@@ -903,9 +917,11 @@ export default function JobDetail() {
             </Link>
           ) : (
             <>
-          {showCompleteAction && completeButton}
-          {showCompleteAction && nativeInvoicingEnabled && completeAndInvoiceButton}
-          {showJobInvoiceAction && invoiceButton}
+          <div className="hidden md:flex flex-wrap gap-2">
+            {showCompleteAction && completeButton}
+            {showCompleteAction && nativeInvoicingEnabled && completeAndInvoiceButton}
+            {showJobInvoiceAction && invoiceButton}
+          </div>
           {canComplete && job.status !== "requires_follow_up" && (
             <Button size="sm" variant="outline" className="border-indigo-300 text-indigo-800 hover:bg-indigo-50" onClick={handleVisitOutcome} disabled={updateJob.isPending}>
               <CalendarPlus className="w-4 h-4 mr-2" /> Needs Another Visit
@@ -1090,16 +1106,18 @@ export default function JobDetail() {
         />
       )}
 
-      <JobVisits
-        job={{
-          id: job.id, status: job.status, scheduled_date: String(job.scheduled_date),
-          scheduled_time: job.scheduled_time, estimated_duration: job.estimated_duration,
-          scheduled_end_date: typeof job.scheduled_end_date === "string" ? job.scheduled_end_date : null,
-          assigned_technician_id: job.assigned_technician_id,
-          all_day: job.estimated_duration == null,
-        }}
-        canManage={isOfficeOrAdmin}
-      />
+      <div className="order-last md:order-none">
+        <JobVisits
+          job={{
+            id: job.id, status: job.status, scheduled_date: String(job.scheduled_date),
+            scheduled_time: job.scheduled_time, estimated_duration: job.estimated_duration,
+            scheduled_end_date: typeof job.scheduled_end_date === "string" ? job.scheduled_end_date : null,
+            assigned_technician_id: job.assigned_technician_id,
+            all_day: job.estimated_duration == null,
+          }}
+          canManage={isOfficeOrAdmin}
+        />
+      </div>
 
       {editing ? (
         <EditJobForm
@@ -1159,7 +1177,7 @@ export default function JobDetail() {
                   {editing ? <><X className="w-4 h-4 mr-2"/> Cancel</> : <><Edit className="w-4 h-4 mr-2"/> Edit Job</>}
                 </Button>
               </div>
-              <div className="grid sm:grid-cols-2 gap-y-4 gap-x-6">
+              <div className="grid grid-cols-2 gap-y-4 gap-x-6">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><Calendar className="w-4 h-4"/> Scheduled</p>
                   <p className="font-medium text-foreground">{displayScheduledSummary}</p>
@@ -1186,7 +1204,7 @@ export default function JobDetail() {
                   <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1"><Clock className="w-4 h-4"/> Job Duration</p>
                   <p className="font-medium text-foreground">{displayDuration}</p>
                 </div>
-                <div className="sm:col-span-2 pt-4 border-t border-border/50">
+                <div className="col-span-2 order-first sm:order-none sm:pt-4 sm:border-t border-border/50">
                   <p className="text-sm text-muted-foreground mb-1">Description</p>
                   <p className="text-foreground whitespace-pre-wrap break-words">{job.description || 'No description provided.'}</p>
                   {originalJobId && (
