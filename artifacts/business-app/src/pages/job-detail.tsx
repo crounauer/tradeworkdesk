@@ -775,7 +775,7 @@ export default function JobDetail() {
         </div>,
         document.body,
       )}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="hidden md:flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <Link href="/jobs" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
             <ArrowLeft className="w-4 h-4 mr-1" /> Back to Jobs
@@ -783,10 +783,6 @@ export default function JobDetail() {
           <Link href="/schedule" className="hidden md:inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
             <Calendar className="w-4 h-4 mr-1" /> Back to Schedule
           </Link>
-        </div>
-        <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Calendar className="h-3.5 w-3.5 shrink-0" />
-          <span>{displayScheduledSummary}</span>
         </div>
       </div>
 
@@ -862,37 +858,36 @@ export default function JobDetail() {
             </button>
           )}
           <div className="mt-2 flex items-center gap-2 text-xs sm:text-sm">
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5 shrink-0" />
+              <span>{displayScheduledSummary}</span>
+            </span>
             <span className={`inline-flex shrink-0 items-center rounded-md border px-2.5 py-1 font-semibold ${customerConfirmationUi.classes}`}>
               <customerConfirmationUi.icon className="mr-1 h-3.5 w-3.5 shrink-0" />
               <span>{customerConfirmationUi.label}</span>
             </span>
-            {customerConfirmationUi.timestamp && (
-              <span className="inline-flex min-w-0 items-start gap-1 text-muted-foreground leading-tight sm:items-center">
-                <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 sm:mt-0" />
-                <span className="break-words">
-                  <span className="sm:hidden">
-                    {customerConfirmationUi.timestampLabel}: {timeAgo(customerConfirmationUi.timestamp)}
-                  </span>
-                  <span className="hidden sm:inline">
-                    {customerConfirmationUi.timestampLabel}: {formatDateTime(customerConfirmationUi.timestamp)}
-                  </span>
-                </span>
-              </span>
-            )}
           </div>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="md:hidden self-start"
-          aria-expanded={showMobileActions}
-          aria-controls="job-secondary-actions"
-          onClick={() => setShowMobileActions(value => !value)}
-        >
-          {showMobileActions ? <ChevronUp className="w-4 h-4 mr-2" /> : <ChevronDown className="w-4 h-4 mr-2" />}
-          {showMobileActions ? "Hide actions" : "More actions"}
-        </Button>
+        <div className="md:hidden flex items-start gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-expanded={showMobileActions}
+            aria-controls="job-secondary-actions"
+            onClick={() => setShowMobileActions(value => !value)}
+          >
+            {showMobileActions ? <ChevronUp className="w-4 h-4 mr-2" /> : <ChevronDown className="w-4 h-4 mr-2" />}
+            {showMobileActions ? "Hide actions" : "More actions"}
+          </Button>
+          <TimeAttendedButton
+            key={job.id}
+            jobId={job.id}
+            readOnly={billingReadOnly}
+            calloutRateId={typeof jobRecord.callout_rate_id === "string" ? jobRecord.callout_rate_id : null}
+            onChanged={() => setPricingRefresh(k => k + 1)}
+          />
+        </div>
         <div id="job-secondary-actions" className={`${showMobileActions ? "flex" : "hidden"} md:flex w-full min-w-0 flex-wrap gap-2 sm:w-auto [&>a]:max-w-full [&>button]:max-w-full`}>
           {billingFollowUpJobId ? (
             <Link href={`/jobs/${followUpJobId}`}>
@@ -1997,6 +1992,88 @@ export default function JobDetail() {
           onSent={refreshEmailLogs}
         />
       )}
+    </div>
+  );
+}
+
+function TimeAttendedButton({ jobId, readOnly, calloutRateId, onChanged }: {
+  jobId: string;
+  readOnly: boolean;
+  calloutRateId: string | null;
+  onChanged: () => void;
+}) {
+  const { profile } = useAuth();
+  const { isOnline } = useOffline();
+  const { toast } = useToast();
+  const { data: companySettings, isPending: settingsLoading, isError: settingsError } = useCompanySettings();
+  const { data: entries, isPending, isError, refetch } = useListJobTimeEntries(jobId);
+  const qc = useQueryClient();
+  const busyRef = useRef(false);
+  const [saving, setSaving] = useState(false);
+  const activeEntries = (entries || []).filter(entry => entry.arrival_time && !entry.departure_time);
+  const activeEntry = activeEntries.find(entry => entry.created_by === profile?.id) || activeEntries[0];
+  const canStop = !activeEntry || activeEntry.created_by === profile?.id || profile?.role === "admin" || profile?.role === "super_admin";
+
+  const toggle = async () => {
+    if (busyRef.current || readOnly || !isOnline) return;
+    busyRef.current = true;
+    setSaving(true);
+    try {
+      const current = await refetch();
+      if (current.isError || !current.data) throw new Error("Unable to load time entries. Please try again.");
+      const running = current.data.filter(entry => entry.arrival_time && !entry.departure_time);
+      const entry = running.find(item => item.created_by === profile?.id) || running[0];
+      if (entry) {
+        if (entry.created_by !== profile?.id && profile?.role !== "admin" && profile?.role !== "super_admin") {
+          throw new Error("Only the author or an administrator can stop this time entry.");
+        }
+        await customFetch(`/api/jobs/${jobId}/time-entries/${entry.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ departure_time: new Date().toISOString() }),
+        });
+      } else {
+        if (settingsLoading || settingsError) throw new Error("Company rates could not be loaded. Please reload before starting time.");
+        const canReadRates = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
+        const rates = canReadRates ? await customFetch<CalloutRateOption[]>("/api/admin/callout-rates") : [];
+        const rate = calloutRateId ? rates.find(item => item.id === calloutRateId) : rates.find(item => item.is_default);
+        await customFetch(`/api/jobs/${jobId}/time-entries`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            arrival_time: new Date().toISOString(),
+            departure_time: null,
+            hourly_rate: rate?.hourly_rate ?? (Number(companySettings?.default_hourly_rate) || null),
+            callout_fee: rate ? Number(rate.amount) : (Number(companySettings?.call_out_fee) || 0),
+          }),
+        });
+      }
+      await qc.invalidateQueries({ queryKey: [`/api/jobs/${jobId}/time-entries`] });
+      onChanged();
+      toast({ title: entry ? "Time attended stopped" : "Time attended started" });
+    } catch (error) {
+      toast({ title: "Unable to update time attended", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    } finally {
+      busyRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="min-w-0 flex-1">
+      <Button
+        type="button"
+        size="sm"
+        variant={activeEntry ? "destructive" : "default"}
+        className="w-full h-auto min-h-9 whitespace-normal"
+        disabled={readOnly || !isOnline || isPending || isError || saving || !canStop}
+        onClick={toggle}
+        title={!isOnline ? "Connect to the internet to start or stop time attended." : !canStop ? "Only the author or an administrator can stop this entry." : undefined}
+      >
+        {saving ? <Loader2 className="w-4 h-4 mr-2 shrink-0 animate-spin" /> : <Clock className="w-4 h-4 mr-2 shrink-0" />}
+        {activeEntry ? "Stop Time Attended" : "Start Time Attended"}
+      </Button>
+      {isError && <p role="alert" className="mt-1 text-xs text-destructive">Time entries unavailable. <button type="button" className="underline" onClick={() => void refetch()}>Retry</button></p>}
     </div>
   );
 }
