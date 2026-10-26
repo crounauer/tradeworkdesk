@@ -858,10 +858,18 @@ export default function JobDetail() {
             </button>
           )}
           <div className="mt-2 flex items-center gap-2 text-xs sm:text-sm">
-            <span className="inline-flex min-w-0 items-center gap-1.5 text-muted-foreground">
-              <Calendar className="h-3.5 w-3.5 shrink-0" />
-              <span>{displayScheduledSummary}</span>
-            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="md:hidden"
+              aria-expanded={showMobileActions}
+              aria-controls="job-secondary-actions"
+              onClick={() => setShowMobileActions(value => !value)}
+            >
+              {showMobileActions ? <ChevronUp className="w-4 h-4 mr-2" /> : <ChevronDown className="w-4 h-4 mr-2" />}
+              {showMobileActions ? "Hide actions" : "More actions"}
+            </Button>
             <span className={`inline-flex shrink-0 items-center rounded-md border px-2.5 py-1 font-semibold ${customerConfirmationUi.classes}`}>
               <customerConfirmationUi.icon className="mr-1 h-3.5 w-3.5 shrink-0" />
               <span>{customerConfirmationUi.label}</span>
@@ -869,17 +877,6 @@ export default function JobDetail() {
           </div>
         </div>
         <div className="md:hidden flex items-start gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-expanded={showMobileActions}
-            aria-controls="job-secondary-actions"
-            onClick={() => setShowMobileActions(value => !value)}
-          >
-            {showMobileActions ? <ChevronUp className="w-4 h-4 mr-2" /> : <ChevronDown className="w-4 h-4 mr-2" />}
-            {showMobileActions ? "Hide actions" : "More actions"}
-          </Button>
           <TimeAttendedButton
             key={job.id}
             jobId={job.id}
