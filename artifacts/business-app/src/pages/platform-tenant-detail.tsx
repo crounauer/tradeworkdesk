@@ -351,8 +351,8 @@ export default function PlatformTenantDetail() {
     },
     onSuccess: (result) => {
       window.open(result.downloadUrl, "_blank", "noopener,noreferrer");
-      const skipped = result.skippedTables?.length ? ` ${result.skippedTables.length} table(s) were skipped.` : "";
-      toast({ title: "Tenant backup created", description: `${Math.round(result.sizeBytes / 1024)} KB export downloaded.${skipped}` });
+      const skipped = result.skippedTables?.length ? ` ${result.skippedTables.length} table(s) or media object(s) were skipped. Review the snapshot manifest before restoring.` : "";
+      toast({ title: result.skippedTables?.length ? "Tenant backup created with warnings" : "Tenant backup created", description: `${Math.round(result.sizeBytes / 1024)} KB media-inclusive snapshot downloaded.${skipped}` });
     },
     onError: (e) => toast({ title: "Backup failed", description: e.message, variant: "destructive" }),
   });

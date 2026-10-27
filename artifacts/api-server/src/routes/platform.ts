@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
-import { gzip } from "zlib";
-import { promisify } from "util";
+import { openAsBlob } from "node:fs";
+import { runTenantRestBackup } from "../lib/tenant-backup";
 import JSZip from "jszip";
 import multer from "multer";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
@@ -72,7 +72,6 @@ function signR2Headers(opts: {
 }
 
 const router: IRouter = Router();
-const gzipAsync = promisify(gzip);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DELETED_TENANT_FALLBACK_ID = "00000000-0000-0000-0000-000000000001";
@@ -3187,37 +3186,6 @@ const R2_KEYS = [
   "backup_r2_bucket_name",
 ] as const;
 
-const TENANT_BACKUP_TABLES = [
-  "company_settings",
-  "profiles",
-  "customers",
-  "properties",
-  "appliances",
-  "jobs",
-  "job_parts",
-  "job_services",
-  "job_time_entries",
-  "job_notes",
-  "job_email_logs",
-  "job_confirmation_responses",
-  "follow_ups",
-  "invoices",
-  "invoice_line_items",
-  "quotes",
-  "quote_line_items",
-  "enquiries",
-  "enquiry_messages",
-  "tenant_addons",
-  "tenant_user_push_preferences",
-  "web_push_subscriptions",
-  "website_domains",
-  "websites",
-  "website_pages",
-  "website_blocks",
-  "website_forms",
-  "website_form_submissions",
-] as const;
-
 router.post("/platform/tenants/:id/backup", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const tenantId = String(req.params.id || "").trim();
   if (!tenantId) { res.status(400).json({ error: "Tenant id is required" }); return; }
@@ -3238,88 +3206,56 @@ router.post("/platform/tenants/:id/backup", requireAuth, requireSuperAdmin, asyn
     return;
   }
 
-  const data: Record<string, unknown[]> = {};
-  const counts: Record<string, number> = {};
-  const skippedTables: Array<{ table: string; reason: string }> = [];
-  for (const table of TENANT_BACKUP_TABLES) {
-    const rows: unknown[] = [];
-    let offset = 0;
-    try {
-      while (true) {
-        const { data: page, error } = await supabaseAdmin
-          .from(table)
-          .select("*")
-          .eq("tenant_id", tenantId)
-          .range(offset, offset + 999);
-        if (error) throw new Error(error.message);
-        rows.push(...(page ?? []));
-        if (!page || page.length < 1000) break;
-        offset += 1000;
-      }
-      data[table] = rows;
-      counts[table] = rows.length;
-    } catch (error) {
-      skippedTables.push({ table, reason: error instanceof Error ? error.message : String(error) });
+  const snapshot = await runTenantRestBackup(tenantId, tenant);
+  try {
+    const { sizeBytes, counts, skippedTables } = snapshot;
+    const createdAt = new Date().toISOString();
+    const safeTimestamp = createdAt.replace(/[:-]/g, "").replace(/\.\d{3}Z$/, "").replace("T", "_");
+    const key = `tenant-backups/${tenantId}/backup_${safeTimestamp}.zip`;
+    const host = `${cfg.backup_r2_account_id!}.r2.cloudflarestorage.com`;
+    const path = `/${cfg.backup_r2_bucket_name!}/${key}`;
+    const putHeaders = signR2Headers({
+      method: "PUT",
+      host,
+      path,
+      query: "",
+      accessKeyId: cfg.backup_r2_access_key_id!,
+      secretAccessKey: cfg.backup_r2_secret_access_key!,
+    });
+    putHeaders["content-length"] = String(sizeBytes);
+
+    const upload = await fetch(`https://${host}${path}`, {
+      method: "PUT",
+      headers: { ...putHeaders, "content-length": String(sizeBytes), "content-type": "application/zip" },
+      body: await openAsBlob(snapshot.filePath, { type: "application/zip" }),
+      signal: AbortSignal.timeout(120000),
+    });
+    if (!upload.ok) {
+      const body = await upload.text().catch(() => "");
+      res.status(502).json({ error: `Tenant backup upload failed: ${upload.status} ${body}` });
+      return;
     }
+
+    const downloadUrl = presignR2Get({
+      host,
+      bucket: cfg.backup_r2_bucket_name!,
+      key,
+      accessKeyId: cfg.backup_r2_access_key_id!,
+      secretAccessKey: cfg.backup_r2_secret_access_key!,
+      expiresSeconds: 3600,
+    });
+    await supabaseAdmin.from("platform_audit_log").insert({
+      actor_id: req.userId,
+      actor_email: req.userEmail,
+      event_type: "tenant_backup_created",
+      entity_type: "tenant",
+      entity_id: tenantId,
+      detail: { key, size_bytes: sizeBytes, counts, skipped_tables: skippedTables },
+    });
+    res.json({ tenantId, key, sizeBytes, counts, skippedTables, downloadUrl });
+  } finally {
+    await snapshot.cleanup();
   }
-
-  const createdAt = new Date().toISOString();
-  const manifest = {
-    format: "tradeworkdesk-tenant-export-v1",
-    createdAt,
-    tenantId,
-    tenant: { companyName: tenant.company_name, contactEmail: tenant.contact_email, status: tenant.status },
-    tables: Object.keys(data),
-    counts,
-    skippedTables,
-    auth: { included: false, note: "Password and authentication secrets are never included in tenant exports." },
-    media: { included: false, note: "Storage media will be added in a later backup phase." },
-  };
-  const payload = Buffer.from(JSON.stringify({ manifest, data }));
-  const compressed = await gzipAsync(payload);
-  const safeTimestamp = createdAt.replace(/[:-]/g, "").replace(/\.\d{3}Z$/, "").replace("T", "_");
-  const key = `tenant-backups/${tenantId}/backup_${safeTimestamp}.json.gz`;
-  const host = `${cfg.backup_r2_account_id!}.r2.cloudflarestorage.com`;
-  const path = `/${cfg.backup_r2_bucket_name!}/${key}`;
-  const putHeaders = signR2Headers({
-    method: "PUT",
-    host,
-    path,
-    query: "",
-    accessKeyId: cfg.backup_r2_access_key_id!,
-    secretAccessKey: cfg.backup_r2_secret_access_key!,
-  });
-  putHeaders["content-length"] = String(compressed.length);
-
-  const upload = await fetch(`https://${host}${path}`, {
-    method: "PUT",
-    headers: { ...putHeaders, "content-length": String(compressed.length), "content-type": "application/gzip" },
-    body: compressed,
-    signal: AbortSignal.timeout(120000),
-  });
-  if (!upload.ok) {
-    const body = await upload.text().catch(() => "");
-    res.status(502).json({ error: `Tenant backup upload failed: ${upload.status} ${body}` });
-    return;
-  }
-
-  const downloadUrl = presignR2Get({
-    host,
-    bucket: cfg.backup_r2_bucket_name!,
-    key,
-    accessKeyId: cfg.backup_r2_access_key_id!,
-    secretAccessKey: cfg.backup_r2_secret_access_key!,
-    expiresSeconds: 3600,
-  });
-  await supabaseAdmin.from("platform_audit_log").insert({
-    actor_id: req.userId,
-    actor_email: req.userEmail,
-    event_type: "tenant_backup_created",
-    entity_type: "tenant",
-    entity_id: tenantId,
-    detail: { key, size_bytes: compressed.length, counts, skipped_tables: skippedTables },
-  });
-  res.json({ tenantId, key, sizeBytes: compressed.length, counts, skippedTables, downloadUrl });
 });
 
 router.post("/platform/tenants/:id/backup/validate", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -3665,6 +3601,36 @@ router.get("/platform/backup-logs", requireAuth, requireSuperAdmin, async (_req,
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
   }
+});
+
+router.delete("/platform/backup-logs/:name", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
+  const name = String(req.params.name || "");
+  if (!/^backup_\d{8}_\d{6}\.(?:dump|json\.gz)$/.test(name)) {
+    res.status(400).json({ error: "Invalid database backup filename" });
+    return;
+  }
+  const { data: settings, error } = await supabaseAdmin
+    .from("platform_settings").select("key, value").in("key", [...R2_KEYS]);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  const cfg: Record<string, string | null> = {};
+  for (const key of R2_KEYS) cfg[key] = settings?.find(row => row.key === key)?.value ?? null;
+  const missing = R2_KEYS.filter(key => !cfg[key]);
+  if (missing.length > 0) { res.status(422).json({ error: "R2 credentials not configured", missing }); return; }
+
+  const host = `${cfg.backup_r2_account_id!}.r2.cloudflarestorage.com`;
+  const path = `/${cfg.backup_r2_bucket_name!}/${name}`;
+  const headers = signR2Headers({
+    method: "DELETE", host, path, query: "",
+    accessKeyId: cfg.backup_r2_access_key_id!, secretAccessKey: cfg.backup_r2_secret_access_key!,
+  });
+  const response = await fetch(`https://${host}${path}`, {
+    method: "DELETE", headers, signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) {
+    res.status(502).json({ error: `Backup deletion failed: HTTP ${response.status}` });
+    return;
+  }
+  res.status(204).end();
 });
 
 router.post("/platform/backup-trigger", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {

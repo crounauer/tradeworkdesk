@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
-import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle, Play, RefreshCw, Clock, Globe, Download, Bell, Building2, Share2 } from "lucide-react";
+import { Settings2, MapPin, MessageSquare, Loader2, Check, Eye, EyeOff, CreditCard, Database, FlaskConical, CheckCircle2, XCircle, Play, RefreshCw, Clock, Globe, Download, Bell, Building2, Share2, Trash2 } from "lucide-react";
 
 type TenantOption = {
   id: string;
@@ -1137,7 +1137,9 @@ function formatFileSize(bytes: number): string {
 }
 
 function BackupLogTable() {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [files, setFiles] = useState<BackupFile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -1162,6 +1164,26 @@ function BackupLogTable() {
     }
   };
 
+  const deleteBackup = async (file: BackupFile) => {
+    if (!window.confirm(`Permanently delete the database backup from ${formatBackupName(file.name)} UTC?\n\nThis cannot be undone. Download a copy first if you need to keep it.`)) return;
+    setDeleting(file.name);
+    try {
+      const response = await fetch(`${import.meta.env.BASE_URL}api/platform/backup-logs/${encodeURIComponent(file.name)}`, {
+        method: "DELETE", credentials: "include",
+      });
+      if (!response.ok) {
+        const body = await response.json() as { error?: string };
+        throw new Error(body.error || `Backup deletion failed: HTTP ${response.status}`);
+      }
+      setFiles(current => current?.filter(item => item.name !== file.name) ?? null);
+      toast({ title: "Backup deleted", description: "The backup was permanently removed from storage." });
+    } catch (error) {
+      toast({ title: "Deletion failed", description: error instanceof Error ? error.message : "Could not delete backup", variant: "destructive" });
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   return (
     <div className="mt-2">
       <div className="flex items-center justify-between mb-2">
@@ -1169,7 +1191,7 @@ function BackupLogTable() {
           <Clock className="w-4 h-4" />
           Backup History
         </h3>
-        <Button variant="ghost" size="sm" onClick={fetchLogs} disabled={loading} className="gap-1 h-7 text-xs">
+        <Button variant="ghost" size="sm" onClick={fetchLogs} disabled={loading || deleting !== null} className="gap-1 h-7 text-xs">
           {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
           {files === null ? "Load" : "Refresh"}
         </Button>
@@ -1199,6 +1221,17 @@ function BackupLogTable() {
                         <Download className="w-3.5 h-3.5" />
                       </a>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-2 h-7 gap-1 text-destructive hover:text-destructive"
+                      disabled={loading || deleting !== null}
+                      onClick={() => deleteBackup(f)}
+                      aria-label={`Delete backup ${formatBackupName(f.name)}`}
+                    >
+                      {deleting === f.name ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      Delete
+                    </Button>
                   </td>
                 </tr>
               ))}

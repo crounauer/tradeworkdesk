@@ -45,6 +45,9 @@ The BoilerTech application is built as a pnpm workspace monorepo.
 **Monorepo Structure:** Organizes frontend, backend, API specifications, generated client code, ORM schemas, and Supabase migrations.
 
 **Feature Specifications:**
+- **Database backup deletion:** Super admins can permanently delete individual database backups from Platform Settings > Database > Backup History after confirmation. The API restricts deletion to timestamped root database backup files; tenant snapshots and other storage objects cannot be deleted through this action.
+- **Tenant backups:** Manual Export Tenant Backup and scheduled tenant backups use the same media-inclusive v2 ZIP snapshot builder. New manual exports work with Validate Latest Backup and Restore as New Tenant. Legacy data-only `.json.gz` exports are not restore snapshots; create a new export before validating. Skipped tables or media are reported in the response and snapshot manifest. Auth users remain excluded and require separate mapping or invites.
+- **Snapshot memory usage:** Tenant media downloads stream to isolated temporary files; ZIP creation and R2 upload stream from disk instead of retaining media and archive buffers in RAM. Temporary files are removed after upload or on failure. Sufficient temporary disk space is required for the media plus ZIP.
 - **Booking availability:** All-day and untimed jobs reserve 08:00-17:00 on each date, leaving evenings available. The main Book Job form offers an explicit technician job-clash override; other booking/rescheduling flows still block clashes, and technician leave cannot be overridden.
 - **Dynamic Forms:** Service record forms adapt based on appliance fuel type (gas/oil). Commissioning records for installations.
 - **Platform Admin:** Super_admin management of tenants, plans, announcements, and audit logs.
