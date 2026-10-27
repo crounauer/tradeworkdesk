@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import crypto from "crypto";
 import { openAsBlob } from "node:fs";
 import { runTenantRestBackup } from "../lib/tenant-backup";
-import JSZip from "jszip";
+import { isBackupKey, isTenantBackupKey, openTenantSnapshot, restoreTenantSnapshot, tenantBackupPattern } from "../lib/backup-recovery";
 import multer from "multer";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import path from "path";
@@ -3186,6 +3186,57 @@ const R2_KEYS = [
   "backup_r2_bucket_name",
 ] as const;
 
+function decodeXml(value: string): string {
+  return value.replace(/&(?:amp|lt|gt|quot|apos);/g, entity => ({
+    "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&apos;": "'",
+  })[entity] || entity);
+}
+
+async function listBackupObjects(cfg: Record<string, string | null>, prefix: string) {
+  const host = `${cfg.backup_r2_account_id!}.r2.cloudflarestorage.com`;
+  const path = `/${cfg.backup_r2_bucket_name!}`;
+  const objects: Array<{ name: string; size: number; lastModified: string }> = [];
+  let token = "";
+  const seenTokens = new Set<string>();
+  do {
+    const params = new URLSearchParams({ "list-type": "2", "max-keys": "1000", prefix });
+    if (token) params.set("continuation-token", token);
+    params.sort();
+    const query = params.toString().replace(/\+/g, "%20");
+    const headers = signR2Headers({ method: "GET", host, path, query,
+      accessKeyId: cfg.backup_r2_access_key_id!, secretAccessKey: cfg.backup_r2_secret_access_key! });
+    const response = await fetch(`https://${host}${path}?${query}`, { headers, signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`R2 listing failed: HTTP ${response.status}`);
+    const xml = await response.text();
+    for (const match of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+      const name = decodeXml(match[1].match(/<Key>(.*?)<\/Key>/)?.[1] || "");
+      if (!isBackupKey(name)) continue;
+      objects.push({ name, size: Number(match[1].match(/<Size>(.*?)<\/Size>/)?.[1] || 0),
+        lastModified: match[1].match(/<LastModified>(.*?)<\/LastModified>/)?.[1] || "" });
+    }
+    token = xml.includes("<IsTruncated>true</IsTruncated>")
+      ? decodeXml(xml.match(/<NextContinuationToken>(.*?)<\/NextContinuationToken>/)?.[1] || "") : "";
+    if (xml.includes("<IsTruncated>true</IsTruncated>") && (!token || seenTokens.has(token))) {
+      throw new Error("R2 listing returned an invalid continuation token");
+    }
+    if (token) seenTokens.add(token);
+  } while (token);
+  return objects;
+}
+
+async function selectTenantBackup(cfg: Record<string, string | null>, tenantId: string, requestedKey: unknown) {
+  if (requestedKey !== undefined) {
+    if (typeof requestedKey !== "string" || !isTenantBackupKey(requestedKey, tenantId)) {
+      throw new Error("Snapshot key does not belong to the requested tenant");
+    }
+    return requestedKey;
+  }
+  const files = await listBackupObjects(cfg, `tenant-backups/${tenantId}/`);
+  files.sort((a, b) => b.name.localeCompare(a.name));
+  if (!files.length) throw new Error("No media-inclusive tenant snapshot found");
+  return files[0].name;
+}
+
 router.post("/platform/tenants/:id/backup", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const tenantId = String(req.params.id || "").trim();
   if (!tenantId) { res.status(400).json({ error: "Tenant id is required" }); return; }
@@ -3269,78 +3320,30 @@ router.post("/platform/tenants/:id/backup/validate", requireAuth, requireSuperAd
   if (missing.length > 0) { res.status(422).json({ error: "R2 backup credentials are not configured", missing }); return; }
 
   const host = `${cfg.backup_r2_account_id!}.r2.cloudflarestorage.com`;
-  const prefix = `tenant-backups/${tenantId}/`;
-  const path = `/${cfg.backup_r2_bucket_name!}`;
-  const query = `list-type=2&max-keys=100&prefix=${encodeURIComponent(prefix)}`;
-  const listHeaders = signR2Headers({ method: "GET", host, path, query, accessKeyId: cfg.backup_r2_access_key_id!, secretAccessKey: cfg.backup_r2_secret_access_key! });
-  const listResponse = await fetch(`https://${host}${path}?${query}`, { headers: listHeaders, signal: AbortSignal.timeout(15000) });
-  if (!listResponse.ok) { res.status(502).json({ error: `R2 listing failed: ${listResponse.status}` }); return; }
-  const xml = await listResponse.text();
-  const keys = Array.from(xml.matchAll(/<Key>(.*?)<\/Key>/g)).map((match) => match[1]).filter((key) => key.endsWith(".zip"));
-  if (keys.length === 0) { res.status(404).json({ error: "No media-inclusive tenant snapshot found" }); return; }
-  keys.sort();
-  const key = keys[keys.length - 1];
+  if (req.body?.key !== undefined && (typeof req.body.key !== "string" || !isTenantBackupKey(req.body.key, tenantId))) {
+    res.status(400).json({ error: "Snapshot key does not belong to the requested tenant" }); return;
+  }
+  const key = await selectTenantBackup(cfg, tenantId, req.body?.key);
   const downloadUrl = presignR2Get({ host, bucket: cfg.backup_r2_bucket_name!, key, accessKeyId: cfg.backup_r2_access_key_id!, secretAccessKey: cfg.backup_r2_secret_access_key!, expiresSeconds: 600 });
-  const archiveResponse = await fetch(downloadUrl, { signal: AbortSignal.timeout(120000) });
-  if (!archiveResponse.ok) { res.status(502).json({ error: `Backup download failed: ${archiveResponse.status}` }); return; }
-  const zip = await JSZip.loadAsync(Buffer.from(await archiveResponse.arrayBuffer()));
-  const violations: string[] = [];
-  const missingMedia: string[] = [];
-  let manifest: Record<string, unknown>;
-  let data: Record<string, unknown[]>;
+  const snapshot = await openTenantSnapshot(downloadUrl, tenantId);
   try {
-    manifest = JSON.parse(await zip.file("manifest.json")!.async("text")) as Record<string, unknown>;
-    data = JSON.parse(await zip.file("data.json")!.async("text")) as Record<string, unknown[]>;
-  } catch {
-    res.status(422).json({ valid: false, key, error: "Snapshot is missing valid manifest.json or data.json" }); return;
-  }
-  if (manifest.tenantId !== tenantId) violations.push("Manifest tenant ID does not match the requested tenant");
-  if (manifest.format !== "tradeworkdesk-tenant-snapshot-v2") violations.push(`Unsupported snapshot format: ${String(manifest.format || "missing")}`);
-  for (const [table, rows] of Object.entries(data)) {
-    for (const row of rows ?? []) {
-      if (row && typeof row === "object" && "tenant_id" in row && String((row as Record<string, unknown>).tenant_id) !== tenantId) {
-        violations.push(`${table} contains a row from another tenant`);
-        break;
-      }
-    }
-  }
-  const media = (manifest.media as { objects?: Array<{ archivePath?: string }> } | undefined)?.objects ?? [];
-  for (const object of media) {
-    if (!object.archivePath || !zip.file(object.archivePath)) missingMedia.push(object.archivePath || "unknown");
-  }
-  const valid = violations.length === 0 && missingMedia.length === 0;
-  const restoreOrder = [
-    "tenants", "company_settings", "customers", "properties", "appliances", "jobs",
-    "job_parts", "job_services", "job_time_entries", "invoices", "invoice_line_items",
-    "quotes", "quote_line_items", "enquiries", "follow_ups", "websites", "website_pages",
-    "website_blocks", "website_forms", "website_form_submissions", "file_attachments", "signatures",
-  ];
-  const restoreBlockers = [
-    "Supabase Auth users are not included and must be mapped or invited separately.",
-    "A live restore must run into a new tenant and must not overwrite the source tenant.",
-    ...(missingMedia.length > 0 ? ["One or more media objects are missing from the snapshot."] : []),
-  ];
-  await supabaseAdmin.from("platform_audit_log").insert({
-    actor_id: req.userId,
-    actor_email: req.userEmail,
-    event_type: "tenant_backup_validated",
-    entity_type: "tenant",
-    entity_id: tenantId,
-    detail: { key, valid, violations, missing_media: missingMedia },
-  });
-  res.json({
-    valid,
-    restoreReady: valid,
-    key,
-    format: manifest.format,
-    createdAt: manifest.createdAt,
-    counts: manifest.counts ?? {},
-    mediaObjects: media.length,
-    restoreOrder,
-    restoreBlockers,
-    violations,
-    missingMedia,
-  });
+    const valid = snapshot.violations.length === 0;
+    const { error: auditError } = await supabaseAdmin.from("platform_audit_log").insert({
+      actor_id: req.userId,
+      actor_email: req.userEmail,
+      event_type: "tenant_backup_validated",
+      entity_type: "tenant",
+      entity_id: tenantId,
+      detail: { key, valid, violations: snapshot.violations },
+    });
+    if (auditError) throw new Error(`Validation audit failed: ${auditError.message}`);
+    res.json({
+      valid, restoreReady: valid, key, format: snapshot.manifest.format, createdAt: snapshot.manifest.createdAt,
+      counts: snapshot.manifest.counts, mediaObjects: snapshot.manifest.media.objects.length,
+      violations: snapshot.violations, missingMedia: [],
+      restoreBlockers: ["A suspended recovery tenant and disabled recovery identities are created; user access must be reviewed separately."],
+    });
+  } finally { await snapshot.cleanup(); }
 });
 
 router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -3349,8 +3352,6 @@ router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdm
     return;
   }
   const sourceTenantId = String(req.params.id || "").trim();
-  const { data: sourceTenant } = await supabaseAdmin.from("tenants").select("id, company_name, contact_email").eq("id", sourceTenantId).maybeSingle();
-  if (!sourceTenant) { res.status(404).json({ error: "Source tenant not found" }); return; }
 
   const { data: settings, error: settingsError } = await supabaseAdmin.from("platform_settings").select("key, value").in("key", [...R2_KEYS]);
   if (settingsError) { res.status(500).json({ error: settingsError.message }); return; }
@@ -3361,16 +3362,10 @@ router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdm
 
   const host = `${cfg.backup_r2_account_id!}.r2.cloudflarestorage.com`;
   const bucket = cfg.backup_r2_bucket_name!;
-  const prefix = `tenant-backups/${sourceTenantId}/`;
-  const listPath = `/${bucket}`;
-  const listQuery = `list-type=2&max-keys=100&prefix=${encodeURIComponent(prefix)}`;
-  const listHeaders = signR2Headers({ method: "GET", host, path: listPath, query: listQuery, accessKeyId: cfg.backup_r2_access_key_id!, secretAccessKey: cfg.backup_r2_secret_access_key! });
-  const listResponse = await fetch(`https://${host}${listPath}?${listQuery}`, { headers: listHeaders, signal: AbortSignal.timeout(15000) });
-  if (!listResponse.ok) { res.status(502).json({ error: `R2 listing failed: ${listResponse.status}` }); return; }
-  const keys = Array.from((await listResponse.text()).matchAll(/<Key>(.*?)<\/Key>/g)).map((match) => match[1]).filter((key) => key.endsWith(".zip"));
-  if (keys.length === 0) { res.status(404).json({ error: "No media-inclusive tenant snapshot found" }); return; }
-  keys.sort();
-  const key = keys[keys.length - 1];
+  if (req.body?.key !== undefined && (typeof req.body.key !== "string" || !isTenantBackupKey(req.body.key, sourceTenantId))) {
+    res.status(400).json({ error: "Snapshot key does not belong to the requested tenant" }); return;
+  }
+  const key = await selectTenantBackup(cfg, sourceTenantId, req.body?.key);
   const { data: previousRestores, error: previousRestoreError } = await supabaseAdmin
     .from("platform_audit_log")
     .select("entity_id, detail, created_at")
@@ -3378,166 +3373,31 @@ router.post("/platform/tenants/:id/backup/restore", requireAuth, requireSuperAdm
     .contains("detail", { source_tenant_id: sourceTenantId, source_backup_key: key })
     .order("created_at", { ascending: false })
     .limit(1);
-  if (!previousRestoreError && previousRestores?.[0]?.entity_id) {
+  if (previousRestoreError) { res.status(500).json({ error: previousRestoreError.message }); return; }
+  if (previousRestores?.[0]?.entity_id) {
     res.status(409).json({ error: "This snapshot has already been restored.", restoredTenantId: previousRestores[0].entity_id, sourceBackupKey: key });
     return;
   }
   const archiveUrl = presignR2Get({ host, bucket, key, accessKeyId: cfg.backup_r2_access_key_id!, secretAccessKey: cfg.backup_r2_secret_access_key!, expiresSeconds: 600 });
-  const archiveResponse = await fetch(archiveUrl, { signal: AbortSignal.timeout(120000) });
-  if (!archiveResponse.ok) { res.status(502).json({ error: `Backup download failed: ${archiveResponse.status}` }); return; }
-  const zip = await JSZip.loadAsync(Buffer.from(await archiveResponse.arrayBuffer()));
-  const manifest = JSON.parse(await zip.file("manifest.json")!.async("text")) as { tenantId?: string; format?: string; tenant?: { companyName?: string; contactEmail?: string } };
-  const data = JSON.parse(await zip.file("data.json")!.async("text")) as Record<string, Array<Record<string, unknown>>>;
-  if (manifest.tenantId !== sourceTenantId || manifest.format !== "tradeworkdesk-tenant-snapshot-v2") {
-    res.status(422).json({ error: "Snapshot does not match the source tenant or supported restore format" });
-    return;
-  }
-
-  const restoreName = `${manifest.tenant?.companyName || sourceTenant.company_name} (Restored ${new Date().toISOString().slice(0, 10)})`;
-  const { data: restoredTenant, error: tenantError } = await supabaseAdmin.from("tenants").insert({
-    company_name: restoreName,
-    contact_name: restoreName,
-    contact_email: manifest.tenant?.contactEmail || sourceTenant.contact_email || `restored-${sourceTenantId.slice(0, 8)}@invalid.local`,
-    status: "suspended",
-    trial_ends_at: new Date().toISOString(),
-  }).select("id, company_name, status").single();
-  if (tenantError || !restoredTenant) { res.status(500).json({ error: tenantError?.message || "Failed to create restored tenant" }); return; }
-
-  const createdAuthUserIds: string[] = [];
-  const createdStoragePaths: Array<{ bucket: string; path: string }> = [];
+  const snapshot = await openTenantSnapshot(archiveUrl, sourceTenantId);
   try {
-  const skipped: Array<{ table: string; reason: string; count?: number }> = [];
-  const restoredCounts: Record<string, number> = {};
-  const profileIdMap = new Map<string, string>();
-  for (const sourceProfile of data.profiles || []) {
-    const email = typeof sourceProfile.email === "string" ? sourceProfile.email.trim().toLowerCase() : "";
-    if (!email) {
-      skipped.push({ table: "profiles", reason: "Profile has no email address", count: 1 });
-      continue;
+    if (snapshot.violations.length) {
+      res.status(422).json({ error: "Snapshot failed validation; no recovery tenant was created", violations: snapshot.violations }); return;
     }
-    const { data: invited, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      data: { restored_from_tenant_id: sourceTenantId },
+    const result = await restoreTenantSnapshot(snapshot, sourceTenantId);
+    const { error: auditError } = await supabaseAdmin.from("platform_audit_log").insert({
+      actor_id: req.userId,
+      actor_email: req.userEmail,
+      event_type: "tenant_backup_restored_to_new_tenant",
+      entity_type: "tenant",
+      entity_id: result.restoredTenant.id,
+      detail: { source_tenant_id: sourceTenantId, source_backup_key: key, restored_counts: result.restoredCounts, excluded: result.excluded },
     });
-    if (inviteError || !invited.user) {
-      skipped.push({ table: "profiles", reason: inviteError?.message || `Unable to invite ${email}`, count: 1 });
-      continue;
+    if (auditError) {
+      res.status(500).json({ error: `Recovery tenant created but audit failed: ${auditError.message}`, restoredTenantId: result.restoredTenant.id }); return;
     }
-    createdAuthUserIds.push(invited.user.id);
-    const profileRow: Record<string, unknown> = {
-      ...sourceProfile,
-      id: invited.user.id,
-      tenant_id: restoredTenant.id,
-      role: sourceProfile.role === "super_admin" ? "office_staff" : sourceProfile.role,
-      is_active: sourceProfile.is_active !== false,
-    };
-    delete profileRow.created_at;
-    const { error: profileError } = await supabaseAdmin.from("profiles").insert(profileRow);
-    if (profileError) {
-      skipped.push({ table: "profiles", reason: profileError.message, count: 1 });
-      continue;
-    }
-    profileIdMap.set(String(sourceProfile.id), invited.user.id);
-    restoredCounts.profiles = (restoredCounts.profiles || 0) + 1;
-  }
-
-  const restoreOrder = [
-    "company_settings", "customers", "properties", "appliances", "jobs", "job_parts", "job_services",
-    "job_time_entries", "invoices", "invoice_line_items", "quotes", "quote_line_items", "enquiries",
-    "enquiry_messages", "follow_ups", "tenant_addons", "tenant_user_push_preferences", "websites", "website_pages", "website_blocks", "website_forms",
-    "website_form_submissions",
-  ];
-  const profileDependentFields = ["assigned_technician_id", "author_id", "created_by", "uploaded_by", "changed_by", "user_id"];
-
-  for (const table of restoreOrder) {
-    const rows = data[table] || [];
-    if (rows.length === 0) continue;
-    const sanitizedRows = rows.map((sourceRow) => {
-      const row: Record<string, unknown> = { ...sourceRow, tenant_id: restoredTenant.id };
-      for (const field of profileDependentFields) {
-        if (field in row) row[field] = row[field] ? (profileIdMap.get(String(row[field])) ?? null) : null;
-      }
-      if (table === "company_settings") row.singleton_id = "default";
-      return row;
-    });
-    const { error } = await supabaseAdmin.from(table).insert(sanitizedRows);
-    if (!error) {
-      restoredCounts[table] = sanitizedRows.length;
-      continue;
-    }
-    let restored = 0;
-    for (const row of sanitizedRows) {
-      const { error: rowError } = await supabaseAdmin.from(table).insert(row);
-      if (rowError) {
-        skipped.push({ table, reason: rowError.message, count: 1 });
-      } else restored++;
-    }
-    if (restored > 0) restoredCounts[table] = restored;
-  }
-
-  const mediaObjects = (manifest as { media?: { objects?: Array<{ table: string; rowId: string; bucket: string; storagePath: string; archivePath: string }> } }).media?.objects ?? [];
-  const restoredMediaRows: Record<string, Record<string, unknown>[]> = { file_attachments: [], signatures: [], website_media: [] };
-  for (const mediaObject of mediaObjects) {
-    const archiveFile = zip.file(mediaObject.archivePath);
-    if (!archiveFile) {
-      skipped.push({ table: mediaObject.table, reason: `Missing archive object ${mediaObject.archivePath}`, count: 1 });
-      continue;
-    }
-    const sourceRow = (data[mediaObject.table] || []).find((row) => String(row.id) === mediaObject.rowId);
-    if (!sourceRow) {
-      skipped.push({ table: mediaObject.table, reason: `Metadata row ${mediaObject.rowId} is missing`, count: 1 });
-      continue;
-    }
-    const fileBytes = await archiveFile.async("nodebuffer");
-    const fileName = mediaObject.storagePath.split("/").pop() || mediaObject.rowId;
-    const newPath = `tenant-restores/${restoredTenant.id}/${mediaObject.rowId}/${fileName}`;
-    const contentType = typeof sourceRow.file_type === "string" ? sourceRow.file_type : typeof sourceRow.mime_type === "string" ? sourceRow.mime_type : "application/octet-stream";
-    const { error: uploadError } = await supabaseAdmin.storage.from(mediaObject.bucket).upload(newPath, fileBytes, { upsert: true, contentType });
-    if (uploadError) {
-      skipped.push({ table: mediaObject.table, reason: uploadError.message, count: 1 });
-      continue;
-    }
-    createdStoragePaths.push({ bucket: mediaObject.bucket, path: newPath });
-    const restoredRow: Record<string, unknown> = { ...sourceRow, tenant_id: restoredTenant.id, storage_path: newPath };
-    if (mediaObject.table === "file_attachments" && "thumbnail_storage_path" in restoredRow) restoredRow.thumbnail_storage_path = null;
-    for (const field of profileDependentFields) {
-      if (field in restoredRow) restoredRow[field] = restoredRow[field] ? (profileIdMap.get(String(restoredRow[field])) ?? null) : null;
-    }
-    if (mediaObject.table === "website_media") {
-      restoredRow.public_url = supabaseAdmin.storage.from(mediaObject.bucket).getPublicUrl(newPath).data.publicUrl;
-    }
-    restoredMediaRows[mediaObject.table].push(restoredRow);
-  }
-  for (const [table, rows] of Object.entries(restoredMediaRows)) {
-    if (rows.length === 0) continue;
-    const { error } = await supabaseAdmin.from(table).insert(rows);
-    if (error) skipped.push({ table, reason: error.message, count: rows.length });
-    else restoredCounts[table] = rows.length;
-  }
-
-  const excluded = ["tenant_user_push_preferences", "web_push_subscriptions"];
-  await supabaseAdmin.from("platform_audit_log").insert({
-    actor_id: req.userId,
-    actor_email: req.userEmail,
-    event_type: "tenant_backup_restored_to_new_tenant",
-    entity_type: "tenant",
-    entity_id: restoredTenant.id,
-    detail: { source_tenant_id: sourceTenantId, source_backup_key: key, restored_counts: restoredCounts, skipped, excluded },
-  });
-  res.status(201).json({ restoredTenant, sourceTenantId, sourceBackupKey: key, restoredCounts, skipped, excluded });
-  } catch (error) {
-    for (const object of createdStoragePaths) {
-      await supabaseAdmin.storage.from(object.bucket).remove([object.path]).catch(() => undefined);
-    }
-    for (const userId of createdAuthUserIds) {
-      await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => undefined);
-    }
-    const { error: cleanupError } = await supabaseAdmin.from("tenants").delete().eq("id", restoredTenant.id);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : String(error),
-      restoredTenantId: restoredTenant.id,
-      cleanupError: cleanupError?.message || null,
-    });
-  }
+    res.status(201).json({ ...result, sourceTenantId, sourceBackupKey: key });
+  } finally { await snapshot.cleanup(); }
 });
 
 router.get("/platform/backup-logs", requireAuth, requireSuperAdmin, async (_req, res): Promise<void> => {
@@ -3558,44 +3418,27 @@ router.get("/platform/backup-logs", requireAuth, requireSuperAdmin, async (_req,
 
   try {
     const host = `${cfg.backup_r2_account_id!}.r2.cloudflarestorage.com`;
-    const path = `/${cfg.backup_r2_bucket_name!}`;
-    const query = "list-type=2&max-keys=100&prefix=backup_";
-    const headers = signR2Headers({
-      method: "GET", host, path, query,
-      accessKeyId: cfg.backup_r2_access_key_id!,
-      secretAccessKey: cfg.backup_r2_secret_access_key!,
-    });
-    const r2Res = await fetch(`https://${host}${path}?${query}`, {
-      method: "GET",
-      headers,
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!r2Res.ok) {
-      const body = await r2Res.text().catch(() => "");
-      const msg = body.match(/<Message>(.*?)<\/Message>/)?.[1];
-      res.status(500).json({ error: msg ?? `HTTP ${r2Res.status}` });
-      return;
-    }
-    const xml = await r2Res.text();
-    const files: Array<{ name: string; size: number; lastModified: string; downloadUrl: string }> = [];
-    const contentMatches = xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g);
-    for (const match of contentMatches) {
-      const block = match[1];
-      const name = block.match(/<Key>(.*?)<\/Key>/)?.[1] ?? "";
-      const size = parseInt(block.match(/<Size>(.*?)<\/Size>/)?.[1] ?? "0", 10);
-      const lastModified = block.match(/<LastModified>(.*?)<\/LastModified>/)?.[1] ?? "";
-      if (name.endsWith(".dump") || name.endsWith(".json.gz")) {
-        const downloadUrl = presignR2Get({
+    const [databaseFiles, tenantFiles, tenantResult] = await Promise.all([
+      listBackupObjects(cfg, "backup_"), listBackupObjects(cfg, "tenant-backups/"),
+      supabaseAdmin.from("tenants").select("id, company_name"),
+    ]);
+    if (tenantResult.error) throw new Error(tenantResult.error.message);
+    const companies = new Map((tenantResult.data ?? []).map(tenant => [String(tenant.id), String(tenant.company_name)]));
+    const files = [...databaseFiles, ...tenantFiles].map(file => {
+      const tenantId = tenantBackupPattern.exec(file.name)?.[1] || null;
+      return { ...file, type: tenantId ? "tenant" : "database", tenantId,
+        companyName: tenantId ? companies.get(tenantId) || "Deleted or unavailable company" : "All companies",
+        completeness: "Not validated",
+        downloadUrl: presignR2Get({
           host,
           bucket: cfg.backup_r2_bucket_name!,
-          key: name,
+          key: file.name,
           accessKeyId: cfg.backup_r2_access_key_id!,
           secretAccessKey: cfg.backup_r2_secret_access_key!,
           expiresSeconds: 3600,
-        });
-        files.push({ name, size, lastModified, downloadUrl });
-      }
-    }
+        }),
+      };
+    });
     files.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
     res.json({ files });
   } catch (e) {
@@ -3605,8 +3448,8 @@ router.get("/platform/backup-logs", requireAuth, requireSuperAdmin, async (_req,
 
 router.delete("/platform/backup-logs/:name", requireAuth, requireSuperAdmin, async (req, res): Promise<void> => {
   const name = String(req.params.name || "");
-  if (!/^backup_\d{8}_\d{6}\.(?:dump|json\.gz)$/.test(name)) {
-    res.status(400).json({ error: "Invalid database backup filename" });
+  if (!isBackupKey(name)) {
+    res.status(400).json({ error: "Invalid backup key" });
     return;
   }
   const { data: settings, error } = await supabaseAdmin

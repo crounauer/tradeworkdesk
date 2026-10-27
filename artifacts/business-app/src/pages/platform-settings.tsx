@@ -1122,7 +1122,11 @@ function BackupTriggerButton() {
   );
 }
 
-type BackupFile = { name: string; size: number; lastModified: string; downloadUrl?: string };
+type BackupFile = {
+  name: string; size: number; lastModified: string; downloadUrl?: string;
+  type: "database" | "tenant"; tenantId: string | null; companyName: string;
+};
+type BackupValidation = { valid: boolean; violations?: string[]; counts?: Record<string, number>; mediaObjects?: number };
 
 function formatBackupName(name: string): string {
   const m = name.match(/backup_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
@@ -1140,6 +1144,8 @@ function BackupLogTable() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [validations, setValidations] = useState<Record<string, BackupValidation>>({});
   const [files, setFiles] = useState<BackupFile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -1165,7 +1171,7 @@ function BackupLogTable() {
   };
 
   const deleteBackup = async (file: BackupFile) => {
-    if (!window.confirm(`Permanently delete the database backup from ${formatBackupName(file.name)} UTC?\n\nThis cannot be undone. Download a copy first if you need to keep it.`)) return;
+    if (!window.confirm(`Permanently delete this ${file.type === "tenant" ? "tenant snapshot" : "database backup"}?\n${file.companyName}\n${formatBackupName(file.name)}\n\nThis cannot be undone. Download a copy first if you need to keep it.`)) return;
     setDeleting(file.name);
     try {
       const response = await fetch(`${import.meta.env.BASE_URL}api/platform/backup-logs/${encodeURIComponent(file.name)}`, {
@@ -1184,6 +1190,36 @@ function BackupLogTable() {
     }
   };
 
+  const snapshotAction = async (file: BackupFile, action: "validate" | "restore") => {
+    if (!file.tenantId) return;
+    if (action === "restore" && !window.confirm(`Restore ${file.companyName} from ${formatBackupName(file.name)} into a NEW SUSPENDED company?\n\nThe source is unchanged. Recovery identities cannot sign in; no invitations are sent. Domains, subscriptions and push settings are excluded. Review user access and integrations before activation.`)) return;
+    setBusy(file.name);
+    try {
+      const response = await fetch(`${import.meta.env.BASE_URL}api/platform/tenants/${file.tenantId}/backup/${action}`, {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: file.name, ...(action === "restore" ? { confirm: true } : {}) }),
+      });
+      const body = await response.json() as BackupValidation & {
+        error?: string; restoredTenant?: { id: string; company_name: string }; accessWarning?: string;
+      };
+      if (!response.ok) throw new Error([body.error || `HTTP ${response.status}`, ...(body.violations ?? [])].join("; "));
+      if (action === "validate") {
+        setValidations(current => ({ ...current, [file.name]: body }));
+        toast({ title: body.valid ? "Snapshot checks passed" : "Snapshot incomplete or invalid",
+          description: body.valid ? "Records, counts and archived media checked. This is not a test restore." : body.violations?.join("; "),
+          variant: body.valid ? "default" : "destructive" });
+      } else {
+        if (!body.restoredTenant) throw new Error("Restore response did not identify a recovery company");
+        toast({ title: `${body.restoredTenant.company_name} created`, description: body.accessWarning });
+        window.location.assign(`${import.meta.env.BASE_URL}platform/tenants/${body.restoredTenant.id}`);
+      }
+    } catch (error) {
+      toast({ title: `${action === "restore" ? "Restore" : "Validation"} failed`,
+        description: error instanceof Error ? error.message : "Backup action failed", variant: "destructive" });
+    } finally { setBusy(null); }
+  };
+  const actionPending = loading || deleting !== null || busy !== null;
+
   return (
     <div className="mt-2">
       <div className="flex items-center justify-between mb-2">
@@ -1191,21 +1227,37 @@ function BackupLogTable() {
           <Clock className="w-4 h-4" />
           Backup History
         </h3>
-        <Button variant="ghost" size="sm" onClick={fetchLogs} disabled={loading || deleting !== null} className="gap-1 h-7 text-xs">
+        <Button variant="ghost" size="sm" onClick={fetchLogs} disabled={actionPending} className="gap-1 h-7 text-xs">
           {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
           {files === null ? "Load" : "Refresh"}
         </Button>
       </div>
+      <p className="text-sm text-muted-foreground mb-3">
+        Database exports cover all companies but are not complete Supabase disaster-recovery images.
+        Tenant snapshots include archived media. Validate a snapshot before restoring into a new suspended company.
+      </p>
+      <details className="text-sm mb-3 rounded-lg border p-3">
+        <summary className="cursor-pointer font-medium">Platform database recovery procedure (staging only)</summary>
+        <ol className="list-decimal pl-5 mt-2 space-y-1">
+          <li>Download and retain an untouched copy. Provision a separate Supabase project with no production credentials or integrations.</li>
+          <li>Apply the matching schema and migrations. Inspect the export format, all expected tables, row counts and backup logs.</li>
+          <li>Have an operator import records in foreign-key order, map Auth identities separately, and recover Storage objects from tenant snapshots or storage backups.</li>
+          <li>Verify counts, relationships, files and sign-in using staging-only accounts. Keep email, SMS, payments, domains and scheduled jobs disabled.</li>
+          <li>Document gaps and obtain approval before planning any production cutover. This page never restores the platform database into production.</li>
+        </ol>
+      </details>
       {error && <p className="text-sm text-red-500">{error}</p>}
       {files !== null && files.length === 0 && (
         <p className="text-sm text-muted-foreground">No backups found yet.</p>
       )}
       {files !== null && files.length > 0 && (
-        <div className="rounded-lg border overflow-hidden">
+        <div className="rounded-lg border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground">Date / Time (UTC)</th>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Type / Company</th>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Checks</th>
                 <th className="text-right px-3 py-2 font-medium text-muted-foreground">Size</th>
                 <th className="px-3 py-2"></th>
               </tr>
@@ -1214,8 +1266,25 @@ function BackupLogTable() {
               {files.map(f => (
                 <tr key={f.name} className="border-t">
                   <td className="px-3 py-2">{formatBackupName(f.name)}</td>
+                  <td className="px-3 py-2">
+                    <div className="font-medium">{f.type === "tenant" ? "Tenant snapshot + media" : "Platform database"}</div>
+                    {f.tenantId ? <a className="text-primary underline" href={`${import.meta.env.BASE_URL}platform/tenants/${f.tenantId}`}>{f.companyName}</a> : <span>{f.companyName}</span>}
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {f.type === "database" ? "Staging verification required" : !validations[f.name] ? "Not validated" : validations[f.name].valid ? (
+                      <span className="text-green-700">Passed: {Object.values(validations[f.name].counts ?? {}).reduce((sum, count) => sum + count, 0)} records, {validations[f.name].mediaObjects ?? 0} media files. Not test-restored.</span>
+                    ) : <span className="text-destructive">{validations[f.name].violations?.join("; ") || "Invalid snapshot"}</span>}
+                  </td>
                   <td className="px-3 py-2 text-right text-muted-foreground">{formatFileSize(f.size)}</td>
                   <td className="px-3 py-2 text-right">
+                    {f.type === "tenant" && <>
+                      <Button variant="ghost" size="sm" disabled={actionPending} onClick={() => snapshotAction(f, "validate")}>
+                        {busy === f.name ? "Working..." : "Validate"}
+                      </Button>
+                      <Button variant="outline" size="sm" disabled={actionPending || !validations[f.name]?.valid} onClick={() => snapshotAction(f, "restore")}>
+                        Restore as New Tenant
+                      </Button>
+                    </>}
                     {f.downloadUrl && (
                       <a href={f.downloadUrl} download={f.name} title="Download backup" className="inline-flex items-center text-muted-foreground hover:text-foreground">
                         <Download className="w-3.5 h-3.5" />
@@ -1225,7 +1294,7 @@ function BackupLogTable() {
                       variant="ghost"
                       size="sm"
                       className="ml-2 h-7 gap-1 text-destructive hover:text-destructive"
-                      disabled={loading || deleting !== null}
+                      disabled={actionPending}
                       onClick={() => deleteBackup(f)}
                       aria-label={`Delete backup ${formatBackupName(f.name)}`}
                     >

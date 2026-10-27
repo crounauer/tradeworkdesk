@@ -366,7 +366,7 @@ export default function PlatformTenantDetail() {
     },
     onSuccess: (result) => {
       if (result.valid) {
-        toast({ title: "Restore readiness confirmed", description: "The latest snapshot passed validation. Auth-user mapping and new-tenant staging are still required before restore." });
+        toast({ title: "Snapshot checks passed", description: "Records, counts and archived media passed checks. This is not a test restore. User access must be reviewed separately." });
       } else {
         const issues = [...(result.violations ?? []), ...(result.missingMedia ?? []).map((path) => `Missing media: ${path}`)];
         toast({ title: "Backup validation failed", description: issues.join("; ") || "The snapshot is not restorable.", variant: "destructive" });
@@ -384,10 +384,10 @@ export default function PlatformTenantDetail() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Tenant restore failed");
-      return body as { restoredTenant: { id: string; company_name: string }; restoredCounts: Record<string, number>; skipped: Array<{ table: string; reason: string }>; excluded: string[] };
+      return body as { restoredTenant: { id: string; company_name: string }; restoredCounts: Record<string, number>; accessWarning: string; excluded: string[] };
     },
     onSuccess: (result) => {
-      toast({ title: "Tenant restored", description: `${result.restoredTenant.company_name} created with ${Object.values(result.restoredCounts).reduce((sum, count) => sum + count, 0)} records. Review skipped tables before activating it.` });
+      toast({ title: "Suspended recovery company created", description: `${Object.values(result.restoredCounts).reduce((sum, count) => sum + count, 0)} records verified. ${result.accessWarning}` });
       navigate(`/platform/tenants/${result.restoredTenant.id}`);
     },
     onError: (e) => toast({ title: "Restore failed", description: e.message, variant: "destructive" }),
@@ -522,7 +522,7 @@ export default function PlatformTenantDetail() {
               variant="outline"
               className="text-orange-700 border-orange-200 hover:bg-orange-50"
               onClick={() => {
-                if (window.confirm("Restore the latest snapshot into a new suspended tenant? The source tenant will not be changed. Auth users and media files are excluded.")) {
+                if (window.confirm("Validate and restore the latest snapshot, including media, into a new suspended company? The source is unchanged. Disabled recovery identities are created without sending invitations. Domains, subscriptions and push settings are excluded. Review user access and integrations before activation.")) {
                   restoreTenantBackupMutation.mutate();
                 }
               }}

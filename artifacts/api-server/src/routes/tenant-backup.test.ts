@@ -9,7 +9,7 @@ const { default: router } = await import("./platform");
 const { default: internalRouter } = await import("./internal");
 const tenantId = "11111111-1111-4111-8111-111111111111";
 
-async function start(t: TestContext, options: { missingMedia?: boolean; uploadFails?: boolean; deleteFails?: boolean } = {}) {
+async function start(t: TestContext, options: { missingMedia?: boolean; uploadFails?: boolean; deleteFails?: boolean; paginatedHistory?: boolean } = {}) {
   let archive: Buffer | undefined;
   let key = "";
   const deletedKeys: string[] = [];
@@ -33,6 +33,14 @@ async function start(t: TestContext, options: { missingMedia?: boolean; uploadFa
         return new Response("", { status: 200 });
       }
       if (url.searchParams.has("list-type")) {
+        if (options.paginatedHistory && url.searchParams.get("prefix") === "backup_") {
+          if (!url.searchParams.has("continuation-token")) {
+            return new Response("<ListBucketResult><IsTruncated>true</IsTruncated><NextContinuationToken>next&amp;token</NextContinuationToken><Contents><Key>backup_20261027_020000.json.gz</Key><Size>1234</Size><LastModified>2026-10-27T02:00:00Z</LastModified></Contents></ListBucketResult>");
+          }
+          assert.equal(url.searchParams.get("continuation-token"), "next&token");
+          return new Response("<ListBucketResult><Contents><Key>backup_20261026_020000.dump</Key><Size>456</Size><LastModified>2026-10-26T02:00:00Z</LastModified></Contents></ListBucketResult>");
+        }
+        if (!key.startsWith(url.searchParams.get("prefix") || "")) return new Response("<ListBucketResult/>");
         return new Response(`<ListBucketResult><Contents><Key>${key}</Key></Contents></ListBucketResult>`);
       }
       assert.equal(url.pathname, `/test-bucket/${key}`);
@@ -77,7 +85,7 @@ async function start(t: TestContext, options: { missingMedia?: boolean; uploadFa
     Object.assign(req, { userId: "test-admin", userEmail: "admin@example.invalid" });
     next();
   });
-  for (const path of ["/platform/tenants/:id/backup", "/platform/tenants/:id/backup/validate"]) {
+  for (const path of ["/platform/tenants/:id/backup", "/platform/tenants/:id/backup/validate", "/platform/tenants/:id/backup/restore"]) {
     const route = router.stack.find(layer => layer.route?.path === path)?.route;
     assert.ok(route);
     const handler: RequestHandler = route.stack[route.stack.length - 1].handle;
@@ -87,6 +95,10 @@ async function start(t: TestContext, options: { missingMedia?: boolean; uploadFa
   assert.ok(deleteRoute);
   const deleteHandler: RequestHandler = deleteRoute.stack[deleteRoute.stack.length - 1].handle;
   app.delete("/platform/backup-logs/:name", deleteHandler);
+  const historyRoute = router.stack.find(layer => layer.route?.path === "/platform/backup-logs")?.route;
+  assert.ok(historyRoute);
+  const historyHandler: RequestHandler = historyRoute.stack[historyRoute.stack.length - 1].handle;
+  app.get("/platform/backup-logs", historyHandler);
   app.use("/api", internalRouter);
   const server = app.listen(0, "127.0.0.1");
   await new Promise<void>(resolve => server.once("listening", resolve));
@@ -160,13 +172,61 @@ test("Database backup deletion removes only the requested backup", async t => {
   assert.deepEqual(deletedKeys, ["backup_20261027_010249.json.gz", "backup_20261026_020000.dump"]);
 });
 
-test("Deletion rejects tenant snapshots, paths and unrelated storage keys", async t => {
+test("Deletion rejects malformed snapshots, paths and unrelated storage keys", async t => {
   const { deleteUrl, deletedKeys } = await start(t);
   for (const name of ["other.json.gz", "backup_20261027_010249.zip", "tenant-backups/test.zip", "../backup_20261027_010249.json.gz"]) {
     const response = await fetch(`${deleteUrl}/${encodeURIComponent(name)}`, { method: "DELETE" });
     assert.equal(response.status, 400);
   }
   assert.deepEqual(deletedKeys, []);
+});
+
+test("Tenant snapshot deletion accepts a scoped snapshot key", async t => {
+  const { deleteUrl, deletedKeys } = await start(t);
+  const name = `tenant-backups/${tenantId}/backup_20261027_020000.zip`;
+  const response = await fetch(`${deleteUrl}/${encodeURIComponent(name)}`, { method: "DELETE" });
+  assert.equal(response.status, 204);
+  assert.deepEqual(deletedKeys, [name]);
+});
+
+test("Unified history includes both types, company names and all R2 pages", async t => {
+  const { url, deleteUrl } = await start(t, { paginatedHistory: true });
+  assert.equal((await fetch(url, { method: "POST" })).status, 200);
+  const response = await fetch(deleteUrl);
+  assert.equal(response.status, 200);
+  const body = await response.json() as { files: Array<{ name: string; type: string; tenantId: string | null; companyName: string; downloadUrl: string }> };
+  assert.equal(body.files.length, 3);
+  assert.equal(body.files.filter(file => file.type === "database").length, 2);
+  const tenantFile = body.files.find(file => file.type === "tenant");
+  assert.ok(tenantFile);
+  assert.equal(tenantFile.companyName, "Test Company");
+  assert.equal(tenantFile.tenantId, tenantId);
+  assert.ok(tenantFile.downloadUrl.includes(tenantFile.name));
+});
+
+test("Selected validation and restore reject a different tenant's key", async t => {
+  const { url } = await start(t);
+  for (const action of ["validate", "restore"]) {
+    const response = await fetch(`${url}/${action}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "tenant-backups/22222222-2222-4222-8222-222222222222/backup_20261027_020000.zip", confirm: true }),
+    });
+    assert.equal(response.status, 400);
+  }
+});
+
+test("Selected incomplete snapshot cannot be restored", async t => {
+  const { url } = await start(t, { missingMedia: true });
+  const backupResponse = await fetch(url, { method: "POST" });
+  const { key } = await backupResponse.json() as { key: string };
+  const validation = await fetch(`${url}/validate`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key }),
+  });
+  assert.equal((await validation.json() as { valid: boolean }).valid, false);
+  const response = await fetch(`${url}/restore`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, confirm: true }),
+  });
+  assert.equal(response.status, 422);
 });
 
 test("Storage deletion failures are not reported as success", async t => {

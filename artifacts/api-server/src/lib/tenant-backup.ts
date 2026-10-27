@@ -9,7 +9,8 @@ import JSZip from "jszip";
 import { supabaseAdmin } from "./supabase";
 
 const TENANT_BACKUP_TABLES = [
-  "company_settings", "profiles", "customers", "properties", "appliances", "jobs",
+  "company_settings", "profiles", "customers", "properties", "appliances", "product_catalogue", "service_catalogue", "jobs",
+  "job_visits", "job_appliances",
   "job_parts", "job_services", "job_time_entries", "job_notes", "job_email_logs",
   "job_confirmation_responses", "follow_ups", "invoices", "invoice_line_items",
   "quotes", "quote_line_items", "enquiries", "enquiry_messages", "tenant_addons",
@@ -18,7 +19,7 @@ const TENANT_BACKUP_TABLES = [
   "file_attachments", "signatures", "website_media",
 ] as const;
 
-function storageBucketForTenantObject(table: string, row: Record<string, unknown>): string | null {
+export function storageBucketForTenantObject(table: string, row: Record<string, unknown>): string | null {
   if (table === "website_media") return "website-images";
   if (table === "signatures") return "signatures";
   if (table === "file_attachments") {
