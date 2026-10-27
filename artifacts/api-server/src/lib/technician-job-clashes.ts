@@ -34,9 +34,19 @@ function bookingWindow(startDate: string, endDate: string, time: string | null |
   const startDay = Date.parse(startDate) / 60000;
   const endDay = Date.parse(endDate) / 60000;
   if (endDay < startDay) throw new Error("Cannot check appointment clashes: end date is before start date.");
-  if (allDay || !time) return { start: startDay, end: endDay + 1440 };
+  if (allDay || !time) return { start: startDay + 480, end: endDay + 1020, daily: true };
   const startTime = minuteOfDay(time);
-  return { start: startDay + startTime, end: endDay + startTime + durationMinutes(duration) };
+  return { start: startDay + startTime, end: endDay + startTime + durationMinutes(duration), daily: false };
+}
+
+function windowsOverlap(a: ReturnType<typeof bookingWindow>, b: ReturnType<typeof bookingWindow>): boolean {
+  const start = Math.max(a.start, b.start);
+  const end = Math.min(a.end, b.end);
+  if (start >= end) return false;
+  if (!a.daily && !b.daily) return true;
+  const day = Math.floor(start / 1440) * 1440;
+  const nextWorkingMinute = start < day + 480 ? day + 480 : start >= day + 1020 ? day + 1440 + 480 : start;
+  return nextWorkingMinute < end;
 }
 
 export async function findTechnicianJobClash(args: {
@@ -80,7 +90,7 @@ export async function findTechnicianJobClash(args: {
       job.all_day === true,
       job.estimated_duration,
     );
-    return window.start < existing.end && window.end > existing.start;
+    return windowsOverlap(window, existing);
   });
   return clash ? {
     existing_job_id: clash.job_id ?? clash.id,

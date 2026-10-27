@@ -16,7 +16,7 @@ const propertyId = "55555555-5555-4555-8555-555555555555";
 async function requestClashingBooking(
   t: TestContext,
   action: "create" | "reschedule" | "follow-up" | "rebook",
-  options: { existingAllDay?: boolean; newAllDay?: boolean; onlyAllDayChanging?: boolean } = {},
+  options: { existingAllDay?: boolean; newAllDay?: boolean; onlyAllDayChanging?: boolean; allowJobClash?: boolean | string; leave?: boolean } = {},
 ) {
   const date = options.existingAllDay || options.newAllDay ? "2026-10-27" : "2026-10-26";
   let jobWrites = 0;
@@ -31,7 +31,10 @@ async function requestClashingBooking(
     if (table === "tenants") data = { status: "active", plans: { max_users: 2 } };
     else if (table === "profiles" || table === "customers" || table === "properties") data = { tenant_id: tenantId };
     else if (table === "company_settings") data = { job_number_next: 1, job_number_prefix: "JOB" };
-    else if (table === "calendar_holidays") data = [];
+    else if (table === "calendar_holidays") data = options.leave ? [{
+      technician_id: engineerId, holiday_type: "technician_leave", name: "Annual leave",
+      start_date: date, end_date: date, start_time: null, end_time: null, allow_bookings: false,
+    }] : [];
     else if (table === "follow_ups") data = {
       id: jobId, tenant_id: tenantId, status: "open", customer_id: customerId, property_id: propertyId,
       original_job_id: jobId, original_job: { id: jobId, estimated_duration: 180 },
@@ -46,6 +49,10 @@ async function requestClashingBooking(
           scheduled_time: options.existingAllDay ? null : "09:00:00",
           all_day: options.existingAllDay === true, estimated_duration: 180, status: "scheduled",
         }];
+      } else if (init?.method === "POST") {
+        const inserted = JSON.parse(String(init.body));
+        assert.equal("allow_job_clash" in inserted, false);
+        data = { id: jobId };
       } else if (url.searchParams.get("id") === `eq.${jobId}`) data = {
         assigned_technician_id: engineerId, scheduled_date: options.onlyAllDayChanging ? date : "2026-10-25",
         scheduled_time: options.onlyAllDayChanging || options.newAllDay ? "14:00:00" : "09:00:00",
@@ -87,21 +94,29 @@ async function requestClashingBooking(
       scheduled_date: date,
       scheduled_time: options.newAllDay ? undefined : options.existingAllDay ? "14:00" : "09:00",
       estimated_duration: 180,
+      allow_job_clash: options.allowJobClash,
       ...(options.newAllDay ? { all_day: true } : {}),
       ...(action === "reschedule" ? {} : {
         customer_id: customerId, property_id: propertyId, job_type: "service", assigned_technician_id: engineerId,
       }),
     }),
   });
+  if (action === "create" && options.allowJobClash === true && !options.leave) {
+    assert.equal(response.status, 201, await response.clone().text());
+    assert.deepEqual(await response.json(), { id: jobId });
+    assert.equal(clashChecks, 1);
+    assert.equal(jobWrites, 1);
+    return;
+  }
   assert.equal(response.status, 409, await response.clone().text());
   const body = await response.json();
   assert.ok(body && typeof body === "object" && "code" in body);
-  assert.equal(body.code, "TECHNICIAN_JOB_CLASH");
+  assert.equal(body.code, options.leave ? "TECHNICIAN_LEAVE_CONFLICT" : "TECHNICIAN_JOB_CLASH");
   if (options.existingAllDay) {
     assert.ok("error" in body && typeof body.error === "string");
     assert.match(body.error, /booked all day on 2026-10-27/);
   }
-  assert.equal(clashChecks, 1);
+  assert.equal(clashChecks, options.leave ? 0 : 1);
   assert.equal(jobWrites, 0);
 }
 
@@ -141,6 +156,22 @@ test("Rebooking a timed job over Tuesday's all-day job reports the clash", async
   await requestClashingBooking(t, "rebook", { existingAllDay: true });
 });
 
-test("Rebooking an all-day job still reserves the whole day even with a saved time", async t => {
+test("Rebooking an all-day job still reserves working hours even with a saved time", async t => {
   await requestClashingBooking(t, "rebook", { newAllDay: true });
+});
+
+test("An explicit override allows a new clashing job to be saved", async t => {
+  await requestClashingBooking(t, "create", { allowJobClash: true });
+});
+
+test("A string override does not bypass job clash protection", async t => {
+  await requestClashingBooking(t, "create", { allowJobClash: "true" });
+});
+
+test("A job clash override does not bypass technician leave", async t => {
+  await requestClashingBooking(t, "create", { allowJobClash: true, leave: true });
+});
+
+test("A new-booking override cannot bypass rescheduling protection", async t => {
+  await requestClashingBooking(t, "reschedule", { allowJobClash: true });
 });

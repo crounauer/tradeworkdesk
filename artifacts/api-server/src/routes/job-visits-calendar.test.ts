@@ -22,7 +22,7 @@ const visits = [
   { id: "visit-dec05", job_id: jobId, scheduled_date: "2026-12-05", scheduled_time: null, all_day: true, estimated_duration: null, assigned_technician_id: engineerId },
 ];
 
-async function start(t: TestContext, options: { booking?: boolean; homepage?: boolean; tech?: boolean; fail?: boolean } = {}) {
+async function start(t: TestContext, options: { booking?: boolean; homepage?: boolean; tech?: boolean; fail?: boolean; extendedHours?: boolean } = {}) {
   invalidateCalendarCache();
   invalidateHomepageCache();
   const calls: URL[] = [];
@@ -56,7 +56,9 @@ async function start(t: TestContext, options: { booking?: boolean; homepage?: bo
       data = dates.map(v => ({ ...v, profiles: { full_name: "Visit Engineer" }, jobs: parent }));
     } else if (table === "profiles") data = [{ id: engineerId, full_name: "Visit Engineer" }];
     else if (table === "booking_settings") data = {
-      is_enabled: true, working_hours: Array.from({ length: 7 }, (_, day) => ({ day, start: "09:00", end: "17:00" })),
+      is_enabled: true, working_hours: Array.from({ length: 7 }, (_, day) => ({
+        day, start: options.extendedHours ? "07:00" : "09:00", end: options.extendedHours ? "19:00" : "17:00",
+      })),
       slot_duration_minutes: 60, buffer_between_minutes: 0, min_advance_hours: 0, max_advance_days: 365,
     };
     else if (table === "job_schedule_entries") {
@@ -137,6 +139,14 @@ test("Online booking reserves an all-day additional visit but leaves other dates
   assert.ok(slots.some(s => s.start.startsWith("2026-12-06")));
   assert.equal(slots.some(s => s.start.startsWith("2026-12-05")), false);
   assert.ok(calls.some(c => c.pathname.endsWith("job_schedule_entries")));
+});
+
+test("Online booking allows slots before 08:00 and from 17:00 around an all-day visit", async t => {
+  const { url } = await start(t, { booking: true, extendedHours: true });
+  const response = await fetch(`${url}?from=2026-12-05&to=2026-12-05`);
+  assert.equal(response.status, 200);
+  const slots = await response.json() as Array<{ start: string }>;
+  assert.deepEqual(slots.map(slot => slot.start.slice(11, 16)), ["07:00", "17:00", "18:00"]);
 });
 
 test("Online booking does not offer slots if visit availability cannot be checked", async t => {

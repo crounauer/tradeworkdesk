@@ -647,7 +647,36 @@ export function BookJobDialog({
         return;
       }
 
-      const jobRes = await createJob.mutateAsync({ data: jobPayload as unknown as Parameters<typeof createJob.mutateAsync>[0]["data"] });
+      let jobRes;
+      try {
+        jobRes = await createJob.mutateAsync({ data: jobPayload as unknown as Parameters<typeof createJob.mutateAsync>[0]["data"] });
+      } catch (error) {
+        const conflict = (error as { data?: { code?: string; conflict?: JobClashConflict } })?.data;
+        if (conflict?.code !== "TECHNICIAN_JOB_CLASH" || !conflict.conflict) throw error;
+        if (data.customer_mode === "new") {
+          setValue("customer_mode", "existing");
+          setValue("customer_id", customerId);
+          setValue("property_id", propertyId);
+          void qc.invalidateQueries({ queryKey: getListCustomersQueryKey() });
+          void qc.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
+        }
+        const proceed = window.confirm(`${formatJobClashConflict(conflict.conflict)}\n\nBook this job anyway? This will double-book the technician.`);
+        if (!proceed) return;
+        const response = await fetch(`${import.meta.env.BASE_URL}api/jobs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...jobPayload, allow_job_clash: true }),
+        });
+        if (!response.ok) {
+          const body = await response.json() as { error?: string; code?: string; conflict?: LeaveConflict };
+          if (body.code === "TECHNICIAN_LEAVE_CONFLICT" && body.conflict) {
+            setLeaveConflict(body.conflict);
+            return;
+          }
+          throw new Error(body.error || "Failed to book job");
+        }
+        jobRes = await response.json() as { id: string };
+      }
 
       qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
@@ -1186,7 +1215,7 @@ export function BookJobDialog({
                     className="rounded border-border"
                     {...register("all_day")}
                   />
-                  <span className="text-muted-foreground">All day</span>
+                  <span className="text-muted-foreground">All day (08:00–17:00)</span>
                 </label>
                 <div className="space-y-1.5">
                   <Label>Notes</Label>

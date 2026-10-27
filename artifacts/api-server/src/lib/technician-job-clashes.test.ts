@@ -131,9 +131,38 @@ test("An all-day flag takes precedence over a leftover appointment time", async 
   assert.ok(await findTechnicianJobClash({ ...appointment, allDay: true }));
 });
 
-test("Legacy untimed jobs also reserve the whole day", async t => {
+test("Legacy untimed jobs also reserve working hours", async t => {
   mockJobs(t, [{ ...existingJob, scheduled_time: null }]);
   assert.ok(await findTechnicianJobClash({ ...appointment, scheduledTime: "14:00" }));
+});
+
+test("All-day jobs reserve exactly 08:00 to 17:00", async t => {
+  mockJobs(t, [{ ...existingJob, all_day: true, scheduled_time: null }]);
+  assert.equal(await findTechnicianJobClash({ ...appointment, scheduledTime: "07:00" }), null);
+  assert.ok(await findTechnicianJobClash({ ...appointment, scheduledTime: "07:30" }));
+  assert.ok(await findTechnicianJobClash({ ...appointment, scheduledTime: "08:00" }));
+  assert.ok(await findTechnicianJobClash({ ...appointment, scheduledTime: "16:59" }));
+  assert.equal(await findTechnicianJobClash({ ...appointment, scheduledTime: "17:00" }), null);
+  assert.equal(await findTechnicianJobClash({ ...appointment, scheduledTime: "18:00" }), null);
+});
+
+test("Multi-day all-day jobs leave evenings free on intermediate days", async t => {
+  mockJobs(t, [{
+    ...existingJob, scheduled_end_date: "2026-10-28", all_day: true, scheduled_time: null,
+  }]);
+  assert.equal(await findTechnicianJobClash({
+    ...appointment, scheduledDate: "2026-10-27", scheduledTime: "18:00",
+  }), null);
+  assert.ok(await findTechnicianJobClash({
+    ...appointment, scheduledDate: "2026-10-27", scheduledTime: "16:30",
+  }));
+});
+
+test("New all-day ranges allow existing evening jobs", async t => {
+  mockJobs(t, [{ ...existingJob, scheduled_date: "2026-10-27", scheduled_time: "18:00" }]);
+  assert.equal(await findTechnicianJobClash({
+    ...appointment, scheduledEndDate: "2026-10-28", allDay: true,
+  }), null);
 });
 
 test("New untimed jobs check existing appointments rather than bypassing clashes", async t => {

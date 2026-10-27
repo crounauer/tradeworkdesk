@@ -901,7 +901,7 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     scheduledTime: insertPayload.scheduled_time ?? null,
     estimatedDuration: insertPayload.estimated_duration ?? null,
   });
-  if (createJobClash) {
+  if (createJobClash && req.body.allow_job_clash !== true) {
     sendTechnicianJobClash(res, createJobClash);
     return;
   }

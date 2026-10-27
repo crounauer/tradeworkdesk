@@ -45,6 +45,7 @@ The BoilerTech application is built as a pnpm workspace monorepo.
 **Monorepo Structure:** Organizes frontend, backend, API specifications, generated client code, ORM schemas, and Supabase migrations.
 
 **Feature Specifications:**
+- **Booking availability:** All-day and untimed jobs reserve 08:00-17:00 on each date, leaving evenings available. The main Book Job form offers an explicit technician job-clash override; other booking/rescheduling flows still block clashes, and technician leave cannot be overridden.
 - **Dynamic Forms:** Service record forms adapt based on appliance fuel type (gas/oil). Commissioning records for installations.
 - **Platform Admin:** Super_admin management of tenants, plans, announcements, and audit logs.
 - **Registration:** Multi-step company signup and invite-code registration. Gated behind a beta invite code system during private beta.

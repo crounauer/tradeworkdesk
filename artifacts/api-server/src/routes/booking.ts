@@ -640,8 +640,11 @@ async function getAvailableSlots(
 
         if (!jobSpansDate(j, dateStr)) return false;
 
-        // Jobs without a start time are treated as all-day and block this entire date.
-        if (j.all_day || !j.scheduled_time) return true;
+        if (j.all_day || !j.scheduled_time) {
+          const start = localDateTimeToUtc(dateStr, "08:00").getTime() - buffer * 60000;
+          const end = localDateTimeToUtc(dateStr, "17:00").getTime() + buffer * 60000;
+          return slotStartMs < end && slotEndMs > start;
+        }
 
         const spansMultipleDays = Boolean(j.scheduled_end_date && String(j.scheduled_end_date).slice(0, 10) > String(j.scheduled_date).slice(0, 10));
         if (spansMultipleDays) {
@@ -765,8 +768,11 @@ async function selectAvailableEngineerForSlot(args: {
 
         if (!jobSpansDate(job, dateStr)) return false;
 
-        // Jobs without a start time are treated as all-day and block this technician for the date.
-        if (job.all_day || !job.scheduled_time) return true;
+        if (job.all_day || !job.scheduled_time) {
+          const start = localDateTimeToUtc(dateStr, "08:00").getTime();
+          const end = localDateTimeToUtc(dateStr, "17:00").getTime();
+          return slotStartMs < end && slotEndMs > start;
+        }
 
         const spansMultipleDays = Boolean(job.scheduled_end_date && String(job.scheduled_end_date).slice(0, 10) > String(job.scheduled_date).slice(0, 10));
         if (spansMultipleDays) return true;

@@ -156,7 +156,7 @@ const sections: HelpSection[] = [
       },
       {
         q: "Will I be warned about clashing appointments?",
-        a: "When booking, rebooking, rescheduling, or converting an enquiry or follow-up to a job, overlapping active jobs assigned to the same technician are blocked with a clash message. All-day jobs, including jobs without a start time, reserve the whole day across their date range. Unassigned jobs do not reserve a technician. Cancelled, completed and invoiced jobs do not block new appointments.",
+        a: "All-day jobs, including jobs without a start time, reserve 08:00–17:00 on each day of their date range. In the main Book Job form, a technician job clash offers a choice to book anyway or cancel. Other booking and rescheduling flows still block job clashes. Leave protection is unchanged and cannot be overridden by this choice. Unassigned jobs do not reserve a technician. Cancelled, completed and invoiced jobs do not block new appointments.",
       },
       {
         q: "Can I schedule separate dates under the same job?",
