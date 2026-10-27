@@ -209,7 +209,7 @@ export default function JobDetail() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const { isOnline, queueJobUpdate, pendingMutations, failedMutations } = useOffline();
-  const { data: onlineJob, isLoading } = useGetJob(id);
+  const { data: onlineJob, isLoading, error: jobError, refetch: refetchJob } = useGetJob(id);
   const { data: completionReport } = useGetJobCompletionReportByJob(id!, { query: { enabled: !!id } } as any);
   const { data: completedForms } = useQuery({
     queryKey: [`/api/jobs/${id}/completed-forms`],
@@ -316,7 +316,7 @@ export default function JobDetail() {
     setHasRebookBeenUsedLocal(false);
     setShowMobileActions(false);
   }, [id]);
-  const effectiveJob = onlineJob || cachedJob;
+  const effectiveJob = onlineJob || (!isOnline ? cachedJob : null);
   const isFromCache = !onlineJob && !!cachedJob;
   const job = effectiveJob ? (effectiveJob as unknown as JobDetailType) : null;
 
@@ -712,6 +712,17 @@ export default function JobDetail() {
 
   if (isLoading || loadingCache) return <div className="p-8">Loading job details...</div>;
 
+  if (isOnline && jobError) return (
+    <div role="alert" className="space-y-3">
+      <p>Unable to load this job. It may have been deleted or is no longer available.</p>
+      <p className="text-sm text-muted-foreground">{jobError.message}</p>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={() => void refetchJob()}>Retry</Button>
+        <Link href="/jobs" className="inline-flex items-center text-sm text-primary hover:underline">Back to Jobs</Link>
+      </div>
+    </div>
+  );
+
   if (!job) return <div>Job not found{!isOnline ? " — this job hasn't been cached for offline viewing." : ""}</div>;
 
   const appliancesForDisplay = propertyAppliances.length > 0
@@ -1027,6 +1038,11 @@ export default function JobDetail() {
                         await deleteJob.mutateAsync({ id: job.id });
                         qc.invalidateQueries({ queryKey: ["/api/jobs"] });
                         qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
+                        qc.removeQueries({ queryKey: [`/api/jobs/${job.id}`], exact: true });
+                        qc.invalidateQueries({ queryKey: ["/api/calendar"] });
+                        qc.invalidateQueries({ queryKey: ["homepage"] });
+                        qc.invalidateQueries({ queryKey: ["follow-ups"] });
+                        qc.invalidateQueries({ queryKey: ["job-follow-up-summary"] });
                         if (originalJobId) {
                           toast({ title: "Follow-up job deleted", description: "The follow-up has been removed and the original job is available again." });
                           navigate("/follow-ups");

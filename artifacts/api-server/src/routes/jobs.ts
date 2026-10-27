@@ -1323,7 +1323,7 @@ router.get("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedReq
   const params = GetJobParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  let jobQ = supabaseAdmin.from("jobs").select("*").eq("id", params.data.id);
+  let jobQ = supabaseAdmin.from("jobs").select("*").eq("id", params.data.id).eq("is_active", true);
   if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
   const { data: job, error } = await jobQ.single();
   if (error || !job) { res.status(404).json({ error: "Job not found" }); return; }
@@ -3655,6 +3655,10 @@ router.delete("/jobs/:id", requireAuth, requireTenant, requireRole("admin"), req
 
   const { error: deleteErr } = await q;
   if (deleteErr) { res.status(500).json({ error: deleteErr.message }); return; }
+
+  invalidateJobsCache(req.tenantId);
+  invalidateCalendarCache(req.tenantId);
+  invalidateHomepageCache(req.tenantId);
 
   // If this job was created from a follow-up, reset the follow-up back to pre-booked state.
   let linkedFollowUpQ = supabaseAdmin
