@@ -1123,7 +1123,20 @@ router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: Aut
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  await supabaseAdmin.from("company_settings").insert({
+  const rollbackCompanySetup = async (authUserId?: string) => {
+    if (authUserId) {
+      const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(authUserId);
+      if (deleteUserError) {
+        console.error("[platform-create-company] Failed to remove invited user", authUserId, deleteUserError.message);
+      }
+    }
+    const { error: deleteTenantError } = await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
+    if (deleteTenantError) {
+      console.error("[platform-create-company] Failed to roll back tenant", tenant.id, deleteTenantError.message);
+    }
+  };
+
+  const { error: settingsError } = await supabaseAdmin.from("company_settings").insert({
     singleton_id: "default",
     tenant_id: tenant.id,
     name: company_name,
@@ -1131,10 +1144,66 @@ router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: Aut
     phone: contact_phone || null,
     invoices_enabled: true,
   });
+  if (settingsError) {
+    await rollbackCompanySetup();
+    res.status(500).json({ error: `Company settings could not be created: ${settingsError.message}` });
+    return;
+  }
 
   await grantTrialUsageCredits(tenant.id).catch((e) =>
     console.error("[trial-credits] Failed to grant initial trial credits", tenant.id, e)
   );
+
+  const appUrl = (process.env.APP_URL || "https://www.tradeworkdesk.co.uk").replace(/\/+$/, "");
+  const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.generateLink({
+    type: "invite",
+    email: contact_email,
+    options: {
+      redirectTo: `${appUrl}/reset-password`,
+      data: {
+        full_name: contact_name || company_name,
+        role: "admin",
+        tenant_id: tenant.id,
+      },
+    },
+  });
+
+  if (inviteError || !inviteData?.user || !inviteData.properties?.action_link) {
+    await rollbackCompanySetup(inviteData?.user?.id);
+    res.status(400).json({ error: inviteError?.message || "Could not create the company admin login." });
+    return;
+  }
+
+  const { error: profileError } = await supabaseAdmin.from("profiles").upsert(
+    {
+      id: inviteData.user.id,
+      email: contact_email,
+      full_name: contact_name || company_name,
+      role: "admin",
+      tenant_id: tenant.id,
+      can_be_assigned_jobs: true,
+    },
+    { onConflict: "id" },
+  );
+  if (profileError) {
+    await rollbackCompanySetup(inviteData.user.id);
+    res.status(500).json({ error: `Company login could not be configured: ${profileError.message}` });
+    return;
+  }
+
+  try {
+    await sendWelcomeEmail(
+      contact_email,
+      company_name,
+      trialEnds,
+      inviteData.properties.action_link,
+    );
+  } catch (emailError) {
+    await rollbackCompanySetup(inviteData.user.id);
+    const message = emailError instanceof Error ? emailError.message : String(emailError);
+    res.status(500).json({ error: `The company login was not created because the setup email could not be sent: ${message}` });
+    return;
+  }
 
   await supabaseAdmin.from("platform_audit_log").insert({
     actor_id: req.userId,
@@ -1145,13 +1214,7 @@ router.post("/platform/tenants", requireAuth, requireSuperAdmin, async (req: Aut
     detail: { company_name, created_by: "super_admin" },
   });
 
-  if (contact_email && trialEnds) {
-    sendWelcomeEmail(contact_email, company_name, trialEnds).catch((e) =>
-      console.error("[email] Welcome email failed:", e)
-    );
-  }
-
-  res.status(201).json(tenant);
+  res.status(201).json({ ...tenant, welcomeEmailSent: true });
 });
 
 router.delete("/platform/tenants/:id", requireAuth, requireSuperAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -2787,7 +2850,7 @@ router.post("/platform/email/test", requireAuth, requireSuperAdmin, async (req: 
   try {
     switch (template) {
       case "welcome":
-        await wel(to, "Test Company Ltd", futureDate);
+        await wel(to, "Test Company Ltd", futureDate, `${BILLING.replace(/\/billing$/, "")}/reset-password`);
         break;
       case "invoice":
         await inv(to, "Test Company Ltd", 5999, "gbp", futureDate, "https://invoice.stripe.com/test");

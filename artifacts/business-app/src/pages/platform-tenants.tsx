@@ -50,9 +50,14 @@ export default function PlatformTenants() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["platform-tenants"] });
-      toast({ title: "Company created" });
+      toast({
+        title: "Company created",
+        description: result.welcomeEmailSent
+          ? `A password setup link was sent to ${result.contact_email}.`
+          : undefined,
+      });
       setShowAdd(false);
       setAddForm({ company_name: "", contact_name: "", contact_email: "", contact_phone: "" });
     },

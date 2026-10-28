@@ -706,12 +706,13 @@ export async function sendWelcomeEmail(
   to: string,
   companyName: string,
   trialEndsAt: string,
+  setPasswordUrl: string,
   company?: EmailCompanyDetails,
 ): Promise<void> {
   const trialDate = new Date(trialEndsAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const html = baseHtml("Welcome to TradeWorkDesk", `
     <h2>Welcome to TradeWorkDesk, ${companyName}!</h2>
-    <p>Your account is set up and ready to go. You're on a 30-day free trial until <strong>${trialDate}</strong>.</p>
+    <p>Your company account is ready. Set a password to sign in. You're on a 30-day free trial until <strong>${trialDate}</strong>.</p>
     <p>During your trial you have full access to all features:</p>
     <ul>
       <li>Job management &amp; scheduling</li>
@@ -720,7 +721,7 @@ export async function sendWelcomeEmail(
       <li>Reports &amp; analytics</li>
     </ul>
     <p style="margin-top:24px;">
-      <a href="https://tradeworkdesk.co.uk" class="btn">Open TradeWorkDesk</a>
+      <a href="${escHtml(setPasswordUrl)}" class="btn" style="display:inline-block;background-color:#1d4ed8;color:#ffffff !important;text-decoration:none;border-radius:8px;padding:12px 24px;font-weight:600;font-size:14px;">Set your password</a>
     </p>
     <hr class="divider"/>
     <p style="font-size:13px; color:#64748b;">If you have any questions, reply to this email and we'll be happy to help.</p>
