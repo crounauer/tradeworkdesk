@@ -2671,7 +2671,7 @@ function AccountsTab() {
           disabled={startFacebookOAuthMutation.isPending}
         >
           {startFacebookOAuthMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-2" />}
-          Log in with Facebook
+          Connect Facebook Page
         </Button>
         <Button
           variant="default"

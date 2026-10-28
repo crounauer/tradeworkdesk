@@ -213,6 +213,60 @@ function sha256(input: string): string {
   return crypto.createHash("sha256").update(input, "utf8").digest("hex");
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;",
+  })[char] || char);
+}
+
+function renderFacebookPageSelection(args: {
+  pages: Array<{ id: string; name: string }>;
+  payload: string;
+  state: string;
+  cancelUrl: string;
+}): string {
+  const pageOptions = args.pages.map((page) => `
+    <label class="page">
+      <input type="checkbox" name="pageIds" value="${escapeHtml(page.id)}">
+      <span>${escapeHtml(page.name)}</span>
+    </label>`).join("");
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Choose Facebook Pages | TradeWorkDesk</title>
+  <style>
+    body{font:16px system-ui,sans-serif;background:#f5f7fb;color:#172033;margin:0;padding:32px 16px}
+    main{max-width:560px;margin:5vh auto;background:white;padding:28px;border-radius:12px;box-shadow:0 4px 24px #17203312}
+    h1{font-size:22px;margin:0 0 8px}p{color:#596579;line-height:1.5}
+    .page{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid #dce2eb;border-radius:8px;margin:10px 0;cursor:pointer}
+    input{width:18px;height:18px;accent-color:#5b5ce2}
+    button{width:100%;margin-top:16px;padding:12px;border:0;border-radius:8px;background:#5b5ce2;color:white;font-size:16px;font-weight:600;cursor:pointer}
+    a{display:block;text-align:center;margin-top:16px;color:#596579}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Choose the Facebook Page(s) to connect</h1>
+    <p>Select only the business Page(s) you want TradeWorkDesk to publish to. Your personal Facebook profile is not connected.</p>
+    <form method="post" action="/api/admin/social/facebook/oauth/select">
+      <input type="hidden" name="state" value="${escapeHtml(args.state)}">
+      <input type="hidden" name="payload" value="${escapeHtml(args.payload)}">
+      ${pageOptions}
+      <button type="submit">Connect selected Pages</button>
+    </form>
+    <a href="${escapeHtml(args.cancelUrl)}">Cancel</a>
+  </main>
+</body>
+</html>`;
+}
+
 async function exchangeFacebookCodeForToken(code: string, redirectUri: string): Promise<{ accessToken: string; expiresIn: number | null; tokenSource: "long_lived" | "short_lived" }> {
   const appId = getRequiredEnv("META_APP_ID");
   const appSecret = getRequiredEnv("META_APP_SECRET");
@@ -782,19 +836,23 @@ router.get(
         res.redirect(redirectUrl.toString());
       };
 
-      await supabaseAdmin
-        .from(isPlatformScope ? "platform_facebook_oauth_states" : "facebook_oauth_states")
-        .update({ used_at: new Date().toISOString() })
-        .eq("id", pendingState.id)
-        .is("used_at", null);
+      const consumeState = async () => {
+        await supabaseAdmin
+          .from(isPlatformScope ? "platform_facebook_oauth_states" : "facebook_oauth_states")
+          .update({ used_at: new Date().toISOString() })
+          .eq("id", pendingState.id)
+          .is("used_at", null);
+      };
 
       if (oauthError) {
+        await consumeState();
         const message = oauthErrorDescription || oauthErrorReason || oauthError;
         redirectWith("error", message);
         return;
       }
 
       if (!code) {
+        await consumeState();
         redirectWith("error", "missing_code");
         return;
       }
@@ -804,42 +862,177 @@ router.get(
       const pages = await fetchFacebookPages(tokenResult.accessToken);
 
       if (pages.length === 0) {
+        await consumeState();
         redirectWith("error", "no_pages_found");
         return;
       }
 
-      const expiresAt = tokenResult.expiresIn && tokenResult.expiresIn > 0
-        ? new Date(Date.now() + tokenResult.expiresIn * 1000).toISOString()
-        : null;
+      const selectionPayload = encryptCredentials({
+        selectionData: JSON.stringify({
+          stateHash,
+          tenantId: tenantScopeTenantId || "",
+          appOrigin,
+          returnPath,
+          isPlatformScope: String(isPlatformScope),
+          tokenSource: tokenResult.tokenSource,
+          expiresIn: String(tokenResult.expiresIn || ""),
+          pages: JSON.stringify(pages),
+        }),
+      });
+      const cancelUrl = new URL(returnPath, appOrigin).toString();
+      res
+        .setHeader("Cache-Control", "no-store")
+        .type("html")
+        .send(renderFacebookPageSelection({
+          pages,
+          payload: selectionPayload,
+          state,
+          cancelUrl,
+        }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "oauth_callback_failed";
+      fallbackRedirect("error", message);
+    }
+  },
+);
 
-      for (const page of pages) {
-        const encryptedCredentials = encryptCredentials({ accessToken: page.access_token });
-        const tokenMetadata = {
-          type: "facebook_page_access_token",
-          oauth_flow: "facebook_login_for_business",
-          token_source: tokenResult.tokenSource,
-          connected_at: new Date().toISOString(),
-          user_token_expires_in_seconds: tokenResult.expiresIn,
-          configuration_id: String(process.env.META_CONFIGURATION_ID || "").trim() || null,
-        };
+router.post(
+  "/admin/social/facebook/oauth/select",
+  async (req, res): Promise<void> => {
+    try {
+      const state = String(req.body?.state || "").trim();
+      const payload = String(req.body?.payload || "").trim();
+      const rawPageIds = req.body?.pageIds;
+      const selectedPageIds = [...new Set(
+        (Array.isArray(rawPageIds) ? rawPageIds : [rawPageIds])
+          .map((id: unknown) => String(id || "").trim())
+          .filter(Boolean),
+      )];
 
+      if (!state || !payload || selectedPageIds.length === 0) {
+        res.status(400).type("text").send("Select at least one Facebook Page, then try again.");
+        return;
+      }
+
+      const encryptedPayload = decryptCredentials(payload);
+      const selectionData = JSON.parse(String(encryptedPayload.selectionData || "")) as {
+        stateHash?: string;
+        tenantId?: string;
+        appOrigin?: string;
+        returnPath?: string;
+        isPlatformScope?: string;
+        tokenSource?: string;
+        expiresIn?: string;
+        pages?: string;
+      };
+      const stateHash = sha256(state);
+      const isPlatformScope = selectionData.isPlatformScope === "true";
+
+      if (selectionData.stateHash !== stateHash || !selectionData.pages) {
+        res.status(400).type("text").send("This Facebook connection has expired. Start again from TradeWorkDesk.");
+        return;
+      }
+
+      const accountTable = isPlatformScope ? "platform_social_accounts" : "social_accounts";
+      const nowIso = new Date().toISOString();
+      let pendingStateId: string | null = null;
+      let pendingTenantId: string | null = null;
+      let stateLookupError: string | null = null;
+      if (isPlatformScope) {
+        const stateResult = await supabaseAdmin
+          .from("platform_facebook_oauth_states")
+          .select("id")
+          .eq("state_hash", stateHash)
+          .is("used_at", null)
+          .gt("expires_at", nowIso)
+          .maybeSingle();
+        pendingStateId = stateResult.data?.id || null;
+        stateLookupError = stateResult.error?.message || null;
+      } else {
+        const stateResult = await supabaseAdmin
+          .from("facebook_oauth_states")
+          .select("id, tenant_id")
+          .eq("state_hash", stateHash)
+          .is("used_at", null)
+          .gt("expires_at", nowIso)
+          .maybeSingle();
+        pendingStateId = stateResult.data?.id || null;
+        pendingTenantId = stateResult.data?.tenant_id || null;
+        stateLookupError = stateResult.error?.message || null;
+      }
+
+      if (stateLookupError || !pendingStateId) {
+        res.status(400).type("text").send("This Facebook connection has expired or was already used. Start again from TradeWorkDesk.");
+        return;
+      }
+
+      const tenantId = isPlatformScope ? null : pendingTenantId;
+      if ((!isPlatformScope && (!tenantId || tenantId !== selectionData.tenantId)) ||
+        (isPlatformScope && selectionData.tenantId)) {
+        res.status(400).type("text").send("The Facebook connection scope could not be verified.");
+        return;
+      }
+
+      const pages = JSON.parse(selectionData.pages) as Array<{
+        id: string;
+        name: string;
+        access_token: string;
+      }>;
+      const selectedPages = pages.filter((page) => selectedPageIds.includes(page.id));
+      if (selectedPages.length !== selectedPageIds.length) {
+        res.status(400).type("text").send("The selected Pages could not be verified.");
+        return;
+      }
+
+      const consumeResult = isPlatformScope
+        ? await supabaseAdmin
+          .from("platform_facebook_oauth_states")
+          .update({ used_at: nowIso })
+          .eq("id", pendingStateId)
+          .is("used_at", null)
+          .select("id")
+          .maybeSingle()
+        : await supabaseAdmin
+          .from("facebook_oauth_states")
+          .update({ used_at: nowIso })
+          .eq("id", pendingStateId)
+          .is("used_at", null)
+          .select("id")
+          .maybeSingle();
+      const consumedState = consumeResult.data;
+      const consumeError = consumeResult.error;
+
+      if (consumeError || !consumedState) {
+        res.status(400).type("text").send("This Facebook connection has expired or was already used. Start again from TradeWorkDesk.");
+        return;
+      }
+
+      const expiresIn = Number(selectionData.expiresIn || 0);
+      const expiresAt = expiresIn > 0 ? new Date(Date.now() + expiresIn * 1000).toISOString() : null;
+
+      for (const page of selectedPages) {
         const accountPayload = {
           platform: "facebook",
-          encrypted_credentials: encryptedCredentials,
+          encrypted_credentials: encryptCredentials({ accessToken: page.access_token }),
           profile_name: page.name,
           page_id: page.id,
           page_name: page.name,
           expires_at: expiresAt,
           is_active: true,
           connection_method: "facebook_oauth",
-          token_metadata: tokenMetadata,
+          token_metadata: {
+            type: "facebook_page_access_token",
+            oauth_flow: "facebook_login_for_business",
+            token_source: selectionData.tokenSource || "long_lived",
+            connected_at: new Date().toISOString(),
+            user_token_expires_in_seconds: expiresIn || null,
+            configuration_id: String(process.env.META_CONFIGURATION_ID || "").trim() || null,
+          },
           updated_at: new Date().toISOString(),
         };
-
-        const accountTable = isPlatformScope ? "platform_social_accounts" : "social_accounts";
         const scopedPayload = isPlatformScope
           ? accountPayload
-          : { ...accountPayload, tenant_id: tenantScopeTenantId };
+          : { ...accountPayload, tenant_id: tenantId };
 
         let findQuery = supabaseAdmin
           .from(accountTable)
@@ -849,46 +1042,40 @@ router.get(
           .limit(1);
 
         if (!isPlatformScope) {
-          findQuery = findQuery.eq("tenant_id", tenantScopeTenantId);
+          findQuery = findQuery.eq("tenant_id", tenantId);
         }
 
         const { data: existingAccount, error: findError } = await findQuery.maybeSingle();
-
-        if (findError) {
-          throw new Error(findError.message);
-        }
+        if (findError) throw new Error(findError.message);
 
         if (existingAccount?.id) {
           let updateQuery = supabaseAdmin
             .from(accountTable)
             .update(scopedPayload)
             .eq("id", existingAccount.id);
-
-          if (!isPlatformScope) {
-            updateQuery = updateQuery.eq("tenant_id", tenantScopeTenantId);
-          }
-
+          if (!isPlatformScope) updateQuery = updateQuery.eq("tenant_id", tenantId);
           const { error: updateError } = await updateQuery;
-
-          if (updateError) {
-            throw new Error(updateError.message);
-          }
+          if (updateError) throw new Error(updateError.message);
           continue;
         }
 
         const { error: insertError } = await supabaseAdmin
           .from(accountTable)
           .insert(scopedPayload);
-
-        if (insertError) {
-          throw new Error(insertError.message);
-        }
+        if (insertError) throw new Error(insertError.message);
       }
 
-      redirectWith("success", undefined, pages.length);
+      const returnPath = sanitizeReturnPath(selectionData.returnPath);
+      const redirectUrl = new URL(
+        returnPath,
+        selectionData.appOrigin || "https://tradeworkdesk.co.uk",
+      );
+      redirectUrl.searchParams.set("facebook_oauth", "success");
+      redirectUrl.searchParams.set("connected", String(selectedPages.length));
+      res.redirect(303, redirectUrl.toString());
     } catch (err) {
-      const message = err instanceof Error ? err.message : "oauth_callback_failed";
-      fallbackRedirect("error", message);
+      const message = err instanceof Error ? err.message : "facebook_page_selection_failed";
+      res.status(500).type("text").send(`Unable to connect selected Facebook Pages: ${escapeHtml(message)}`);
     }
   },
 );
