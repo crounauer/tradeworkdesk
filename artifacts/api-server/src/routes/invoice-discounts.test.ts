@@ -22,6 +22,10 @@ type Options = {
   missing?: boolean;
   lineReadFailure?: boolean;
   draftReadFailure?: boolean;
+  job?: Record<string, unknown> | null;
+  jobFailure?: boolean;
+  linkConflict?: boolean;
+  linkFailure?: boolean;
   path?: string;
 };
 
@@ -52,7 +56,16 @@ async function request(t: TestContext, options: Options = {}) {
         data = [{ ...existing, invoice_number: "INV-1", issue_date: "2026-10-29", currency: "GBP" }];
       } else {
         assert.equal(method === "POST" ? body.tenant_id : url.searchParams.get("tenant_id"), method === "POST" ? tenantId : `eq.${tenantId}`);
-        data = options.missing ? null : { ...existing, ...body };
+        if (method === "PATCH" && options.linkFailure) return Response.json({ message: "Failed to link invoice" }, { status: 500 });
+        data = options.missing || (method === "PATCH" && options.linkConflict) ? null : { ...existing, ...body };
+        if (method === "PATCH" && options.path?.endsWith("/link-job")) {
+          assert.equal(url.searchParams.get("job_id"), "is.null");
+          assert.equal(url.searchParams.get("customer_id"), `eq.${customerId}`);
+          assert.equal(url.searchParams.get("type"), "eq.invoice");
+          assert.equal(url.searchParams.get("status"), "in.(draft,sent,overdue,paid)");
+          assert.equal(url.searchParams.get("property_id"), options.existing?.property_id ? `eq.${options.existing.property_id}` : "is.null");
+          assert.deepEqual(Object.keys(body).sort(), ["job_id", "updated_at"]);
+        }
       }
     } else if (table === "invoice_line_items") {
       if (method === "GET") {
@@ -61,9 +74,22 @@ async function request(t: TestContext, options: Options = {}) {
       }
       data = method === "GET" ? lineItems : null;
     } else if (table === "customers") data = { id: customerId, first_name: "Test", last_name: "Customer" };
-    else if (table === "jobs") data = {
-      id: invoiceId, status: "completed", customer_id: customerId, created_at: "2026-10-29T09:00:00Z",
-    };
+    else if (table === "jobs") {
+      if (options.jobFailure) return Response.json({ message: "Failed to load jobs" }, { status: 500 });
+      data = options.job === undefined ? {
+        id: invoiceId, status: "completed", customer_id: customerId, property_id: "property-1",
+        is_active: true, job_ref: "JOB-123", created_at: "2026-10-29T09:00:00Z",
+      } : options.job;
+      if (options.path?.includes("link")) {
+        assert.equal(url.searchParams.get("tenant_id"), `eq.${tenantId}`);
+        assert.equal(url.searchParams.get("customer_id"), `eq.${customerId}`);
+      }
+      if (options.path?.endsWith("/linkable-jobs")) {
+        return new Response(JSON.stringify(data ? [data] : []), {
+          headers: { "Content-Type": "application/json", "Content-Range": "0-0/21" },
+        });
+      }
+    }
     else if (table === "job_services") data = [{ service_name: "Service", quantity: 1, unit_price: 200 }];
     else if (table === "job_parts" || table === "job_time_entries") data = [];
     else if (table === "company_settings") data = { default_vat_rate: 20, currency: "GBP" };
@@ -96,12 +122,150 @@ async function request(t: TestContext, options: Options = {}) {
   t.after(() => new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve())));
   const address = server.address();
   assert.ok(address && typeof address !== "string");
-  const response = await fetch(`http://127.0.0.1:${address.port}${routePath.replace(":id", invoiceId)}`, {
+  const response = await fetch(`http://127.0.0.1:${address.port}${routePath.replace(":id", invoiceId)}${method === "get" && options.body ? `?${new URLSearchParams(Object.entries(options.body).map(([key, value]) => [key, String(value)]))}` : ""}`, {
     method: method.toUpperCase(), headers: { "Content-Type": "application/json" },
     ...(method === "get" ? {} : { body: JSON.stringify(options.body || {}) }),
   });
   return { response, writes, reads };
 }
+
+for (const status of ["draft", "sent", "overdue", "paid"]) {
+  test(`an existing ${status} invoice can be attached without changing financial data`, async t => {
+    const { response, writes } = await request(t, {
+      method: "post", path: "/invoices/:id/link-job", existing: { status },
+      body: { job_id: invoiceId, total: 0, customer_id: "other-customer" },
+    });
+    assert.equal(response.status, 200, await response.clone().text());
+    const result = await response.json();
+    assert.ok(result && typeof result === "object" && "job_id" in result && "total" in result && "discount_amount" in result && "status" in result);
+    assert.equal(result.job_id, invoiceId);
+    assert.equal(result.total, 108);
+    assert.equal(result.discount_amount, 10);
+    assert.equal(result.status, status);
+    assert.deepEqual(writes.map(write => [write.table, write.method]), [["invoices", "PATCH"]]);
+  });
+}
+
+for (const existing of [
+  { job_id: "already-linked" }, { type: "quote" }, { status: "cancelled" },
+]) {
+  test(`invoice job linking rejects incompatible documents: ${JSON.stringify(existing)}`, async t => {
+    const { response, writes } = await request(t, {
+      method: "post", path: "/invoices/:id/link-job", existing, body: { job_id: invoiceId },
+    });
+    assert.equal(response.status, 409);
+    assert.equal(writes.length, 0);
+  });
+}
+
+test("invoice job linking rejects invalid identifiers", async t => {
+  const { response, writes } = await request(t, {
+    method: "post", path: "/invoices/:id/link-job", body: { job_id: "invalid" },
+  });
+  assert.equal(response.status, 400);
+  assert.equal(writes.length, 0);
+});
+
+test("invoice job linking rejects jobs outside the invoice's tenant or customer", async t => {
+  const { response, writes } = await request(t, {
+    method: "post", path: "/invoices/:id/link-job", job: null, body: { job_id: invoiceId },
+  });
+  assert.equal(response.status, 404);
+  assert.equal(writes.length, 0);
+});
+
+for (const job of [
+  { id: invoiceId, is_active: false }, { id: invoiceId, is_active: true, status: "cancelled" },
+  { id: invoiceId, is_active: true, property_id: "another-property" },
+]) {
+  test(`invoice job linking rejects an ineligible job: ${JSON.stringify(job)}`, async t => {
+    const { response, writes } = await request(t, {
+      method: "post", path: "/invoices/:id/link-job", body: { job_id: invoiceId }, job,
+      existing: { property_id: "property-1" },
+    });
+    assert.equal(response.status, 400);
+    assert.equal(writes.length, 0);
+  });
+}
+
+test("invoice job linking permits the invoice's selected service address", async t => {
+  const { response, writes } = await request(t, {
+    method: "post", path: "/invoices/:id/link-job", body: { job_id: invoiceId },
+    existing: { property_id: "property-1" },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(writes.length, 1);
+});
+
+test("invoice job linking does not overwrite a concurrent link or service-address change", async t => {
+  const { response } = await request(t, {
+    method: "post", path: "/invoices/:id/link-job", body: { job_id: invoiceId }, linkConflict: true,
+  });
+  assert.equal(response.status, 409);
+});
+
+for (const options of [{ jobFailure: true }, { linkFailure: true }]) {
+  test(`invoice job linking reports database failures: ${JSON.stringify(options)}`, async t => {
+    const { response } = await request(t, {
+      method: "post", path: "/invoices/:id/link-job", body: { job_id: invoiceId }, ...options,
+    });
+    assert.equal(response.status, 500);
+  });
+}
+
+test("linkable jobs are scoped, filtered, searchable and paginated", async t => {
+  const { response, reads } = await request(t, {
+    method: "get", path: "/invoices/:id/linkable-jobs",
+    body: { page: 2, search: 'JOB-123,_%")' }, existing: { property_id: "property-1" },
+  });
+  assert.equal(response.status, 200, await response.clone().text());
+  const jobs = reads.find(url => url.pathname.endsWith("/jobs"));
+  assert.ok(jobs);
+  assert.equal(jobs.searchParams.get("property_id"), "eq.property-1");
+  assert.equal(jobs.searchParams.get("is_active"), "eq.true");
+  assert.equal(jobs.searchParams.get("status"), "neq.cancelled");
+  assert.equal(jobs.searchParams.get("offset"), "20");
+  assert.equal(jobs.searchParams.get("limit"), "20");
+  const pattern = JSON.stringify('%JOB-123,\\_\\%")%');
+  assert.equal(jobs.searchParams.get("or"), `(job_ref.ilike.${pattern},description.ilike.${pattern})`);
+  const result = await response.json();
+  assert.ok(result && typeof result === "object" && "pagination" in result);
+  const pagination = result.pagination;
+  assert.ok(pagination && typeof pagination === "object" && "totalPages" in pagination);
+  assert.equal(pagination.totalPages, 2);
+});
+
+test("linkable job searches surface database errors", async t => {
+  const { response } = await request(t, {
+    method: "get", path: "/invoices/:id/linkable-jobs", jobFailure: true,
+  });
+  assert.equal(response.status, 500);
+});
+
+for (const path of ["/invoices/:id/linkable-jobs", "/invoices/:id/link-job"]) {
+  test(`missing or foreign invoices cannot be linked or searched: ${path}`, async t => {
+    const { response, writes } = await request(t, {
+      method: path.endsWith("link-job") ? "post" : "get", path, missing: true, body: { job_id: invoiceId },
+    });
+    assert.equal(response.status, 404);
+    assert.equal(writes.length, 0);
+  });
+}
+
+test("linkable job search rejects an invalid page", async t => {
+  const { response } = await request(t, {
+    method: "get", path: "/invoices/:id/linkable-jobs", body: { page: 0 },
+  });
+  assert.equal(response.status, 400);
+});
+
+test("already linked invoices do not expose job candidates", async t => {
+  const { response, reads } = await request(t, {
+    method: "get", path: "/invoices/:id/linkable-jobs", existing: { job_id: invoiceId },
+  });
+  assert.equal(response.status, 409);
+  assert.equal(reads.filter(url => url.pathname.endsWith("/jobs")).length, 0);
+});
 
 test("creating and duplicating an invoice calculates and persists its discount", async t => {
   const { response, writes } = await request(t, {

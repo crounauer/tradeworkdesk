@@ -214,6 +214,10 @@ const sections: HelpSection[] = [
         q: "How do I add a discount to an invoice?",
         a: "Open a draft invoice and click Edit. In the totals section, choose Percentage (%) or Fixed amount under Discount and enter the value, then click Save. Discounts apply to the whole invoice before VAT and appear on the invoice PDF, including the copy in the customer portal. Choose No discount to remove one. Percentage discounts cannot exceed 100%, and fixed discounts cannot exceed the subtotal. Sent invoices must be returned to draft before editing.",
       },
+      {
+        q: "Can I link an existing invoice to a job?",
+        a: "Yes. Open an invoice that is not already linked and click Link to job. Search by job reference or description, select the existing job and confirm. Only active, non-cancelled jobs for the same customer are shown; if the invoice has a service address selected, the job must match it. Draft, sent, overdue and paid invoices can be linked. Linking leaves invoice amounts, payments and job status unchanged, and the invoice appears with the job's linked invoices. It does not send an email or move an invoice that is already linked.",
+      },
     ],
   },
   {

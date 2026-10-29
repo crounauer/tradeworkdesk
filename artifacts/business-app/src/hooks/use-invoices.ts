@@ -308,6 +308,39 @@ export function useUpdateInvoice(id: string) {
   });
 }
 
+export interface LinkableInvoiceJob {
+  id: string;
+  job_ref: string | null;
+  description: string | null;
+  scheduled_date: string | null;
+  status: string;
+}
+
+export function useLinkableInvoiceJobs(id: string, search: string, page: number, enabled: boolean) {
+  const params = new URLSearchParams({ search, page: String(page) });
+  return useQuery<{ jobs: LinkableInvoiceJob[]; pagination: { page: number; totalPages: number } }>({
+    queryKey: [...invoiceKeys.detail(id), "linkable-jobs", search, page],
+    queryFn: () => apiFetch(`/api/invoices/${id}/linkable-jobs?${params}`),
+    enabled,
+  });
+}
+
+export function useLinkInvoiceToJob(id: string) {
+  const qc = useQueryClient();
+  return useMutation<Invoice, Error, string>({
+    mutationFn: (jobId) => apiFetch(`/api/invoices/${id}/link-job`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: jobId }),
+    }),
+    onSuccess: (invoice) => {
+      qc.invalidateQueries({ queryKey: invoiceKeys.all });
+      invalidateInvoicedJob(qc, invoice.job_id);
+      qc.invalidateQueries({ queryKey: ["invoice-customer-properties", invoice.customer_id] });
+    },
+  });
+}
+
 export function useDeleteInvoice() {
   const qc = useQueryClient();
   return useMutation<void, Error, string>({

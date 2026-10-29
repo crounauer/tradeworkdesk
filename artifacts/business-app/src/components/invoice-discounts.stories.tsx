@@ -28,6 +28,8 @@ const initialInvoice: Invoice = {
 let invoice = structuredClone(initialInvoice);
 let writes: Array<Record<string, unknown>> = [];
 let failSave = false;
+let failJobs = false;
+let failLink = false;
 
 function TestPage() {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));
@@ -53,9 +55,31 @@ const meta = {
     invoice = structuredClone(initialInvoice);
     writes = [];
     failSave = false;
+    failJobs = false;
+    failLink = false;
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async (input, init) => {
-      const path = new URL(input instanceof Request ? input.url : String(input), location.origin).pathname;
+      const url = new URL(input instanceof Request ? input.url : String(input), location.origin);
+      const path = url.pathname;
+      if (path === "/api/invoices/discount-invoice/linkable-jobs") {
+        if (failJobs) return Response.json({ error: "Unable to load jobs" }, { status: 500 });
+        const search = url.searchParams.get("search") || "";
+        const page = Number(url.searchParams.get("page") || 1);
+        const job = {
+          id: page === 2 ? "job-older" : "job-existing",
+          job_ref: page === 2 ? "JOB-100" : "JOB-123", description: "Boiler service",
+          scheduled_date: "2026-10-28", status: "completed",
+        };
+        const matches = !search || `${job.job_ref} ${job.description}`.toLowerCase().includes(search.toLowerCase());
+        return Response.json({ jobs: matches ? [job] : [], pagination: { page, totalPages: search ? 1 : 2 } });
+      }
+      if (path === "/api/invoices/discount-invoice/link-job" && init?.method === "POST") {
+        const body = JSON.parse(String(init.body));
+        writes.push(body);
+        if (failLink) return Response.json({ error: "Invoice was already linked. Refresh it." }, { status: 409 });
+        invoice = { ...invoice, job_id: body.job_id };
+        return Response.json(invoice);
+      }
       if (path === "/api/invoices/discount-invoice") {
         if (init?.method === "PUT") {
           const body = JSON.parse(String(init.body));
@@ -72,6 +96,7 @@ const meta = {
         planFeatures: { features: {} }, activeAddons: [],
       });
       if (path === "/api/company-settings") return Response.json({ currency: "GBP", default_vat_rate: 20 });
+      if (path === "/api/properties") return Response.json([]);
       if (path === "/api/customers") return Response.json([{ id: "customer-2", first_name: "Another", last_name: "Customer" }]);
       if (path === "/api/invoices" && init?.method === "POST") {
         writes.push(JSON.parse(String(init.body)));
@@ -197,5 +222,80 @@ export const DuplicatePreservesDiscount: Story = {
     await expect(writes[0]).toMatchObject({
       customer_id: "customer-2", discount_type: "fixed", discount_value: 12.5,
     });
+  },
+};
+
+export const LinkExistingPaidInvoice: Story = {
+  beforeEach: () => {
+    invoice = { ...invoice, job_id: null, status: "paid", paid_amount: 120 };
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(await canvas.findByRole("button", { name: "Link to job" }));
+    const dialog = within(await within(canvasElement.ownerDocument.body).findByRole("dialog"));
+    await expect(dialog.getByRole("button", { name: "Link to job" })).toBeDisabled();
+    await userEvent.type(dialog.getByLabelText("Search jobs"), "JOB-123");
+    await userEvent.click(await dialog.findByRole("radio", { name: /JOB-123/ }));
+    await userEvent.click(dialog.getByRole("button", { name: "Link to job" }));
+    await waitFor(() => expect(writes).toEqual([{ job_id: "job-existing" }]));
+    await canvas.findByRole("button", { name: "Back to Job" });
+    await expect(canvas.queryByRole("button", { name: "Link to job" })).not.toBeInTheDocument();
+    await expect(invoice.total).toBe(120);
+    await expect(invoice.paid_amount).toBe(120);
+    await expect(invoice.status).toBe("paid");
+  },
+};
+
+export const LinkJobSearchPaginationAndCancel: Story = {
+  beforeEach: () => { invoice = { ...invoice, job_id: null }; },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await canvas.findByRole("button", { name: "Link to job" }));
+    let dialog = within(await body.findByRole("dialog"));
+    await dialog.findByRole("radio", { name: /JOB-123/ });
+    await userEvent.click(dialog.getByRole("button", { name: "Next" }));
+    await userEvent.click(await dialog.findByRole("radio", { name: /JOB-100/ }));
+    await userEvent.type(dialog.getByLabelText("Search jobs"), "no matching job");
+    await dialog.findByText(/No matching jobs/);
+    await expect(dialog.getByRole("button", { name: "Link to job" })).toBeDisabled();
+    await userEvent.click(dialog.getByRole("button", { name: "Cancel" }));
+    await expect(writes).toHaveLength(0);
+    await userEvent.click(canvas.getByRole("button", { name: "Link to job" }));
+    dialog = within(await body.findByRole("dialog"));
+    await expect(dialog.getByLabelText("Search jobs")).toHaveValue("");
+    await dialog.findByRole("radio", { name: /JOB-123/ });
+    await expect(dialog.getByRole("button", { name: "Link to job" })).toBeDisabled();
+  },
+};
+
+export const LinkJobFailuresCanBeRetried: Story = {
+  beforeEach: () => { invoice = { ...invoice, job_id: null }; failJobs = true; failLink = true; },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(await canvas.findByRole("button", { name: "Link to job" }));
+    const dialog = within(await within(canvasElement.ownerDocument.body).findByRole("dialog"));
+    await dialog.findByText("Unable to load jobs");
+    failJobs = false;
+    await userEvent.click(dialog.getByRole("button", { name: "Retry" }));
+    await userEvent.click(await dialog.findByRole("radio", { name: /JOB-123/ }));
+    await userEvent.click(dialog.getByRole("button", { name: "Link to job" }));
+    await dialog.findByRole("button", { name: "Link to job" });
+    await waitFor(() => expect(writes).toHaveLength(1));
+    await expect(invoice.job_id).toBeNull();
+    failLink = false;
+    await waitFor(() => expect(dialog.getByRole("button", { name: "Link to job" })).toBeEnabled());
+    await userEvent.click(dialog.getByRole("button", { name: "Link to job" }));
+    await canvas.findByRole("button", { name: "Back to Job" });
+    await expect(writes).toHaveLength(2);
+  },
+};
+
+export const CancelledInvoiceCannotBeLinked: Story = {
+  beforeEach: () => { invoice = { ...invoice, job_id: null, status: "cancelled" }; },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await canvas.findByText("INV-DISCOUNT");
+    await expect(canvas.queryByRole("button", { name: "Link to job" })).not.toBeInTheDocument();
   },
 };

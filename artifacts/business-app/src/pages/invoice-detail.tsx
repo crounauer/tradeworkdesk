@@ -26,6 +26,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { BookJobDialog } from "@/components/book-job-dialog";
 import { CreateJobFromQuoteDialog } from "@/components/create-job-from-quote-dialog";
 import { DuplicateInvoiceDialog } from "@/components/duplicate-invoice-dialog";
+import { LinkInvoiceJobDialog } from "@/components/link-invoice-job-dialog";
 import { PartsSection } from "@/components/line-items/parts-section";
 import { ServicesSection } from "@/components/line-items/services-section";
 import { TimeSection } from "@/components/line-items/time-section";
@@ -325,6 +326,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const [showBookJob, setShowBookJob] = useState(false);
   const [showCreateJob, setShowCreateJob] = useState(false);
   const [showDuplicate, setShowDuplicate] = useState(false);
+  const [showLinkJob, setShowLinkJob] = useState(false);
 
   // Callout rates (for the shared time section)
   const [calloutRates, setCalloutRates] = useState<CalloutRateOption[]>([]);
@@ -878,6 +880,11 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
             </Button>
           )}
           {/* Book Job button only shown for invoices, not quotes (quotes use Create Job from Quote) */}
+          {isInvoice && !invoice.job_id && ["draft", "sent", "overdue", "paid"].includes(invoice.status) && (
+            <Button variant="outline" onClick={() => setShowLinkJob(true)}>
+              <Briefcase className="w-4 h-4 mr-2" /> Link to job
+            </Button>
+          )}
           {isInvoice && invoice.customer_id && (
             <Button variant="outline" onClick={() => setShowBookJob(true)}>
               <Briefcase className="w-4 h-4 mr-2" /> Book Job
@@ -1324,6 +1331,8 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       )}
 
       {/* ── Duplicate for another customer ── */}
+      {showLinkJob && <LinkInvoiceJobDialog invoiceId={id} onClose={() => setShowLinkJob(false)} />}
+
       <DuplicateInvoiceDialog
         open={showDuplicate}
         onOpenChange={setShowDuplicate}

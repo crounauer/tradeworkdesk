@@ -19,6 +19,7 @@ import { getQuoteAdditionalText } from "../lib/quote-terms";
 import { createQuoteAcceptToken, verifyQuoteAcceptToken } from "../lib/quote-action-token";
 import { syncSentInvoiceJob } from "../lib/invoice-job-status";
 import { calculateInvoiceTotals } from "@workspace/api-zod/invoice-totals";
+import { z } from "zod";
 
 const router: IRouter = Router();
 
@@ -869,6 +870,81 @@ router.put("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     }
   }
 
+  res.json(updated);
+});
+
+// ─── LINK EXISTING INVOICE TO JOB ──────────────────────────────────────────
+const linkableInvoiceStatuses = ["draft", "sent", "overdue", "paid"];
+const linkJobBody = z.object({ job_id: z.string().uuid() });
+const linkJobQuery = z.object({
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+  search: z.string().trim().max(100).default(""),
+});
+
+router.get("/invoices/:id/linkable-jobs", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const parsed = linkJobQuery.safeParse(req.query);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid job search or page" }); return; }
+  const { data: invoice, error } = await verifyInvoiceOwnership(req.params.id, req.tenantId!);
+  if (error || !invoice) { res.status(404).json({ error: error || "Invoice not found" }); return; }
+  if (invoice.type !== "invoice" || !linkableInvoiceStatuses.includes(String(invoice.status)) || invoice.job_id) {
+    res.status(409).json({ error: "Only an unlinked, active invoice can be linked to a job" }); return;
+  }
+  const limit = 20;
+  const { page, search } = parsed.data;
+  let query = supabaseAdmin.from("jobs")
+    .select("id, job_ref, description, scheduled_date, status", { count: "exact" })
+    .eq("tenant_id", req.tenantId!)
+    .eq("customer_id", invoice.customer_id as string)
+    .eq("is_active", true)
+    .neq("status", "cancelled")
+    .order("scheduled_date", { ascending: false, nullsFirst: false })
+    .order("id", { ascending: false })
+    .range((page - 1) * limit, page * limit - 1);
+  if (invoice.property_id) query = query.eq("property_id", invoice.property_id as string);
+  if (search) {
+    const pattern = JSON.stringify(`%${search.replace(/[\\%_]/g, "\\$&")}%`);
+    query = query.or(`job_ref.ilike.${pattern},description.ilike.${pattern}`);
+  }
+  const { data, error: jobsError, count } = await query;
+  if (jobsError) { res.status(500).json({ error: jobsError.message }); return; }
+  res.json({ jobs: data || [], pagination: { page, totalPages: Math.ceil((count ?? 0) / limit) } });
+});
+
+router.post("/invoices/:id/link-job", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const parsed = linkJobBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "A valid job_id is required" }); return; }
+  const { data: invoice, error } = await verifyInvoiceOwnership(req.params.id, req.tenantId!);
+  if (error || !invoice) { res.status(404).json({ error: error || "Invoice not found" }); return; }
+  if (invoice.type !== "invoice" || !linkableInvoiceStatuses.includes(String(invoice.status)) || invoice.job_id) {
+    res.status(409).json({ error: "Only an unlinked, active invoice can be linked to a job" }); return;
+  }
+  const { data: job, error: jobError } = await supabaseAdmin.from("jobs")
+    .select("id, customer_id, property_id, is_active, status")
+    .eq("id", parsed.data.job_id)
+    .eq("tenant_id", req.tenantId!)
+    .eq("customer_id", invoice.customer_id as string)
+    .maybeSingle();
+  if (jobError) { res.status(500).json({ error: jobError.message }); return; }
+  if (!job) { res.status(404).json({ error: "Job not found for this customer" }); return; }
+  if (!job.is_active || job.status === "cancelled") { res.status(400).json({ error: "Archived or cancelled jobs cannot be linked" }); return; }
+  if (invoice.property_id && invoice.property_id !== job.property_id) {
+    res.status(400).json({ error: "The job must match the invoice's service address" }); return;
+  }
+  let update = supabaseAdmin.from("invoices")
+    .update({ job_id: job.id, updated_at: new Date().toISOString() })
+    .eq("id", req.params.id)
+    .eq("tenant_id", req.tenantId!)
+    .eq("customer_id", invoice.customer_id as string)
+    .eq("type", "invoice")
+    .in("status", linkableInvoiceStatuses)
+    .is("job_id", null);
+  update = invoice.property_id ? update.eq("property_id", invoice.property_id as string) : update.is("property_id", null);
+  const { data: updated, error: updateError } = await update
+    .select()
+    .maybeSingle();
+  if (updateError) { res.status(500).json({ error: updateError.message }); return; }
+  if (!updated) { res.status(409).json({ error: "The invoice changed. Refresh it before linking a job." }); return; }
+  bustInvoicingCache(req.tenantId!);
   res.json(updated);
 });
 

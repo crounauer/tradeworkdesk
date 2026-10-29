@@ -19,7 +19,7 @@ export default function PrivacyPolicyPage() {
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
         <h1 className="font-display text-3xl md:text-4xl font-bold text-slate-900 mb-2">Privacy Policy</h1>
-        <p className="text-sm text-slate-500 mb-10">Last updated: 1 March 2026</p>
+        <p className="text-sm text-slate-500 mb-10">Last updated: 28 October 2026</p>
 
         <div className="prose prose-slate max-w-none space-y-8 text-slate-700 leading-relaxed">
           <section>
@@ -70,7 +70,14 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl font-bold text-slate-900">6. Your Rights</h2>
+            <h2 className="font-display text-xl font-bold text-slate-900">6. Facebook Data and Deletion</h2>
+            <p>If you connect a Facebook Page to TradeWorkDesk, we process the Page name and ID and an encrypted Page access token. We use these details only to connect the Page and publish posts you create or schedule through the platform.</p>
+            <p>To remove a Facebook Page connection and its access token from TradeWorkDesk, sign in, open <strong>Social Media</strong>, select <strong>Accounts</strong>, and use the delete (bin) button next to the Facebook Page. You can also ask us to delete Facebook-related data by emailing <a className="underline" href="mailto:privacy@tradeworkdesk.co.uk">privacy@tradeworkdesk.co.uk</a> from your account email and identifying the connected Page.</p>
+            <p>Removing a connection deletes the stored Page connection and access token from TradeWorkDesk; it does not delete posts already published to Facebook or remove Facebook's own records. To revoke access on Facebook as well, remove TradeWorkDesk from your Facebook account's Business Integrations settings. You can separately request deletion of other personal data under the rights described below.</p>
+          </section>
+
+          <section>
+            <h2 className="font-display text-xl font-bold text-slate-900">7. Your Rights</h2>
             <p>Under UK GDPR, you have the right to:</p>
             <ul className="list-disc pl-6 space-y-1">
               <li><strong>Access</strong> — Request a copy of the personal data we hold about you</li>
@@ -84,12 +91,12 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl font-bold text-slate-900">7. Cookies</h2>
+            <h2 className="font-display text-xl font-bold text-slate-900">8. Cookies</h2>
             <p>We use essential cookies and local storage to keep you logged in and maintain your session — these are always active and don't require consent. We also use anonymous, first-party analytics to understand site traffic; these only run if you accept them via the cookie banner shown on your first visit. You can decline analytics at any time without affecting how the site works.</p>
           </section>
 
           <section>
-            <h2 className="font-display text-xl font-bold text-slate-900">8. Security</h2>
+            <h2 className="font-display text-xl font-bold text-slate-900">9. Security</h2>
             <p>We implement appropriate technical and organisational measures to protect your data, including:</p>
             <ul className="list-disc pl-6 space-y-1">
               <li>Encryption in transit (TLS/HTTPS) and at rest</li>
@@ -103,12 +110,12 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl font-bold text-slate-900">9. Changes to This Policy</h2>
+            <h2 className="font-display text-xl font-bold text-slate-900">10. Changes to This Policy</h2>
             <p>We may update this privacy policy from time to time. Material changes will be communicated via email or a notice in the platform. The "Last updated" date at the top of this page indicates when the policy was last revised.</p>
           </section>
 
           <section>
-            <h2 className="font-display text-xl font-bold text-slate-900">10. Complaints</h2>
+            <h2 className="font-display text-xl font-bold text-slate-900">11. Complaints</h2>
             <p>If you have concerns about how we handle your data, please contact us first at privacy@tradeworkdesk.co.uk. You also have the right to lodge a complaint with the Information Commissioner's Office (ICO) at ico.org.uk.</p>
           </section>
         </div>
