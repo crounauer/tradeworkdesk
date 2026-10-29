@@ -48,6 +48,8 @@ export function ServicesSection({
 
   const catalogue = useCatalogueSearch();
   const suggestionsOpen = catalogue.activeKey === "add";
+  const canCreateCatalogueItem = canEditCatalogue && !catalogueItemId && serviceName.trim().length > 0
+    && !catalogue.suggestions.some(s => s.name.trim().toLowerCase() === serviceName.trim().toLowerCase());
 
   const resetForm = () => {
     setServiceName("");
@@ -114,17 +116,22 @@ export function ServicesSection({
       {!readOnly && (
         <div className="border rounded-lg p-3 mb-4 bg-slate-50/50">
           <div className="grid grid-cols-2 sm:grid-cols-[1fr_80px_100px_auto] gap-2 items-end">
-            <div className="space-y-1 relative col-span-2 sm:col-span-1">
+            <div
+              className="space-y-1 relative col-span-2 sm:col-span-1"
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget)) catalogue.clear();
+              }}
+            >
               <Label className="text-xs">Service</Label>
               <Input
                 ref={nameInputRef}
                 value={serviceName}
                 onChange={(e) => { setServiceName(e.target.value); setCatalogueItemId(null); catalogue.search(e.target.value, "add", "service"); }}
+                onFocus={() => { if (!catalogueItemId) catalogue.search(serviceName, "add", "service"); }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") { e.preventDefault(); handleAdd(); }
                   if (e.key === "Escape") resetForm();
                 }}
-                onBlur={() => setTimeout(() => catalogue.clear(), 200)}
                 placeholder="Add a service — type to search catalogue…"
                 autoComplete="off"
               />
@@ -136,8 +143,8 @@ export function ServicesSection({
                         key={s.id}
                         type="button"
                         className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex justify-between items-center"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
                           setServiceName(s.name);
                           if (s.default_price != null) setServicePrice(String(s.default_price));
                           setCatalogueItemId(s.id);
@@ -149,19 +156,18 @@ export function ServicesSection({
                       </button>
                     ))
                   ) : (
-                    <>
-                      <div className="px-3 py-2 text-sm text-muted-foreground">No matching services — type a custom name</div>
-                      {canEditCatalogue && (
-                        <button
-                          type="button"
-                          className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-slate-100 flex items-center gap-1 border-t"
-                          onMouseDown={(e) => { e.preventDefault(); handleAddToCatalogue(); }}
-                          disabled={savingToCatalogue}
-                        >
-                          + {savingToCatalogue ? "Saving..." : `Add "${serviceName}" to catalogue`}
-                        </button>
-                      )}
-                    </>
+                    <div className="px-3 py-2 text-sm text-muted-foreground">No matching services — type a custom name</div>
+                  )}
+                  {canCreateCatalogueItem && (
+                    <button
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-slate-100 flex items-center gap-1 border-t"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={handleAddToCatalogue}
+                      disabled={savingToCatalogue}
+                    >
+                      + {savingToCatalogue ? "Saving..." : `Add "${serviceName}" to catalogue`}
+                    </button>
                   )}
                 </div>
               )}

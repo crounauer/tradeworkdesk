@@ -50,6 +50,8 @@ export function PartsSection({
 
   const catalogue = useCatalogueSearch();
   const suggestionsOpen = catalogue.activeKey === "add";
+  const canCreateCatalogueItem = canEditCatalogue && !catalogueItemId && partName.trim().length > 0
+    && !catalogue.suggestions.some(p => p.name.trim().toLowerCase() === partName.trim().toLowerCase());
 
   // Serial and status only appear once there is actually a part being entered.
   const expanded = partName.trim().length > 0;
@@ -125,17 +127,22 @@ export function PartsSection({
       {!readOnly && (
         <div className="border rounded-lg p-3 mb-4 bg-slate-50/50 space-y-3">
           <div className="grid grid-cols-2 sm:grid-cols-[1fr_80px_100px_auto] gap-2 items-end">
-            <div className="space-y-1 relative col-span-2 sm:col-span-1">
+            <div
+              className="space-y-1 relative col-span-2 sm:col-span-1"
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget)) catalogue.clear();
+              }}
+            >
               <Label className="text-xs">Part</Label>
               <Input
                 ref={nameInputRef}
                 value={partName}
                 onChange={(e) => { setPartName(e.target.value); setCatalogueItemId(null); catalogue.search(e.target.value, "add", "product"); }}
+                onFocus={() => { if (!catalogueItemId) catalogue.search(partName, "add", "product"); }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") { e.preventDefault(); handleAdd(); }
                   if (e.key === "Escape") resetForm();
                 }}
-                onBlur={() => setTimeout(() => catalogue.clear(), 200)}
                 placeholder="Add a part — type to search catalogue…"
                 autoComplete="off"
               />
@@ -147,8 +154,8 @@ export function PartsSection({
                         key={p.id}
                         type="button"
                         className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex justify-between items-center"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
                           setPartName(p.name);
                           if (p.default_price != null) setPartPrice(String(p.default_price));
                           setCatalogueItemId(p.id);
@@ -160,19 +167,18 @@ export function PartsSection({
                       </button>
                     ))
                   ) : (
-                    <>
-                      <div className="px-3 py-2 text-sm text-muted-foreground">No matching products found — type a custom name</div>
-                      {canEditCatalogue && (
-                        <button
-                          type="button"
-                          className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-slate-100 flex items-center gap-1 border-t"
-                          onMouseDown={(e) => { e.preventDefault(); handleAddToCatalogue(); }}
-                          disabled={savingToCatalogue}
-                        >
-                          + {savingToCatalogue ? "Saving..." : `Add "${partName}" to catalogue`}
-                        </button>
-                      )}
-                    </>
+                    <div className="px-3 py-2 text-sm text-muted-foreground">No matching products found — type a custom name</div>
+                  )}
+                  {canCreateCatalogueItem && (
+                    <button
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-slate-100 flex items-center gap-1 border-t"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={handleAddToCatalogue}
+                      disabled={savingToCatalogue}
+                    >
+                      + {savingToCatalogue ? "Saving..." : `Add "${partName}" to catalogue`}
+                    </button>
                   )}
                 </div>
               )}
