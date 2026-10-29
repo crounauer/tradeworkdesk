@@ -18,6 +18,7 @@ import { amendInvoicePayment, deleteInvoicePayment, loadInvoicePayments, recordI
 import { getQuoteAdditionalText } from "../lib/quote-terms";
 import { createQuoteAcceptToken, verifyQuoteAcceptToken } from "../lib/quote-action-token";
 import { syncSentInvoiceJob } from "../lib/invoice-job-status";
+import { calculateInvoiceTotals } from "@workspace/api-zod/invoice-totals";
 
 const router: IRouter = Router();
 
@@ -141,21 +142,6 @@ async function getNextInvoiceNumber(tenantId: string, type: "invoice" | "quote")
   });
   if (error) throw new Error(`Failed to generate invoice number: ${error.message}`);
   return data as string;
-}
-
-function computeTotals(lines: LineItemInput[], vatRate: number) {
-  // Only parts flagged "to_order" are listed but not charged, matching the job page.
-  const subtotal = lines.reduce(
-    (sum, l) => (l.item_type === "product" && l.status === "to_order" ? sum : sum + l.quantity * l.unit_price),
-    0,
-  );
-  const vat_amount = Math.round(subtotal * vatRate) / 100;
-  const total = subtotal + vat_amount;
-  return {
-    subtotal: Math.round(subtotal * 100) / 100,
-    vat_amount: Math.round(vat_amount * 100) / 100,
-    total: Math.round(total * 100) / 100,
-  };
 }
 
 function toLineItemRow(l: LineItemInput, i: number, invoiceId: string, tenantId: string) {
@@ -366,6 +352,9 @@ async function buildPdfData(
       item_type: l.item_type as string,
     })),
     subtotal: Number(invoice.subtotal),
+    discount_type: invoice.discount_type === "percentage" || invoice.discount_type === "fixed" ? invoice.discount_type : null,
+    discount_value: Number(invoice.discount_value ?? 0),
+    discount_amount: Number(invoice.discount_amount ?? 0),
     vat_rate: Number(invoice.vat_rate),
     vat_amount: Number(invoice.vat_amount),
     total: Number(invoice.total),
@@ -520,6 +509,8 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
     estimated_duration_value,
     estimated_duration_unit,
     vat_rate,
+    discount_type = null,
+    discount_value = 0,
   } = req.body as {
     job_id?: string;
     customer_id?: string;
@@ -535,10 +526,13 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
     estimated_duration_value?: number | null;
     estimated_duration_unit?: "hours" | "days" | null;
     vat_rate?: number;
+    discount_type?: unknown;
+    discount_value?: unknown;
   };
 
   if (!job_id && !direct_customer_id) { res.status(400).json({ error: "job_id or customer_id is required" }); return; }
   if (!["invoice", "quote"].includes(type)) { res.status(400).json({ error: "type must be invoice or quote" }); return; }
+  if (type !== "invoice" && (discount_type !== null || discount_value !== 0)) { res.status(400).json({ error: "Discounts are only available on invoices" }); return; }
   if (estimated_duration_value != null && (!Number.isFinite(Number(estimated_duration_value)) || Number(estimated_duration_value) <= 0)) { res.status(400).json({ error: "estimated_duration_value must be greater than zero" }); return; }
   if (estimated_duration_unit != null && !["hours", "days"].includes(estimated_duration_unit)) { res.status(400).json({ error: "estimated_duration_unit must be hours or days" }); return; }
   if (job_id && property_id) { res.status(400).json({ error: "property_id cannot be used with a job_id" }); return; }
@@ -581,7 +575,9 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
 
   // Resolve VAT rate
   const settings = await getCompanySettings(req.tenantId!);
-  const resolvedVatRate = vat_rate ?? settings?.default_vat_rate ?? 20;
+  const resolvedVatRate = Number(vat_rate ?? settings?.default_vat_rate ?? 20);
+  const calculation = calculateInvoiceTotals(line_items, resolvedVatRate, discount_type, discount_value);
+  if (calculation.error !== undefined) { res.status(400).json({ error: calculation.error }); return; }
   const currency = settings?.currency || "GBP";
   const resolvedIssueDate = issue_date || new Date().toISOString().slice(0, 10);
 
@@ -605,7 +601,7 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
   );
   if (!invoiceNumber) return;
 
-  const { subtotal, vat_amount, total } = computeTotals(line_items, resolvedVatRate);
+  const { subtotal, discount_amount, vat_amount, total } = calculation.totals;
 
   const { data: invoice, error: invErr } = await supabaseAdmin
     .from("invoices")
@@ -626,6 +622,9 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
       estimated_duration_value: estimated_duration_value != null ? Number(estimated_duration_value) : null,
       estimated_duration_unit: estimated_duration_unit || null,
       subtotal,
+      discount_type,
+      discount_value,
+      discount_amount,
       vat_rate: resolvedVatRate,
       vat_amount,
       total,
@@ -649,6 +648,8 @@ router.post("/invoices", ...protect, async (req: AuthenticatedRequest, res): Pro
 });
 
 // ─── GET ONE ───────────────────────────────────────────────────────────────
+router.get("/invoices/export.csv", ...protect, exportInvoicesCsv);
+
 // GET /invoices/:id
 router.get("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { data: invoice, error } = await verifyInvoiceOwnership(req.params.id, req.tenantId!);
@@ -749,6 +750,8 @@ router.put("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     due_date,
     expiry_date,
     vat_rate,
+    discount_type,
+    discount_value,
   } = req.body as {
     line_items?: LineItemInput[];
     works_order?: string;
@@ -761,11 +764,37 @@ router.put("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     due_date?: string;
     expiry_date?: string;
     vat_rate?: number;
+    discount_type?: unknown;
+    discount_value?: unknown;
   };
 
+  const discountChanged = discount_type !== undefined || discount_value !== undefined;
+  const recalculate = line_items !== undefined || vat_rate !== undefined || discountChanged;
+  const resolvedDiscountType = discount_type === undefined ? existing.discount_type ?? null : discount_type;
+  const resolvedDiscountValue = discount_value === undefined
+    ? (resolvedDiscountType === null ? 0 : Number(existing.discount_value ?? 0))
+    : discount_value;
+  if (existing.type !== "invoice" && (resolvedDiscountType !== null || resolvedDiscountValue !== 0)) {
+    res.status(400).json({ error: "Discounts are only available on invoices" }); return;
+  }
+
   const resolvedVatRate = vat_rate ?? Number(existing.vat_rate);
-  const resolvedLines = line_items ?? [];
-  const { subtotal, vat_amount, total } = computeTotals(resolvedLines, resolvedVatRate);
+  let resolvedLines = line_items;
+  if (recalculate && resolvedLines === undefined) {
+    const { data: storedLines, error: linesError } = await supabaseAdmin
+      .from("invoice_line_items")
+      .select("quantity, unit_price, item_type, status")
+      .eq("invoice_id", req.params.id)
+      .eq("tenant_id", req.tenantId!);
+    if (linesError) { res.status(500).json({ error: linesError.message }); return; }
+    resolvedLines = (storedLines || []).map(line => ({
+      description: "",
+      quantity: Number(line.quantity),
+      unit_price: Number(line.unit_price),
+      item_type: line.item_type,
+      status: line.status,
+    }));
+  }
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (works_order !== undefined) updates.works_order = works_order || existing.works_order || null;
@@ -796,10 +825,13 @@ router.put("/invoices/:id", ...protect, async (req: AuthenticatedRequest, res): 
     }
     updates.property_id = property_id || null;
   }
-  if (line_items !== undefined) {
-    updates.subtotal = subtotal;
-    updates.vat_amount = vat_amount;
-    updates.total = total;
+  if (recalculate) {
+    const calculation = calculateInvoiceTotals(resolvedLines || [], resolvedVatRate, resolvedDiscountType, resolvedDiscountValue);
+    if (calculation.error !== undefined) { res.status(400).json({ error: calculation.error }); return; }
+    Object.assign(updates, calculation.totals, {
+      discount_type: resolvedDiscountType,
+      discount_value: resolvedDiscountValue,
+    });
   }
 
   const { data: updated, error: updateErr } = await supabaseAdmin
@@ -2441,13 +2473,11 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
       catalogue_item_id: (l.catalogue_item_id as string | null) ?? null,
     }));
 
-  const { subtotal, vat_amount, total } = computeTotals(mergedLineItems, sourceVatRate);
-
   // If a draft invoice already exists for this job, refresh it in place so linked
   // invoice totals remain in sync with the latest job pricing breakdown.
-  const { data: existingDraftInvoice } = await supabaseAdmin
+  const { data: existingDraftInvoice, error: draftError } = await supabaseAdmin
     .from("invoices")
-    .select("id, invoice_number")
+    .select("id, invoice_number, discount_type, discount_value")
     .eq("tenant_id", req.tenantId!)
     .eq("job_id", jobId)
     .eq("type", "invoice")
@@ -2455,6 +2485,13 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  if (draftError) { res.status(500).json({ error: draftError.message }); return; }
+  const discountType = existingDraftInvoice?.discount_type ?? null;
+  const discountValue = Number(existingDraftInvoice?.discount_value ?? 0);
+  const calculation = calculateInvoiceTotals(mergedLineItems, Number(sourceVatRate), discountType, discountValue);
+  if (calculation.error !== undefined) { res.status(400).json({ error: calculation.error }); return; }
+  const { subtotal, discount_amount, vat_amount, total } = calculation.totals;
 
   if (existingDraftInvoice) {
     const { error: updateErr } = await supabaseAdmin
@@ -2464,6 +2501,7 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
         customer_notes: sourceCustomerNotes,
         works_order: sourceWorksOrder,
         subtotal,
+        discount_amount,
         vat_rate: sourceVatRate,
         vat_amount,
         total,
@@ -2547,12 +2585,12 @@ router.post("/jobs/:id/create-internal-invoice", ...protect, async (req: Authent
 // GET /invoices/export.csv
 // Optional query params: type, status, date_from, date_to, customer_id
 // Returns a Xero-compatible CSV file.
-router.get("/invoices/export.csv", ...protect, async (req: AuthenticatedRequest, res): Promise<void> => {
+async function exportInvoicesCsv(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { type, status, date_from, date_to, customer_id } = req.query as Record<string, string>;
 
   let q = supabaseAdmin
     .from("invoices")
-    .select("id, type, status, invoice_number, issue_date, due_date, payment_date, subtotal, vat_amount, total, currency, customers(first_name, last_name, business_name), jobs!invoices_job_id_fkey(description)")
+    .select("id, type, status, invoice_number, issue_date, due_date, payment_date, subtotal, discount_amount, vat_amount, total, currency, customers(first_name, last_name, business_name), jobs!invoices_job_id_fkey(description)")
     .eq("tenant_id", req.tenantId!)
     .order("issue_date", { ascending: false });
 
@@ -2568,7 +2606,7 @@ router.get("/invoices/export.csv", ...protect, async (req: AuthenticatedRequest,
   const rows = (data as unknown as Array<{
     type: string; status: string; invoice_number: string; issue_date: string;
     due_date: string | null; payment_date: string | null;
-    subtotal: number; vat_amount: number; total: number; currency: string;
+    subtotal: number; discount_amount: number; vat_amount: number; total: number; currency: string;
     customers: { first_name: string; last_name: string; business_name?: string | null } | null;
     jobs: { description: string } | null;
   }> || []);
@@ -2594,7 +2632,7 @@ router.get("/invoices/export.csv", ...protect, async (req: AuthenticatedRequest,
       csvEscape(row.issue_date),
       csvEscape(row.due_date),
       csvEscape(row.jobs?.description),
-      csvEscape(Number(row.subtotal).toFixed(2)),
+      csvEscape((Number(row.subtotal) - Number(row.discount_amount ?? 0)).toFixed(2)),
       csvEscape(Number(row.vat_amount).toFixed(2)),
       csvEscape(Number(row.total).toFixed(2)),
       csvEscape(row.currency?.toUpperCase() || "GBP"),
@@ -2609,6 +2647,6 @@ router.get("/invoices/export.csv", ...protect, async (req: AuthenticatedRequest,
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="invoices-export-${date}.csv"`);
   res.send("\uFEFF" + csv); // BOM for Excel compatibility
-});
+}
 
 export default router;

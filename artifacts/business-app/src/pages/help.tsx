@@ -210,6 +210,10 @@ const sections: HelpSection[] = [
         q: "Can I add VAT to invoices?",
         a: "Yes — when adding line items you can set the VAT rate per item (0%, 5%, or 20%). The invoice will show the subtotal, VAT total, and grand total.",
       },
+      {
+        q: "How do I add a discount to an invoice?",
+        a: "Open a draft invoice and click Edit. In the totals section, choose Percentage (%) or Fixed amount under Discount and enter the value, then click Save. Discounts apply to the whole invoice before VAT and appear on the invoice PDF, including the copy in the customer portal. Choose No discount to remove one. Percentage discounts cannot exceed 100%, and fixed discounts cannot exceed the subtotal. Sent invoices must be returned to draft before editing.",
+      },
     ],
   },
   {

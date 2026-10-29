@@ -59,6 +59,9 @@ export interface InvoicePdfData {
   // Line items
   line_items: InvoicePdfLineItem[];
   subtotal: number;
+  discount_type?: "percentage" | "fixed" | null;
+  discount_value?: number;
+  discount_amount?: number;
   vat_rate: number;
   vat_amount: number;
   total: number;
@@ -406,14 +409,20 @@ export function generateInvoicePdf(data: InvoicePdfData): Buffer {
     y += 5.5;
   };
 
-  // Only show Sub Total row when there's VAT (otherwise it's identical to the final total)
   const hasVatBreakdown = data.vat_rate > 0;
-  if (hasVatBreakdown) {
+  const hasDiscount = Number(data.discount_amount ?? 0) > 0;
+  if (hasVatBreakdown || hasDiscount) {
     addTotRow("Sub Total", fmt(data.currency, data.subtotal));
+  }
+  if (hasDiscount) {
+    const label = data.discount_type === "percentage" ? `Discount (${data.discount_value}%)` : "Discount";
+    addTotRow(label, `-${fmt(data.currency, Number(data.discount_amount))}`);
+  }
+  if (hasVatBreakdown) {
     addTotRow(`VAT (${data.vat_rate}%)`, fmt(data.currency, data.vat_amount));
   }
 
-  if (hasVatBreakdown) {
+  if (hasVatBreakdown || hasDiscount) {
     doc.setDrawColor(...clrLight);
     doc.setLineWidth(0.3);
     doc.line(totLabelX - 38, y - 1, totValueX, y - 1);

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import type { InvoiceDiscountType } from "@workspace/api-zod/invoice-totals";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,9 @@ export interface Invoice {
   expiry_date: string | null;
   currency: string;
   subtotal: number;
+  discount_type?: InvoiceDiscountType;
+  discount_value?: number;
+  discount_amount?: number;
   vat_rate: number;
   vat_amount: number;
   total: number;
@@ -146,7 +150,8 @@ export interface InvoiceFilters {
 }
 
 export interface CreateInvoiceInput {
-  job_id: string;
+  job_id?: string;
+  customer_id?: string;
   type?: InvoiceType;
   line_items?: InvoiceLineItem[];
   issue_date?: string;
@@ -154,10 +159,15 @@ export interface CreateInvoiceInput {
   expiry_date?: string;
   notes?: string;
   customer_notes?: string;
+  works_order?: string;
   vat_rate?: number;
+  discount_type?: InvoiceDiscountType;
+  discount_value?: number;
 }
 
 export interface UpdateInvoiceInput {
+  discount_type?: InvoiceDiscountType;
+  discount_value?: number;
   line_items?: InvoiceLineItem[];
   estimated_duration_value?: number | null;
   estimated_duration_unit?: "hours" | "days" | null;

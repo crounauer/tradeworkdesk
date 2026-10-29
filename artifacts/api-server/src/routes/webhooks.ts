@@ -26,7 +26,7 @@ async function sendReceiptForInvoice(invoiceId: string, tenantId: string, paidAm
     const [{ data: inv }, { data: lineItems }] = await Promise.all([
       supabaseAdmin
         .from("invoices")
-        .select("tenant_id, invoice_number, currency, customer_id, job_id, issue_date, due_date, expiry_date, subtotal, vat_rate, vat_amount, total, works_order, customer_notes")
+        .select("tenant_id, invoice_number, currency, customer_id, job_id, issue_date, due_date, expiry_date, subtotal, discount_type, discount_value, discount_amount, vat_rate, vat_amount, total, works_order, customer_notes")
         .eq("id", invoiceId)
         .eq("tenant_id", tenantId)
         .single(),
@@ -113,6 +113,9 @@ async function sendReceiptForInvoice(invoiceId: string, tenantId: string, paidAm
         item_type: l.item_type,
       })),
       subtotal: Number(i.subtotal),
+      discount_type: inv.discount_type === "percentage" || inv.discount_type === "fixed" ? inv.discount_type : null,
+      discount_value: Number(inv.discount_value ?? 0),
+      discount_amount: Number(inv.discount_amount ?? 0),
       vat_rate: Number(i.vat_rate),
       vat_amount: Number(i.vat_amount),
       total: Number(i.total),

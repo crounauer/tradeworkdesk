@@ -31,6 +31,7 @@ import { ServicesSection } from "@/components/line-items/services-section";
 import { TimeSection } from "@/components/line-items/time-section";
 import type { CalloutRateOption, PartLine, ServiceLine, TimeLine } from "@/components/line-items/types";
 import { computeLabourBreakdown, calcDuration } from "@/lib/line-items";
+import { calculateInvoiceTotals, type InvoiceDiscountType } from "@workspace/api-zod/invoice-totals";
 import {
   invoiceKeys,
   useGetInvoice,
@@ -278,16 +279,14 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   );
   const [worksOrder, setWorksOrder] = useState(invoice.works_order || "");
   const [emailLogRefresh, setEmailLogRefresh] = useState(0);
-  const [vatRate, setVatRate] = useState(String(invoice.vat_rate ?? 0));
+  const [discountType, setDiscountType] = useState<InvoiceDiscountType>(invoice.discount_type ?? null);
+  const [discountValue, setDiscountValue] = useState(String(invoice.discount_value ?? 0));
   const [issueDate, setIssueDate] = useState(invoice.issue_date || "");
   const [dueDate, setDueDate] = useState(invoice.due_date || "");
 
-  // Apply company setting defaults to draft invoices when settings load
+  // Apply company payment terms to draft invoices when settings load.
   useEffect(() => {
     if (!isDraft || !settings) return;
-    if (!invoice.vat_rate && settings.default_vat_rate != null) {
-      setVatRate(String(settings.default_vat_rate));
-    }
     if (!invoice.due_date && isInvoice && settings.default_payment_terms_days) {
       const base = invoice.issue_date ? new Date(invoice.issue_date) : new Date();
       base.setDate(base.getDate() + settings.default_payment_terms_days);
@@ -370,14 +369,9 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const declineMut = useDeclineQuote(id);
   const convertMut = useConvertToInvoice(id);
 
-  // Only parts flagged "to order" are listed but not charged, matching the job page.
-  const subtotal = lines.reduce(
-    (s, l) => (l.item_type === "product" && l.status === "to_order" ? s : s + Number(l.quantity) * Number(l.unit_price)),
-    0,
-  );
   const vr = Number(invoice.vat_rate) || 0;
-  const vatAmount = Math.round(subtotal * vr) / 100;
-  const total = subtotal + vatAmount;
+  const calculation = calculateInvoiceTotals(lines, vr, discountType, Number(discountValue));
+  const totals = calculation.totals;
 
   const money = (amount: number) => formatCurrency(amount, currency);
   const canEditCatalogue = ["admin", "office_staff", "super_admin"].includes(profile?.role ?? "");
@@ -502,6 +496,8 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   }
 
   function beginEditing() {
+    setDiscountType(invoice.discount_type ?? null);
+    setDiscountValue(String(invoice.discount_value ?? 0));
     setLines((currentLines) => currentLines.map((line) => {
       if (!line.arrival_time) return line;
       return timeLineFrom({
@@ -520,6 +516,10 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   }
 
   async function saveChanges() {
+    if (calculation.error !== undefined) {
+      toast({ title: "Invalid discount", description: calculation.error, variant: "destructive" });
+      return;
+    }
     try {
       await updateMut.mutateAsync({
         line_items: lines,
@@ -528,6 +528,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         notes,
         customer_notes: customerNotes,
         property_id: selectedPropertyId || null,
+        ...(isInvoice ? { discount_type: discountType, discount_value: Number(discountValue) } : {}),
       });
       toast({ title: "Saved" });
       clearCatalogueFlags();
@@ -767,7 +768,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               <Button variant="outline" size="sm" onClick={() => { clearCatalogueFlags(); setEditing(false); }}>
                 <X className="w-4 h-4 mr-1" /> Cancel
               </Button>
-              <Button size="sm" onClick={saveChanges} disabled={updateMut.isPending}>
+              <Button size="sm" onClick={saveChanges} disabled={updateMut.isPending || calculation.error !== undefined}>
                 {updateMut.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
                 <Save className="w-4 h-4 mr-1" /> Save
               </Button>
@@ -925,11 +926,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               <div>
                 <Label className="text-xs text-muted-foreground">VAT Rate (%)</Label>
                 <p className="text-sm mt-1">
-                  {invoice.vat_rate != null && invoice.vat_rate > 0
-                    ? `${invoice.vat_rate}%`
-                    : settings?.default_vat_rate != null && settings.default_vat_rate > 0
-                      ? `${settings.default_vat_rate}%`
-                      : "0%"}
+                  {Number(invoice.vat_rate) || 0}%
                 </p>
               </div>
               <div className="col-span-2 md:col-span-3 border-t pt-4 mt-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -1125,15 +1122,66 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
               <CardContent className="pt-4 space-y-1 text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
-                  <span>{formatCurrency(editing ? subtotal : Number(invoice.subtotal), currency)}</span>
+                  <span>{editing ? (totals ? money(totals.subtotal) : "—") : money(Number(invoice.subtotal))}</span>
                 </div>
+                {isInvoice && editing && (
+                  <div className="space-y-2 py-3">
+                    <Label htmlFor="invoice-discount-type">Discount</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Select
+                        value={discountType ?? "none"}
+                        onValueChange={(value) => {
+                          if (value === "none" || value === "percentage" || value === "fixed") {
+                            setDiscountType(value === "none" ? null : value);
+                            setDiscountValue("0");
+                          }
+                        }}
+                      >
+                        <SelectTrigger id="invoice-discount-type"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No discount</SelectItem>
+                          <SelectItem value="percentage">Percentage (%)</SelectItem>
+                          <SelectItem value="fixed">Fixed amount ({currency})</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {discountType !== null && (
+                        <div className="space-y-1">
+                          <Label htmlFor="invoice-discount-value" className="sr-only">
+                            {discountType === "percentage" ? "Discount percentage" : "Discount amount"}
+                          </Label>
+                          <Input
+                            id="invoice-discount-value"
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            max={discountType === "percentage" ? 100 : undefined}
+                            step="0.01"
+                            value={discountValue}
+                            onChange={(e) => setDiscountValue(e.target.value)}
+                            aria-invalid={calculation.error !== undefined}
+                            aria-describedby={calculation.error ? "invoice-discount-error" : "invoice-discount-help"}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <p id="invoice-discount-help" className="text-xs text-muted-foreground">Applied to the whole invoice before VAT.</p>
+                    {calculation.error && <p id="invoice-discount-error" role="alert" className="text-sm text-destructive">{calculation.error}</p>}
+                  </div>
+                )}
+                {(editing ? (totals?.discount_amount ?? 0) : Number(invoice.discount_amount ?? 0)) > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Discount{(editing ? discountType : invoice.discount_type) === "percentage"
+                      ? ` (${editing ? Number(discountValue) : Number(invoice.discount_value)}%)` : ""}</span>
+                    <span>-{money(editing ? (totals?.discount_amount ?? 0) : Number(invoice.discount_amount))}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-muted-foreground">
-                  <span>VAT ({editing ? vatRate : invoice.vat_rate}%)</span>
-                  <span>{formatCurrency(editing ? vatAmount : Number(invoice.vat_amount), currency)}</span>
+                  <span>VAT ({vr}%)</span>
+                  <span>{editing ? (totals ? money(totals.vat_amount) : "—") : money(Number(invoice.vat_amount))}</span>
                 </div>
                 <div className="flex justify-between font-semibold text-base">
                   <span>Total</span>
-                  <span>{formatCurrency(editing ? total : Number(invoice.total), currency)}</span>
+                  <span>{editing ? (totals ? money(totals.total) : "—") : money(Number(invoice.total))}</span>
                 </div>
               </CardContent>
             </Card>
@@ -1286,6 +1334,8 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
         customerNotes={invoice.customer_notes}
         worksOrder={invoice.works_order}
         vatRate={invoice.vat_rate}
+        discountType={invoice.discount_type}
+        discountValue={Number(invoice.discount_value ?? 0)}
       />
 
       {/* ── Dialogs ── */}

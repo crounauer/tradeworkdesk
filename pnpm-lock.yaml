@@ -287,6 +287,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.99.1
         version: 2.99.1
+      '@workspace/api-zod':
+        specifier: workspace:*
+        version: link:../../lib/api-zod
       compression:
         specifier: ^1.8.1
         version: 1.8.1

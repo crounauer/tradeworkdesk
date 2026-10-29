@@ -10,6 +10,7 @@ import { Loader2, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateInvoice, type InvoiceLineItem, type InvoiceType } from "@/hooks/use-invoices";
 import { useLocation } from "wouter";
+import type { InvoiceDiscountType } from "@workspace/api-zod/invoice-totals";
 
 interface DuplicateInvoiceDialogProps {
   open: boolean;
@@ -21,6 +22,8 @@ interface DuplicateInvoiceDialogProps {
   customerNotes?: string | null;
   worksOrder?: string | null;
   vatRate?: number | null;
+  discountType?: InvoiceDiscountType;
+  discountValue?: number;
 }
 
 // Copy the parts a new draft needs; drop ids/timestamps that belong to the original document.
@@ -52,6 +55,8 @@ export function DuplicateInvoiceDialog({
   customerNotes,
   worksOrder,
   vatRate,
+  discountType,
+  discountValue,
 }: DuplicateInvoiceDialogProps) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -108,7 +113,9 @@ export function DuplicateInvoiceDialog({
         customer_notes: customerNotes || undefined,
         works_order: worksOrder || undefined,
         vat_rate: vatRate ?? undefined,
-      } as any);
+        discount_type: discountType,
+        discount_value: discountValue,
+      });
       toast({ title: `${documentLabel} duplicated`, description: `${created.invoice_number} created for ${selectedCustomer?.business_name || `${selectedCustomer?.first_name} ${selectedCustomer?.last_name}`}.` });
       onOpenChange(false);
       reset();
