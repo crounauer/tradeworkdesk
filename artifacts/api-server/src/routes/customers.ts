@@ -1883,7 +1883,7 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
       .from("tenant_email_audit_log")
       .select("id, to_email, subject, metadata, created_at, status, email_type")
       .eq("tenant_id", req.tenantId!)
-      .in("email_type", ["enquiry_acknowledgement", "enquiry_not_proceeding", "invoice_receipt"])
+      .in("email_type", ["enquiry_acknowledgement", "enquiry_not_proceeding", "invoice_receipt", "portal_access_guide"])
       .eq("to_email", customerEmail)
       .in("status", ["accepted", "delivered", "sent"])
       .order("created_at", { ascending: false })
@@ -1895,18 +1895,19 @@ router.get("/customers/:id/email-log", requireAuth, requireTenant, async (req: A
       const metadata = (row.metadata as Record<string, unknown> | null) || null;
       const isInvoiceReceipt = row.email_type === "invoice_receipt";
       const isNotProceeding = row.email_type === "enquiry_not_proceeding";
+      const isPortalGuide = row.email_type === "portal_access_guide";
       const emailId = isInvoiceReceipt
         ? (metadata?.invoiceNumber ? String(metadata.invoiceNumber) : String(row.id))
         : (metadata?.enquiryId ? String(metadata.enquiryId) : String(row.id));
       return {
-        id: `${isInvoiceReceipt ? "invoice-receipt" : isNotProceeding ? "enquiry-not-proceeding" : "enquiry-ack"}-${String(row.id)}`,
+        id: `${isPortalGuide ? "portal-access-guide" : isInvoiceReceipt ? "invoice-receipt" : isNotProceeding ? "enquiry-not-proceeding" : "enquiry-ack"}-${String(row.id)}`,
         job_id: null,
         job_ref: null,
         sent_to: String(row.to_email || customerEmail),
-        subject: String(row.subject || (isInvoiceReceipt ? "Payment receipt" : isNotProceeding ? "Enquiry not proceeding" : "Enquiry acknowledgement")),
+        subject: String(row.subject || (isPortalGuide ? "Customer portal access guide" : isInvoiceReceipt ? "Payment receipt" : isNotProceeding ? "Enquiry not proceeding" : "Enquiry acknowledgement")),
         forms_included: [{
-          form_type: isInvoiceReceipt ? "invoice_receipt" : isNotProceeding ? "enquiry_not_proceeding" : "enquiry_acknowledgement",
-          form_label: isInvoiceReceipt ? "Payment Receipt" : isNotProceeding ? "Enquiry Not Proceeding" : "Enquiry Acknowledgement",
+          form_type: isPortalGuide ? "portal_access_guide" : isInvoiceReceipt ? "invoice_receipt" : isNotProceeding ? "enquiry_not_proceeding" : "enquiry_acknowledgement",
+          form_label: isPortalGuide ? "Portal Access Guide" : isInvoiceReceipt ? "Payment Receipt" : isNotProceeding ? "Enquiry Not Proceeding" : "Enquiry Acknowledgement",
           form_id: emailId,
         }],
         photos_included: null,

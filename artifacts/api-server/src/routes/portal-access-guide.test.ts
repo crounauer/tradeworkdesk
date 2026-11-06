@@ -164,3 +164,50 @@ test("guide distinguishes existing accounts from first-time registration", () =>
   assert.match(body, /using your usual contact details/);
   assert.doesNotMatch(body, /undefined|null/);
 });
+
+test("customer email history includes portal access guides with the correct label", async t => {
+  const originalFetch = globalThis.fetch;
+  t.mock.method(globalThis, "fetch", async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    if (url.hostname === "127.0.0.1") return originalFetch(input, init);
+    assert.equal(url.hostname, "portal-guide-test.invalid");
+    const table = url.pathname.split("/").pop();
+    assert.equal(url.searchParams.get("tenant_id"), `eq.${tenantId}`);
+    if (table === "customers") return Response.json({ id: customerId, email: customerEmail });
+    if (table === "tenant_email_audit_log") {
+      assert.match(url.searchParams.get("email_type") || "", /portal_access_guide/);
+      assert.equal(url.searchParams.get("to_email"), `eq.${customerEmail}`);
+      assert.equal(url.searchParams.get("status"), "in.(accepted,delivered,sent)");
+      return Response.json([{
+        id: "guide-audit", to_email: customerEmail, email_type: "portal_access_guide",
+        subject: "Test Heating - Your customer portal access guide",
+        created_at: "2026-11-06T10:00:00Z", status: "accepted", metadata: null,
+      }]);
+    }
+    assert.ok(["jobs", "invoices", "job_email_logs", "review_requests"].includes(table || ""));
+    return Response.json([]);
+  });
+  const route = router.stack.find(layer => layer.route?.path === "/customers/:id/email-log")?.route;
+  assert.ok(route);
+  const app = express();
+  app.use((req, _res, next) => {
+    Object.assign(req, { tenantId });
+    next();
+  });
+  app.get(route.path, route.stack.at(-1)!.handle);
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>(resolve => server.once("listening", resolve));
+  t.after(() => new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const response = await fetch(`http://127.0.0.1:${address.port}/customers/${customerId}/email-log`);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), [{
+    id: "portal-access-guide-guide-audit",
+    job_id: null, job_ref: null, sent_to: customerEmail,
+    subject: "Test Heating - Your customer portal access guide",
+    forms_included: [{ form_type: "portal_access_guide", form_label: "Portal Access Guide", form_id: "guide-audit" }],
+    photos_included: null, body_text: null, sent_by_name: null,
+    created_at: "2026-11-06T10:00:00Z",
+  }]);
+});

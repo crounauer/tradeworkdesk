@@ -1573,6 +1573,7 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
         method: "POST",
       }) as { sent_to: string };
       toast({ title: "Portal guide sent", description: `The complete access guide has been emailed to ${result.sent_to}.` });
+      qc.invalidateQueries({ queryKey: ["customer-email-log", customerId] });
     } catch (e: unknown) {
       toast({ title: "Error", description: e instanceof Error ? e.message : "Failed to send portal access guide", variant: "destructive" });
     } finally {
