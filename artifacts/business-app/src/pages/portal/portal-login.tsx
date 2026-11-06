@@ -20,6 +20,8 @@ export default function PortalLogin() {
   const [requestPostcode, setRequestPostcode] = useState("");
   const [requestingAccess, setRequestingAccess] = useState(false);
   const [requestAccessMessage, setRequestAccessMessage] = useState("");
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [resetPasswordMessage, setResetPasswordMessage] = useState("");
 
   if (isLoading) {
     return (
@@ -79,12 +81,35 @@ export default function PortalLogin() {
       }
 
       setRequestAccessMessage(
-        "Request submitted. If your details match our records, your service provider will review and send an invite.",
+        "If your details match our records, your service provider can review your access. If you have already registered, sign in or use Forgot your password.",
       );
     } catch (requestErr) {
       setError(requestErr instanceof Error ? requestErr.message : "Could not submit access request");
     } finally {
       setRequestingAccess(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    setError("");
+    setResetPasswordMessage("");
+
+    if (!email.trim()) {
+      setError("Enter your email first to request a password reset.");
+      return;
+    }
+
+    setResettingPassword(true);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (resetError) throw resetError;
+      setResetPasswordMessage("If an account exists for that email, a password reset link will be sent.");
+    } catch (resetErr) {
+      setError(resetErr instanceof Error ? resetErr.message : "Could not request a password reset.");
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -143,11 +168,17 @@ export default function PortalLogin() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Signing in..." : "Sign In"}
             </Button>
+            <Button type="button" variant="link" className="w-full" onClick={handlePasswordReset} disabled={resettingPassword}>
+              {resettingPassword ? "Sending reset link..." : "Forgot your password?"}
+            </Button>
+            {resetPasswordMessage && (
+              <p className="text-xs text-center text-slate-600">{resetPasswordMessage}</p>
+            )}
           </form>
 
           <div className="mt-6 pt-4 border-t border-slate-200">
             <p className="text-sm font-medium text-slate-900">Need portal access?</p>
-            <p className="text-xs text-slate-500 mt-1">Request access and your service provider can approve and send your invite.</p>
+            <p className="text-xs text-slate-500 mt-1">If you already have an account, sign in or reset your password. If you have not received an invitation, request access below.</p>
             <form onSubmit={handleRequestAccess} className="mt-3 space-y-3">
               <div className="space-y-1">
                 <Label htmlFor="request-postcode">Postcode (optional)</Label>

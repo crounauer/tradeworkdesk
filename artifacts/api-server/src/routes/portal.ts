@@ -468,6 +468,23 @@ router.post("/portal/request-access", async (req: CustomerPortalRequest, res): P
   });
 
   for (const customer of matchedCustomers as Array<{ id: string; tenant_id: string; email: string | null; postcode: string | null; first_name: string | null; last_name: string | null }>) {
+    const { data: activePortalUser, error: portalUserError } = await supabaseAdmin
+      .from("customer_portal_users")
+      .select("id")
+      .eq("tenant_id", customer.tenant_id)
+      .eq("customer_id", customer.id)
+      .eq("is_active", true)
+      .not("auth_user_id", "is", null)
+      .maybeSingle();
+
+    if (portalUserError) {
+      console.error("[portal] Failed to check existing access before request:", portalUserError);
+      res.status(500).json({ error: "Could not submit access request" });
+      return;
+    }
+
+    if (activePortalUser) continue;
+
     const { data: existingPending } = await supabaseAdmin
       .from("customer_portal_access_requests")
       .select("id")
@@ -502,10 +519,15 @@ router.post("/portal/request-access", async (req: CustomerPortalRequest, res): P
       const adminEmail = (settings as any)?.email;
       if (adminEmail) {
         const customerName = `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || rawEmail;
+        const appBaseUrl = (
+          process.env.APP_URL
+          || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://tradeworkdesk.co.uk")
+        ).replace(/\/$/, "");
+        const customerUrl = `${appBaseUrl}/customers/${customer.id}`;
         await sendSimpleNotification(
           adminEmail,
           "Customer portal access requested",
-          `${customerName} (${rawEmail}) has requested access to the customer portal.\n\nReview the pending request in TradeWorkDesk to approve or reject it.${rawPostcode ? `\n\nPostcode: ${rawPostcode}` : ""}`,
+          `${customerName} (${rawEmail}) has requested access to the customer portal.\n\nReview the pending request and approve or reject it in TradeWorkDesk:\n${customerUrl}${rawPostcode ? `\n\nPostcode: ${rawPostcode}` : ""}`,
           {
             tenantId: customer.tenant_id,
             emailType: "portal_access_request",
