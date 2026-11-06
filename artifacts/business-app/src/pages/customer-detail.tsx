@@ -1516,11 +1516,14 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
 
 function PortalAccessSection({ customerId, customerEmail }: { customerId: string; customerEmail?: string | null }) {
   const { toast } = useToast();
+  const { profile } = useAuth();
+  const canSendGuide = profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin";
   const qc = useQueryClient();
   const [sendingInvite, setSendingInvite] = useState(false);
   const [extendingInvite, setExtendingInvite] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [openingPortalView, setOpeningPortalView] = useState(false);
+  const [sendingGuide, setSendingGuide] = useState(false);
   const [portalExpanded, setPortalExpanded] = useState(false);
 
   const { data: portalStatus, isLoading } = useQuery({
@@ -1560,6 +1563,20 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
       toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
       setSendingInvite(false);
+    }
+  };
+
+  const sendAccessGuide = async () => {
+    setSendingGuide(true);
+    try {
+      const result = await customFetch(`${import.meta.env.BASE_URL}api/customers/${customerId}/portal-access-guide`, {
+        method: "POST",
+      }) as { sent_to: string };
+      toast({ title: "Portal guide sent", description: `The complete access guide has been emailed to ${result.sent_to}.` });
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed to send portal access guide", variant: "destructive" });
+    } finally {
+      setSendingGuide(false);
     }
   };
 
@@ -1790,6 +1807,21 @@ function PortalAccessSection({ customerId, customerEmail }: { customerId: string
             </div>
           </div>
           )}
+          {canSendGuide && <div className="mt-4 border-t border-border/50 pt-4 space-y-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={sendAccessGuide}
+              disabled={sendingGuide || sendingInvite || toggling || !customerEmail || !status?.is_active}
+            >
+              {sendingGuide ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
+              {sendingGuide ? "Sending Guide..." : "Email Portal Access Guide"}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Emails sign-in and password-reset instructions, a portal tour, and a registration link if needed. Send an invitation or enable access first.
+            </p>
+          </div>}
         </Card>
       )}
     </div>

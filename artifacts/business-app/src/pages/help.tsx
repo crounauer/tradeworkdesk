@@ -128,7 +128,7 @@ const sections: HelpSection[] = [
       },
       {
         q: "What is the Customer Portal?",
-        a: "A self-service portal your customers can log into to view their jobs, properties, and pay invoices online. You can invite a customer to the portal from their customer record.",
+        a: "A self-service portal your customers can log into to view their jobs, properties, and pay invoices online. Open a customer record and expand Customer Portal to send an invitation. Once access is enabled, use Email Portal Access Guide to email a complete guide covering registration (if needed), sign-in, password resets and using the portal. Expired invitations must be resent first. Sending a guide does not change access or passwords.",
       },
     ],
   },

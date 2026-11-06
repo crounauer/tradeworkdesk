@@ -16,6 +16,7 @@ import { z } from "zod";
 import { createPortalImpersonationSession, generateInviteToken, portalUserCache } from "./portal";
 import { isCcAdminRequested, sendPortalInviteEmail, sendSimpleNotification, type EmailCompanyDetails } from "../lib/email";
 import { COMPANY_ACCOUNT_EMAIL_ERROR, isCompanyAccountEmail } from "../lib/customer-email-policy";
+import { buildPortalAccessGuide } from "../lib/portal-access-guide";
 
 const router: IRouter = Router();
 
@@ -1060,6 +1061,103 @@ router.post("/customers/:id/portal-invite", requireAuth, requireTenant, requireR
     const msg = e instanceof Error ? e.message : "Failed to send invite email";
     console.error("[portal] Failed to send invite email:", e);
     res.status(502).json({ error: msg });
+    return;
+  }
+
+  res.json({ success: true, sent_to: customer.email });
+});
+
+router.post("/customers/:id/portal-access-guide", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { id } = req.params;
+  const { data: customer, error: customerError } = await supabaseAdmin
+    .from("customers")
+    .select("id, first_name, last_name, email")
+    .eq("id", id)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  if (customerError) {
+    console.error("[portal] Failed to load customer for access guide:", customerError);
+    res.status(500).json({ error: "Could not load customer" });
+    return;
+  }
+  if (!customer) {
+    res.status(404).json({ error: "Customer not found" });
+    return;
+  }
+  if (!customer.email) {
+    res.status(400).json({ error: "Add a customer email address before sending the portal guide." });
+    return;
+  }
+
+  const { data: portalUser, error: portalError } = await supabaseAdmin
+    .from("customer_portal_users")
+    .select("is_active, auth_user_id, invite_token, invite_email, invite_expires_at")
+    .eq("customer_id", id)
+    .eq("tenant_id", req.tenantId!)
+    .maybeSingle();
+
+  if (portalError) {
+    console.error("[portal] Failed to load portal access for guide:", portalError);
+    res.status(500).json({ error: "Could not check portal access" });
+    return;
+  }
+  if (!portalUser?.is_active) {
+    res.status(400).json({ error: "Send a portal invitation or enable portal access before sending the guide." });
+    return;
+  }
+  if (!portalUser.auth_user_id && (
+    !portalUser.invite_token
+    || !portalUser.invite_expires_at
+    || !(new Date(portalUser.invite_expires_at).getTime() > Date.now())
+    || (portalUser.invite_email && portalUser.invite_email.toLowerCase().trim() !== customer.email.toLowerCase().trim())
+  )) {
+    res.status(400).json({ error: "Resend the portal invitation before sending the guide." });
+    return;
+  }
+
+  const [{ data: settings, error: settingsError }, { data: tenant, error: tenantError }] = await Promise.all([
+    supabaseAdmin.from("company_settings")
+      .select("name, trading_name, email, phone, email_from_name, email_reply_to")
+      .eq("tenant_id", req.tenantId!).eq("singleton_id", "default").maybeSingle(),
+    supabaseAdmin.from("tenants").select("company_name").eq("id", req.tenantId!).single(),
+  ]);
+  if (settingsError || tenantError) {
+    console.error("[portal] Failed to load company details for guide:", settingsError || tenantError);
+    res.status(500).json({ error: "Could not load company details" });
+    return;
+  }
+
+  const companyName = settings?.name || settings?.trading_name || tenant?.company_name || "Your Service Provider";
+  const baseUrl = (
+    process.env.APP_URL
+    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://tradeworkdesk.co.uk")
+  ).replace(/\/$/, "");
+  const body = buildPortalAccessGuide({
+    customerName: `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "Customer",
+    customerEmail: customer.email,
+    companyName,
+    loginUrl: `${baseUrl}/portal/login`,
+    contactEmail: settings?.email,
+    contactPhone: settings?.phone,
+    ...(portalUser.auth_user_id
+      ? { isRegistered: true }
+      : {
+        isRegistered: false,
+        registerUrl: `${baseUrl}/portal/register?token=${encodeURIComponent(portalUser.invite_token)}`,
+        inviteExpiresAt: portalUser.invite_expires_at,
+      }),
+  });
+
+  try {
+    await sendSimpleNotification(customer.email, `${companyName} - Your customer portal access guide`, body, {
+      tenantId: req.tenantId!,
+      emailType: "portal_access_guide",
+      companyDetails: settings || { name: companyName },
+    });
+  } catch (error) {
+    console.error("[portal] Failed to send access guide:", error);
+    res.status(502).json({ error: error instanceof Error ? error.message : "Could not send portal access guide" });
     return;
   }
 
