@@ -9,6 +9,7 @@ import router from "./routes";
 import { startServiceReminderScheduler } from "./lib/service-reminders";
 import { getSentry } from "./lib/sentry";
 import { withRequestContext } from "./lib/request-context";
+import { serveDatabaseReadiness } from "./lib/database-readiness";
 
 const app: Express = express();
 app.set("trust proxy", 1);
@@ -131,6 +132,8 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", v: 2 });
 });
+
+app.get("/health/ready", serveDatabaseReadiness);
 
 // Monitoring helper endpoint: confirms if Sentry SDK is initialised.
 app.get("/health/sentry", (_req: Request, res: Response) => {

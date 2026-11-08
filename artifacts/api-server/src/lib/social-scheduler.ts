@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabase";
+import { databaseGuardedTask } from "./database-readiness";
 import { dispatchPost } from "./social-platforms";
 import {
   beginSocialDeliveryAttempt,
@@ -258,8 +259,10 @@ async function processPlatformScheduledPosts(): Promise<void> {
 
 export function startSocialScheduler(): void {
   console.log("[social-scheduler] Starting scheduler (60s interval)");
+  const run = databaseGuardedTask("social-scheduler", async () => {
+    await Promise.all([processScheduledPosts(), processPlatformScheduledPosts()]);
+  });
   setInterval(() => {
-    processScheduledPosts();
-    processPlatformScheduledPosts();
+    void run();
   }, INTERVAL_MS);
 }

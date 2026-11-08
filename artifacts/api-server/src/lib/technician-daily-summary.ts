@@ -1,5 +1,6 @@
 import { sendSimpleNotification, type EmailCompanyDetails } from "./email";
 import { supabaseAdmin } from "./supabase";
+import { databaseGuardedTask } from "./database-readiness";
 
 const SINGLETON_ID = "default";
 const ACTIVE_JOB_STATUSES = ["scheduled", "in_progress", "requires_follow_up", "awaiting_parts"];
@@ -455,7 +456,7 @@ export function startTechnicianDailySummaryScheduler(): void {
 
   if (schedulerTimer) return;
 
-  const tick = async () => {
+  const tick = databaseGuardedTask("technician-summary", async () => {
     if (schedulerRunning) return;
     schedulerRunning = true;
     try {
@@ -465,7 +466,7 @@ export function startTechnicianDailySummaryScheduler(): void {
     } finally {
       schedulerRunning = false;
     }
-  };
+  });
 
   schedulerTimer = setInterval(() => {
     void tick();

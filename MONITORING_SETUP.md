@@ -36,7 +36,8 @@
 
 1. **Create a Better Stack account** at https://betterstack.com
 2. **Add a monitor for each endpoint:**
-   - `https://tradeworkdesk-api.fly.dev/health` (GET)
+   - `https://tradeworkdesk-api.fly.dev/health/ready` (GET, database readiness)
+   - `https://tradeworkdesk-api.fly.dev/health` (GET, process liveness)
    - Check every 60 seconds
    - Alert on downtime > 5 minutes
 
@@ -51,12 +52,17 @@ Use this baseline alert profile to detect customer-impact risk early.
 Create these monitors and notifications:
 
 1. **API health monitor**
-   - URL: `https://tradeworkdesk-api.fly.dev/health`
+   - URL: `https://tradeworkdesk-api.fly.dev/health/ready`
    - Method: `GET`
    - Frequency: `60s`
    - Regions: at least `2`
    - Alert when down for `2` consecutive checks
    - Send recovery emails: enabled
+   - Request timeout: `10s`
+   - Expected status: `200`; `503` means database-dependent services are unavailable
+   - Keep a separate `/health` monitor for process liveness. Do not change the
+     Fly machine check to database readiness: restarting the API cannot repair
+     a Supabase outage.
 
 2. **Homepage synthetic monitor**
    - URL: your production frontend homepage
@@ -114,6 +120,37 @@ Use this escalation timing to avoid delayed response:
    - Trigger examples: machine count pinned at max, rising slow requests
    - First alert: immediate email
    - Escalate if unresolved after `60 minutes`
+
+## Database outage behaviour
+
+`/health/ready` performs a read-only, one-row Supabase Data API query with a
+5-second deadline. It returns only readiness and a check timestamp, never
+database records, credentials or raw errors. Concurrent probes are coalesced.
+Successful results are cached for 15 seconds. Failed probes back off for
+30, 60, 120, 240 and then 300 seconds; recovery detection can therefore take
+up to five minutes. Responses use `Cache-Control: no-store`.
+
+Readiness failure and recovery transitions are logged and sent to Sentry.
+The social-post, review-request, technician-summary, push-event and email-ops
+pollers share this readiness check, skip runs while unavailable, and prevent
+overlapping runs. Their normal schedules resume after a successful probe.
+This does not recover already-failed deliveries automatically or replace
+provider-side investigation.
+
+Server Supabase Data API requests have a 30-second deadline, including RPCs;
+caller cancellation and shorter probe deadlines are preserved. Auth and
+storage requests retain their existing behaviour. Writes are not automatically
+retried: a timed-out mutation may have completed in the database, so verify
+its outcome before submitting it again.
+
+Frontend account-startup, homepage-prefetch and calendar reads have a
+15-second deadline. Startup and calendar errors offer a manual retry instead
+of treating errors as empty account/schedule data. Previously loaded data is
+retained; the calendar marks it as potentially out of date on refresh failure.
+
+After deployment, configure the external readiness monitor in Better Stack
+(or your uptime provider). Adding this endpoint alone does not configure an
+external monitor or notification recipients.
 
 ## Testing Locally
 

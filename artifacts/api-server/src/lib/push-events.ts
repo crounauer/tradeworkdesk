@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabase";
+import { databaseGuardedTask } from "./database-readiness";
 import { sendPushToUser } from "./push-notifications";
 
 export const PUSH_EVENT_TYPES = [
@@ -530,13 +531,7 @@ export function startPushEventScheduler(): void {
   }
   if (schedulerHandle) return;
 
-  const run = async () => {
-    try {
-      await runPushEventScans();
-    } catch (err) {
-      console.error("[push-events] Scheduler run failed:", (err as Error).message);
-    }
-  };
+  const run = databaseGuardedTask("push-events", runPushEventScans);
 
   // Initial run shortly after startup, then every 10 minutes.
   setTimeout(() => {

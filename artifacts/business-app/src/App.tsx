@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { useInitData } from "@/hooks/use-init-data";
 import { PortalAuthProvider, usePortalAuth } from "@/hooks/use-portal-auth";
 import { Layout } from "@/components/layout";
 import { ToolsPublicLayout } from "@/components/tools-public-layout";
@@ -273,16 +274,39 @@ function getSafeNextPathFromSearch(search: string): string | null {
   return raw;
 }
 
+function AccountLoadError() {
+  const { error, isFetching, refetch } = useInitData();
+  const { signOut } = useAuth();
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div role="alert" className="w-full max-w-md rounded-xl border bg-background p-6 space-y-4 text-center">
+        <h1 className="text-xl font-bold">Unable to load your account</h1>
+        <p className="text-sm text-muted-foreground">
+          {error instanceof Error && error.message !== "unauthorized" ? error.message : "Your account details could not be loaded. Please retry or sign in again."}
+        </p>
+        <button type="button" onClick={() => void refetch()} disabled={isFetching} className="w-full rounded-lg bg-primary p-3 text-primary-foreground disabled:opacity-50">
+          {isFetching ? "Retrying..." : "Try Again"}
+        </button>
+        <button type="button" onClick={signOut} className="block w-full text-sm text-primary">Sign Out &amp; Sign In Again</button>
+      </div>
+    </div>
+  );
+}
+
 function ProtectedRoute({ component: Component, roles, requiredFeature }: { component: React.ComponentType; roles?: string[]; requiredFeature?: "job_management" | "website_builder" }) {
   const { session, isLoading, profile, mfaPending } = useAuth();
   const { hasFeature } = usePlanFeatures();
   const isReadOnlySupportMode = !!localStorage.getItem("superadmin_readonly_tenant_id");
+  const { isLoading: accountLoading } = useInitData();
 
   if (isLoading) return <PageFallback />;
   if (!session || mfaPending) {
     const nextPath = `${window.location.pathname}${window.location.search || ""}`;
     return <Redirect to={`/login?next=${encodeURIComponent(nextPath)}`} />;
   }
+
+  if (accountLoading) return <PageFallback />;
+  if (!profile) return <AccountLoadError />;
 
   if (requiredFeature && !hasFeature(requiredFeature)) {
     if (requiredFeature === "job_management") {
@@ -378,6 +402,7 @@ function RootRoute() {
   if (mfaPending) return <Redirect to="/login" />;
 
   if (session && !profileReady) return <PageFallback />;
+  if (session && !profile) return <AccountLoadError />;
 
   if (session && profile?.role === "super_admin" && !isReadOnlySupportMode) {
     return <Redirect to="/platform" />;

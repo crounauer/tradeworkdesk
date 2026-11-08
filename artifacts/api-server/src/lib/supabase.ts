@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { fetchWithDatabaseTimeout } from "./database-fetch";
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -19,6 +20,7 @@ function getAdminClient(): LooseSupabaseClient {
 
   if (!adminClient) {
     adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+      global: { fetch: fetchWithDatabaseTimeout },
       auth: { autoRefreshToken: false, persistSession: false },
     });
   }
@@ -45,7 +47,7 @@ export function createSupabaseClient(accessToken: string) {
   }
 
   return createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    global: { headers: { Authorization: `Bearer ${accessToken}` }, fetch: fetchWithDatabaseTimeout },
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

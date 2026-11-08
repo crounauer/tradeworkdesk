@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "./supabase";
 import { sendSimpleNotification } from "./email";
+import { databaseGuardedTask } from "./database-readiness";
 
 let monitorTimer: NodeJS.Timeout | null = null;
 let lastAlertAtByTenant = new Map<string, number>();
@@ -123,11 +124,7 @@ export function startEmailOpsMonitorScheduler(): void {
   const intervalMinutes = Math.max(5, toNumber(process.env.EMAIL_OPS_MONITOR_INTERVAL_MINUTES, 15));
   const intervalMs = intervalMinutes * 60_000;
 
-  const run = async () => {
-    await runEmailOpsMonitor().catch((err) =>
-      console.error("[email-ops] Unhandled scheduler error:", err instanceof Error ? err.message : String(err))
-    );
-  };
+  const run = databaseGuardedTask("email-ops", runEmailOpsMonitor);
 
   void run();
   monitorTimer = setInterval(() => {

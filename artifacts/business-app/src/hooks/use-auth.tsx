@@ -2,7 +2,8 @@ import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { User, Session } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
-import { useInitData } from "./use-init-data";
+import { initDataQueryOptions, useInitData } from "./use-init-data";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 type Profile = {
   id: string;
@@ -47,33 +48,17 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 }
 
 function prefetchCriticalData(queryClient: ReturnType<typeof useQueryClient>) {
-  queryClient.prefetchQuery({
-    queryKey: ["me-init"],
-    queryFn: async () => {
-      const res = await fetch("/api/me/init");
-      if (res.status === 401) throw new Error("unauthorized");
-      if (!res.ok) return {
-        profile: null,
-        planFeatures: { plan_id: null, plan_name: null, features: {} },
-        tenant: null,
-        enquiriesCount: 0,
-        overdueFollowUpsCount: 0,
-        activeFollowUpsCount: 0,
-        todosCount: 0,
-      };
-      return res.json();
-    },
-    staleTime: 60_000,
-  });
+  queryClient.prefetchQuery(initDataQueryOptions);
 
   queryClient.prefetchQuery({
     queryKey: ["homepage"],
-    queryFn: async () => {
-      const res = await fetch("/api/homepage");
+    queryFn: async ({ signal }) => {
+      const res = await fetchWithTimeout("/api/homepage", { signal });
       if (!res.ok) throw new Error(`homepage failed: ${res.status}`);
       return res.json();
     },
     staleTime: 60_000,
+    retry: false,
   });
 }
 

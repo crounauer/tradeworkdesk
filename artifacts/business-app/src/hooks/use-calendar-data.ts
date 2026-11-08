@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 interface CalendarJob {
   id: string;
@@ -64,8 +64,12 @@ export function useCalendarData(params?: { date_from?: string; date_to?: string 
 
   return useQuery<CalendarData>({
     queryKey: ["/api/calendar", qs],
-    queryFn: () =>
-      customFetch(`${import.meta.env.BASE_URL}api/calendar${qs ? `?${qs}` : ""}`) as Promise<CalendarData>,
+    queryFn: async ({ signal }) => {
+      const res = await fetchWithTimeout(`${import.meta.env.BASE_URL}api/calendar${qs ? `?${qs}` : ""}`, { signal });
+      if (!res.ok) throw new Error("Unable to load the schedule. Please try again.");
+      return res.json() as Promise<CalendarData>;
+    },
+    retry: false,
     staleTime: 2 * 60_000,
     gcTime: 10 * 60_000,
   });

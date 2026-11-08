@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabase";
+import { databaseGuardedTask } from "./database-readiness";
 import { hasActiveAddon, deductAddonCredit, getAddonCredits } from "./tenant-limits";
 import { getTenantEmailFailureMessage, isEmailSuppressedForTenant, notifyEmailDeliveryFailure, sendResendEmailWithRetry, writeTenantEmailAudit } from "./email";
 
@@ -436,11 +437,7 @@ export function startReviewRequestScheduler(): void {
   if (reviewRequestTimer) return;
   console.log(`[review-requests] Starting scheduler (${Math.round(REVIEW_REQUEST_POLL_MS / 1000)}s interval)`);
 
-  const run = async () => {
-    await processDueReviewRequests().catch((err) => {
-      console.error("[review-requests] Scheduler run failed:", err);
-    });
-  };
+  const run = databaseGuardedTask("review-requests", processDueReviewRequests);
 
   void run();
   reviewRequestTimer = setInterval(() => {

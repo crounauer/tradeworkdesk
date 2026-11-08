@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 import type { PlanFeatures } from "./use-plan-features";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 export interface Announcement {
   id: string;
@@ -65,32 +66,23 @@ export interface InitData {
   usageLimits?: UsageLimits | null;
 }
 
+export const initDataQueryOptions = queryOptions({
+  queryKey: ["me-init"],
+  queryFn: async ({ signal }): Promise<InitData> => {
+    const res = await fetchWithTimeout("/api/me/init", { signal });
+    if (res.status === 401) {
+      throw new Error("unauthorized");
+    }
+    if (!res.ok) {
+      throw new Error("Unable to load your account. The service may be temporarily unavailable. Please try again.");
+    }
+    return res.json();
+  },
+  staleTime: 5 * 60_000,
+  retry: false,
+  retryOnMount: false,
+});
+
 export function useInitData() {
-  return useQuery<InitData>({
-    queryKey: ["me-init"],
-    queryFn: async () => {
-      const res = await fetch("/api/me/init");
-      if (res.status === 401) {
-        // Auth token expired — throw so React Query keeps the last good cached data
-        throw new Error("unauthorized");
-      }
-      if (!res.ok) {
-        return {
-          profile: null,
-          planFeatures: { plan_id: null, plan_name: null, features: {} },
-          tenant: null,
-          enquiriesCount: 0,
-          overdueFollowUpsCount: 0,
-          todosCount: 0,
-        };
-      }
-      return res.json();
-    },
-    staleTime: 5 * 60_000,  // 5 minutes — avoids unnecessary remounts during edits
-    retry: (failureCount, error) => {
-      // Don't retry auth failures
-      if (error instanceof Error && error.message === "unauthorized") return false;
-      return failureCount < 2;
-    },
-  });
+  return useQuery(initDataQueryOptions);
 }

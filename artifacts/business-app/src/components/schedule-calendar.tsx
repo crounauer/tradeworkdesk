@@ -442,7 +442,7 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
   const dateFromStr = toDateStr(dateFrom);
   const dateToStr = toDateStr(addDays(dateTo, 1));
 
-  const { data: calendarData } = useCalendarData({ date_from: dateFromStr, date_to: dateToStr });
+  const { data: calendarData, isError: calendarError, isFetching: calendarFetching, refetch: retryCalendar } = useCalendarData({ date_from: dateFromStr, date_to: dateToStr });
 
   const rawCalendarJobs = (calendarData?.jobs ?? []) as CalendarJob[];
   const calendarHolidays = (calendarData?.holidays ?? []) as CalendarHoliday[];
@@ -817,6 +817,16 @@ export default function ScheduleCalendar({ onDayAction }: ScheduleCalendarProps 
 
   return (
     <Card className="p-6 border-0 shadow-sm">
+      {calendarError && (
+        <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 space-y-2">
+          <p className="text-sm text-red-700">
+            Unable to load the schedule. {calendarData ? "Previously loaded appointments may be out of date." : "Appointments are unavailable, not necessarily empty."}
+          </p>
+          <Button variant="outline" size="sm" disabled={calendarFetching} onClick={() => void retryCalendar()}>
+            {calendarFetching ? "Retrying..." : "Try Again"}
+          </Button>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
         <h2 className="text-xl font-display font-bold flex-1">Schedule</h2>
 
