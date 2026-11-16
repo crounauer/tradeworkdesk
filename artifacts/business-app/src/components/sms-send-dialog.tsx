@@ -6,14 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { MessageSquare, Loader2, FileText, AlertTriangle, Pencil } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { MessageSquare, Loader2, FileText, AlertTriangle, Pencil, ChevronDown } from "lucide-react";
 
 interface SmsSendDialogProps {
   open: boolean;
@@ -177,7 +170,7 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <Label>Use a template</Label>
+              <Label htmlFor="sms-template">Use a template</Label>
               <Button
                 type="button"
                 variant="ghost"
@@ -190,22 +183,22 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
               </Button>
             </div>
             {templates.length > 0 ? (
-              <Select onValueChange={val => {
-                const tmpl = templates.find(t => t.id === val);
-                if (tmpl) setContent(tmpl.content);
-              }}>
-                <SelectTrigger>
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-muted-foreground" />
-                    <SelectValue placeholder="Select a template…" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map(t => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="relative">
+                <FileText className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <select
+                  id="sms-template"
+                  defaultValue=""
+                  className="h-9 w-full appearance-none rounded-md border border-input bg-background pl-9 pr-9 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  onChange={e => {
+                    const tmpl = templates.find(t => t.id === e.target.value);
+                    if (tmpl) setContent(tmpl.content);
+                  }}
+                >
+                  <option value="" disabled>Select a template…</option>
+                  {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" aria-hidden="true" />
+              </div>
             ) : (
               <p className="text-xs text-muted-foreground">No templates yet. Create them in <a href="/admin/sms-templates" className="underline">Admin → SMS</a>.</p>
             )}

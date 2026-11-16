@@ -116,50 +116,69 @@ router.get("/follow-ups/:id", requireAuth, requireTenant, requirePlanFeature("jo
 });
 
 router.post("/follow-ups", requireAuth, requireTenant, requireRole("admin", "office_staff", "super_admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { original_job_id, work_description, parts_required, parts_description, expected_parts_date, notes } = req.body;
+  const { original_job_id, customer_id, property_id, work_description, parts_required, parts_description, expected_parts_date, notes } = req.body;
 
-  if (!original_job_id) {
-    res.status(400).json({ error: "original_job_id is required" }); return;
+  if (!original_job_id && !customer_id) {
+    res.status(400).json({ error: "customer_id or original_job_id is required" }); return;
   }
   const requiresParts = parts_required === true;
   if (requiresParts && (!parts_description || typeof parts_description !== "string" || !parts_description.trim())) {
     res.status(400).json({ error: "parts_description is required when parts_required is true" }); return;
   }
 
-  let jobQ = supabaseAdmin.from("jobs").select("id, customer_id, property_id, tenant_id, status").eq("id", original_job_id);
-  if (req.tenantId) jobQ = jobQ.eq("tenant_id", req.tenantId);
-  const { data: job, error: jobErr } = await jobQ.single();
-
-  if (jobErr || !job) { res.status(404).json({ error: "Job not found" }); return; }
-  if (!["completed", "invoiced", "requires_follow_up", "awaiting_parts"].includes(job.status)) {
-    res.status(400).json({ error: "Follow-ups can only be created for completed, invoiced, awaiting-parts, or follow-up-required jobs" }); return;
-  }
-
-  let existingFollowUpQ = supabaseAdmin
-    .from("follow_ups")
-    .select("id, status, new_job_id")
-    .eq("original_job_id", job.id)
-    .limit(1);
-  if (req.tenantId) existingFollowUpQ = existingFollowUpQ.eq("tenant_id", req.tenantId);
-  const { data: existingFollowUps, error: existingErr } = await existingFollowUpQ;
-  if (existingErr) { res.status(500).json({ error: existingErr.message }); return; }
-  if ((existingFollowUps || []).length > 0) {
-    const existing = existingFollowUps![0] as { id: string; status: string; new_job_id?: string | null };
-    res.status(409).json({
-      error: "A follow-up already exists for this job",
-      code: "FOLLOW_UP_ALREADY_EXISTS",
-      follow_up_id: existing.id,
-      status: existing.status,
-      new_job_id: existing.new_job_id || null,
-    });
-    return;
+  let followUpCustomerId = customer_id;
+  let followUpPropertyId = property_id || null;
+  if (original_job_id) {
+    const { data: job, error: jobErr } = await supabaseAdmin.from("jobs")
+      .select("id, customer_id, property_id, status")
+      .eq("id", original_job_id).eq("tenant_id", req.tenantId!).maybeSingle();
+    if (jobErr) { res.status(500).json({ error: jobErr.message }); return; }
+    if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+    if (customer_id && customer_id !== job.customer_id) {
+      res.status(400).json({ error: "Job does not belong to this customer" }); return;
+    }
+    if (property_id && property_id !== job.property_id) {
+      res.status(400).json({ error: "Property does not match the original job" }); return;
+    }
+    if (!["completed", "invoiced", "requires_follow_up", "awaiting_parts"].includes(job.status)) {
+      res.status(400).json({ error: "Follow-ups can only be created for completed, invoiced, awaiting-parts, or follow-up-required jobs" }); return;
+    }
+    const { data: existingFollowUps, error: existingErr } = await supabaseAdmin
+      .from("follow_ups").select("id, status, new_job_id")
+      .eq("original_job_id", job.id).eq("tenant_id", req.tenantId!).limit(1);
+    if (existingErr) { res.status(500).json({ error: existingErr.message }); return; }
+    if (existingFollowUps?.length) {
+      const existing = existingFollowUps[0];
+      res.status(409).json({
+        error: "A follow-up already exists for this job",
+        code: "FOLLOW_UP_ALREADY_EXISTS",
+        follow_up_id: existing.id,
+        status: existing.status,
+        new_job_id: existing.new_job_id || null,
+      });
+      return;
+    }
+    followUpCustomerId = job.customer_id;
+    followUpPropertyId = job.property_id;
+  } else {
+    const { data: customer, error: customerErr } = await supabaseAdmin.from("customers")
+      .select("id").eq("id", customer_id).eq("tenant_id", req.tenantId!).maybeSingle();
+    if (customerErr) { res.status(500).json({ error: customerErr.message }); return; }
+    if (!customer) { res.status(404).json({ error: "Customer not found" }); return; }
+    if (followUpPropertyId) {
+      const { data: property, error: propertyErr } = await supabaseAdmin.from("properties")
+        .select("id").eq("id", followUpPropertyId).eq("customer_id", customer_id)
+        .eq("tenant_id", req.tenantId!).maybeSingle();
+      if (propertyErr) { res.status(500).json({ error: propertyErr.message }); return; }
+      if (!property) { res.status(400).json({ error: "Property does not belong to this customer" }); return; }
+    }
   }
 
   const insertPayload: Record<string, unknown> = {
-    tenant_id: req.tenantId || job.tenant_id,
-    original_job_id: job.id,
-    customer_id: job.customer_id,
-    property_id: job.property_id,
+    tenant_id: req.tenantId,
+    original_job_id: original_job_id || null,
+    customer_id: followUpCustomerId,
+    property_id: followUpPropertyId,
     work_description: work_description || null,
     parts_description: requiresParts ? (parts_description || null) : null,
     expected_parts_date: requiresParts ? (expected_parts_date || null) : null,
@@ -276,13 +295,11 @@ router.patch("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin",
 
 router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requireRole("admin", "office_staff", "super_admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { id } = req.params;
-  const { scheduled_date, scheduled_time, assigned_technician_id, carry_forward_services, carry_forward_time_entries } = req.body;
+  const { scheduled_date, scheduled_time, assigned_technician_id, property_id, carry_forward_services, carry_forward_time_entries } = req.body;
 
   const copyParts = true;
-  const copyServices = carry_forward_services === true;
-  const copyTimeEntries = carry_forward_time_entries === true;
 
-  let fuQ = supabaseAdmin.from("follow_ups").select("*, original_job:jobs!follow_ups_original_job_id_fkey(id, job_ref, estimated_duration)").eq("id", id);
+  let fuQ = supabaseAdmin.from("follow_ups").select("*, original_job:jobs!follow_ups_original_job_id_fkey(id, job_ref, status, estimated_duration)").eq("id", id);
   if (req.tenantId) fuQ = fuQ.eq("tenant_id", req.tenantId);
   const { data: followUp, error: fuErr } = await fuQ.single();
 
@@ -298,8 +315,22 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
   }
 
   const tenantId = req.tenantId || followUp.tenant_id;
-  const origJob = followUp.original_job as { id: string; job_ref?: string; estimated_duration?: number | null } | null;
+  const bookingPropertyId = followUp.property_id || property_id;
+  if (!bookingPropertyId) {
+    res.status(400).json({ error: "Select a customer property before booking the job." }); return;
+  }
+  if (!followUp.property_id) {
+    const { data: property, error: propertyErr } = await supabaseAdmin.from("properties")
+      .select("id").eq("id", bookingPropertyId).eq("customer_id", followUp.customer_id)
+      .eq("tenant_id", tenantId).maybeSingle();
+    if (propertyErr) { res.status(500).json({ error: propertyErr.message }); return; }
+    if (!property) { res.status(400).json({ error: "Property does not belong to this customer" }); return; }
+  }
+  const origJob = followUp.original_job as { id: string; job_ref?: string; status?: string; estimated_duration?: number | null } | null;
   const origRef = origJob?.job_ref || followUp.original_job_id;
+  const copyOriginal = !!followUp.original_job_id && origJob?.status !== "invoiced";
+  const copyServices = copyOriginal && carry_forward_services === true;
+  const copyTimeEntries = copyOriginal && carry_forward_time_entries === true;
 
   let generatedJobRef: string | undefined;
   const { data: cs } = await supabaseAdmin
@@ -320,7 +351,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     .eq("singleton_id", "default");
 
   const descriptionParts = [
-    `Follow-up from ${origRef} (original job ID: ${followUp.original_job_id})`,
+    origRef ? `Follow-up from ${origRef} (original job ID: ${followUp.original_job_id})` : "Customer follow-up",
     followUp.work_description ? `Work: ${followUp.work_description}` : null,
     followUp.parts_description ? `Parts: ${followUp.parts_description}` : null,
     followUp.notes ? `Notes: ${followUp.notes}` : null,
@@ -337,7 +368,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
   const jobInsert: Record<string, unknown> = {
     tenant_id: tenantId,
     customer_id: followUp.customer_id,
-    property_id: followUp.property_id,
+    property_id: bookingPropertyId,
     job_type: "follow_up",
     status: "scheduled",
     priority: "medium",
@@ -381,21 +412,22 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
     try {
       if (copyParts) {
         copyStage = "parts";
-        let partsQ = supabaseAdmin.from("job_parts").select("part_name, quantity, unit_price, status").eq("job_id", followUp.original_job_id);
-        if (tenantId) partsQ = partsQ.eq("tenant_id", tenantId);
-        const { data: sourceParts, error: sourcePartsErr } = await partsQ;
-        if (sourcePartsErr) throw sourcePartsErr;
-
         const partRows: Array<Record<string, unknown>> = [];
-        if (sourceParts && sourceParts.length > 0) {
-          partRows.push(...sourceParts.map((p: Record<string, unknown>) => ({
-            job_id: newJob.id,
-            tenant_id: tenantId,
-            part_name: p.part_name,
-            quantity: p.quantity,
-            unit_price: p.unit_price ?? null,
-            status: p.status === "to_order" ? "to_order" : "fitted",
-          })));
+        if (copyOriginal) {
+          let partsQ = supabaseAdmin.from("job_parts").select("part_name, quantity, unit_price, status").eq("job_id", followUp.original_job_id);
+          if (tenantId) partsQ = partsQ.eq("tenant_id", tenantId);
+          const { data: sourceParts, error: sourcePartsErr } = await partsQ;
+          if (sourcePartsErr) throw sourcePartsErr;
+          if (sourceParts?.length) {
+            partRows.push(...sourceParts.map((p: Record<string, unknown>) => ({
+              job_id: newJob.id,
+              tenant_id: tenantId,
+              part_name: p.part_name,
+              quantity: p.quantity,
+              unit_price: p.unit_price ?? null,
+              status: p.status === "to_order" ? "to_order" : "fitted",
+            })));
+          }
         }
 
         const parsedFollowUpParts = parseFollowUpParts(followUp.parts_description);
@@ -484,6 +516,7 @@ router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requir
   let updateQ = supabaseAdmin.from("follow_ups").update({
     status: "booked",
     new_job_id: newJob.id,
+    property_id: bookingPropertyId,
     updated_at: new Date().toISOString(),
   }).eq("id", id);
   if (req.tenantId) updateQ = updateQ.eq("tenant_id", req.tenantId);
@@ -548,17 +581,20 @@ router.delete("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin"
   const { error } = await q;
   if (error) { res.status(500).json({ error: error.message }); return; }
 
-  let restoreJobQ = supabaseAdmin
-    .from("jobs")
-    .update({ status: "scheduled", updated_at: new Date().toISOString() })
-    .eq("id", existingFollowUp.original_job_id);
-  if (req.tenantId) restoreJobQ = restoreJobQ.eq("tenant_id", req.tenantId);
-
-  const { error: restoreJobErr } = await restoreJobQ;
-  if (restoreJobErr) { res.status(500).json({ error: restoreJobErr.message }); return; }
+  let reopenedJobId: string | null = null;
+  if (existingFollowUp.original_job_id) {
+    const { data: restoredJob, error: restoreJobErr } = await supabaseAdmin
+      .from("jobs")
+      .update({ status: "scheduled", updated_at: new Date().toISOString() })
+      .eq("id", existingFollowUp.original_job_id).eq("tenant_id", req.tenantId!)
+      .in("status", ["awaiting_parts", "requires_follow_up", "follow_up_scheduled"])
+      .select("id").maybeSingle();
+    if (restoreJobErr) { res.status(500).json({ error: restoreJobErr.message }); return; }
+    reopenedJobId = restoredJob?.id || null;
+  }
 
   invalidateHomepageCache(req.tenantId);
-  res.json({ success: true, original_job_id: existingFollowUp.original_job_id });
+  res.json({ success: true, original_job_id: reopenedJobId });
 });
 
 export default router;

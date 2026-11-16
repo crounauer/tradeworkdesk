@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireTenant, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
-import { GetDashboardResponse } from "@workspace/api-zod";
+import { DashboardResponse } from "../lib/dashboard-response";
 import { businessToday, addBusinessDays } from "../lib/business-date";
 
 const DASHBOARD_JOB_FIELDS = "id, customer_id, property_id, appliance_id, assigned_technician_id, job_type, job_type_id, service_catalogue_id, status, priority, scheduled_date, scheduled_end_date, scheduled_time, estimated_duration, description, notes, is_active, created_at, updated_at, customers(first_name, last_name), properties(address_line1), profiles(full_name)";
@@ -38,10 +38,10 @@ interface OverdueApplianceRow {
 
 interface HomepageFollowUpRow {
   id: string;
-  original_job_id: string;
+  original_job_id: string | null;
   new_job_id: string | null;
   customer_id: string;
-  property_id: string;
+  property_id: string | null;
   status: string;
   expected_parts_date: string | null;
   created_at: string;
@@ -227,7 +227,7 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
   const mappedFollowUps = ((followUpRes.data || []) as unknown as HomepageFollowUpRow[])
     .filter((f) => !techFilter || f.original_job?.assigned_technician_id === techFilter)
     .map((f) => ({
-      id: f.new_job_id || f.original_job_id,
+      id: f.new_job_id || f.original_job_id || f.id,
       customer_id: f.customer_id,
       property_id: f.property_id,
       appliance_id: null,
@@ -261,7 +261,7 @@ async function fetchAndCacheHomepageData(params: FetchParams): Promise<unknown> 
     property_id: a.properties?.id || null,
   }));
 
-  const dashboard = GetDashboardResponse.parse({
+  const dashboard = DashboardResponse.parse({
     todays_jobs: todaysJobs.map(mapDashboardJob),
     upcoming_jobs: upcomingJobs.map(mapDashboardJob),
     overdue_services: mappedOverdue,

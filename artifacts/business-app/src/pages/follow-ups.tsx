@@ -35,9 +35,9 @@ function formatLeaveConflict(conflict: LeaveConflict): string {
 interface FollowUp {
   id: string;
   tenant_id: string;
-  original_job_id: string;
+  original_job_id: string | null;
   customer_id: string;
-  property_id: string;
+  property_id: string | null;
   work_description: string | null;
   parts_description: string | null;
   expected_parts_date: string | null;
@@ -193,7 +193,7 @@ export default function FollowUps() {
       qc.invalidateQueries({ queryKey: ["job-follow-up-summary"] });
       setDeleteTarget(null);
       if (result.original_job_id) setReopenedJobId(result.original_job_id);
-      toast({ title: "Follow-up deleted", description: "The original job has been reopened." });
+      toast({ title: "Follow-up deleted", description: result.original_job_id ? "The original job has been reopened." : undefined });
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -241,7 +241,7 @@ export default function FollowUps() {
           <Package className="w-12 h-12 mx-auto text-muted-foreground/40 mb-3" />
           <h3 className="text-lg font-semibold text-muted-foreground">No follow-ups found</h3>
           <p className="text-sm text-muted-foreground/70 mt-1">
-            {activeTab ? "No follow-ups with this status." : "Create follow-ups from completed or invoiced jobs."}
+            {activeTab ? "No follow-ups with this status." : "Create a follow-up from a customer record or a job."}
           </p>
         </Card>
       ) : (
@@ -314,12 +314,14 @@ export default function FollowUps() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
-              Deleting this follow-up will reopen the original job so it can be scheduled again.
+              {deleteTarget?.original_job_id && ["awaiting_parts", "requires_follow_up", "follow_up_scheduled"].includes(deleteTarget.original_job_status || "")
+                ? "Deleting this follow-up will reopen the original job so it can be scheduled again."
+                : "Deleting this follow-up will not change the original job or its invoice."}
               {deleteTarget?.new_job_id ? " The booked follow-up job will remain available in your job history." : ""}
             </p>
-            <p className="text-sm font-medium">
-              Original job: {deleteTarget?.original_job_ref || `Job #${deleteTarget?.original_job_id.slice(0, 8)}`}
-            </p>
+            {deleteTarget?.original_job_id && <p className="text-sm font-medium">
+              Original job: {deleteTarget.original_job_ref || `Job #${deleteTarget.original_job_id.slice(0, 8)}`}
+            </p>}
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>Keep Follow-up</Button>
               <Button variant="destructive" onClick={() => {
@@ -399,10 +401,12 @@ function FollowUpCard({
       <div className="flex flex-col sm:flex-row sm:items-start gap-3">
         <div className="flex-1 min-w-0 space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
-            <Link href={`/jobs/${fu.original_job_id}`} className="font-bold text-sm hover:underline text-primary flex items-center gap-1">
-              {fu.original_job_ref || `Job #${fu.original_job_id.slice(0, 8)}`}
-              <ExternalLink className="w-3 h-3" />
-            </Link>
+            {fu.original_job_id ? (
+              <Link href={`/jobs/${fu.original_job_id}`} className="font-bold text-sm hover:underline text-primary flex items-center gap-1">
+                {fu.original_job_ref || `Job #${fu.original_job_id.slice(0, 8)}`}
+                <ExternalLink className="w-3 h-3" />
+              </Link>
+            ) : <span className="font-bold text-sm">Customer follow-up</span>}
             <span className={cn("px-2 py-0.5 rounded text-xs font-semibold uppercase", statusClass)}>
               {statusLabel}
             </span>
@@ -520,6 +524,7 @@ function BookJobDialog({
   const todayStr = new Date().toISOString().split("T")[0];
   const [scheduledDate, setScheduledDate] = useState(todayStr);
   const [scheduledTime, setScheduledTime] = useState("");
+  const [propertyId, setPropertyId] = useState("");
   const [assignedTechnicianId, setAssignedTechnicianId] = useState("");
   const [carryForwardServices, setCarryForwardServices] = useState(true);
   const [carryForwardTimeEntries, setCarryForwardTimeEntries] = useState(true);
@@ -529,12 +534,22 @@ function BookJobDialog({
   const [ccAdminOnConfirmation, setCcAdminOnConfirmation] = useState(false);
   const [leaveConflict, setLeaveConflict] = useState<LeaveConflict | null>(null);
   const { toast } = useToast();
+  const canCarryOriginal = !!followUp.original_job_id && followUp.original_job_status !== "invoiced";
 
   const { data: technicians = [] } = useQuery<Array<{ id: string; full_name: string }>>({
     queryKey: ["/api/admin/assignable-users"],
     queryFn: () => fetch("/api/admin/assignable-users").then((r) => r.json()),
     enabled: open,
     staleTime: 60_000,
+  });
+  const propertiesQuery = useQuery<{ properties?: Array<{ id: string; address_line1: string; postcode?: string | null }> }>({
+    queryKey: ["/api/customers", followUp.customer_id],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${followUp.customer_id}`);
+      if (!res.ok) throw new Error("Unable to load customer properties");
+      return res.json();
+    },
+    enabled: open && !followUp.property_id,
   });
 
   const finishBooking = () => {
@@ -572,6 +587,10 @@ function BookJobDialog({
       toast({ title: "Missing date", description: "Please select a date for the job.", variant: "destructive" });
       return;
     }
+    if (!followUp.property_id && !propertyId) {
+      toast({ title: "Missing property", description: "Select a customer property before booking.", variant: "destructive" });
+      return;
+    }
     setLeaveConflict(null);
     setSubmitting(true);
     try {
@@ -581,10 +600,11 @@ function BookJobDialog({
         body: JSON.stringify({
           scheduled_date: scheduledDate,
           scheduled_time: scheduledTime || null,
+          property_id: followUp.property_id || propertyId,
           assigned_technician_id: assignedTechnicianId || null,
           carry_forward_parts: true,
-          carry_forward_services: carryForwardServices,
-          carry_forward_time_entries: carryForwardTimeEntries,
+          carry_forward_services: canCarryOriginal && carryForwardServices,
+          carry_forward_time_entries: canCarryOriginal && carryForwardTimeEntries,
         }),
       });
       if (!res.ok) {
@@ -638,10 +658,20 @@ function BookJobDialog({
             <form onSubmit={handleSubmit} className="space-y-4 py-2">
               <div className="rounded-lg bg-muted/50 p-3 space-y-1 text-sm">
                 <p><span className="font-medium">Customer:</span> {followUp.customer_name}</p>
-                <p><span className="font-medium">Property:</span> {followUp.property_address}{followUp.property_postcode ? `, ${followUp.property_postcode}` : ""}</p>
+                {followUp.property_address && <p><span className="font-medium">Property:</span> {followUp.property_address}{followUp.property_postcode ? `, ${followUp.property_postcode}` : ""}</p>}
                 {followUp.parts_description && <p><span className="font-medium">Parts:</span> {followUp.parts_description}</p>}
                 {followUp.work_description && <p><span className="font-medium">Work:</span> {followUp.work_description}</p>}
               </div>
+              {!followUp.property_id && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="booking-property">Property *</Label>
+                  <select id="booking-property" required value={propertyId} onChange={(e) => setPropertyId(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                    <option value="">Select a property</option>
+                    {(propertiesQuery.data?.properties || []).map(property => <option key={property.id} value={property.id}>{property.address_line1}{property.postcode ? `, ${property.postcode}` : ""}</option>)}
+                  </select>
+                  {propertiesQuery.isError ? <p className="text-sm text-destructive">Unable to load customer properties.</p> : !propertiesQuery.isLoading && !propertiesQuery.data?.properties?.length ? <p className="text-sm text-muted-foreground">Add a property to the <Link className="underline" href={`/customers/${followUp.customer_id}`}>customer record</Link> before booking.</p> : null}
+                </div>
+              )}
               {leaveConflict && (
                 <div className="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
@@ -674,7 +704,7 @@ function BookJobDialog({
                   ))}
                 </select>
               </div>
-              <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+              {canCarryOriginal ? <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
                 <p className="text-sm font-medium">Carry Forward to New Job</p>
                 <p className="text-sm text-muted-foreground">Parts are always carried forward from the original and follow-up records.</p>
                 <label className="flex items-center gap-2 text-sm">
@@ -697,7 +727,9 @@ function BookJobDialog({
                   />
                   Copy time entries
                 </label>
-              </div>
+              </div> : <p className="text-sm text-muted-foreground">
+                {followUp.original_job_id ? "Invoiced job entries will not be copied. Follow-up parts will be added to the new job." : "Follow-up parts will be added to the new job."}
+              </p>}
               <div className="flex gap-3 pt-2">
                 <Button type="submit" className="flex-1 gap-2" disabled={submitting}>
                   <Briefcase className="w-4 h-4" />

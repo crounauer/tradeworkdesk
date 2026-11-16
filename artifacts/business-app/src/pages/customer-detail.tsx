@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,6 +73,7 @@ export default function CustomerDetail() {
   const [showPropertyForm, setShowPropertyForm] = useState(false);
   const [fixingCustomerLocation, setFixingCustomerLocation] = useState(false);
   const [showBookJob, setShowBookJob] = useState(false);
+  const [showFollowUp, setShowFollowUp] = useState(false);
   const [showBookEnquiry, setShowBookEnquiry] = useState(false);
   const [showSms, setShowSms] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
@@ -99,6 +101,7 @@ export default function CustomerDetail() {
   const { hasAddon, hasFeature } = usePlanFeatures();
   const canDelete = profile?.role === "admin" || profile?.role === "super_admin";
   const canCreateInvoices = hasFeature("invoicing") && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
+  const canCreateFollowUp = hasFeature("job_management") && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
 
   if (isLoading) return <div className="p-8">Loading...</div>;
   if (!customer) return <div>Customer not found</div>;
@@ -188,6 +191,11 @@ export default function CustomerDetail() {
           <Button size="sm" className="w-full md:w-auto" onClick={() => setShowBookJob(true)}>
             <Briefcase className="w-4 h-4 mr-2" /> Book Job
           </Button>
+          {canCreateFollowUp && (
+            <Button size="sm" className="w-full md:w-auto" variant="outline" onClick={() => setShowFollowUp(true)}>
+              <Calendar className="w-4 h-4 mr-2" /> Add Follow-Up
+            </Button>
+          )}
           <Button size="sm" className="w-full md:w-auto" variant="secondary" onClick={() => setShowBookEnquiry(true)}>
             <MessageSquare className="w-4 h-4 mr-2" /> New Enquiry
           </Button>
@@ -437,6 +445,13 @@ export default function CustomerDetail() {
       )}
 
       {/* Book Job dialog pre-filled with this customer */}
+      {showFollowUp && (
+        <CustomerFollowUpDialog
+          customerId={customer.id}
+          properties={customer.properties || []}
+          onClose={() => setShowFollowUp(false)}
+        />
+      )}
       <BookJobDialog
         open={showBookJob}
         onOpenChange={setShowBookJob}
@@ -527,6 +542,114 @@ export default function CustomerDetail() {
         onCreated={() => qc.invalidateQueries({ queryKey: ["customer-enquiries", customer.id] })}
       />
     </div>
+  );
+}
+
+function CustomerFollowUpDialog({ customerId, properties, onClose }: {
+  customerId: string;
+  properties: Array<{ id: string; address_line1: string; postcode?: string | null }>;
+  onClose: () => void;
+}) {
+  const [jobId, setJobId] = useState("");
+  const [propertyId, setPropertyId] = useState(properties.length === 1 ? properties[0].id : "");
+  const [partsRequired, setPartsRequired] = useState(true);
+  const [parts, setParts] = useState("");
+  const [work, setWork] = useState("");
+  const [expectedDate, setExpectedDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [, navigate] = useLocation();
+  const jobsQuery = useQuery<{ jobs: Array<{ id: string; job_ref?: string | null; status: string; scheduled_date?: string | null }> }>({
+    queryKey: ["customer-jobs", customerId],
+    queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/jobs?customer_id=${customerId}&limit=100`),
+  });
+  const jobs = (jobsQuery.data?.jobs || []).filter(job =>
+    ["completed", "invoiced", "awaiting_parts", "requires_follow_up"].includes(job.status));
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (partsRequired && !parts.trim()) {
+      toast({ title: "Missing info", description: "Please describe the parts needed.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/follow-ups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_id: customerId,
+          original_job_id: jobId || null,
+          property_id: jobId ? null : propertyId || null,
+          parts_required: partsRequired,
+          parts_description: partsRequired ? parts.trim() : null,
+          expected_parts_date: partsRequired ? expectedDate || null : null,
+          work_description: work.trim() || null,
+          notes: notes.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error || "Failed to create follow-up");
+      }
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["follow-ups"] }),
+        qc.invalidateQueries({ queryKey: ["job-follow-up-summary"] }),
+        qc.invalidateQueries({ queryKey: ["homepage"] }),
+        qc.invalidateQueries({ queryKey: ["me-init"] }),
+      ]);
+      toast({ title: "Follow-up created", description: "No job has been booked." });
+      onClose();
+      navigate("/follow-ups");
+    } catch (error) {
+      toast({ title: "Unable to create follow-up", description: error instanceof Error ? error.message : "Failed to create follow-up", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open && !saving) onClose(); }}>
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Add Follow-Up</DialogTitle></DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          <p className="text-sm text-muted-foreground">Keep track of work without booking a job. You can schedule it when ready.</p>
+          <div className="space-y-1.5">
+            <Label htmlFor="follow-up-job">Original job (optional)</Label>
+            <select id="follow-up-job" value={jobId} onChange={(e) => setJobId(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <option value="">No original job</option>
+              {jobs.map(job => <option key={job.id} value={job.id}>{job.job_ref || `Job #${job.id.slice(0, 8)}`} — {job.status.replace(/_/g, " ")}{job.scheduled_date ? ` — ${job.scheduled_date.slice(0, 10)}` : ""}</option>)}
+            </select>
+            {jobsQuery.isError && <p className="text-sm text-destructive">Unable to load jobs. You can still create a follow-up without one.</p>}
+            {jobId && <p className="text-sm text-muted-foreground">The original job’s property will be used.</p>}
+          </div>
+          {!jobId && properties.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="follow-up-property">Property (optional)</Label>
+              <select id="follow-up-property" value={propertyId} onChange={(e) => setPropertyId(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                <option value="">No property</option>
+                {properties.map(property => <option key={property.id} value={property.id}>{property.address_line1}{property.postcode ? `, ${property.postcode}` : ""}</option>)}
+              </select>
+            </div>
+          )}
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input type="checkbox" checked={partsRequired} onChange={(e) => setPartsRequired(e.target.checked)} className="h-4 w-4 rounded border-border accent-primary" />
+            Parts required
+          </label>
+          {partsRequired && (
+            <>
+              <div className="space-y-1.5"><Label htmlFor="follow-up-parts">Parts Needed *</Label><Textarea id="follow-up-parts" value={parts} onChange={(e) => setParts(e.target.value)} placeholder="Enter one part per line" required /></div>
+              <div className="space-y-1.5"><Label htmlFor="follow-up-date">Expected Delivery Date (optional)</Label><Input id="follow-up-date" type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} /></div>
+            </>
+          )}
+          <div className="space-y-1.5"><Label htmlFor="follow-up-work">Work to Complete</Label><Textarea id="follow-up-work" value={work} onChange={(e) => setWork(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label htmlFor="follow-up-notes">Notes</Label><Textarea id="follow-up-notes" value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
+          <div className="flex gap-3"><Button type="submit" disabled={saving}>{saving ? "Creating..." : "Create Follow-Up"}</Button><Button type="button" variant="outline" onClick={onClose} disabled={saving}>Cancel</Button></div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

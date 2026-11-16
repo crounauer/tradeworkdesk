@@ -168,7 +168,7 @@ const sections: HelpSection[] = [
       },
       {
         q: "What are Follow-Ups?",
-        a: "Jobs with the status Awaiting Parts or Follow Up Required appear in the Follow-Ups list. When parts arrive or the issue is resolved, return to the job, update the status, and book a follow-up visit.",
+        a: "Use Add Follow-Up on a customer record to track work without booking a job. You can optionally link an existing job and leave the expected parts date blank. In Follow-Ups, mark parts as arrived and book the visit when ready.",
       },
       {
         q: "What service record forms are available?",
