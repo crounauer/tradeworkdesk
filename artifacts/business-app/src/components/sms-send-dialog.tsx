@@ -13,6 +13,7 @@ interface SmsSendDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Pre-filled destination phone number */
   destination?: string;
+  initialContent?: string;
   /** Optional: link the SMS to a job */
   jobId?: string;
   /** Optional: link the SMS to a customer */
@@ -33,11 +34,11 @@ interface SmsTemplate {
 
 const MAX_CHARS = 160;
 
-export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, customerId, enquiryId, invoiceOptions = [], initialInvoiceId = "", invoiceLoadError = false, onSent }: SmsSendDialogProps) {
+export function SmsSendDialog({ open, onOpenChange, destination = "", initialContent = "", jobId, customerId, enquiryId, invoiceOptions = [], initialInvoiceId = "", invoiceLoadError = false, onSent }: SmsSendDialogProps) {
   const { toast } = useToast();
   const [to, setTo] = useState(destination);
   const [sender, setSender] = useState("");
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState(initialContent);
   const [invoiceId, setInvoiceId] = useState(initialInvoiceId);
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
@@ -78,7 +79,7 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
     if (v) {
       setTo(destination);
       setSender(defaultSender);
-      setContent("");
+      setContent(initialContent);
     } else {
       setInvoiceId(initialInvoiceId);
     }

@@ -51,6 +51,20 @@ async function getSmsWorksJwt(key: string, secret: string): Promise<string> {
 // ──────────────────────────────────────────────────────────────
 // POST /api/sms/send
 // ──────────────────────────────────────────────────────────────
+router.get("/sms/availability", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+  try {
+    if (!await hasActiveAddon(req.tenantId!, "sms_messaging", true)) {
+      res.json({ available: false });
+      return;
+    }
+    const credits = await getAddonCredits(req.tenantId!, "sms_messaging", true);
+    res.json({ available: credits === null || credits.credits_remaining > 0 });
+  } catch (error) {
+    console.error("[sms] Availability check failed:", error);
+    res.status(503).json({ error: "Unable to check SMS availability." });
+  }
+});
+
 interface InvoiceSmsRequest extends AuthenticatedRequest {
   invoiceSms?: { id: string; status: string; sentAt: string; updatedAt: string; needsUpdate: boolean; logContent: string };
 }

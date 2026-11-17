@@ -147,7 +147,6 @@ export default function Bookings() {
     });
     qc.invalidateQueries({ queryKey: ["/api/booking/bookings"] });
     toast({ title: "Booking converted", description: "Job created and linked successfully." });
-    setConvertingBooking(null);
   };
 
   return (

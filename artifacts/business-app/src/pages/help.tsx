@@ -140,7 +140,7 @@ const sections: HelpSection[] = [
     items: [
       {
         q: "How do I book a job?",
-        a: "Click '+ Book Job' on the dashboard or from the Schedule page. Select a customer, property, job type, date, time, and optionally assign a technician.",
+        a: "Click '+ Book Job' on the dashboard or from the Schedule page. Select a customer, property, job type, date, time, and optionally assign a technician. After booking, you can email the details, or send an SMS if the customer has no email and the SMS add-on has credits. SMS is outbound only and does not record a customer confirmation.",
       },
       {
         q: "What is the difference between an Enquiry and a Job?",

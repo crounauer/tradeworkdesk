@@ -14,7 +14,7 @@ import { useCompanySettings } from "@/hooks/use-company-settings";
 import { SmsSendDialog } from "@/components/sms-send-dialog";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { createJobType } from "@/lib/create-job-type";
-import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
+import { BookingConfirmationPanel } from "@/components/booking-confirmation-panel";
 import {
   ArrowLeft, Phone, Mail, MapPin, MessageSquare, Send,
   Briefcase, Clock, Edit, Check, X, Trash2,
@@ -1474,9 +1474,7 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
   const { profile } = useAuth();
   const qc = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
-  const [emailPrompt, setEmailPrompt] = useState<{ jobId: string; customerName: string; customerEmail: string } | null>(null);
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [ccAdminOnConfirmation, setCcAdminOnConfirmation] = useState(false);
+  const [emailPrompt, setEmailPrompt] = useState<{ jobId: string } | null>(null);
   const [customerMode, setCustomerMode] = useState<"existing" | "new">("new");
   const [propertyMode, setPropertyMode] = useState<"existing" | "new">("existing");
   const [customerId, setCustomerId] = useState("");
@@ -1652,51 +1650,11 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
       const result = await res.json();
       toast({ title: "Converted!", description: "Enquiry converted to a job." });
 
-      let emailAddr: string | undefined;
-      let custName = "";
-      if (customerMode === "new") {
-        emailAddr = newEmail || undefined;
-        custName = `${newFirstName} ${newLastName}`;
-      } else if (customerId) {
-        const cust = customers?.find(c => c.id === customerId);
-        emailAddr = cust?.email || undefined;
-        custName = cust ? `${cust.first_name} ${cust.last_name}` : "";
-      }
-
-      if (emailAddr) {
-        setEmailPrompt({ jobId: result.job_id, customerName: custName, customerEmail: emailAddr });
-      } else {
-        onConverted(result.job_id);
-      }
+      setEmailPrompt({ jobId: result.job_id });
     } catch (err) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleSendConfirmation = async () => {
-    if (!emailPrompt) return;
-    setSendingEmail(true);
-    try {
-      const res = await fetch(`/api/jobs/${emailPrompt.jobId}/send-confirmation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cc_admin: ccAdminOnConfirmation }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to send email");
-      }
-      toast({ title: "Confirmation email sent", description: `Email sent to ${emailPrompt.customerEmail}` });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to send email";
-      toast({ title: "Email failed", description: message, variant: "destructive" });
-    } finally {
-      setSendingEmail(false);
-      const jobId = emailPrompt.jobId;
-      setEmailPrompt(null);
-      onConverted(jobId);
     }
   };
 
@@ -1715,15 +1673,8 @@ function ConvertToJobDialog({ open, onOpenChange, enquiry, onConverted }: {
           <DialogTitle className={emailPrompt ? "text-xl" : undefined}>{emailPrompt ? "Send Booking Confirmation?" : "Convert Enquiry to Job"}</DialogTitle>
         </DialogHeader>
         {emailPrompt ? (
-          <EmailConfirmationPanel
-            customerName={emailPrompt.customerName}
-            customerEmail={emailPrompt.customerEmail}
-            sending={sendingEmail}
-            ccAdmin={ccAdminOnConfirmation}
-            onCcAdminChange={setCcAdminOnConfirmation}
-            onSend={handleSendConfirmation}
-            onSkip={() => { const jobId = emailPrompt.jobId; setEmailPrompt(null); onConverted(jobId); }}
-          />
+          <BookingConfirmationPanel jobId={emailPrompt.jobId}
+            onDone={() => { const jobId = emailPrompt.jobId; setEmailPrompt(null); onConverted(jobId); }} />
         ) : null}
         {!emailPrompt ? (
         <form onSubmit={handleConvert} className="space-y-5">

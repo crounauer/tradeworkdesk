@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
+import { BookingConfirmationPanel } from "@/components/booking-confirmation-panel";
 import { Link, useLocation } from "wouter";
 import {
   Package, CheckCircle2, CalendarPlus, XCircle, Clock,
@@ -531,7 +531,6 @@ function BookJobDialog({
   const [submitting, setSubmitting] = useState(false);
   const [confirmationJobId, setConfirmationJobId] = useState<string | null>(null);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
-  const [ccAdminOnConfirmation, setCcAdminOnConfirmation] = useState(false);
   const [leaveConflict, setLeaveConflict] = useState<LeaveConflict | null>(null);
   const { toast } = useToast();
   const canCarryOriginal = !!followUp.original_job_id && followUp.original_job_status !== "invoiced";
@@ -557,28 +556,6 @@ function BookJobDialog({
     const jobId = confirmationJobId;
     setConfirmationJobId(null);
     onBooked(jobId);
-  };
-
-  const handleSendConfirmation = async () => {
-    if (!confirmationJobId) return;
-    setSendingConfirmation(true);
-    try {
-      const res = await fetch(`/api/jobs/${confirmationJobId}/send-confirmation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cc_admin: ccAdminOnConfirmation }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(body.error || "Failed to send confirmation email");
-      }
-      toast({ title: "Confirmation sent", description: "Appointment confirmation emailed to customer." });
-      finishBooking();
-    } catch (err) {
-      toast({ title: "Email failed", description: err instanceof Error ? err.message : "Could not send confirmation email", variant: "destructive" });
-    } finally {
-      setSendingConfirmation(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -640,15 +617,7 @@ function BookJobDialog({
             <DialogHeader>
               <DialogTitle>Send Booking Confirmation?</DialogTitle>
             </DialogHeader>
-            <EmailConfirmationPanel
-              customerName={followUp.customer_name || undefined}
-              message="Would you like to send a booking confirmation email for this follow-up job?"
-              sending={sendingConfirmation}
-              ccAdmin={ccAdminOnConfirmation}
-              onCcAdminChange={setCcAdminOnConfirmation}
-              onSend={handleSendConfirmation}
-              onSkip={finishBooking}
-            />
+            <BookingConfirmationPanel jobId={confirmationJobId} onDone={finishBooking} onSendingChange={setSendingConfirmation} />
           </>
         ) : (
           <>

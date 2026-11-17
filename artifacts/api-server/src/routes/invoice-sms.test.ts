@@ -111,16 +111,21 @@ test("invoice SMS sends a tenant-scoped, revocable public PDF link only after pr
     method: "POST", headers: { authorization: `Bearer ${token}` },
   });
 
+  assert.equal((await fetch(`${base}/sms/availability`)).status, 401);
+  const availability = () => fetch(`${base}/sms/availability`, { headers: { authorization: "Bearer test" } });
   assert.equal((await send("")).status, 401);
   ownInvoice = false;
   assert.equal((await send()).status, 404);
   ownInvoice = true;
   active = false;
+  assert.deepEqual(await (await availability()).json(), { available: false });
   assert.equal((await send()).status, 402);
   active = true;
   credits = 0;
+  assert.deepEqual(await (await availability()).json(), { available: false });
   assert.equal((await send()).status, 402);
   credits = 10;
+  assert.deepEqual(await (await availability()).json(), { available: true });
   creditReadsFail = true;
   assert.equal((await send()).status, 503);
   assert.equal(invoice.status, "draft");

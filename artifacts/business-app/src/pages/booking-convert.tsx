@@ -64,7 +64,6 @@ export default function BookingConvertPage(props: { params?: { id?: string } }) 
         body: JSON.stringify({ job_id: jobId }),
       });
       toast({ title: "Booking converted", description: "Booking linked to the new job successfully." });
-      navigate("/booking/review");
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to convert booking";
       toast({ title: "Conversion error", description: message, variant: "destructive" });
@@ -127,6 +126,7 @@ export default function BookingConvertPage(props: { params?: { id?: string } }) 
           <BookJobDialog
             open={showDialog}
             onOpenChange={setShowDialog}
+            onConfirmationDone={() => navigate("/booking/review")}
             initialDate={booking.scheduled_start?.slice(0, 10)}
             initialBookingPrefill={{
               customer_name: booking.customer_name,

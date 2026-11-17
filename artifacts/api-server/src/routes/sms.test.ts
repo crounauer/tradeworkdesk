@@ -14,7 +14,7 @@ async function withSmsEndpoint(
   t: TestContext,
   path: string,
   method: "get" | "post",
-  options: { active: boolean; credits?: number; ownEnquiry?: boolean; allowProvider?: boolean },
+  options: { active: boolean; credits?: number; ownEnquiry?: boolean; allowProvider?: boolean; failTable?: string },
 ) {
   const calls: URL[] = [];
   const writes: Array<{ table: string; method: string; body: Record<string, unknown> }> = [];
@@ -31,6 +31,7 @@ async function withSmsEndpoint(
     }
     assert.equal(url.hostname, "sms-test.invalid", "No SMS provider call should occur");
     const table = url.pathname.split("/").pop();
+    if (table === options.failTable) return Response.json({ message: "Database unavailable" }, { status: 500 });
     if (init?.body && typeof init.body === "string") {
       writes.push({ table: table || "", method: init.method || "GET", body: JSON.parse(init.body) });
     }
@@ -86,6 +87,23 @@ async function withSmsEndpoint(
   assert.ok(address && typeof address !== "string");
   return { url: `http://127.0.0.1:${address.port}${path}`, calls, writes };
 }
+
+test("SMS availability requires an active add-on and remaining credits", async t => {
+  for (const [active, credits, expected] of [[false, 10, false], [true, 0, false], [true, 2, true]] as const) {
+    await t.test(`active=${active}, credits=${credits}`, async t => {
+      const { url, calls } = await withSmsEndpoint(t, "/sms/availability", "get", { active, credits });
+      const response = await fetch(url);
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { available: expected });
+      assert.equal(calls.some(call => call.hostname === "api.thesmsworks.co.uk"), false);
+    });
+  }
+});
+
+test("SMS availability reports database failures", async t => {
+  const { url } = await withSmsEndpoint(t, "/sms/availability", "get", { active: true, failTable: "tenant_addon_credits" });
+  assert.equal((await fetch(url)).status, 503);
+});
 
 test("SMS history is blocked without the add-on, before accessing messages", async t => {
   const { url, calls } = await withSmsEndpoint(t, "/sms/messages", "get", { active: false });

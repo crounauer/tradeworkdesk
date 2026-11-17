@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { createJobType } from "@/lib/create-job-type";
 import type { InvoiceLineItem } from "@/hooks/use-invoices";
-import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
+import { BookingConfirmationPanel } from "@/components/booking-confirmation-panel";
 
 interface JobType {
   id: string;
@@ -58,7 +58,6 @@ export function CreateJobFromQuoteDialog({
   quoteNumber,
   customerId,
   customerName,
-  customerEmail,
   customerNotes,
   notes,
   lineItems,
@@ -73,8 +72,6 @@ export function CreateJobFromQuoteDialog({
   const [newJobTypeName, setNewJobTypeName] = useState("");
   const [creatingJobType, setCreatingJobType] = useState(false);
   const [confirmationJob, setConfirmationJob] = useState<{ id: string; ref?: string } | null>(null);
-  const [sendingConfirmation, setSendingConfirmation] = useState(false);
-  const [ccAdminOnConfirmation, setCcAdminOnConfirmation] = useState(false);
 
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -194,12 +191,7 @@ export function CreateJobFromQuoteDialog({
       ]);
 
       toast({ title: "Job created", description: `Job${result.job_ref ? ` ${result.job_ref}` : ""} created from ${quoteNumber}.` });
-      if (customerEmail) {
-        setConfirmationJob({ id: result.job_id, ref: result.job_ref });
-      } else {
-        onOpenChange(false);
-        navigate(`/jobs/${result.job_id}`);
-      }
+      setConfirmationJob({ id: result.job_id, ref: result.job_ref });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create job";
       toast({ title: "Error", description: message, variant: "destructive" });
@@ -212,32 +204,8 @@ export function CreateJobFromQuoteDialog({
     if (!confirmationJob) return;
     const jobId = confirmationJob.id;
     setConfirmationJob(null);
-    setCcAdminOnConfirmation(false);
     onOpenChange(false);
     navigate(`/jobs/${jobId}`);
-  };
-
-  const handleSendConfirmation = async () => {
-    if (!confirmationJob) return;
-    setSendingConfirmation(true);
-    try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${confirmationJob.id}/send-confirmation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ cc_admin: ccAdminOnConfirmation }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to send confirmation email");
-      }
-      toast({ title: "Confirmation sent", description: `Appointment confirmation emailed to ${customerEmail}.` });
-      finishJobCreation();
-    } catch (err) {
-      toast({ title: "Email failed", description: err instanceof Error ? err.message : "Could not send confirmation email", variant: "destructive" });
-    } finally {
-      setSendingConfirmation(false);
-    }
   };
 
   const createJobTypeInline = async () => {
@@ -280,17 +248,9 @@ export function CreateJobFromQuoteDialog({
           <>
             <DialogHeader>
               <DialogTitle className="text-xl">Send Booking Confirmation?</DialogTitle>
-              <DialogDescription>Confirm whether to email the customer with their new booking details.</DialogDescription>
+              <DialogDescription>Choose whether to send the customer their new booking details.</DialogDescription>
             </DialogHeader>
-            <EmailConfirmationPanel
-              customerName={customerName}
-              customerEmail={customerEmail}
-              sending={sendingConfirmation}
-              ccAdmin={ccAdminOnConfirmation}
-              onCcAdminChange={setCcAdminOnConfirmation}
-              onSend={handleSendConfirmation}
-              onSkip={finishJobCreation}
-            />
+            <BookingConfirmationPanel jobId={confirmationJob.id} onDone={finishJobCreation} />
           </>
         ) : (
           <>

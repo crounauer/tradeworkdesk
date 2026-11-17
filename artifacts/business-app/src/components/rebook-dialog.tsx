@@ -8,7 +8,7 @@ import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Clock, MapPin, User, Loader2, CalendarCheck, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
+import { BookingConfirmationPanel } from "@/components/booking-confirmation-panel";
 
 interface CalendarJob {
   id: string;
@@ -31,7 +31,6 @@ interface RebookDialogProps {
   originalDate: string;
   /** Original scheduled time as HH:MM, or null */
   originalTime?: string | null;
-  customerEmail?: string | null;
   /** Called after the duplicate job has been created successfully. */
   onRebooked?: (newJobId: string) => void;
 }
@@ -115,21 +114,18 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-slate-200 text-slate-500",
 };
 
-export function RebookDialog({ open, onOpenChange, jobId, originalDate, originalTime, customerEmail, onRebooked }: RebookDialogProps) {
+export function RebookDialog({ open, onOpenChange, jobId, originalDate, originalTime, onRebooked }: RebookDialogProps) {
   const defaultDate = addOneYear(originalDate);
   const [selectedDate, setSelectedDate] = useState(defaultDate);
   const [dateInputValue, setDateInputValue] = useState(defaultDate);
   const [selectedTime, setSelectedTime] = useState(originalTime ? originalTime.slice(0, 5) : "");
   const [confirming, setConfirming] = useState(false);
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [ccAdmin, setCcAdmin] = useState(false);
   const [leaveConflict, setLeaveConflict] = useState<LeaveConflict | null>(null);
   // After rebook succeeds, hold the new job and show email prompt
   const [newJob, setNewJob] = useState<{ id: string; job_ref?: string | null } | null>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
   const [, navigate] = useLocation();
-  const email = customerEmail?.trim();
 
   // Reset each time dialog opens
   useEffect(() => {
@@ -139,7 +135,6 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
       setDateInputValue(nextDefaultDate);
       setSelectedTime(originalTime ? originalTime.slice(0, 5) : "");
       setNewJob(null);
-      setCcAdmin(false);
       setLeaveConflict(null);
     }
   }, [open, originalDate, originalTime]);
@@ -201,33 +196,6 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
     }
   };
 
-  const handleSendEmail = async () => {
-    if (!newJob) return;
-    setSendingEmail(true);
-    try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/jobs/${newJob.id}/send-confirmation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cc_admin: ccAdmin }),
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to send confirmation");
-      }
-      toast({ title: "Confirmation sent", description: "Appointment confirmation emailed to customer." });
-      onOpenChange(false);
-    } catch (err) {
-      toast({
-        title: "Email failed",
-        description: err instanceof Error ? err.message : "Could not send confirmation email",
-        variant: "destructive",
-      });
-    } finally {
-      setSendingEmail(false);
-    }
-  };
-
   const handleSkipEmail = () => {
     if (!newJob) return;
     toast({
@@ -248,7 +216,7 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarCheck className="w-5 h-5 text-primary" />
-            {newJob ? (email ? "Send Booking Confirmation?" : "Job Rebooked") : "Rebook Job"}
+            {newJob ? "Job Rebooked" : "Rebook Job"}
           </DialogTitle>
         </DialogHeader>
 
@@ -271,21 +239,7 @@ export function RebookDialog({ open, onOpenChange, jobId, originalDate, original
                   </button>
                 </div>
               </div>
-              {email ? (
-                <EmailConfirmationPanel
-                  customerEmail={email}
-                  sending={sendingEmail}
-                  ccAdmin={ccAdmin}
-                  onCcAdminChange={setCcAdmin}
-                  onSend={handleSendEmail}
-                  onSkip={handleSkipEmail}
-                />
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">No customer email address is available, so no confirmation email was sent.</p>
-                  <Button onClick={handleSkipEmail}>Done</Button>
-                </div>
-              )}
+              <BookingConfirmationPanel jobId={newJob.id} onDone={handleSkipEmail} />
             </div>
           </>
         ) : (

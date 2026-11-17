@@ -1412,6 +1412,7 @@ router.get("/jobs/:id", requireAuth, requireTenant, async (req: AuthenticatedReq
 
   res.json({
     ...parsedJob,
+    all_day: job.all_day === true,
     service_catalogue_id: (job as Record<string, unknown>).service_catalogue_id ?? null,
     visit_intent: (job as Record<string, unknown>).visit_intent ?? "standard",
   });

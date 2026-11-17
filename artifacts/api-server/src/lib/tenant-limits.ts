@@ -79,13 +79,14 @@ export async function getActiveInviteCount(tenantId: string): Promise<number> {
   return count || 0;
 }
 
-export async function hasActiveAddon(tenantId: string, featureKey: string): Promise<boolean> {
-  const { data } = await supabaseAdmin
+export async function hasActiveAddon(tenantId: string, featureKey: string, strict = false): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
     .from("tenant_addons")
     .select("id, addons(feature_keys)")
     .eq("tenant_id", tenantId)
     .eq("is_active", true);
 
+  if (strict && error) throw new Error(`Failed to load active add-ons: ${error.message}`);
   if (!data) return false;
 
   return data.some((ta) => {

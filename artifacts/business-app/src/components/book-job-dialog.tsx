@@ -20,7 +20,7 @@ import { CustomerAutocomplete } from "@/components/customer-autocomplete";
 import { useOffline } from "@/contexts/offline-context";
 import { getCachedCustomers, getCachedProperties, getCachedJobTypes, getCachedTechnicians, useCacheJobTypes } from "@/hooks/use-offline-data";
 import { createJobType } from "@/lib/create-job-type";
-import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
+import { BookingConfirmationPanel } from "@/components/booking-confirmation-panel";
 
 const PostcodeAddressFinder = lazy(() =>
   import("@/components/postcode-address-finder").then(m => ({ default: m.PostcodeAddressFinder }))
@@ -137,6 +137,7 @@ interface BookJobDialogProps {
   initialCustomerAddress?: { address_line1?: string; city?: string; postcode?: string };
   invoiceId?: string;
   onJobCreated?: (jobId: string) => Promise<void> | void;
+  onConfirmationDone?: () => void;
   initialBookingPrefill?: {
     customer_name?: string | null;
     customer_email?: string | null;
@@ -160,6 +161,7 @@ export function BookJobDialog({
   initialCustomerAddress,
   invoiceId,
   onJobCreated,
+  onConfirmationDone,
   initialBookingPrefill,
 }: BookJobDialogProps) {
   const qc = useQueryClient();
@@ -265,13 +267,7 @@ export function BookJobDialog({
   const [showAddJobTypeInline, setShowAddJobTypeInline] = useState(false);
   const [newJobTypeName, setNewJobTypeName] = useState("");
   const [creatingJobType, setCreatingJobType] = useState(false);
-  const [confirmationState, setConfirmationState] = useState<{
-    jobId: string;
-    customerEmail: string;
-    customerName: string;
-  } | null>(null);
-  const [sendingConfirmation, setSendingConfirmation] = useState(false);
-  const [ccAdminOnConfirmation, setCcAdminOnConfirmation] = useState(false);
+  const [confirmationState, setConfirmationState] = useState<{ jobId: string } | null>(null);
   const [leaveConflict, setLeaveConflict] = useState<LeaveConflict | null>(null);
   const [existingCustomerWork, setExistingCustomerWork] = useState<ExistingCustomerWork | null>(null);
 
@@ -286,6 +282,7 @@ export function BookJobDialog({
   }, [pendingSelectPropertyId, filteredProperties, setValue]);
 
   const handleClose = () => {
+    const completedBooking = !!confirmationState;
     setConfirmationState(null);
     setExistingCustomerWork(null);
     setLeaveConflict(null);
@@ -299,6 +296,7 @@ export function BookJobDialog({
     setCreatingJobType(false);
     reset();
     onOpenChange(false);
+    if (completedBooking) onConfirmationDone?.();
   };
 
   const createJobTypeInline = async () => {
@@ -470,29 +468,6 @@ export function BookJobDialog({
     }
   };
 
-  const handleSendConfirmation = async () => {
-    if (!confirmationState) return;
-    setSendingConfirmation(true);
-    try {
-      const res = await fetch(`/api/jobs/${confirmationState.jobId}/send-confirmation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cc_admin: ccAdminOnConfirmation }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to send confirmation email");
-      }
-      toast({ title: "Email sent", description: `Confirmation sent to ${confirmationState.customerEmail}` });
-      handleClose();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to send email";
-      toast({ title: "Email error", description: message, variant: "destructive" });
-    } finally {
-      setSendingConfirmation(false);
-    }
-  };
-
   const onSubmit = async (data: BookJobFormData, skipExistingCheck = false) => {
     if (!skipExistingCheck && data.customer_mode === "existing" && data.customer_id && isOnline) {
       setSubmitting(true);
@@ -523,8 +498,6 @@ export function BookJobDialog({
     try {
       let customerId = data.customer_id;
       let propertyId = data.property_id;
-      let customerEmail = "";
-      let customerName = "";
 
       if (data.customer_mode === "new") {
         if (!data.new_first_name || !data.new_last_name) {
@@ -559,8 +532,6 @@ export function BookJobDialog({
           },
         });
         customerId = (custRes as { id: string }).id;
-        customerEmail = trimmedEmail || "";
-        customerName = data.new_business_name?.trim() || `${data.new_first_name.trim()} ${data.new_last_name.trim()}`;
 
         const propAddress = data.new_is_landlord ? {
           address_line1: data.new_prop_address_line1.trim(),
@@ -584,10 +555,6 @@ export function BookJobDialog({
           data: { customer_id: customerId, ...propAddress },
         });
         propertyId = (propRes as { id: string }).id;
-      } else {
-        const cust = customers?.find(c => c.id === data.customer_id);
-        customerEmail = cust?.email || "";
-        customerName = cust ? (cust.business_name || `${cust.first_name} ${cust.last_name}`) : "";
       }
 
       if (!customerId || !propertyId) {
@@ -710,11 +677,7 @@ export function BookJobDialog({
         }
       }
 
-      if (customerEmail) {
-        setConfirmationState({ jobId: createdJobId, customerEmail, customerName });
-      } else {
-        handleClose();
-      }
+      setConfirmationState({ jobId: createdJobId });
     } catch (err) {
       const conflict = (err as { data?: { code?: string; conflict?: LeaveConflict | JobClashConflict } })?.data;
       if (conflict?.code === "TECHNICIAN_LEAVE_CONFLICT" && conflict.conflict) {
@@ -793,18 +756,10 @@ export function BookJobDialog({
             <DialogHeader>
               <DialogTitle className="text-xl">Send Booking Confirmation?</DialogTitle>
               <DialogDescription>
-                Confirm whether to email the customer with their new booking details.
+                Choose whether to send the customer their new booking details.
               </DialogDescription>
             </DialogHeader>
-            <EmailConfirmationPanel
-              customerName={confirmationState.customerName}
-              customerEmail={confirmationState.customerEmail}
-              sending={sendingConfirmation}
-              ccAdmin={ccAdminOnConfirmation}
-              onCcAdminChange={setCcAdminOnConfirmation}
-              onSend={handleSendConfirmation}
-              onSkip={handleClose}
-            />
+            <BookingConfirmationPanel jobId={confirmationState.jobId} onDone={handleClose} />
           </>
         ) : (
           <>
