@@ -18,6 +18,9 @@ interface SmsSendDialogProps {
   /** Optional: link the SMS to a customer */
   customerId?: string;
   enquiryId?: string;
+  invoiceOptions?: Array<{ id: string; invoice_number: string; status: string }>;
+  initialInvoiceId?: string;
+  invoiceLoadError?: boolean;
   /** Called after a message is sent successfully */
   onSent?: () => void;
 }
@@ -30,16 +33,22 @@ interface SmsTemplate {
 
 const MAX_CHARS = 160;
 
-export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, customerId, enquiryId, onSent }: SmsSendDialogProps) {
+export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, customerId, enquiryId, invoiceOptions = [], initialInvoiceId = "", invoiceLoadError = false, onSent }: SmsSendDialogProps) {
   const { toast } = useToast();
   const [to, setTo] = useState(destination);
   const [sender, setSender] = useState("");
   const [content, setContent] = useState("");
+  const [invoiceId, setInvoiceId] = useState(initialInvoiceId);
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
   const [defaultSender, setDefaultSender] = useState("TradeWork");
   const [lowCredits, setLowCredits] = useState<{ remaining: number; bundleSize: number } | null>(null);
   const [, navigate] = useLocation();
+  const selectedInvoice = invoiceOptions.find(invoice => invoice.id === invoiceId);
+
+  useEffect(() => {
+    if (open && initialInvoiceId) setContent(prev => prev || "Please view your invoice:");
+  }, [open, initialInvoiceId]);
 
   // Fetch company settings once on mount
   useEffect(() => {
@@ -70,6 +79,8 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
       setTo(destination);
       setSender(defaultSender);
       setContent("");
+    } else {
+      setInvoiceId(initialInvoiceId);
     }
     onOpenChange(v);
   };
@@ -86,7 +97,7 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
 
     setSending(true);
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/sms/send`, {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/${invoiceId ? `invoices/${encodeURIComponent(invoiceId)}/send-sms` : "sms/send"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -111,8 +122,10 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
         throw new Error(error ?? "Failed to send SMS");
       }
 
-      const data = await res.json() as { ok: boolean; credits_remaining?: number | null; bundle_size?: number | null };
-      toast({ title: "SMS sent", description: `Message delivered to ${to.trim()}` });
+      const data = await res.json() as { ok: boolean; credits_remaining?: number | null; bundle_size?: number | null; invoice_warning?: string };
+      toast(data.invoice_warning
+        ? { title: "SMS sent — review required", description: data.invoice_warning, variant: "destructive" }
+        : { title: "SMS sent", description: `Message accepted for ${to.trim()}` });
       onSent?.();
       handleOpenChange(false);
       // Show low-credits warning if below 10% of bundle and still have some remaining
@@ -130,7 +143,8 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
     }
   };
 
-  const remaining = MAX_CHARS - content.length;
+  const linkLength = invoiceId ? `${window.location.origin}/api/public/invoice-view#`.length + 48 + 1 : 0;
+  const remaining = MAX_CHARS - content.length - linkLength;
   const overLimit = remaining < 0;
 
   return (
@@ -155,6 +169,24 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
               onChange={e => setTo(e.target.value)}
             />
           </div>
+
+          {(invoiceOptions.length > 0 || invoiceLoadError) && (
+            <div className="space-y-1.5">
+              <Label htmlFor="sms-invoice">Include an invoice</Label>
+              <select id="sms-invoice" value={invoiceId} onChange={e => {
+                setInvoiceId(e.target.value);
+                if (e.target.value) setContent(prev => prev || "Please view your invoice:");
+              }} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                {!initialInvoiceId && <option value="">No invoice</option>}
+                {invoiceOptions.map(invoice => <option key={invoice.id} value={invoice.id}>{invoice.invoice_number} — {invoice.status}</option>)}
+              </select>
+              {invoiceLoadError && <p className="text-xs text-destructive">Unable to load linked invoices.</p>}
+              {selectedInvoice && <p className="text-xs text-muted-foreground">
+                A secure link valid for 30 days will be added. Anyone with the link can view the invoice.
+                {selectedInvoice.status === "draft" ? " The draft will be marked sent after the SMS is accepted." : ""}
+              </p>}
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="sms-sender">From (sender name, max 11 chars)</Label>
@@ -208,7 +240,7 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
             <div className="flex justify-between items-center">
               <Label htmlFor="sms-content">Message</Label>
               <span className={`text-xs ${overLimit ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
-                {remaining} chars remaining
+                {invoiceId ? `Approximately ${remaining} chars remaining including link` : `${remaining} chars remaining`}
               </span>
             </div>
             <Textarea
@@ -219,7 +251,7 @@ export function SmsSendDialog({ open, onOpenChange, destination = "", jobId, cus
               onChange={e => setContent(e.target.value)}
               className={overLimit ? "border-destructive focus-visible:ring-destructive" : ""}
             />
-            {content.length > MAX_CHARS && (
+            {overLimit && (
               <p className="text-xs text-destructive">Message exceeds 160 characters and will be split into multiple SMS messages.</p>
             )}
           </div>

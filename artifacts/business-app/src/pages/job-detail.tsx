@@ -1235,6 +1235,7 @@ export default function JobDetail() {
                   jobId={job.id}
                   originalDate={String(job.scheduled_date).slice(0, 10)}
                   originalTime={job.scheduled_time ? String(job.scheduled_time) : null}
+                  customerEmail={job.customer?.email}
                   onRebooked={() => setHasRebookBeenUsedLocal(true)}
                 />
               )}
@@ -1993,7 +1994,16 @@ export default function JobDetail() {
         destination={(job.customer?.mobile || job.customer?.phone) ?? ""}
         jobId={job.id}
         customerId={job.customer_id ?? undefined}
-        onSent={() => setSmsLogRefresh(k => k + 1)}
+        invoiceOptions={nativeInvoicingEnabled ? (linkedInvoiceQuery.data?.invoices || []).map(invoice => ({
+          id: invoice.id, invoice_number: invoice.invoice_number, status: invoice.status,
+        })) : []}
+        invoiceLoadError={nativeInvoicingEnabled && linkedInvoiceQuery.isError}
+        onSent={() => {
+          setSmsLogRefresh(k => k + 1);
+          qc.invalidateQueries({ queryKey: ["/api/invoices"] });
+          qc.invalidateQueries({ queryKey: [`/api/jobs/${job.id}`] });
+          qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+        }}
       />
 
       {emailModalOpen && (

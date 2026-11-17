@@ -218,6 +218,10 @@ const sections: HelpSection[] = [
         q: "Can I link an existing invoice to a job?",
         a: "Yes. Open an invoice that is not already linked and click Link to job. Search by job reference or description, select the existing job and confirm. Only active, non-cancelled jobs for the same customer are shown; if the invoice has a service address selected, the job must match it. Draft, sent, overdue and paid invoices can be linked. Linking leaves invoice amounts, payments and job status unchanged, and the invoice appears with the job's linked invoices. It does not send an email or move an invoice that is already linked.",
       },
+      {
+        q: "Can I send an invoice by SMS?",
+        a: "With the SMS add-on, choose Send Invoice by SMS on an invoice, or select a linked invoice in a job's Send SMS dialog. The customer receives a secure link valid for 30 days, without needing a portal login. Anyone with the link can view the invoice. A draft is marked sent after the message is accepted.",
+      },
     ],
   },
   {

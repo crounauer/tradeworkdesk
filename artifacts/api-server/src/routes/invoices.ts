@@ -20,8 +20,83 @@ import { createQuoteAcceptToken, verifyQuoteAcceptToken } from "../lib/quote-act
 import { syncSentInvoiceJob } from "../lib/invoice-job-status";
 import { calculateInvoiceTotals } from "@workspace/api-zod/invoice-totals";
 import { z } from "zod";
+import rateLimit from "express-rate-limit";
+import { parseInvoiceSmsToken, verifyInvoiceSmsToken } from "../lib/invoice-sms-token";
 
 const router: IRouter = Router();
+const invoiceLinkLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
+
+router.get("/public/invoice-view", (_req, res) => {
+  res.set({
+    "Cache-Control": "no-store",
+    "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-src blob:; base-uri 'none'; frame-ancestors 'none'",
+  });
+  res.type("html").send(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your invoice</title><style>
+body{font-family:Arial,sans-serif;margin:0;background:#f5f7fb;color:#172033}
+[hidden]{display:none!important}
+main{max-width:900px;margin:auto;padding:20px}a{display:inline-block;background:#2563eb;color:white;padding:12px 18px;border-radius:8px;text-decoration:none}
+iframe{width:100%;height:75vh;border:1px solid #d5dbe5;margin-top:16px;background:white}
+</style></head><body><main><h1>Your invoice</h1><p id="status">Loading your invoice...</p>
+<a id="open" hidden target="_blank" rel="noopener noreferrer">Open or download invoice</a>
+<iframe id="preview" title="Invoice preview" hidden></iframe></main><script>
+(async () => {
+  const token = location.hash.slice(1);
+  const status = document.getElementById("status");
+  if (!token) { status.textContent = "This invoice link is invalid. Please contact the sender."; return; }
+  try {
+    const response = await fetch("/api/public/invoice-view/pdf", {
+      method: "POST", headers: { "Authorization": "Bearer " + token }, cache: "no-store", credentials: "omit"
+    });
+    if (!response.ok) {
+      status.textContent = response.status === 404
+        ? "This invoice link is invalid or has expired. Please contact the sender for a new link."
+        : "Unable to load the invoice. Please try again later.";
+      return;
+    }
+    const url = URL.createObjectURL(await response.blob());
+    const open = document.getElementById("open");
+    const preview = document.getElementById("preview");
+    open.href = url; open.hidden = false;
+    preview.src = url; preview.hidden = false;
+    status.textContent = "If the preview does not appear, use the button below.";
+  } catch {
+    status.textContent = "Unable to load the invoice. Please try again later.";
+  }
+})();
+</script></body></html>`);
+});
+
+router.post("/public/invoice-view/pdf", invoiceLinkLimiter, async (req, res): Promise<void> => {
+  res.set({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
+  const token = parseInvoiceSmsToken(req.get("authorization")?.replace(/^Bearer /, ""));
+  if (!token) { res.status(404).json({ error: "Invoice link is invalid or expired" }); return; }
+  const { data: invoice, error } = await supabaseAdmin.from("invoices")
+    .select("*").eq("id", token.invoiceId).maybeSingle();
+  if (error) {
+    console.error("[invoice-sms] Invoice lookup failed:", error.message);
+    res.status(503).json({ error: "Unable to load invoice" }); return;
+  }
+  if (!invoice || invoice.type !== "invoice" || !["sent", "overdue", "paid"].includes(invoice.status)
+    || !verifyInvoiceSmsToken(token, invoice.sent_at)) {
+    res.status(404).json({ error: "Invoice link is invalid or expired" }); return;
+  }
+  const { data: lineItems, error: lineError } = await supabaseAdmin.from("invoice_line_items")
+    .select("*").eq("invoice_id", invoice.id).eq("tenant_id", invoice.tenant_id).order("sort_order");
+  if (lineError) {
+    console.error("[invoice-sms] Invoice line lookup failed:", lineError.message);
+    res.status(503).json({ error: "Unable to load invoice" }); return;
+  }
+  try {
+    const pdf = generateInvoicePdf(await buildPdfData(invoice, lineItems || [], invoice.tenant_id, true));
+    res.type("application/pdf").set("Content-Disposition", "inline").send(pdf);
+  } catch (error) {
+    console.error("[invoice-sms] PDF generation failed:", error);
+    res.status(500).json({ error: "Unable to generate invoice" });
+  }
+});
 
 function toSingleParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] || "";
@@ -123,15 +198,19 @@ interface LineItemInput {
 const settingsCache = new Map<string, { data: Record<string, unknown> | null; ts: number }>();
 const SETTINGS_TTL_MS = 30_000;
 
-async function getCompanySettings(tenantId: string) {
+async function getCompanySettings(tenantId: string, strict = false) {
   const cached = settingsCache.get(tenantId);
   if (cached && Date.now() - cached.ts < SETTINGS_TTL_MS) return cached.data;
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("company_settings")
     .select("*")
     .eq("tenant_id", tenantId)
     .eq("singleton_id", "default")
     .maybeSingle();
+  if (error) {
+    if (strict) throw new Error(`Failed to load company settings: ${error.message}`);
+    return data;
+  }
   settingsCache.set(tenantId, { data: data as Record<string, unknown> | null, ts: Date.now() });
   return data;
 }
@@ -241,15 +320,18 @@ async function buildPdfData(
   invoice: Record<string, unknown>,
   lineItems: Record<string, unknown>[],
   tenantId: string,
+  strict = false,
 ): Promise<InvoicePdfData> {
-  const settings = await getCompanySettings(tenantId);
+  const settings = await getCompanySettings(tenantId, strict);
 
   // Load customer
-  const { data: customer } = await supabaseAdmin
+  const { data: customer, error: customerError } = await supabaseAdmin
     .from("customers")
     .select("business_name, first_name, last_name, email, phone, mobile, address_line1, address_line2, city, county, postcode")
     .eq("id", invoice.customer_id as string)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
+  if (strict && customerError) throw new Error(`Failed to load invoice customer: ${customerError.message}`);
 
   const customerName = getCustomerDisplayName(customer, "Unknown Customer");
   const isQuote = (invoice.type as string) === "quote";
@@ -276,22 +358,26 @@ async function buildPdfData(
     : (settings?.show_trading_terms_url_on_invoices as boolean | null) !== false;
 
   // Load job for human-readable ref and property_id
-  const { data: job } = invoice.job_id
+  const { data: job, error: jobError } = invoice.job_id
     ? await supabaseAdmin
         .from("jobs")
         .select("job_ref, property_id, description")
         .eq("id", invoice.job_id as string)
+        .eq("tenant_id", tenantId)
         .maybeSingle()
-    : { data: null };
+    : { data: null, error: null };
+  if (strict && jobError) throw new Error(`Failed to load invoice job: ${jobError.message}`);
 
   // Load property address: used as billing fallback and as service address when it differs
-  const { data: property } = (job?.property_id || invoice.property_id)
+  const { data: property, error: propertyError } = (job?.property_id || invoice.property_id)
     ? await supabaseAdmin
         .from("properties")
         .select("id, address_line1, address_line2, city, county, postcode")
         .eq("id", (job?.property_id || invoice.property_id) as string)
+        .eq("tenant_id", tenantId)
         .maybeSingle()
-    : { data: null };
+    : { data: null, error: null };
+  if (strict && propertyError) throw new Error(`Failed to load invoice property: ${propertyError.message}`);
 
   // Include service address when the work location differs from the customer's billing address
   const billingPostcode = (customer?.postcode || "").trim().toUpperCase().replace(/\s+/g, "");

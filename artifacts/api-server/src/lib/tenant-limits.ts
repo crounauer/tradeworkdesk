@@ -172,8 +172,8 @@ export async function getJobsThisMonth(tenantId: string): Promise<number> {
  * Get remaining credits for a tenant/addon (by feature key).
  * Returns null if the addon is not usage-based or no credits row exists yet.
  */
-export async function getAddonCredits(tenantId: string, featureKey: string): Promise<{ credits_remaining: number; addon_id: string; bundle_size: number; bundle_price: number } | null> {
-  const { data: addon } = await supabaseAdmin
+export async function getAddonCredits(tenantId: string, featureKey: string, strict = false): Promise<{ credits_remaining: number; addon_id: string; bundle_size: number; bundle_price: number } | null> {
+  const { data: addon, error: addonError } = await supabaseAdmin
     .from("addons")
     .select("id, billing_model, usage_bundle_size, usage_bundle_price, feature_keys")
     .eq("billing_model", "usage")
@@ -181,16 +181,18 @@ export async function getAddonCredits(tenantId: string, featureKey: string): Pro
     .contains("feature_keys", [featureKey])
     .maybeSingle();
 
+  if (strict && addonError) throw new Error(`Failed to load add-on: ${addonError.message}`);
   if (!addon) return null;
   const a = addon as { id: string; billing_model: string; usage_bundle_size: number | null; usage_bundle_price: number | null };
 
-  const { data: credits } = await supabaseAdmin
+  const { data: credits, error: creditError } = await supabaseAdmin
     .from("tenant_addon_credits")
     .select("credits_remaining")
     .eq("tenant_id", tenantId)
     .eq("addon_id", a.id)
     .maybeSingle();
 
+  if (strict && creditError) throw new Error(`Failed to load add-on credits: ${creditError.message}`);
   return {
     addon_id: a.id,
     credits_remaining: (credits as { credits_remaining: number } | null)?.credits_remaining ?? 0,
@@ -204,9 +206,9 @@ export async function getAddonCredits(tenantId: string, featureKey: string): Pro
  * Returns false if credits are exhausted (caller should block the action).
  * Upserts the row if it doesn't exist yet (so first-time use creates it at 0 and blocks).
  */
-export async function deductAddonCredit(tenantId: string, featureKey: string): Promise<boolean> {
+export async function deductAddonCredit(tenantId: string, featureKey: string, strict = false): Promise<boolean> {
   // Find the addon
-  const { data: addon } = await supabaseAdmin
+  const { data: addon, error: addonError } = await supabaseAdmin
     .from("addons")
     .select("id")
     .eq("billing_model", "usage")
@@ -214,27 +216,30 @@ export async function deductAddonCredit(tenantId: string, featureKey: string): P
     .contains("feature_keys", [featureKey])
     .maybeSingle();
 
+  if (strict && addonError) throw new Error(`Failed to load add-on: ${addonError.message}`);
   if (!addon) return true; // addon not usage-based, no credit needed
 
   const addonId = (addon as { id: string }).id;
 
   // Get current credits
-  const { data: existing } = await supabaseAdmin
+  const { data: existing, error: creditError } = await supabaseAdmin
     .from("tenant_addon_credits")
     .select("id, credits_remaining")
     .eq("tenant_id", tenantId)
     .eq("addon_id", addonId)
     .maybeSingle();
 
+  if (strict && creditError) throw new Error(`Failed to load add-on credits: ${creditError.message}`);
   const row = existing as { id: string; credits_remaining: number } | null;
   if (!row || row.credits_remaining <= 0) return false; // no credits
 
   // Decrement atomically
-  await supabaseAdmin
+  const { error: updateError } = await supabaseAdmin
     .from("tenant_addon_credits")
     .update({ credits_remaining: row.credits_remaining - 1, updated_at: new Date().toISOString() } as Record<string, unknown>)
     .eq("id", row.id);
 
+  if (strict && updateError) throw new Error(`Failed to deduct add-on credit: ${updateError.message}`);
   return true;
 }
 

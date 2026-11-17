@@ -5,7 +5,7 @@ import { useParams, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft, Send, CheckCircle2, XCircle, RefreshCcw, Download, Trash2,
   Loader2, Receipt, AlertTriangle, FileText, CreditCard,
-  Edit3, Save, X, Mail, ChevronDown, ChevronUp, Briefcase, BellRing, Copy,
+  Edit3, Save, X, Mail, ChevronDown, ChevronUp, Briefcase, BellRing, Copy, MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useCompanySettings } from "@/hooks/use-company-settings";
 import { useAuth } from "@/hooks/use-auth";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { SmsSendDialog } from "@/components/sms-send-dialog";
 import { BookJobDialog } from "@/components/book-job-dialog";
 import { CreateJobFromQuoteDialog } from "@/components/create-job-from-quote-dialog";
 import { DuplicateInvoiceDialog } from "@/components/duplicate-invoice-dialog";
@@ -265,6 +267,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
   const isDraft = invoice.status === "draft";
   const qc = useQueryClient();
   const { profile } = useAuth();
+  const { hasAddon, isLoading: addonsLoading } = usePlanFeatures();
   const isInvoice = invoice.type === "invoice";
   const totalPaid = Number(invoice.amount_paid ?? invoice.paid_amount ?? 0);
   const balanceDue = Math.max(0, Number(invoice.balance_due ?? Number(invoice.total) - totalPaid));
@@ -313,6 +316,7 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
 
   // Dialogs
   const [sendOpen, setSendOpen] = useState(false);
+  const [sendSmsOpen, setSendSmsOpen] = useState(false);
   const [paidOpen, setPaidOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<InvoicePayment | null>(null);
@@ -786,6 +790,11 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
             <Button onClick={() => setSendOpen(true)} disabled={sendMut.isPending}>
               <Send className="w-4 h-4 mr-2" />
               {invoice.status === "sent" ? "Re-send" : `Send ${isInvoice ? "Invoice" : "Quote"}`}
+            </Button>
+          )}
+          {isInvoice && !addonsLoading && hasAddon("sms_messaging") && ["draft", "sent", "overdue", "paid"].includes(invoice.status) && (
+            <Button variant="outline" onClick={() => setSendSmsOpen(true)}>
+              <MessageSquare className="w-4 h-4 mr-2" /> Send Invoice by SMS
             </Button>
           )}
           {isDraft && (
@@ -1350,6 +1359,22 @@ function InvoiceDetailContent({ invoice, currency, navigate, toast, settings }: 
       {/* ── Dialogs ── */}
 
       {/* Send dialog */}
+      {sendSmsOpen && (
+        <SmsSendDialog
+          open={sendSmsOpen}
+          onOpenChange={setSendSmsOpen}
+          destination={invoice.customer?.mobile || invoice.customer?.phone || ""}
+          jobId={invoice.job_id || undefined}
+          customerId={invoice.customer_id}
+          invoiceOptions={[{ id: invoice.id, invoice_number: invoice.invoice_number, status: invoice.status }]}
+          initialInvoiceId={invoice.id}
+          onSent={() => {
+            qc.invalidateQueries({ queryKey: invoiceKeys.all });
+            qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+            if (invoice.job_id) qc.invalidateQueries({ queryKey: [`/api/jobs/${invoice.job_id}`] });
+          }}
+        />
+      )}
       <Dialog open={sendOpen} onOpenChange={setSendOpen}>
         <DialogContent>
           <DialogHeader>

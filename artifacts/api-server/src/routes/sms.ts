@@ -1,10 +1,14 @@
 import { Router, type IRouter } from "express";
-import { requireAuth, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireAuth, requireTenant, requireRole, requirePlanFeature, type AuthenticatedRequest } from "../middlewares/auth";
+import { requireTenantInvoicing } from "../middlewares/require-tenant-invoicing";
 import { hasActiveAddon, deductAddonCredit, getAddonCredits } from "../lib/tenant-limits";
 import { supabaseAdmin } from "../lib/supabase";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { z } from "zod";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
+import { createInvoiceSmsToken } from "../lib/invoice-sms-token";
+import { syncSentInvoiceJob } from "../lib/invoice-job-status";
+import type { Response, NextFunction } from "express";
 
 const router: IRouter = Router();
 
@@ -47,7 +51,46 @@ async function getSmsWorksJwt(key: string, secret: string): Promise<string> {
 // ──────────────────────────────────────────────────────────────
 // POST /api/sms/send
 // ──────────────────────────────────────────────────────────────
-router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
+interface InvoiceSmsRequest extends AuthenticatedRequest {
+  invoiceSms?: { id: string; status: string; sentAt: string; updatedAt: string; needsUpdate: boolean; logContent: string };
+}
+
+router.post("/invoices/:id/send-sms", requireAuth, requireTenant,
+  requireRole("admin", "office_staff", "bookkeeper", "accountant"),
+  requirePlanFeature("invoicing"), requireTenantInvoicing,
+  async (req: InvoiceSmsRequest, res: Response, next: NextFunction): Promise<void> => {
+    const invoiceId = z.string().uuid().safeParse(req.params.id);
+    if (!invoiceId.success) { res.status(400).json({ error: "Invalid invoice ID" }); return; }
+    const { data: invoice, error } = await supabaseAdmin.from("invoices")
+      .select("id, type, status, customer_id, job_id, sent_at, updated_at")
+      .eq("id", invoiceId.data).eq("tenant_id", req.tenantId!).maybeSingle();
+    if (error) { res.status(500).json({ error: "Unable to load invoice" }); return; }
+    if (!invoice) { res.status(404).json({ error: "Invoice not found" }); return; }
+    if (invoice.type !== "invoice" || !["draft", "sent", "overdue", "paid"].includes(invoice.status)) {
+      res.status(400).json({ error: "This invoice cannot be sent by SMS" }); return;
+    }
+    const sentAt = invoice.status === "draft" || !invoice.sent_at ? new Date().toISOString() : invoice.sent_at;
+    const token = createInvoiceSmsToken(invoice.id, sentAt);
+    const link = `${(process.env.APP_URL || "https://tradeworkdesk.co.uk").replace(/\/+$/, "")}/api/public/invoice-view#${token}`;
+    const message = typeof req.body.content === "string" ? req.body.content.trim() : "";
+    req.invoiceSms = {
+      id: invoice.id, status: invoice.status, sentAt, updatedAt: invoice.updated_at,
+      needsUpdate: invoice.status === "draft" || !invoice.sent_at,
+      logContent: `${message}\n[secure invoice link]`,
+    };
+    req.body = {
+      ...req.body,
+      content: message ? `${message}\n${link}` : "",
+      job_id: invoice.job_id || undefined,
+      customer_id: invoice.customer_id,
+      enquiry_id: undefined,
+    };
+    next();
+  }, sendSms);
+
+router.post("/sms/send", requireAuth, requireTenant, sendSms);
+
+async function sendSms(req: InvoiceSmsRequest, res: Response): Promise<void> {
   const { destination, content, sender_id, job_id, customer_id, enquiry_id } = req.body as {
     destination?: string;
     content?: string;
@@ -74,7 +117,14 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
   }
 
   // Credit check
-  const creditInfo = await getAddonCredits(req.tenantId!, "sms_messaging");
+  let creditInfo: Awaited<ReturnType<typeof getAddonCredits>>;
+  try {
+    creditInfo = await getAddonCredits(req.tenantId!, "sms_messaging", !!req.invoiceSms);
+  } catch (error) {
+    console.error("[invoice-sms] Credit check failed:", error);
+    res.status(503).json({ error: "Unable to verify SMS credits. Please try again." });
+    return;
+  }
   if (creditInfo !== null && creditInfo.credits_remaining <= 0) {
     res.status(402).json({
       error: "No SMS credits remaining. Purchase more credits on the Billing page.",
@@ -151,7 +201,7 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
     if (!smsRes.ok) {
       const body = await smsRes.text();
       status = "failed";
-      sendError = body || `HTTP ${smsRes.status}`;
+      sendError = req.invoiceSms ? `SMS provider rejected the message (HTTP ${smsRes.status})` : body || `HTTP ${smsRes.status}`;
     } else {
       const smsBody = await smsRes.json() as { messageid?: string; credits?: number; status?: string; error?: string };
       messageId = smsBody.messageid ?? null;
@@ -162,6 +212,26 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
     sendError = err instanceof Error ? err.message : "Send failed";
   }
 
+  let invoiceWarning: string | undefined;
+  if (status === "sent" && req.invoiceSms?.needsUpdate) {
+    const { data: updated, error: invoiceError } = await supabaseAdmin.from("invoices")
+      .update({
+        ...(req.invoiceSms.status === "draft" ? { status: "sent" } : {}),
+        sent_at: req.invoiceSms.sentAt,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", req.invoiceSms.id).eq("tenant_id", req.tenantId!)
+      .eq("status", req.invoiceSms.status).eq("updated_at", req.invoiceSms.updatedAt)
+      .select("id, type, status, job_id").maybeSingle();
+    if (invoiceError || !updated) {
+      console.error("[invoice-sms] SMS sent but invoice update failed:", invoiceError?.message || "Invoice changed");
+      invoiceWarning = "The SMS was sent, but the invoice changed or could not be updated. The link may not work. Review the invoice before sending again.";
+    } else {
+      const jobStatus = await syncSentInvoiceJob(supabaseAdmin, req.tenantId!, updated);
+      invoiceWarning = jobStatus.job_status_warning;
+    }
+  }
+
   // Record in sms_messages regardless of send success
   const { data: record, error: insertError } = await supabaseAdmin
     .from("sms_messages")
@@ -169,7 +239,7 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
       tenant_id: req.tenantId!,
       sent_by_user_id: req.userId!,
       destination: destination.trim(),
-      content: content.trim(),
+      content: req.invoiceSms ? req.invoiceSms.logContent : content.trim(),
       sender_id: senderId,
       sms_works_message_id: messageId,
       status,
@@ -181,12 +251,17 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
     .select("id, status, sms_works_message_id")
     .single();
 
-  if (insertError) {
-    res.status(500).json({ error: "Message sent but failed to record" });
+  if ((insertError || !record) && !(req.invoiceSms && status === "sent")) {
+    res.status(500).json({ error: status === "failed" ? "SMS failed and could not be recorded." : "Message sent but failed to record" });
     return;
+  }
+  if (insertError || !record) {
+    console.error("[invoice-sms] SMS sent but message log failed:", insertError?.message || "No message record returned");
+    invoiceWarning = [invoiceWarning, "The SMS was sent but could not be saved in the message history."].filter(Boolean).join(" ");
   }
 
   if (status === "failed") {
+    if (!record) { res.status(500).json({ error: "SMS failed and could not be recorded." }); return; }
     void notifyUsersForEvent({
       tenantId: req.tenantId!,
       eventType: "system_reliability",
@@ -203,17 +278,29 @@ router.post("/sms/send", requireAuth, requireTenant, async (req: AuthenticatedRe
   }
 
   // Deduct one credit on success
-  await deductAddonCredit(req.tenantId!, "sms_messaging");
-
-  const smsCredits = await getAddonCredits(req.tenantId!, "sms_messaging");
+  let smsCredits: Awaited<ReturnType<typeof getAddonCredits>> = null;
+  if (req.invoiceSms) {
+    try {
+      const deducted = await deductAddonCredit(req.tenantId!, "sms_messaging", true);
+      if (!deducted) throw new Error("SMS credit could not be deducted");
+      smsCredits = await getAddonCredits(req.tenantId!, "sms_messaging", true);
+    } catch (error) {
+      console.error("[invoice-sms] SMS sent but credit update failed:", error);
+      invoiceWarning = [invoiceWarning, "The SMS was sent but the credit balance could not be updated. Contact support."].filter(Boolean).join(" ");
+    }
+  } else {
+    await deductAddonCredit(req.tenantId!, "sms_messaging");
+    smsCredits = await getAddonCredits(req.tenantId!, "sms_messaging");
+  }
   res.json({
     ok: true,
     message_id: messageId,
     record,
+    invoice_warning: invoiceWarning,
     credits_remaining: smsCredits ? smsCredits.credits_remaining : null,
     bundle_size: smsCredits?.bundle_size ?? null,
   });
-});
+}
 
 // ──────────────────────────────────────────────────────────────
 // GET /api/sms/messages — paginated history for this tenant
