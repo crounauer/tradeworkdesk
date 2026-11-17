@@ -98,10 +98,16 @@ export default function CustomerDetail() {
   const deleteMutation = useDeleteCustomer();
   const { toast } = useToast();
 
-  const { hasAddon, hasFeature } = usePlanFeatures();
+  const { hasAddon, hasFeature, isLoading: isLoadingFeatures } = usePlanFeatures();
   const canDelete = profile?.role === "admin" || profile?.role === "super_admin";
   const canCreateInvoices = hasFeature("invoicing") && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
   const canCreateFollowUp = hasFeature("job_management") && (profile?.role === "admin" || profile?.role === "office_staff" || profile?.role === "super_admin");
+
+  useEffect(() => {
+    if (!isLoadingFeatures && canCreateFollowUp && new URLSearchParams(search).get("addFollowUp") === "1") {
+      setShowFollowUp(true);
+    }
+  }, [canCreateFollowUp, isLoadingFeatures, search]);
 
   if (isLoading) return <div className="p-8">Loading...</div>;
   if (!customer) return <div>Customer not found</div>;
@@ -445,7 +451,7 @@ export default function CustomerDetail() {
       )}
 
       {/* Book Job dialog pre-filled with this customer */}
-      {showFollowUp && (
+      {canCreateFollowUp && showFollowUp && (
         <CustomerFollowUpDialog
           customerId={customer.id}
           properties={customer.properties || []}

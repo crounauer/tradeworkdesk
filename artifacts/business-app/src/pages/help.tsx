@@ -168,7 +168,7 @@ const sections: HelpSection[] = [
       },
       {
         q: "What are Follow-Ups?",
-        a: "Use Add Follow-Up on a customer record to track work without booking a job. You can optionally link an existing job and leave the expected parts date blank. In Follow-Ups, mark parts as arrived and book the visit when ready.",
+        a: "Use + Follow Up on the dashboard or Add Follow-Up on a customer record to track work without booking a job. You can optionally link an existing job and leave the expected parts date blank. In Follow-Ups, mark parts as arrived and book the visit when ready.",
       },
       {
         q: "What service record forms are available?",

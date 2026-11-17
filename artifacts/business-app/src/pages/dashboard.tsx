@@ -15,6 +15,7 @@ import { QuickEnquiryDialog } from "@/components/quick-enquiry-dialog";
 import { AppointmentConfirmationBadge } from "@/components/appointment-confirmation-badge";
 const BookJobDialog = lazy(() => import("@/components/book-job-dialog").then(m => ({ default: m.BookJobDialog })));
 const QuickInvoiceDialog = lazy(() => import("@/components/quick-invoice-dialog").then(m => ({ default: m.QuickInvoiceDialog })));
+const QuickFollowUpDialog = lazy(() => import("@/components/quick-follow-up-dialog").then(m => ({ default: m.QuickFollowUpDialog })));
 
 type DashboardJob = {
   id: string;
@@ -145,6 +146,7 @@ export default function Dashboard() {
   const [showAddEnquiry, setShowAddEnquiry] = useState(false);
   const [quickDate, setQuickDate] = useState<string | undefined>(undefined);
   const [showQuickInvoice, setShowQuickInvoice] = useState<"invoice" | "quote" | null>(null);
+  const [showQuickFollowUp, setShowQuickFollowUp] = useState(false);
   const [showEssentialSetupPrompt, setShowEssentialSetupPrompt] = useState(false);
   const [essentialSetupState, setEssentialSetupState] = useState<EssentialSetupState>({ shownCount: 0, dismissed: false, completed: false });
   const [hasServices, setHasServices] = useState(false);
@@ -432,7 +434,7 @@ export default function Dashboard() {
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 pb-1">
         <h1 className="flex-1 text-3xl font-display font-bold text-foreground">Dashboard</h1>
-        <div className="flex flex-nowrap sm:flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           {canCreateInvoices && (
             <Button size="sm" variant="outline" className="flex-1 sm:flex-none px-2 sm:px-3 gap-1.5" onClick={() => setShowQuickInvoice("quote")}>
               <FileText className="hidden sm:inline w-4 h-4" />
@@ -445,6 +447,12 @@ export default function Dashboard() {
               <Receipt className="hidden sm:inline w-4 h-4" />
               <span className="sm:hidden">+ Inv</span>
               <span className="hidden sm:inline">+ Invoice</span>
+            </Button>
+          )}
+          {canCreateJobs && (
+            <Button size="sm" variant="outline" className="flex-1 sm:flex-none px-2 sm:px-3 gap-1.5" onClick={() => setShowQuickFollowUp(true)}>
+              <Package className="hidden sm:inline w-4 h-4" />
+              <span>+ Follow Up</span>
             </Button>
           )}
           {canCreateJobs && (
@@ -831,6 +839,14 @@ export default function Dashboard() {
       {showQuickInvoice && (
         <Suspense fallback={null}>
           <QuickInvoiceDialog type={showQuickInvoice} onOpenChange={(v) => { if (!v) setShowQuickInvoice(null); }} />
+        </Suspense>
+      )}
+      {canCreateJobs && showQuickFollowUp && (
+        <Suspense fallback={null}>
+          <QuickFollowUpDialog onClose={() => setShowQuickFollowUp(false)} onSelectCustomer={customerId => {
+            setShowQuickFollowUp(false);
+            navigate(`/customers/${encodeURIComponent(customerId)}?addFollowUp=1`);
+          }} />
         </Suspense>
       )}
 
