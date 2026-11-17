@@ -19,6 +19,21 @@ test("allows a message-only customer email with no attachments", () => {
   assert.deepEqual(result, { ok: true });
 });
 
+test("allows an invoice-only customer email and rejects malformed invoice selections", () => {
+  assert.deepEqual(validateJobEmailSendRequest({
+    to: "customer@example.com",
+    invoice_id: "33333333-3333-4333-8333-333333333333",
+  }), { ok: true });
+  assert.equal(validateJobEmailSendRequest({
+    to: "customer@example.com",
+    invoice_id: "not-an-invoice-id",
+    customer_message: "Invoice attached",
+  }).ok, false);
+  assert.equal(validateJobEmailSendRequest({
+    to: "customer@example.com",
+  }).ok, false);
+});
+
 test("keeps technician summaries operational and adds spam guidance", () => {
   const body = buildSummaryBody({
     technicianName: "Alex",

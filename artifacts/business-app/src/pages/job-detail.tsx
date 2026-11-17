@@ -2008,6 +2008,9 @@ export default function JobDetail() {
       {emailModalOpen && (
         <EmailFormsModal
           jobId={job.id}
+          invoices={nativeInvoicingEnabled ? linkedInvoiceQuery.data?.invoices || [] : []}
+          loadingInvoices={nativeInvoicingEnabled && linkedInvoiceQuery.isLoading}
+          invoiceLoadError={nativeInvoicingEnabled && linkedInvoiceQuery.isError}
           customerEmail={(job.customer as unknown as Record<string, unknown>)?.email as string || ""}
           customerName={`${job.customer?.first_name || ""} ${job.customer?.last_name || ""}`.trim()}
           onClose={() => setEmailModalOpen(false)}
@@ -3808,7 +3811,16 @@ interface CompletedForm {
   form_id: string;
 }
 
-function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }: { jobId: string; customerEmail: string; customerName: string; onClose: () => void; onSent: () => void }) {
+function EmailFormsModal({ jobId, customerEmail, customerName, invoices, loadingInvoices, invoiceLoadError, onClose, onSent }: {
+  jobId: string;
+  customerEmail: string;
+  customerName: string;
+  invoices: Array<{ id: string; invoice_number: string; status: InvoiceStatus }>;
+  loadingInvoices: boolean;
+  invoiceLoadError: boolean;
+  onClose: () => void;
+  onSent: () => void;
+}) {
   const { toast } = useToast();
   const [to, setTo] = useState(customerEmail);
   const [cc, setCc] = useState("");
@@ -3817,6 +3829,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
   const [selectedForms, setSelectedForms] = useState<Set<string>>(new Set());
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
   const [sending, setSending] = useState(false);
   const [loadingForms, setLoadingForms] = useState(true);
 
@@ -3891,13 +3904,19 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
     }
   };
 
-  const totalSelected = selectedForms.size + selectedPhotos.size + selectedDocuments.size;
+  const selectedInvoice = !loadingInvoices && !invoiceLoadError
+    ? invoices.find(invoice => invoice.id === selectedInvoiceId)
+    : undefined;
+  const totalSelected = selectedForms.size + selectedPhotos.size + selectedDocuments.size + (selectedInvoice ? 1 : 0);
 
   const handleSend = async () => {
     if (!to) { toast({ title: "Error", description: "Recipient email is required", variant: "destructive" }); return; }
+    if (selectedInvoiceId && !selectedInvoice) {
+      toast({ title: "Error", description: "The selected invoice is unavailable. Reload the page and select it again before sending.", variant: "destructive" }); return;
+    }
     const hasMessage = customerMessage.trim().length > 0;
     if (totalSelected === 0 && !hasMessage) {
-      toast({ title: "Error", description: "Add a message or select at least one form or photo to send", variant: "destructive" }); return;
+      toast({ title: "Error", description: "Add a message or select at least one form, photo, document or invoice to send", variant: "destructive" }); return;
     }
     setSending(true);
     try {
@@ -3915,12 +3934,14 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
           customer_message: customerMessage.trim() || undefined,
           forms: formsPayload.length > 0 ? formsPayload : undefined,
           photo_ids: photoIdsPayload.length > 0 ? photoIdsPayload : undefined,
+          invoice_id: selectedInvoice?.id,
         }),
       }) as Record<string, unknown>;
       const parts: string[] = [];
       if (selectedForms.size > 0) parts.push(`${selectedForms.size} form(s)`);
       if (selectedPhotos.size > 0) parts.push(`${selectedPhotos.size} photo(s)`);
       if (selectedDocuments.size > 0) parts.push(`${selectedDocuments.size} document(s)`);
+      if (selectedInvoice) parts.push(`invoice ${selectedInvoice.invoice_number}`);
       const desc = `${parts.join(" and ")} emailed to ${to}`;
       if (result.warning) {
         toast({ title: "Email Sent (with warnings)", description: `${desc}. ${result.warning}`, variant: "default" });
@@ -3943,6 +3964,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
     if (selectedForms.size > 0) parts.push(`${selectedForms.size} Form${selectedForms.size !== 1 ? "s" : ""}`);
     if (selectedPhotos.size > 0) parts.push(`${selectedPhotos.size} Photo${selectedPhotos.size !== 1 ? "s" : ""}`);
     if (selectedDocuments.size > 0) parts.push(`${selectedDocuments.size} Document${selectedDocuments.size !== 1 ? "s" : ""}`);
+    if (selectedInvoice) parts.push("Invoice");
     if (parts.length === 0 && customerMessage.trim().length > 0) return "Send Message";
     return `Send ${parts.join(" & ") || "Email"}`;
   };
@@ -3977,6 +3999,34 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
             />
             <p className="text-xs text-muted-foreground text-right">{customerMessage.length}/2000</p>
           </div>
+
+          {(loadingInvoices || invoiceLoadError || invoices.length > 0) && (
+            <div className="space-y-2">
+              <Label htmlFor="email-invoice">Invoice (optional)</Label>
+              {loadingInvoices ? (
+                <p className="text-sm text-muted-foreground">Loading invoices...</p>
+              ) : invoiceLoadError ? (
+                <p className="text-sm text-destructive">Invoices could not be loaded. Refresh the page to retry.</p>
+              ) : (
+                <>
+                  <select
+                    id="email-invoice"
+                    value={selectedInvoice?.id || ""}
+                    onChange={e => setSelectedInvoiceId(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Do not include an invoice</option>
+                    {invoices.map(invoice => (
+                      <option key={invoice.id} value={invoice.id}>
+                        {invoice.invoice_number} ({invoice.status})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">The selected invoice will be attached as a PDF.</p>
+                </>
+              )}
+            </div>
+          )}
 
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -4055,7 +4105,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, onClose, onSent }
           )}
 
           <div className="flex gap-3 pt-2">
-            <Button onClick={handleSend} disabled={sending || (!to || (totalSelected === 0 && !customerMessage.trim()) || loadingForms)} className="flex-1">
+            <Button onClick={handleSend} disabled={sending || !!(selectedInvoiceId && !selectedInvoice) || (!to || (totalSelected === 0 && !customerMessage.trim()) || loadingForms)} className="flex-1">
               <Send className="w-4 h-4 mr-2" /> {sendLabel()}
             </Button>
             <Button variant="outline" onClick={onClose}>Cancel</Button>

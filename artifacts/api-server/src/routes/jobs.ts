@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type RequestHandler } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, requirePlanFeature, getTenantFeatures, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
@@ -36,6 +36,9 @@ import { invalidateHomepageCache } from "./homepage";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
 import { findTechnicianJobClash, sendTechnicianJobClash } from "../lib/technician-job-clashes";
+import { requireTenantInvoicing } from "../middlewares/require-tenant-invoicing";
+import { generateInvoicePdf } from "../lib/invoice-pdf";
+import { buildPdfData } from "../lib/invoice-pdf-data";
 
 const router: IRouter = Router();
 const requireEditableBilling = jobBillingLock(supabaseAdmin);
@@ -548,12 +551,13 @@ export function buildJobFormsEmailBodyText(opts: {
   jobRef: string;
   formsIncluded: string[];
   photosAttached: number;
+  invoiceNumber?: string;
   customerMessage?: string | null;
 }): string {
   const lines = [
     `Dear ${opts.customerName},`,
     "",
-    opts.formsIncluded.length > 0 || opts.photosAttached > 0
+    opts.formsIncluded.length > 0 || opts.photosAttached > 0 || opts.invoiceNumber
       ? `Please find attached documentation for job ${opts.jobRef}.`
       : `Please see the message below for job ${opts.jobRef}.`,
   ];
@@ -564,6 +568,9 @@ export function buildJobFormsEmailBodyText(opts: {
 
   if (opts.photosAttached > 0) {
     lines.push("", `Photos attached: ${opts.photosAttached}`);
+  }
+  if (opts.invoiceNumber) {
+    lines.push("", `Invoice attached: ${opts.invoiceNumber}`);
   }
 
   if (opts.customerMessage && opts.customerMessage.trim().length > 0) {
@@ -579,17 +586,21 @@ export function validateJobEmailSendRequest(params: {
   cc?: string;
   forms?: Array<{ form_type: string; form_id: string }>;
   photo_ids?: string[];
+  invoice_id?: string;
   customer_message?: string;
 }): { ok: true } | { ok: false; error: string } {
   const hasForms = params.forms && Array.isArray(params.forms) && params.forms.length > 0;
   const hasPhotos = params.photo_ids && Array.isArray(params.photo_ids) && params.photo_ids.length > 0;
   const trimmedCustomerMessage = params.customer_message?.trim() || "";
 
+  if (params.invoice_id !== undefined && (typeof params.invoice_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.invoice_id))) {
+    return { ok: false, error: "invoice_id must be a valid UUID" };
+  }
   if (!params.to) {
     return { ok: false, error: "to (email) is required" };
   }
-  if (!hasForms && !hasPhotos && !trimmedCustomerMessage) {
-    return { ok: false, error: "to (email) and at least one form, photo, or message are required" };
+  if (!hasForms && !hasPhotos && !params.invoice_id && !trimmedCustomerMessage) {
+    return { ok: false, error: "to (email) and at least one form, photo, invoice, or message are required" };
   }
 
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -3238,26 +3249,37 @@ router.get("/jobs/:jobId/forms/:formType/:formId/pdf", requireAuth, requireTenan
   res.send(pdfBuffer);
 });
 
-router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {
+const invoiceAttachmentProtection = [
+  requireRole("admin", "office_staff", "bookkeeper", "accountant"),
+  requirePlanFeature("invoicing"),
+  requireTenantInvoicing,
+].map((middleware): RequestHandler => (req, res, next) => {
+  if (req.body?.invoice_id !== undefined) {
+    return middleware(req, res, next);
+  }
+  next();
+});
+
+router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanFeature("job_management"), ...invoiceAttachmentProtection, async (req: AuthenticatedRequest, res): Promise<void> => {
   const jobId = req.params.jobId;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
-  const { to, cc, forms, photo_ids, customer_message } = req.body as {
+  const { to, cc, forms, photo_ids, invoice_id, customer_message } = req.body as {
     to?: string;
     cc?: string;
     forms?: Array<{ form_type: string; form_id: string }>;
     photo_ids?: string[];
+    invoice_id?: string;
     customer_message?: string;
   };
   const hasForms = forms && Array.isArray(forms) && forms.length > 0;
   const hasPhotos = photo_ids && Array.isArray(photo_ids) && photo_ids.length > 0;
-  const trimmedCustomerMessage = customer_message?.trim() || "";
-
   if (customer_message !== undefined && typeof customer_message !== "string") {
     res.status(400).json({ error: "customer_message must be a string" }); return;
   }
+  const trimmedCustomerMessage = customer_message?.trim() || "";
 
-  const validation = validateJobEmailSendRequest({ to, cc, forms, photo_ids, customer_message: trimmedCustomerMessage || customer_message });
+  const validation = validateJobEmailSendRequest({ to, cc, forms, photo_ids, invoice_id, customer_message: trimmedCustomerMessage || customer_message });
   if (!validation.ok) {
     res.status(400).json({ error: validation.error }); return;
   }
@@ -3360,6 +3382,44 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   let photosAttached = 0;
   const photosIncluded: Array<{ photo_id: string; file_name: string }> = [];
   const photosFailed: string[] = [];
+  let invoiceNumber: string | undefined;
+
+  if (invoice_id) {
+    const { data: invoice, error: invoiceError } = await supabaseAdmin
+      .from("invoices")
+      .select("*")
+      .eq("id", invoice_id)
+      .eq("tenant_id", req.tenantId!)
+      .eq("job_id", jobId)
+      .eq("type", "invoice")
+      .in("status", ["draft", "sent", "overdue", "paid"])
+      .maybeSingle();
+    if (invoiceError) {
+      console.error("[email] Failed to load invoice attachment:", invoiceError);
+      res.status(500).json({ error: "Failed to load the selected invoice" }); return;
+    }
+    if (!invoice) {
+      res.status(404).json({ error: "Selected invoice not found for this job" }); return;
+    }
+    try {
+      const { data: lineItems, error: lineItemsError } = await supabaseAdmin
+        .from("invoice_line_items")
+        .select("*")
+        .eq("invoice_id", invoice_id)
+        .eq("tenant_id", req.tenantId!)
+        .order("sort_order");
+      if (lineItemsError) throw new Error(`Failed to load invoice items: ${lineItemsError.message}`);
+      const pdfData = await buildPdfData(invoice, lineItems || [], req.tenantId!, true);
+      invoiceNumber = pdfData.invoice_number;
+      attachments.push({
+        filename: `invoice-${invoiceNumber}.pdf`,
+        content: generateInvoicePdf(pdfData),
+      });
+    } catch (error) {
+      console.error("[email] Failed to generate invoice attachment:", error);
+      res.status(500).json({ error: "Failed to generate the selected invoice PDF. Email was not sent." }); return;
+    }
+  }
 
   if (hasPhotos) {
     for (const photoId of photo_ids!) {
@@ -3416,13 +3476,14 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     formsIncluded.push({ form_type: formType, form_label: config.label, form_id: formId });
   }
 
-  if (formsIncluded.length === 0 && photosAttached === 0 && !trimmedCustomerMessage) {
+  if (attachments.length === 0 && !trimmedCustomerMessage) {
     res.status(400).json({ error: "No completed forms, photos, or message content found for the selected entries" }); return;
   }
 
   const subjectParts: string[] = [];
   if (formsIncluded.length > 0) subjectParts.push("Service Forms");
   if (photosAttached > 0) subjectParts.push("Photos");
+  if (invoiceNumber) subjectParts.push("Invoice");
   const subject = subjectParts.length > 0
     ? `Job ${jobRef} — ${subjectParts.join(" & ")} from ${companyName}`
     : `Message for ${customerName} — Job ${jobRef} from ${companyName}`;
@@ -3432,6 +3493,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     jobRef,
     formsIncluded: formsIncluded.map((f) => f.form_label),
     photosAttached,
+    invoiceNumber,
     customerMessage: trimmedCustomerMessage || null,
   });
 
@@ -3467,6 +3529,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
       emailCompany,
       photosAttached,
       trimmedCustomerMessage || null,
+      invoiceNumber,
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to send email";

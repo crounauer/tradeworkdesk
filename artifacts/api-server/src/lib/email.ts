@@ -986,6 +986,7 @@ export async function sendJobFormsEmail(
   companyDetails?: EmailCompanyDetails,
   photosAttached?: number,
   customerMessage?: string | null,
+  invoiceNumber?: string,
 ): Promise<void> {
   const hasForms = formLabels.length > 0;
   const hasPhotos = (photosAttached || 0) > 0;
@@ -1001,11 +1002,13 @@ export async function sendJobFormsEmail(
   const headingParts: string[] = [];
   if (hasForms) headingParts.push("Forms");
   if (hasPhotos) headingParts.push("Photos");
+  if (invoiceNumber) headingParts.push("Invoice");
   const heading = `Job ${headingParts.join(" &amp; ")} &mdash; ${escHtml(jobRef)}`;
 
   const introParts: string[] = [];
   if (hasForms) introParts.push("completed service form(s)");
   if (hasPhotos) introParts.push(`${photosAttached} photo(s)`);
+  if (invoiceNumber) introParts.push(`invoice ${escHtml(invoiceNumber)}`);
   const introText = `Please find attached the ${introParts.join(" and ")} for your recent job carried out by <strong>${escHtml(companyName)}</strong>.`;
 
   const formsSection = hasForms ? `
@@ -1033,6 +1036,7 @@ export async function sendJobFormsEmail(
     <p>${introText}</p>
     ${formsSection}
     ${photosSection}
+    ${invoiceNumber ? `<div class="info-box"><p style="margin:0;font-size:14px;">Attached Invoice: ${escHtml(invoiceNumber)}</p></div>` : ""}
     ${customerMessageSection}
     <p>These documents contain the full details of the work completed at your property. Please retain them for your records.</p>
     <p>If you have any questions about the work carried out, ${contactLine}</p>
