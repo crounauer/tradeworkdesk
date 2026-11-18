@@ -1,4 +1,5 @@
-import { Router, type IRouter } from "express";
+import { randomUUID } from "node:crypto";
+import { Router, type IRouter, type Response } from "express";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import {
@@ -287,17 +288,56 @@ const MERGE_TABLES: { table: string; column: string }[] = [
 router.post("/customers/:id/merge", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetCustomerParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
-  const duplicateId = String(req.body?.duplicate_customer_id || "").trim();
-  if (!duplicateId) { res.status(400).json({ error: "duplicate_customer_id is required" }); return; }
-  if (duplicateId === params.data.id) { res.status(400).json({ error: "Cannot merge a customer into itself" }); return; }
+  const duplicateParams = GetCustomerParams.safeParse({ id: req.body?.duplicate_customer_id });
+  if (!duplicateParams.success) { res.status(400).json({ error: "A valid duplicate customer ID is required" }); return; }
+  const primaryId = params.data.id.toLowerCase();
+  const duplicateId = duplicateParams.data.id.toLowerCase();
+  if (duplicateId === primaryId) { res.status(400).json({ error: "Cannot merge a customer into itself" }); return; }
 
   const tenantId = req.tenantId!;
-  const [{ data: primary }, { data: duplicate }] = await Promise.all([
-    supabaseAdmin.from("customers").select("*").eq("id", params.data.id).eq("tenant_id", tenantId).maybeSingle(),
+  const mergeId = randomUUID();
+  const { error: lockError } = await supabaseAdmin.from("customer_merge_locks").insert(
+    [primaryId, duplicateId].sort().map(customerId => ({
+      tenant_id: tenantId,
+      customer_id: customerId,
+      merge_id: mergeId,
+    })),
+  );
+  if (lockError?.code === "23505") {
+    res.status(409).json({ error: "A merge is already in progress for one of these customers. Refresh and try again." });
+    return;
+  }
+  if (lockError) {
+    console.error("[customers/merge] Could not acquire merge locks:", lockError.message);
+    res.status(503).json({ error: "Customer merging is temporarily unavailable." });
+    return;
+  }
+
+  try {
+    await mergeCustomerRecords(req, res, tenantId, primaryId, duplicateId);
+  } finally {
+    const { error } = await supabaseAdmin.from("customer_merge_locks")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("merge_id", mergeId);
+    if (error) console.error(`[customers/merge] Could not release merge ${mergeId}:`, error.message);
+  }
+});
+
+async function mergeCustomerRecords(req: AuthenticatedRequest, res: Response, tenantId: string, primaryId: string, duplicateId: string): Promise<void> {
+  const [{ data: primary, error: primaryError }, { data: duplicate, error: duplicateError }] = await Promise.all([
+    supabaseAdmin.from("customers").select("*").eq("id", primaryId).eq("tenant_id", tenantId).maybeSingle(),
     supabaseAdmin.from("customers").select("*").eq("id", duplicateId).eq("tenant_id", tenantId).maybeSingle(),
   ]);
+  if (primaryError || duplicateError) {
+    console.error("[customers/merge] Could not load customer records:", primaryError?.message || duplicateError?.message);
+    res.status(500).json({ error: "Could not load the customer records for this merge." }); return;
+  }
   if (!primary) { res.status(404).json({ error: "Customer not found" }); return; }
   if (!duplicate) { res.status(404).json({ error: "Duplicate customer not found" }); return; }
+  if (primary.is_active !== true || duplicate.is_active !== true) {
+    res.status(409).json({ error: "Both customers must be active to merge. Refresh and open the active customer record." }); return;
+  }
 
   // Fill any contact fields that are blank on the surviving customer using the duplicate's
   // values — never overwrites anything the primary already has set.
@@ -435,14 +475,22 @@ router.post("/customers/:id/merge", requireAuth, requireTenant, requireRole("adm
 
   // Deactivate the duplicate record — kept (not hard-deleted) so historical references/audit stay valid.
   const mergeNote = `[Merged into ${primary.business_name || `${primary.first_name} ${primary.last_name}`} on ${new Date().toISOString().slice(0, 10)}]`;
-  await supabaseAdmin
+  const { data: archived, error: archiveError } = await supabaseAdmin
     .from("customers")
     .update({
       is_active: false,
       notes: [duplicate.notes, mergeNote].filter(Boolean).join("\n\n"),
     })
     .eq("id", duplicate.id)
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true)
+    .select("id")
+    .maybeSingle();
+  if (archiveError || !archived) {
+    console.error("[customers/merge] Could not archive duplicate:", archiveError?.message || "Customer no longer active");
+    res.status(500).json({ error: "The duplicate could not be archived. Review the customer records before retrying." });
+    return;
+  }
 
   await insertTenantAuditLog({
     tenantId,
@@ -461,7 +509,7 @@ router.post("/customers/:id/merge", requireAuth, requireTenant, requireRole("adm
   });
 
   res.json({ success: true, primary_customer_id: primary.id, moved_counts: movedCounts, filled_fields: filledFields });
-});
+}
 
 router.post("/customers/:id/send-email", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetCustomerParams.safeParse(req.params);
