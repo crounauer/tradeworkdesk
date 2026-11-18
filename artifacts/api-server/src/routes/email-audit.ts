@@ -1,8 +1,19 @@
 import { Router } from "express";
+import type { GetEmailResponseSuccess, ListAttachmentsResponseSuccess } from "resend";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { supabaseAdmin } from "../lib/supabase";
 
 const router = Router();
+const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+
+function isOutboundAttachmentUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.origin === "https://outbound-cdn.resend.com" && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
 
 router.get(
   "/email-audit",
@@ -111,6 +122,84 @@ router.get(
       failed_like: failedLike,
       success_like: successLike,
       failure_rate_percent: failureRate,
+    });
+  },
+);
+
+router.get(
+  "/email-audit/:id/content",
+  requireAuth,
+  requireTenant,
+  requireRole("admin", "office_staff", "super_admin"),
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    res.set("Cache-Control", "private, no-store");
+    const id = String(req.params.id || "");
+    if (!uuid.test(id)) {
+      res.status(400).json({ error: "Invalid email audit entry." });
+      return;
+    }
+
+    const { data: row, error } = await supabaseAdmin
+      .from("tenant_email_audit_log")
+      .select("provider, provider_message_id")
+      .eq("tenant_id", req.tenantId!)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) {
+      console.error("[email-audit] Could not load audit entry:", error.message);
+      res.status(500).json({ error: "Could not load this email." });
+      return;
+    }
+    if (!row) {
+      res.status(404).json({ error: "Email audit entry not found." });
+      return;
+    }
+    if (row.provider !== "resend" || !row.provider_message_id || !uuid.test(row.provider_message_id)) {
+      res.status(404).json({ error: "No sent email is available for this audit entry." });
+      return;
+    }
+    const key = process.env.RESEND_API_KEY;
+    if (!key) {
+      console.error("[email-audit] Email provider access is not configured");
+      res.status(503).json({ error: "Email previews are not configured." });
+      return;
+    }
+
+    const url = `https://api.resend.com/emails/${row.provider_message_id}`;
+    const options = { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(8_000), redirect: "error" as const };
+    const [message, files] = await Promise.allSettled([
+      fetch(url, options).then(async response => ({
+        status: response.status,
+        data: response.ok ? (await response.json() as GetEmailResponseSuccess) : null,
+      })),
+      fetch(`${url}/attachments?limit=100`, options).then(async response => {
+        if (!response.ok) throw new Error(`Provider returned ${response.status}`);
+        const { data } = await response.json() as ListAttachmentsResponseSuccess;
+        if (!Array.isArray(data)) throw new Error("Provider returned an invalid attachment list");
+        return data.map(file => ({
+          id: file.id,
+          filename: file.filename || "Attachment",
+          content_type: file.content_type,
+          download_url: isOutboundAttachmentUrl(file.download_url) ? file.download_url : null,
+        }));
+      }),
+    ]);
+
+    if (message.status === "fulfilled" && message.value.status === 404) {
+      res.status(404).json({ error: "The email provider no longer has this message." });
+      return;
+    }
+    const content = message.status === "fulfilled" ? message.value.data : null;
+    if (!content || content.id !== row.provider_message_id) {
+      console.error("[email-audit] Could not read sent email:", message.status === "fulfilled" ? message.value.status : "request failed");
+      res.status(502).json({ error: "Could not retrieve this email from the provider." });
+      return;
+    }
+    if (files.status === "rejected") console.warn("[email-audit] Could not load sent email attachments:", files.reason instanceof Error ? files.reason.message : "request failed");
+    res.json({
+      text: content.text,
+      html: content.html,
+      attachments: files.status === "fulfilled" ? files.value : null,
     });
   },
 );

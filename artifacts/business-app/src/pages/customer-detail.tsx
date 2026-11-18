@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Home, Phone, Mail, MapPin, Edit, ArrowLeft, Plus, X, Check, Trash2, Briefcase, Calendar, Globe, Send, ToggleLeft, ToggleRight, Loader2, MessageSquare, Receipt, ChevronRight, LogIn, FileText, Navigation, Camera, GitMerge } from "lucide-react";
 import { useState, useEffect, lazy, Suspense } from "react";
@@ -1251,6 +1251,7 @@ function formatEmailAuditType(type: string | null): string {
 
 function CustomerEmailAuditSection({ customerEmail }: { customerEmail?: string | null }) {
   const email = (customerEmail || "").trim().toLowerCase();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data, isLoading, isError } = useQuery<{ items: EmailAuditRow[] }>({
     queryKey: ["customer-email-audit", email],
     queryFn: () => customFetch(`${import.meta.env.BASE_URL}api/email-audit?q=${encodeURIComponent(email)}&limit=100`) as Promise<{ items: EmailAuditRow[] }>,
@@ -1262,6 +1263,7 @@ function CustomerEmailAuditSection({ customerEmail }: { customerEmail?: string |
   if (!email || isLoading || isError) return null;
 
   const rows = (data?.items || []).filter((row) => row.to_email?.trim().toLowerCase() === email);
+  const selected = rows.find(row => row.id === selectedId);
   if (rows.length === 0) return null;
 
   return (
@@ -1290,11 +1292,88 @@ function CustomerEmailAuditSection({ customerEmail }: { customerEmail?: string |
                   <p className="text-xs text-red-600 mt-1">{row.error_message}</p>
                 )}
               </div>
+              <Button variant="outline" size="sm" onClick={() => setSelectedId(row.id)}>
+                View email
+              </Button>
             </div>
           </Card>
         ))}
       </div>
+      <Dialog open={!!selected} onOpenChange={open => { if (!open) setSelectedId(null); }}>
+        {selected && <EmailAuditPreview key={selected.id} row={selected} />}
+      </Dialog>
     </div>
+  );
+}
+
+type EmailAuditContent = {
+  text: string | null;
+  html: string | null;
+  attachments: { id: string; filename: string; content_type: string; download_url: string | null }[] | null;
+};
+
+function emailHtmlToText(html: string): string {
+  // A template keeps email markup inert while we extract text, without loading tracking images.
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  template.content.querySelectorAll("head, style, script, title, noscript").forEach(element => element.remove());
+  template.content.querySelectorAll("br, p, div, li, tr, h1, h2, h3, h4, h5, h6").forEach(element => {
+    element.after("\n");
+  });
+  template.content.querySelectorAll("td, th").forEach(element => element.after(" "));
+  return (template.content.textContent || "").replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function EmailAuditPreview({ row }: { row: EmailAuditRow }) {
+  const { data, isPending, error } = useQuery({
+    queryKey: ["email-audit-content", row.id],
+    queryFn: ({ signal }) => customFetch<EmailAuditContent>(`${import.meta.env.BASE_URL}api/email-audit/${row.id}/content`, { signal, cache: "no-store" }),
+    retry: false,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+  });
+  const body = data?.text?.trim() || (data?.html ? emailHtmlToText(data.html) : "");
+
+  return (
+    <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+      <DialogHeader className="min-w-0 pr-5">
+        <DialogTitle className="break-words">{row.subject || "Email details"}</DialogTitle>
+        <DialogDescription>To: {row.to_email} · {new Date(row.created_at).toLocaleString("en-GB")}</DialogDescription>
+      </DialogHeader>
+      {isPending && <p role="status" className="text-sm text-muted-foreground">Loading email…</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error.message}</p>}
+      {data && (
+        <div className="min-w-0 space-y-4">
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">Message</h3>
+            <p className="whitespace-pre-wrap break-words rounded-md border p-3 text-sm">{body || "No message text is available."}</p>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">Attachments</h3>
+            {data.attachments === null ? (
+              <p role="alert" className="text-sm text-muted-foreground">Attachments could not be retrieved from the email provider.</p>
+            ) : data.attachments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No attachments are available for this email.</p>
+            ) : (
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {data.attachments.map(file => (
+                  <li key={file.id} className="min-w-0 space-y-2 rounded-md border p-3 text-sm">
+                    {file.download_url && /^image\/(?:jpeg|png|gif|webp|avif)$/i.test(file.content_type) && (
+                      <img src={file.download_url} alt={file.filename} loading="lazy" referrerPolicy="no-referrer" className="max-h-44 w-full rounded object-contain" />
+                    )}
+                    {file.download_url ? (
+                      <a href={file.download_url} target="_blank" rel="noopener noreferrer" className="break-words text-primary underline">{file.filename}</a>
+                    ) : (
+                      <span className="break-words">{file.filename} (file unavailable)</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </DialogContent>
   );
 }
 
