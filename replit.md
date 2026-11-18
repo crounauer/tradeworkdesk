@@ -67,6 +67,7 @@ The BoilerTech application is built as a pnpm workspace monorepo.
 - **Plan Feature Gating:** Base plan plus selectable add-ons, with features derived from a union of plan and add-on capabilities. A "Free" plan (£0, 1 user, 5 jobs/month, job_management + scheduling only) exists as a permanent freemium tier. Trial period is 30 days. When a trial expires, users can subscribe to a paid plan or continue on the free tier via `POST /api/me/switch-to-free`.
 - **Email to Customer:** Attach up to five files from your device (5 MB combined) when emailing from a customer or job page. Job emails can also include job forms, photos, documents, and an invoice.
 - **Customer Email Audit:** Use **View email** to read the sent message, preview photos, and open other attachments. Previews use existing Resend records and require read access on the configured Resend key; older or failed sends may no longer have retrievable content.
+- **Recurring leave:** In **Leave & Holidays → My Leave**, edit only the selected booking, that booking and later occurrences, or the whole series. Bulk edits apply only changed details and keep all booked dates fixed.
 - **Company Document URLs:** Optional `rates_url` and `trading_terms_url` for customer-facing emails.
 - **Customer Login Portal:** A separate frontend for customers to view their properties, appliances, service history, and download reports.
 - **Enquiry Photos:** Photo uploads for enquiries with compression and thumbnail generation.

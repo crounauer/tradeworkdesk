@@ -27,6 +27,7 @@ type TechnicianLeave = {
   start_time?: string | null;
   end_time?: string | null;
   allow_bookings?: boolean | null;
+  recurrence_group_id?: string | null;
   holiday_type: "technician_leave" | "technician_away" | "technician_sick" | "public_holiday" | "bank_holiday";
 };
 
@@ -38,10 +39,30 @@ const leaveTypeLabel: Record<TechnicianLeave["holiday_type"], string> = {
   bank_holiday: "Bank holiday",
 };
 
+const editScopes = [
+  { value: "single", label: "Only this event" },
+  { value: "following", label: "This event and all events going forward" },
+  { value: "all", label: "All events in this series" },
+] as const;
+type EditScope = (typeof editScopes)[number]["value"];
+
+function leaveEditValues(holiday: TechnicianLeave) {
+  return {
+    name: holiday.name,
+    start_date: holiday.start_date.slice(0, 10),
+    end_date: holiday.end_date.slice(0, 10),
+    start_time: holiday.start_time?.slice(0, 5) || "",
+    end_time: holiday.end_time?.slice(0, 5) || "",
+    allow_bookings: holiday.allow_bookings === true,
+    holiday_type: holiday.holiday_type,
+  };
+}
+
 function MyLeaveList({ technicianId }: { technicianId: string }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editScope, setEditScope] = useState<EditScope>("single");
   const [editForm, setEditForm] = useState({ name: "", start_date: "", end_date: "", start_time: "", end_time: "", allow_bookings: false, holiday_type: "technician_leave" as TechnicianLeave["holiday_type"] });
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const { data: holidays = [], isLoading } = useQuery<TechnicianLeave[]>({
@@ -54,44 +75,41 @@ function MyLeaveList({ technicianId }: { technicianId: string }) {
 
   const refreshLeave = async () => {
     await Promise.all([
-      qc.refetchQueries({ queryKey: ["my-leave", technicianId], type: "active" }),
-      qc.refetchQueries({ queryKey: ["calendar-holidays"], type: "active" }),
-      qc.refetchQueries({ queryKey: ["/api/calendar"], type: "active" }),
+      qc.invalidateQueries({ queryKey: ["my-leave", technicianId] }),
+      qc.invalidateQueries({ queryKey: ["calendar-holidays"] }),
+      qc.invalidateQueries({ queryKey: ["/api/calendar"] }),
     ]);
   };
 
   const startEdit = (holiday: TechnicianLeave) => {
     setEditingId(holiday.id);
-    setEditForm({
-      name: holiday.name,
-      start_date: String(holiday.start_date).slice(0, 10),
-      end_date: String(holiday.end_date).slice(0, 10),
-      start_time: holiday.start_time?.slice(0, 5) || "",
-      end_time: holiday.end_time?.slice(0, 5) || "",
-      allow_bookings: holiday.allow_bookings === true,
-      holiday_type: holiday.holiday_type,
-    });
+    setEditScope("single");
+    setEditForm(leaveEditValues(holiday));
   };
 
-  const saveEdit = async (id: string) => {
-    setSubmittingId(id);
+  const saveEdit = async (holiday: TechnicianLeave) => {
+    const timeValues = { start_time: editForm.start_time || null, end_time: editForm.end_time || null };
+    const original = leaveEditValues(holiday);
+    const changes = editScope === "single" ? { ...editForm, ...timeValues } : {
+      ...(editForm.name.trim() !== original.name.trim() ? { name: editForm.name } : {}),
+      ...(editForm.holiday_type !== original.holiday_type ? { holiday_type: editForm.holiday_type } : {}),
+      ...(editForm.allow_bookings !== original.allow_bookings ? { allow_bookings: editForm.allow_bookings } : {}),
+      ...(editForm.start_time !== original.start_time || editForm.end_time !== original.end_time ? timeValues : {}),
+    };
+    if (!Object.keys(changes).length) {
+      toast({ title: "No changes to save" });
+      return;
+    }
+    setSubmittingId(holiday.id);
     try {
-      await customFetch(`/api/calendar/holidays/${id}`, {
+      const result = await customFetch<{ updated?: number }>(`/api/calendar/holidays/${holiday.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editForm.name,
-          start_date: editForm.start_date,
-          end_date: editForm.end_date,
-          start_time: editForm.start_time || null,
-          end_time: editForm.end_time || null,
-          allow_bookings: editForm.allow_bookings,
-          holiday_type: editForm.holiday_type,
-        }),
+        body: JSON.stringify({ ...changes, edit_scope: editScope }),
       });
       setEditingId(null);
       await refreshLeave();
-      toast({ title: "Leave updated" });
+      toast({ title: result.updated === undefined ? "Leave updated" : `${result.updated} leave ${result.updated === 1 ? "event" : "events"} updated` });
     } catch (error) {
       toast({ title: "Failed to update leave", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
     } finally {
@@ -131,8 +149,8 @@ function MyLeaveList({ technicianId }: { technicianId: string }) {
                 {editingId === holiday.id ? (
                   <div className="grid w-full gap-2 md:grid-cols-6">
                     <Input className="md:col-span-2" value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
-                    <Input type="date" value={editForm.start_date} onChange={(e) => setEditForm((f) => ({ ...f, start_date: e.target.value }))} />
-                    <Input type="date" value={editForm.end_date} onChange={(e) => setEditForm((f) => ({ ...f, end_date: e.target.value }))} />
+                    <Input type="date" aria-label="Start date" disabled={editScope !== "single"} value={editScope === "single" ? editForm.start_date : holiday.start_date} onChange={(e) => setEditForm((f) => ({ ...f, start_date: e.target.value }))} />
+                    <Input type="date" aria-label="End date" disabled={editScope !== "single"} value={editScope === "single" ? editForm.end_date : holiday.end_date} onChange={(e) => setEditForm((f) => ({ ...f, end_date: e.target.value }))} />
                     <Input type="time" value={editForm.start_time} onChange={(e) => setEditForm((f) => ({ ...f, start_time: e.target.value }))} />
                     <Input type="time" value={editForm.end_time} onChange={(e) => setEditForm((f) => ({ ...f, end_time: e.target.value }))} />
                       <label className="md:col-span-4 flex items-center gap-2 text-sm">
@@ -147,9 +165,26 @@ function MyLeaveList({ technicianId }: { technicianId: string }) {
                         <SelectItem value="technician_sick">Sick leave</SelectItem>
                       </SelectContent>
                     </Select>
+                    {holiday.recurrence_group_id && (
+                      <fieldset className="space-y-2 md:col-span-6" disabled={submittingId !== null}>
+                        <legend className="mb-1 text-sm font-medium">Apply changes to</legend>
+                        {editScopes.map(({ value, label }) => (
+                          <label key={value} className="flex items-center gap-2 text-sm">
+                            <input type="radio" name={`edit-scope-${holiday.id}`} checked={editScope === value} onChange={() => setEditScope(value)} />
+                            {label}
+                          </label>
+                        ))}
+                        {editScope !== "single" && (
+                          <p className="text-xs text-muted-foreground">
+                            {editScope === "following" ? `Includes bookings from ${formatDate(holiday.start_date)} onward. ` : ""}
+                            Only changed details are applied. Booked dates stay the same.
+                          </p>
+                        )}
+                      </fieldset>
+                    )}
                     <div className="md:col-span-4 flex justify-end gap-2">
-                      <Button type="button" size="sm" onClick={() => void saveEdit(holiday.id)} disabled={submittingId === holiday.id || !editForm.name.trim()}>{submittingId === holiday.id ? "Saving..." : "Save"}</Button>
-                      <Button type="button" size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
+                      <Button type="button" size="sm" onClick={() => void saveEdit(holiday)} disabled={submittingId !== null || !editForm.name.trim()}>{submittingId === holiday.id ? "Saving..." : "Save"}</Button>
+                      <Button type="button" size="sm" variant="outline" disabled={submittingId !== null} onClick={() => setEditingId(null)}>Cancel</Button>
                     </div>
                   </div>
                 ) : (
@@ -163,8 +198,8 @@ function MyLeaveList({ technicianId }: { technicianId: string }) {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{leaveTypeLabel[holiday.holiday_type]}</span>
-                      <Button type="button" size="sm" variant="ghost" onClick={() => startEdit(holiday)}><Pencil className="h-4 w-4" /></Button>
-                      <Button type="button" size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => void deleteLeave(holiday.id)} disabled={submittingId === holiday.id}><Trash2 className="h-4 w-4" /></Button>
+                      <Button type="button" size="sm" variant="ghost" aria-label={`Edit ${holiday.name}`} disabled={submittingId !== null} onClick={() => startEdit(holiday)}><Pencil className="h-4 w-4" /></Button>
+                      <Button type="button" size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => void deleteLeave(holiday.id)} disabled={submittingId !== null}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </>
                 )}

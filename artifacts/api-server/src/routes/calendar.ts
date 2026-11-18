@@ -9,6 +9,8 @@ const CALENDAR_JOB_FIELDS =
 const PROFILE_FIELDS =
   "id, email, full_name, role, phone, tenant_id, is_active, can_be_assigned_jobs, created_at, updated_at";
 
+const TECHNICIAN_LEAVE_TYPES = ["technician_leave", "technician_away", "technician_sick"] as const;
+
 interface CalendarJobRow {
   id: string;
   job_id?: string;
@@ -425,7 +427,7 @@ router.get("/calendar/holidays", requireAuth, requireTenant, async (req: Authent
 
   let q = supabaseAdmin
     .from("calendar_holidays")
-    .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, allow_bookings, holiday_type, notes, source, created_at, updated_at")
+    .select("id, tenant_id, technician_id, name, start_date, end_date, start_time, end_time, allow_bookings, holiday_type, notes, source, recurrence_group_id, created_at, updated_at")
     .eq("tenant_id", req.tenantId)
     .lte("start_date", dateTo)
     .gte("end_date", dateFrom)
@@ -695,7 +697,7 @@ router.patch(
   requireAuth,
   requireTenant,
   async (req: AuthenticatedRequest, res): Promise<void> => {
-    const { name, start_date, end_date, start_time, end_time, allow_bookings, holiday_type, notes } = req.body as {
+    const { name, start_date, end_date, start_time, end_time, allow_bookings, holiday_type, notes, edit_scope = "single" } = (req.body ?? {}) as {
       name?: string;
       start_date?: string;
       end_date?: string;
@@ -704,11 +706,15 @@ router.patch(
       allow_bookings?: boolean;
       holiday_type?: "technician_leave" | "technician_away" | "technician_sick";
       notes?: string | null;
+      edit_scope?: unknown;
     };
+    if (edit_scope !== "single" && edit_scope !== "following" && edit_scope !== "all") {
+      res.status(400).json({ error: "Invalid edit scope" }); return;
+    }
 
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from("calendar_holidays")
-      .select("id, technician_id, holiday_type")
+      .select("id, technician_id, holiday_type, start_date, recurrence_group_id")
       .eq("id", req.params.id)
       .eq("tenant_id", req.tenantId)
       .maybeSingle();
@@ -717,8 +723,20 @@ router.patch(
     if (!existing) { res.status(404).json({ error: "Holiday not found" }); return; }
 
     const canManageAll = ["admin", "office_staff", "super_admin"].includes(req.userRole || "");
-    const isOwnLeave = existing.technician_id === req.userId && ["technician_leave", "technician_away", "technician_sick"].includes(String(existing.holiday_type));
+    const isTechnicianLeave = TECHNICIAN_LEAVE_TYPES.some(type => type === existing.holiday_type);
+    const isOwnLeave = existing.technician_id === req.userId && isTechnicianLeave;
     if (!canManageAll && !isOwnLeave) { res.status(403).json({ error: "Not authorized" }); return; }
+    if (edit_scope !== "single") {
+      if (!existing.recurrence_group_id || !existing.technician_id || !isTechnicianLeave) {
+        res.status(400).json({ error: "Only recurring technician leave can be edited in bulk" }); return;
+      }
+      if (start_date !== undefined || end_date !== undefined) {
+        res.status(400).json({ error: "Booked dates cannot be changed in a bulk edit" }); return;
+      }
+      if (holiday_type !== undefined && !TECHNICIAN_LEAVE_TYPES.includes(holiday_type)) {
+        res.status(400).json({ error: "Invalid technician leave type" }); return;
+      }
+    }
 
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
@@ -740,6 +758,26 @@ router.patch(
     if (nextStart && nextEnd && nextEnd < nextStart) { res.status(400).json({ error: "end_date cannot be before start_date" }); return; }
     if ((start_time || end_time) && (!normalizedStartTime || !normalizedEndTime)) { res.status(400).json({ error: "start_time and end_time must both be valid HH:MM values" }); return; }
     if (normalizedStartTime && normalizedEndTime && normalizedEndTime <= normalizedStartTime) { res.status(400).json({ error: "end_time must be after start_time" }); return; }
+
+    if (edit_scope !== "single") {
+      if (Object.keys(updates).length === 0) {
+        res.status(400).json({ error: "No changes to save" }); return;
+      }
+      let series = supabaseAdmin
+        .from("calendar_holidays")
+        .update(updates, { count: "exact" })
+        .eq("tenant_id", req.tenantId)
+        .eq("technician_id", existing.technician_id)
+        .eq("recurrence_group_id", existing.recurrence_group_id)
+        .in("holiday_type", [...TECHNICIAN_LEAVE_TYPES]);
+      if (edit_scope === "following") series = series.gte("start_date", existing.start_date);
+      const { count, error } = await series;
+      if (error) { res.status(500).json({ error: error.message || "Failed to update recurring leave" }); return; }
+      if (!count) { res.status(404).json({ error: "No matching occurrences were updated" }); return; }
+      invalidateCalendarCache(req.tenantId);
+      res.json({ updated: count });
+      return;
+    }
 
     const { data, error } = await supabaseAdmin
       .from("calendar_holidays")
