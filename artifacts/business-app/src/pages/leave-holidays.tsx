@@ -63,6 +63,7 @@ function MyLeaveList({ technicianId }: { technicianId: string }) {
   const { toast } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editScope, setEditScope] = useState<EditScope>("single");
+  const [useTimeRange, setUseTimeRange] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", start_date: "", end_date: "", start_time: "", end_time: "", allow_bookings: false, holiday_type: "technician_leave" as TechnicianLeave["holiday_type"] });
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const { data: holidays = [], isLoading } = useQuery<TechnicianLeave[]>({
@@ -84,17 +85,25 @@ function MyLeaveList({ technicianId }: { technicianId: string }) {
   const startEdit = (holiday: TechnicianLeave) => {
     setEditingId(holiday.id);
     setEditScope("single");
+    setUseTimeRange(Boolean(holiday.start_time && holiday.end_time));
     setEditForm(leaveEditValues(holiday));
   };
 
   const saveEdit = async (holiday: TechnicianLeave) => {
-    const timeValues = { start_time: editForm.start_time || null, end_time: editForm.end_time || null };
+    if (useTimeRange && (!editForm.start_time || !editForm.end_time || editForm.end_time <= editForm.start_time)) {
+      toast({ title: "Invalid time range", description: "Choose a start time and a later end time.", variant: "destructive" });
+      return;
+    }
+    const timeValues = {
+      start_time: useTimeRange ? editForm.start_time : null,
+      end_time: useTimeRange ? editForm.end_time : null,
+    };
     const original = leaveEditValues(holiday);
     const changes = editScope === "single" ? { ...editForm, ...timeValues } : {
       ...(editForm.name.trim() !== original.name.trim() ? { name: editForm.name } : {}),
       ...(editForm.holiday_type !== original.holiday_type ? { holiday_type: editForm.holiday_type } : {}),
       ...(editForm.allow_bookings !== original.allow_bookings ? { allow_bookings: editForm.allow_bookings } : {}),
-      ...(editForm.start_time !== original.start_time || editForm.end_time !== original.end_time ? timeValues : {}),
+      ...(timeValues.start_time !== (original.start_time || null) || timeValues.end_time !== (original.end_time || null) ? timeValues : {}),
     };
     if (!Object.keys(changes).length) {
       toast({ title: "No changes to save" });
@@ -151,20 +160,41 @@ function MyLeaveList({ technicianId }: { technicianId: string }) {
                     <Input className="md:col-span-2" value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
                     <Input type="date" aria-label="Start date" disabled={editScope !== "single"} value={editScope === "single" ? editForm.start_date : holiday.start_date} onChange={(e) => setEditForm((f) => ({ ...f, start_date: e.target.value }))} />
                     <Input type="date" aria-label="End date" disabled={editScope !== "single"} value={editScope === "single" ? editForm.end_date : holiday.end_date} onChange={(e) => setEditForm((f) => ({ ...f, end_date: e.target.value }))} />
-                    <Input type="time" value={editForm.start_time} onChange={(e) => setEditForm((f) => ({ ...f, start_time: e.target.value }))} />
-                    <Input type="time" value={editForm.end_time} onChange={(e) => setEditForm((f) => ({ ...f, end_time: e.target.value }))} />
-                      <label className="md:col-span-4 flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={editForm.allow_bookings} onChange={(e) => setEditForm((f) => ({ ...f, allow_bookings: e.target.checked }))} />
-                      Allow bookings during this leave
-                    </label>
                     <Select value={editForm.holiday_type} onValueChange={(value) => setEditForm((f) => ({ ...f, holiday_type: value as TechnicianLeave["holiday_type"] }))}>
-                      <SelectTrigger className="md:col-span-2"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="md:col-span-2" aria-label="Leave type"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="technician_leave">Holiday</SelectItem>
                         <SelectItem value="technician_away">Away</SelectItem>
                         <SelectItem value="technician_sick">Sick leave</SelectItem>
                       </SelectContent>
                     </Select>
+                    <fieldset className="space-y-2 md:col-span-6" disabled={submittingId !== null}>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={useTimeRange} onChange={(e) => setUseTimeRange(e.target.checked)} />
+                        Block only a time range (for appointments)
+                      </label>
+                      {useTimeRange && (
+                        <div className="grid grid-cols-2 gap-2 sm:max-w-sm">
+                          <Label className="space-y-1">
+                            <span>Start time</span>
+                            <Input type="time" value={editForm.start_time} onChange={(e) => setEditForm((f) => ({ ...f, start_time: e.target.value }))} />
+                          </Label>
+                          <Label className="space-y-1">
+                            <span>End time</span>
+                            <Input type="time" value={editForm.end_time} onChange={(e) => setEditForm((f) => ({ ...f, end_time: e.target.value }))} />
+                          </Label>
+                        </div>
+                      )}
+                      <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={editForm.allow_bookings} onChange={(e) => setEditForm((f) => ({ ...f, allow_bookings: e.target.checked }))} />
+                        Allow bookings during this leave
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        {useTimeRange
+                          ? "Enable bookings to allow appointments outside the blocked time range. Overlapping appointments still clash."
+                          : "Enable bookings to let the technician be booked on these dates."}
+                      </p>
+                    </fieldset>
                     {holiday.recurrence_group_id && (
                       <fieldset className="space-y-2 md:col-span-6" disabled={submittingId !== null}>
                         <legend className="mb-1 text-sm font-medium">Apply changes to</legend>
