@@ -15,6 +15,7 @@ import {
 import { z } from "zod";
 import { createPortalImpersonationSession, generateInviteToken, portalUserCache } from "./portal";
 import { isCcAdminRequested, sendPortalInviteEmail, sendSimpleNotification, type EmailCompanyDetails } from "../lib/email";
+import { parseEmailAttachments } from "../lib/email-attachments";
 import { COMPANY_ACCOUNT_EMAIL_ERROR, isCompanyAccountEmail } from "../lib/customer-email-policy";
 import { buildPortalAccessGuide } from "../lib/portal-access-guide";
 
@@ -472,6 +473,8 @@ router.post("/customers/:id/send-email", requireAuth, requireTenant, requireRole
   if (!subject) { res.status(400).json({ error: "Subject is required" }); return; }
   if (!body) { res.status(400).json({ error: "Message body is required" }); return; }
   if (recipientOverride && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientOverride)) { res.status(400).json({ error: "Enter a valid recipient email address" }); return; }
+  const parsedAttachments = parseEmailAttachments(req.body?.attachments);
+  if ("error" in parsedAttachments) { res.status(400).json({ error: parsedAttachments.error }); return; }
 
   let q = supabaseAdmin.from("customers").select("id, email, first_name, last_name").eq("id", params.data.id);
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
@@ -508,6 +511,7 @@ router.post("/customers/:id/send-email", requireAuth, requireTenant, requireRole
       tenantId: req.tenantId!,
       emailType: "customer_message",
       extraCc: isCcAdminRequested(req.body?.cc_admin) && req.userEmail ? [req.userEmail] : undefined,
+      attachments: parsedAttachments.attachments,
     });
   } catch (e) {
     res.status(500).json({ error: (e as Error).message }); return;
@@ -521,7 +525,7 @@ router.post("/customers/:id/send-email", requireAuth, requireTenant, requireRole
     eventType: "customer_email_sent",
     entityType: "customer",
     entityId: params.data.id,
-    detail: { subject },
+    detail: { subject, ...(parsedAttachments.attachments.length ? { attachments: parsedAttachments.attachments.map(({ filename }) => filename) } : {}) },
   });
 
   res.json({ success: true, sent_to: recipientOverride || customer.email });

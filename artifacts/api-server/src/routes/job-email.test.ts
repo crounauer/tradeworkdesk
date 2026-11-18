@@ -6,15 +6,16 @@ process.env.SUPABASE_URL = "https://job-email-test.invalid";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "job-email-test-key";
 process.env.RESEND_API_KEY = "job-email-test-key";
 const { default: jobsRouter } = await import("./jobs");
+const { default: customersRouter } = await import("./customers");
 
-test("job emails optionally attach the selected job invoice and fail without sending when it cannot be loaded", async t => {
+test("customer and job emails send uploaded files and preserve optional job invoice attachments", async t => {
   const tenantId = "11111111-1111-4111-8111-111111111111";
   const jobId = "22222222-2222-4222-8222-222222222222";
   const invoiceId = "33333333-3333-4333-8333-333333333333";
   let invoiceAvailable = true;
   let itemsFail = false;
   let role = "admin";
-  const emails: Array<{ subject: string; html: string; attachments?: Array<{ filename: string; content: string }> }> = [];
+  const emails: Array<{ to: string | string[]; subject: string; html: string; attachments?: Array<{ filename: string; content: string }> }> = [];
   const logs: Array<{ body_text: string }> = [];
   let invoiceReads = 0;
   const originalFetch = globalThis.fetch;
@@ -35,7 +36,7 @@ test("job emails optionally attach the selected job invoice and fail without sen
       case "company_settings": return Response.json({ name: "Test Company", invoices_enabled: true });
       case "customers":
         assert.equal(url.searchParams.get("tenant_id"), `eq.${tenantId}`);
-        return Response.json({ first_name: "Test", last_name: "Customer" });
+        return Response.json({ id: jobId, email: "customer@example.com", first_name: "Test", last_name: "Customer" });
       case "invoices":
         invoiceReads++;
         assert.equal(url.searchParams.get("id"), `eq.${invoiceId}`);
@@ -59,19 +60,23 @@ test("job emails optionally attach the selected job invoice and fail without sen
         logs.push(JSON.parse(String(init?.body)));
         return Response.json(null);
       case "tenant_email_audit_log": return Response.json(null);
+      case "tenant_audit_log": return Response.json(null);
       default: assert.fail(`Unexpected table: ${table}`);
     }
   });
 
   const route = jobsRouter.stack.find(layer => layer.route?.path === "/jobs/:jobId/email-forms")?.route;
+  const customerRoute = customersRouter.stack.find(layer => layer.route?.path === "/customers/:id/send-email")?.route;
   assert.ok(route);
+  assert.ok(customerRoute);
   const app = express();
-  app.use(express.json(), (req, _res, next) => {
-    Object.assign(req, { tenantId, userId: tenantId, userRole: role });
+  app.use(express.json({ limit: "10mb" }), (req, _res, next) => {
+    Object.assign(req, { tenantId, userId: tenantId, userRole: role, userEmail: "sender@example.com" });
     next();
   });
   // Keep the conditional invoice guards; inject the authenticated tenant above.
   app.post("/jobs/:jobId/email-forms", ...route.stack.slice(3).map((layer: { handle: RequestHandler }) => layer.handle));
+  app.post("/customers/:id/send-email", ...customerRoute.stack.slice(3).map((layer: { handle: RequestHandler }) => layer.handle));
   const server = app.listen(0, "127.0.0.1");
   await new Promise<void>(resolve => server.once("listening", resolve));
   t.after(() => new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())));
@@ -81,6 +86,11 @@ test("job emails optionally attach the selected job invoice and fail without sen
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ to: "customer@example.com", ...body }),
+  });
+  const sendCustomer = (body: Record<string, unknown>) => fetch(`http://127.0.0.1:${address.port}/customers/${jobId}/send-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ subject: "Service report", body: "Please see attached.", ...body }),
   });
 
   assert.equal((await send({ invoice_id: invoiceId })).status, 200);
@@ -109,4 +119,31 @@ test("job emails optionally attach the selected job invoice and fail without sen
   role = "technician";
   assert.equal((await send({ invoice_id: invoiceId })).status, 403);
   assert.equal(emails.length, 2);
+
+  role = "admin";
+  const uploaded = { filename: "Report & notes.pdf", content: Buffer.from("%PDF test").toString("base64") };
+  assert.equal((await send({ attachments: [uploaded] })).status, 200);
+  assert.deepEqual(emails[2].attachments, [uploaded]);
+  assert.match(emails[2].html, /Report &amp; notes\.pdf/);
+  assert.match(logs[2].body_text, /Files attached:\n- Report & notes\.pdf/);
+
+  itemsFail = false;
+  assert.equal((await send({ invoice_id: invoiceId, attachments: [uploaded] })).status, 200);
+  assert.deepEqual(emails[3].attachments?.map(file => file.filename), [uploaded.filename, "invoice-INV-123.pdf"]);
+
+  assert.equal((await sendCustomer({ attachments: [uploaded], cc_admin: true })).status, 200);
+  assert.deepEqual(emails[4].attachments, [uploaded]);
+  assert.deepEqual(emails[5].to, ["sender@example.com"]);
+  assert.deepEqual(emails[5].attachments, [uploaded]);
+  assert.equal((await sendCustomer({})).status, 200);
+  assert.equal(emails[6].attachments, undefined);
+
+  assert.equal((await send({ attachments: [{ ...uploaded, content: "not base64" }] })).status, 400);
+  assert.equal((await sendCustomer({ attachments: [{ ...uploaded, filename: "report.exe" }] })).status, 400);
+  assert.equal((await sendCustomer({ attachments: Array(6).fill(uploaded) })).status, 400);
+  const atLimit = { filename: "large.pdf", content: Buffer.alloc(5 * 1024 * 1024).toString("base64") };
+  assert.equal((await sendCustomer({ attachments: [atLimit, uploaded] })).status, 400);
+  assert.equal(emails.length, 7);
+  assert.equal((await sendCustomer({ attachments: [atLimit] })).status, 200);
+  assert.equal(emails[7].attachments?.[0].content, atLimit.content);
 });

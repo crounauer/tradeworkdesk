@@ -30,6 +30,7 @@ import { useCompanySettings } from "@/hooks/use-company-settings";
 import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useAutoAssign } from "@/hooks/use-auto-assign";
 import { SmsSendDialog } from "@/components/sms-send-dialog";
+import { EmailAttachmentPicker, encodeEmailAttachments } from "@/components/email-attachment-picker";
 import { RebookDialog } from "@/components/rebook-dialog";
 import { JobVisits } from "@/components/job-visits";
 import { EmailConfirmationPanel } from "@/components/email-confirmation-panel";
@@ -3830,6 +3831,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, invoices, loading
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
   const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const [loadingForms, setLoadingForms] = useState(true);
 
@@ -3907,7 +3909,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, invoices, loading
   const selectedInvoice = !loadingInvoices && !invoiceLoadError
     ? invoices.find(invoice => invoice.id === selectedInvoiceId)
     : undefined;
-  const totalSelected = selectedForms.size + selectedPhotos.size + selectedDocuments.size + (selectedInvoice ? 1 : 0);
+  const totalSelected = selectedForms.size + selectedPhotos.size + selectedDocuments.size + (selectedInvoice ? 1 : 0) + attachments.length;
 
   const handleSend = async () => {
     if (!to) { toast({ title: "Error", description: "Recipient email is required", variant: "destructive" }); return; }
@@ -3916,7 +3918,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, invoices, loading
     }
     const hasMessage = customerMessage.trim().length > 0;
     if (totalSelected === 0 && !hasMessage) {
-      toast({ title: "Error", description: "Add a message or select at least one form, photo, document or invoice to send", variant: "destructive" }); return;
+      toast({ title: "Error", description: "Add a message or choose at least one attachment to send", variant: "destructive" }); return;
     }
     setSending(true);
     try {
@@ -3935,6 +3937,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, invoices, loading
           forms: formsPayload.length > 0 ? formsPayload : undefined,
           photo_ids: photoIdsPayload.length > 0 ? photoIdsPayload : undefined,
           invoice_id: selectedInvoice?.id,
+          attachments: await encodeEmailAttachments(attachments),
         }),
       }) as Record<string, unknown>;
       const parts: string[] = [];
@@ -3942,7 +3945,8 @@ function EmailFormsModal({ jobId, customerEmail, customerName, invoices, loading
       if (selectedPhotos.size > 0) parts.push(`${selectedPhotos.size} photo(s)`);
       if (selectedDocuments.size > 0) parts.push(`${selectedDocuments.size} document(s)`);
       if (selectedInvoice) parts.push(`invoice ${selectedInvoice.invoice_number}`);
-      const desc = `${parts.join(" and ")} emailed to ${to}`;
+      if (attachments.length > 0) parts.push(`${attachments.length} attached file(s)`);
+      const desc = `${parts.join(" and ") || "Message"} emailed to ${to}`;
       if (result.warning) {
         toast({ title: "Email Sent (with warnings)", description: `${desc}. ${result.warning}`, variant: "default" });
       } else {
@@ -3965,6 +3969,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, invoices, loading
     if (selectedPhotos.size > 0) parts.push(`${selectedPhotos.size} Photo${selectedPhotos.size !== 1 ? "s" : ""}`);
     if (selectedDocuments.size > 0) parts.push(`${selectedDocuments.size} Document${selectedDocuments.size !== 1 ? "s" : ""}`);
     if (selectedInvoice) parts.push("Invoice");
+    if (attachments.length > 0) parts.push(`${attachments.length} File${attachments.length !== 1 ? "s" : ""}`);
     if (parts.length === 0 && customerMessage.trim().length > 0) return "Send Message";
     return `Send ${parts.join(" & ") || "Email"}`;
   };
@@ -3974,7 +3979,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, invoices, loading
       <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 bg-background">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-lg flex items-center gap-2"><Mail className="w-5 h-5" /> Email to Customer</h3>
-          <Button variant="ghost" size="sm" onClick={onClose}><X className="w-4 h-4" /></Button>
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={sending} aria-label="Close"><X className="w-4 h-4" /></Button>
         </div>
 
         {customerName && <p className="text-sm text-muted-foreground mb-4">Sending to <strong>{customerName}</strong></p>}
@@ -3999,6 +4004,8 @@ function EmailFormsModal({ jobId, customerEmail, customerName, invoices, loading
             />
             <p className="text-xs text-muted-foreground text-right">{customerMessage.length}/2000</p>
           </div>
+
+          <EmailAttachmentPicker files={attachments} onChange={setAttachments} disabled={sending} />
 
           {(loadingInvoices || invoiceLoadError || invoices.length > 0) && (
             <div className="space-y-2">
@@ -4108,7 +4115,7 @@ function EmailFormsModal({ jobId, customerEmail, customerName, invoices, loading
             <Button onClick={handleSend} disabled={sending || !!(selectedInvoiceId && !selectedInvoice) || (!to || (totalSelected === 0 && !customerMessage.trim()) || loadingForms)} className="flex-1">
               <Send className="w-4 h-4 mr-2" /> {sendLabel()}
             </Button>
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button variant="outline" onClick={onClose} disabled={sending}>Cancel</Button>
           </div>
         </div>
       </Card>

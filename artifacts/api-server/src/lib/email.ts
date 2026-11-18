@@ -447,12 +447,7 @@ export async function sendAdminCcCopy(opts: {
       to: recipients,
       subject: `[Copy] ${opts.subject}`,
       html: opts.html,
-      ...(opts.attachments ? {
-        attachments: opts.attachments.map(attachment => ({
-          filename: attachment.filename,
-          content: attachment.content.toString("base64"),
-        })),
-      } : {}),
+      ...(opts.attachments?.length ? { attachments: encodeResendAttachments(opts.attachments) } : {}),
     });
     await writeTenantEmailAudit({
       tenantId: opts.tenantId,
@@ -974,6 +969,10 @@ export interface EmailAttachment {
   content: Buffer;
 }
 
+function encodeResendAttachments(attachments: EmailAttachment[]) {
+  return attachments.map(({ filename, content }) => ({ filename, content: content.toString("base64") }));
+}
+
 export async function sendJobFormsEmail(
   to: string,
   cc: string | null,
@@ -987,6 +986,7 @@ export async function sendJobFormsEmail(
   photosAttached?: number,
   customerMessage?: string | null,
   invoiceNumber?: string,
+  uploadedFileNames: string[] = [],
 ): Promise<void> {
   const hasForms = formLabels.length > 0;
   const hasPhotos = (photosAttached || 0) > 0;
@@ -1003,12 +1003,14 @@ export async function sendJobFormsEmail(
   if (hasForms) headingParts.push("Forms");
   if (hasPhotos) headingParts.push("Photos");
   if (invoiceNumber) headingParts.push("Invoice");
-  const heading = `Job ${headingParts.join(" &amp; ")} &mdash; ${escHtml(jobRef)}`;
+  if (uploadedFileNames.length) headingParts.push("Files");
+  const heading = `Job ${headingParts.join(" &amp; ") || "Message"} &mdash; ${escHtml(jobRef)}`;
 
   const introParts: string[] = [];
   if (hasForms) introParts.push("completed service form(s)");
   if (hasPhotos) introParts.push(`${photosAttached} photo(s)`);
   if (invoiceNumber) introParts.push(`invoice ${escHtml(invoiceNumber)}`);
+  if (uploadedFileNames.length) introParts.push("files listed below");
   const introText = `Please find attached the ${introParts.join(" and ")} for your recent job carried out by <strong>${escHtml(companyName)}</strong>.`;
 
   const formsSection = hasForms ? `
@@ -1033,12 +1035,16 @@ export async function sendJobFormsEmail(
   const html = baseHtml(escHtml(subject), `
     <h2>${heading}</h2>
     <p>Dear ${escHtml(customerName)},</p>
-    <p>${introText}</p>
+    ${introParts.length ? `<p>${introText}</p>` : ""}
     ${formsSection}
     ${photosSection}
     ${invoiceNumber ? `<div class="info-box"><p style="margin:0;font-size:14px;">Attached Invoice: ${escHtml(invoiceNumber)}</p></div>` : ""}
+    ${uploadedFileNames.length ? `<div class="info-box">
+      <p style="margin:0 0 8px;font-weight:600;font-size:14px;">Attached Files:</p>
+      <ul style="margin:0;padding-left:20px;">${uploadedFileNames.map(name => `<li>${escHtml(name)}</li>`).join("")}</ul>
+    </div>` : ""}
     ${customerMessageSection}
-    <p>These documents contain the full details of the work completed at your property. Please retain them for your records.</p>
+    ${hasForms || hasPhotos || invoiceNumber ? "<p>These documents contain the full details of the work completed at your property. Please retain them for your records.</p>" : ""}
     <p>If you have any questions about the work carried out, ${contactLine}</p>
     ${renderDocumentLinks(companyDetails)}
     <hr class="divider"/>
@@ -1068,13 +1074,13 @@ export async function sendJobFormsEmail(
     html: string;
     cc?: string[];
     replyTo?: string;
-    attachments?: Array<{ filename: string; content: Buffer }>;
+    attachments?: ReturnType<typeof encodeResendAttachments>;
   } = { from, to: recipients, subject, html };
   if (cc) sendOptions.cc = [cc];
   if (replyTo) sendOptions.replyTo = replyTo;
-  if (attachments.length > 0) sendOptions.attachments = attachments;
+  if (attachments.length > 0) sendOptions.attachments = encodeResendAttachments(attachments);
   try {
-    const sendResult = await sendResendEmailWithRetry(sendOptions as any);
+    const sendResult = await sendResendEmailWithRetry(sendOptions);
     await writeTenantEmailAudit({
       status: "accepted",
       emailType: "job_forms",
@@ -2016,6 +2022,7 @@ export async function sendSimpleNotification(
     tenantId?: string;
     emailType?: string;
     extraCc?: string[];
+    attachments?: EmailAttachment[];
   },
 ): Promise<void> {
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -2072,7 +2079,8 @@ export async function sendSimpleNotification(
       html,
       ...(replyTo ? { replyTo } : {}),
       ...(cc.length > 0 ? { cc } : {}),
-    } as any);
+      ...(opts?.attachments?.length ? { attachments: encodeResendAttachments(opts.attachments) } : {}),
+    });
     await writeTenantEmailAudit({
       tenantId: opts?.tenantId,
       status: "accepted",
@@ -2084,7 +2092,10 @@ export async function sendSimpleNotification(
       providerMessageId: sendResult.messageId,
       retryCount: Math.max(0, sendResult.attempts - 1),
     });
-    await sendAdminCcCopy({ extraCc: opts?.extraCc, to: normalizedTo, subject, html, from, replyTo, tenantId: opts?.tenantId, emailType });
+    await sendAdminCcCopy({
+      extraCc: opts?.extraCc, to: normalizedTo, subject, html, from, replyTo, tenantId: opts?.tenantId, emailType,
+      attachments: opts?.attachments?.length ? opts.attachments : undefined,
+    });
   } catch (sendErr) {
     const reason = sanitizeErrorForEmail(sendErr);
     console.error(`[email] Failed to send "${subject}" to ${normalizedTo}:`, reason);

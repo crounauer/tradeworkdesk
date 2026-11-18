@@ -29,6 +29,7 @@ import {
   type InvoiceLineItem,
 } from "../lib/invoice-export";
 import { isCcAdminRequested, sendJobFormsEmail, sendJobConfirmationEmail, sendSimpleNotification, type EmailAttachment, type EmailCompanyDetails, type JobConfirmationDetails } from "../lib/email";
+import { parseEmailAttachments } from "../lib/email-attachments";
 import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 import { invalidateCalendarCache } from "./calendar";
 import { isAssignedToJob } from "../lib/job-assignment";
@@ -552,12 +553,13 @@ export function buildJobFormsEmailBodyText(opts: {
   formsIncluded: string[];
   photosAttached: number;
   invoiceNumber?: string;
+  uploadedFileNames?: string[];
   customerMessage?: string | null;
 }): string {
   const lines = [
     `Dear ${opts.customerName},`,
     "",
-    opts.formsIncluded.length > 0 || opts.photosAttached > 0 || opts.invoiceNumber
+    opts.formsIncluded.length > 0 || opts.photosAttached > 0 || opts.invoiceNumber || opts.uploadedFileNames?.length
       ? `Please find attached documentation for job ${opts.jobRef}.`
       : `Please see the message below for job ${opts.jobRef}.`,
   ];
@@ -571,6 +573,9 @@ export function buildJobFormsEmailBodyText(opts: {
   }
   if (opts.invoiceNumber) {
     lines.push("", `Invoice attached: ${opts.invoiceNumber}`);
+  }
+  if (opts.uploadedFileNames?.length) {
+    lines.push("", "Files attached:", ...opts.uploadedFileNames.map(name => `- ${name}`));
   }
 
   if (opts.customerMessage && opts.customerMessage.trim().length > 0) {
@@ -588,6 +593,7 @@ export function validateJobEmailSendRequest(params: {
   photo_ids?: string[];
   invoice_id?: string;
   customer_message?: string;
+  hasUploadedFiles?: boolean;
 }): { ok: true } | { ok: false; error: string } {
   const hasForms = params.forms && Array.isArray(params.forms) && params.forms.length > 0;
   const hasPhotos = params.photo_ids && Array.isArray(params.photo_ids) && params.photo_ids.length > 0;
@@ -599,8 +605,8 @@ export function validateJobEmailSendRequest(params: {
   if (!params.to) {
     return { ok: false, error: "to (email) is required" };
   }
-  if (!hasForms && !hasPhotos && !params.invoice_id && !trimmedCustomerMessage) {
-    return { ok: false, error: "to (email) and at least one form, photo, invoice, or message are required" };
+  if (!hasForms && !hasPhotos && !params.invoice_id && !params.hasUploadedFiles && !trimmedCustomerMessage) {
+    return { ok: false, error: "to (email) and at least one attachment or a message are required" };
   }
 
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -3264,13 +3270,14 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   const jobId = req.params.jobId;
   if (!jobId) { res.status(400).json({ error: "Missing job id" }); return; }
 
-  const { to, cc, forms, photo_ids, invoice_id, customer_message } = req.body as {
+  const { to, cc, forms, photo_ids, invoice_id, customer_message, attachments: uploadedFiles } = (req.body ?? {}) as {
     to?: string;
     cc?: string;
     forms?: Array<{ form_type: string; form_id: string }>;
     photo_ids?: string[];
     invoice_id?: string;
     customer_message?: string;
+    attachments?: unknown;
   };
   const hasForms = forms && Array.isArray(forms) && forms.length > 0;
   const hasPhotos = photo_ids && Array.isArray(photo_ids) && photo_ids.length > 0;
@@ -3279,7 +3286,14 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   }
   const trimmedCustomerMessage = customer_message?.trim() || "";
 
-  const validation = validateJobEmailSendRequest({ to, cc, forms, photo_ids, invoice_id, customer_message: trimmedCustomerMessage || customer_message });
+  const parsedAttachments = parseEmailAttachments(uploadedFiles);
+  if ("error" in parsedAttachments) {
+    res.status(400).json({ error: parsedAttachments.error }); return;
+  }
+  const uploadedFileNames = parsedAttachments.attachments.map(({ filename }) => filename);
+  const validation = validateJobEmailSendRequest({
+    to, cc, forms, photo_ids, invoice_id, customer_message: trimmedCustomerMessage, hasUploadedFiles: uploadedFileNames.length > 0,
+  });
   if (!validation.ok) {
     res.status(400).json({ error: validation.error }); return;
   }
@@ -3378,7 +3392,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   };
 
   const formsIncluded: Array<{ form_type: string; form_label: string; form_id: string }> = [];
-  const attachments: EmailAttachment[] = [];
+  const attachments: EmailAttachment[] = parsedAttachments.attachments;
   let photosAttached = 0;
   const photosIncluded: Array<{ photo_id: string; file_name: string }> = [];
   const photosFailed: string[] = [];
@@ -3484,6 +3498,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
   if (formsIncluded.length > 0) subjectParts.push("Service Forms");
   if (photosAttached > 0) subjectParts.push("Photos");
   if (invoiceNumber) subjectParts.push("Invoice");
+  if (uploadedFileNames.length > 0) subjectParts.push("Files");
   const subject = subjectParts.length > 0
     ? `Job ${jobRef} — ${subjectParts.join(" & ")} from ${companyName}`
     : `Message for ${customerName} — Job ${jobRef} from ${companyName}`;
@@ -3494,6 +3509,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
     formsIncluded: formsIncluded.map((f) => f.form_label),
     photosAttached,
     invoiceNumber,
+    uploadedFileNames,
     customerMessage: trimmedCustomerMessage || null,
   });
 
@@ -3530,6 +3546,7 @@ router.post("/jobs/:jobId/email-forms", requireAuth, requireTenant, requirePlanF
       photosAttached,
       trimmedCustomerMessage || null,
       invoiceNumber,
+      uploadedFileNames,
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to send email";

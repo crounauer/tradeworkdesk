@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { EmailAttachmentPicker, encodeEmailAttachments } from "@/components/email-attachment-picker";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Loader2 } from "lucide-react";
 
@@ -24,12 +25,14 @@ export function CustomerEmailDialog({ open, onOpenChange, customerId, customerEm
   const [body, setBody] = useState("");
   const [ccAdmin, setCcAdmin] = useState(false);
   const [sending, setSending] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
 
   function handleOpenChange(v: boolean) {
-    if (v) {
+    if (!v) {
       setSubject("");
       setBody("");
       setCcAdmin(false);
+      setAttachments([]);
     }
     onOpenChange(v);
   }
@@ -45,7 +48,10 @@ export function CustomerEmailDialog({ open, onOpenChange, customerId, customerEm
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ subject: subject.trim(), body: body.trim(), cc_admin: ccAdmin, recipient_email: recipientEmail || undefined }),
+        body: JSON.stringify({
+          subject: subject.trim(), body: body.trim(), cc_admin: ccAdmin, recipient_email: recipientEmail || undefined,
+          attachments: await encodeEmailAttachments(attachments),
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -62,8 +68,8 @@ export function CustomerEmailDialog({ open, onOpenChange, customerId, customerEm
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={v => { if (!sending) handleOpenChange(v); }}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="w-5 h-5" /> Send Email
@@ -95,6 +101,7 @@ export function CustomerEmailDialog({ open, onOpenChange, customerId, customerEm
               placeholder="Type your message here…"
             />
           </div>
+          <EmailAttachmentPicker files={attachments} onChange={setAttachments} disabled={sending} />
           <div className="flex items-center gap-2">
             <Checkbox id="cc-admin" checked={ccAdmin} onCheckedChange={(v) => setCcAdmin(v === true)} />
             <Label htmlFor="cc-admin" className="text-sm font-normal cursor-pointer">Send a copy to me</Label>
