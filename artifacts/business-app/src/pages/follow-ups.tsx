@@ -136,7 +136,7 @@ export default function FollowUps() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to update");
       }
-      return res.json();
+      return res.json() as Promise<{ follow_up_warning?: string }>;
     },
     onMutate: async ({ id, ...updates }) => {
       await qc.cancelQueries({ queryKey: ["follow-ups"] });
@@ -168,12 +168,16 @@ export default function FollowUps() {
       });
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ["follow-ups"] });
       qc.invalidateQueries({ queryKey: ["homepage"] });
       qc.invalidateQueries({ queryKey: ["me-init"] });
-      toast({ title: "Follow-up updated" });
-      setEditingId(null);
+      qc.invalidateQueries({ queryKey: ["customer-jobs"] });
+      qc.invalidateQueries({ queryKey: ["job-follow-up-summary"] });
+      qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+      qc.invalidateQueries({ queryKey: ["/api/calendar"] });
+      toast({ title: "Follow-up updated", description: result.follow_up_warning });
+      if (!result.follow_up_warning) setEditingId(null);
     },
   });
 

@@ -477,7 +477,7 @@ export default function JobDetail() {
         toast({ title: "Queued offline", description: `Status change to "${label}" will sync when online.` });
         return false;
       }
-      await updateJob.mutateAsync({
+      const updated = await updateJob.mutateAsync({
         id: job!.id,
         data: {
           status: newStatus as "scheduled" | "in_progress" | "completed" | "cancelled" | "requires_follow_up" | "awaiting_parts" | "invoiced" | "follow_up_scheduled",
@@ -485,7 +485,12 @@ export default function JobDetail() {
       });
       qc.invalidateQueries({ queryKey: [`/api/jobs/${job!.id}`] });
       qc.invalidateQueries({ queryKey: ["/api/jobs"] });
-      toast({ title: "Status Updated", description: `Job marked as ${label}` });
+      qc.invalidateQueries({ queryKey: ["customer-jobs"] });
+      qc.invalidateQueries({ queryKey: ["follow-ups"] });
+      qc.invalidateQueries({ queryKey: ["job-follow-up-summary"] });
+      qc.invalidateQueries({ queryKey: ["/api/calendar"] });
+      const warning = "follow_up_warning" in updated && typeof updated.follow_up_warning === "string" ? updated.follow_up_warning : undefined;
+      toast({ title: "Status Updated", description: warning || `Job marked as ${label}` });
       return true;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to update status";
@@ -671,7 +676,8 @@ export default function JobDetail() {
   const followUpNeedsParts = followUpSummary?.status === "awaiting_parts" && followUpSummary.parts_required;
   const followUpWaitingToBeScheduled = followUpSummary?.status === "parts_arrived";
   const followUpCanBeBooked = hasFollowUpLabel && !followUpNeedsParts && followUpSummary?.status !== "booked";
-  const showJobInvoiceAction = nativeInvoicingEnabled && (job?.status === "completed" || job?.status === "invoiced") && !hasFollowUpLabel;
+  const showJobInvoiceAction = nativeInvoicingEnabled && !hasFollowUpLabel && !billingFollowUpJobId
+    && (job?.status === "completed" || (job?.status === "invoiced" && Boolean(linkedInvoice)));
   const showCompleteAction = canComplete && !hasFollowUpLabel;
   const invoiceActionDisabled = !isOnline || invoiceWorkflowBusy || updateJob.isPending
     || linkedInvoiceQuery.isPending || linkedInvoiceQuery.isError || followUpLoading || followUpError;
@@ -853,8 +859,8 @@ export default function JobDetail() {
             {isAllDayJob && (
               <span className="hidden md:inline-flex items-center rounded-md border border-cyan-200 bg-cyan-100 px-2.5 py-1 text-xs font-semibold text-cyan-800">All Day</span>
             )}
-            {job.status === "completed" && (
-              <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">Completed</span>
+            {(job.status === "completed" || job.status === "invoiced") && (
+              <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">{job.status === "invoiced" ? "Invoiced" : "Completed"}</span>
             )}
           </div>
           <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
@@ -882,10 +888,10 @@ export default function JobDetail() {
               {showMobileActions ? <ChevronUp className="w-4 h-4 mr-2" /> : <ChevronDown className="w-4 h-4 mr-2" />}
               {showMobileActions ? "Hide actions" : "More actions"}
             </Button>
-            <span className={`inline-flex shrink-0 items-center rounded-md border px-2.5 py-1 font-semibold ${customerConfirmationUi.classes}`}>
+            {job.status !== "completed" && job.status !== "invoiced" && job.status !== "cancelled" && <span className={`inline-flex shrink-0 items-center rounded-md border px-2.5 py-1 font-semibold ${customerConfirmationUi.classes}`}>
               <customerConfirmationUi.icon className="mr-1 h-3.5 w-3.5 shrink-0" />
               <span>{customerConfirmationUi.label}</span>
-            </span>
+            </span>}
           </div>
         </div>
         <div className="md:hidden flex items-start gap-2">
@@ -899,7 +905,7 @@ export default function JobDetail() {
         </div>
         <div id="job-secondary-actions" className={`${showMobileActions ? "flex" : "hidden"} md:flex w-full min-w-0 flex-wrap gap-2 sm:w-auto [&>a]:max-w-full [&>button]:max-w-full`}>
           {billingFollowUpJobId ? (
-            <Link href={`/jobs/${followUpJobId}`}>
+            <Link href={`/jobs/${billingFollowUpJobId}`}>
               <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white">
                 <ExternalLink className="w-4 h-4 mr-2" /> View Follow-up Job
               </Button>
@@ -960,7 +966,7 @@ export default function JobDetail() {
               </AlertDialogContent>
             </AlertDialog>
           )}
-          {canInvoice && isAdmin && !hasFollowUpLabel && (
+          {canInvoice && isAdmin && !hasFollowUpLabel && !billingFollowUpJobId && (
             <Button size="sm" variant="outline" onClick={() => handleStatusChange("invoiced", "Invoiced")} disabled={updateJob.isPending || invoiceWorkflowBusy} title="For invoices sent outside the app">
               <FileText className="w-4 h-4 mr-2" /> Mark as Invoiced
             </Button>

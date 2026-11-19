@@ -4,6 +4,9 @@ import { requireAuth, requireTenant, requireRole, requirePlanFeature, type Authe
 import { notifyUsersForEvent } from "../lib/push-events";
 import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
 import { invalidateHomepageCache } from "./homepage";
+import { invalidateCalendarCache } from "./calendar";
+import { invalidateJobsCache } from "./jobs";
+import { finishOriginalJobIfNoOpenFollowUps } from "../lib/follow-up-completion";
 import { findTechnicianJobClash, sendTechnicianJobClash } from "../lib/technician-job-clashes";
 
 const router: IRouter = Router();
@@ -288,9 +291,20 @@ router.patch("/follow-ups/:id", requireAuth, requireTenant, requireRole("admin",
     }).catch((err) => console.error("[push-events] followup_cancelled failed:", err));
   }
 
+  let followUpWarning: string | undefined;
+  if (status === "completed" && data.new_job_id && data.original_job_id) {
+    try {
+      await finishOriginalJobIfNoOpenFollowUps(req.tenantId!, data.original_job_id);
+    } catch (error) {
+      console.error("[follow-ups] Could not close original job:", data.original_job_id, error);
+      followUpWarning = "The follow-up was saved, but the original job could not be closed. Try saving again.";
+    }
+    invalidateJobsCache(req.tenantId);
+    invalidateCalendarCache(req.tenantId);
+  }
   invalidateHomepageCache(req.tenantId);
 
-  res.json(data);
+  res.json({ ...data, ...(followUpWarning ? { follow_up_warning: followUpWarning } : {}) });
 });
 
 router.post("/follow-ups/:id/convert-to-job", requireAuth, requireTenant, requireRole("admin", "office_staff", "super_admin"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {

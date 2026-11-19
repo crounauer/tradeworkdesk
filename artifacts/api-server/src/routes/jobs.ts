@@ -34,6 +34,7 @@ import { generateFormPdf, type PdfCompanySettings } from "../lib/pdf-forms";
 import { invalidateCalendarCache } from "./calendar";
 import { isAssignedToJob } from "../lib/job-assignment";
 import { invalidateHomepageCache } from "./homepage";
+import { finishFollowUpsForJob } from "../lib/follow-up-completion";
 import { notifyUsersForEvent } from "../lib/push-events";
 import { findTechnicianLeaveConflict, sendTechnicianLeaveConflict } from "../lib/technician-leave-conflicts";
 import { findTechnicianJobClash, sendTechnicianJobClash } from "../lib/technician-job-clashes";
@@ -1460,13 +1461,27 @@ router.get("/jobs/:id/follow-ups/count", requireAuth, requireTenant, requirePlan
 
   const latestFollowUp = (followUps?.[0] as { id?: string; status?: string | null; parts_description?: string | null; new_job_id?: string | null } | undefined) ?? null;
   const billingFollowUp = followUps?.find(followUp => followUp.status === "booked" && followUp.new_job_id);
+  let completedBillingJobId: string | null = null;
+  if (!billingFollowUp) {
+    const { data: completedFollowUp, error: completedError } = await supabaseAdmin.from("follow_ups")
+      .select("new_job_id")
+      .eq("tenant_id", req.tenantId!)
+      .eq("original_job_id", params.data.id)
+      .eq("status", "completed")
+      .not("new_job_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (completedError) { res.status(500).json({ error: completedError.message }); return; }
+    completedBillingJobId = completedFollowUp?.new_job_id ?? null;
+  }
   res.json({
     count: count ?? 0,
     has_follow_up: (count ?? 0) > 0,
     id: latestFollowUp?.id ?? null,
     status: latestFollowUp?.status ?? null,
     new_job_id: latestFollowUp?.new_job_id ?? null,
-    billing_follow_up_job_id: billingFollowUp?.new_job_id ?? null,
+    billing_follow_up_job_id: billingFollowUp?.new_job_id ?? completedBillingJobId,
     parts_required: Boolean(latestFollowUp?.parts_description?.trim()),
   });
 });
@@ -1705,6 +1720,16 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   }
   if (!data) { res.status(404).json({ error: "Job not found" }); return; }
 
+  let followUpWarning: string | undefined;
+  if (body.data.status === "completed" || body.data.status === "invoiced") {
+    try {
+      await finishFollowUpsForJob(req.tenantId!, params.data.id);
+    } catch (error) {
+      console.error("[jobs] Could not close linked follow-up:", params.data.id, error);
+      followUpWarning = "The job status was saved, but its linked follow-up could not be closed. Review it in Follow-Ups.";
+    }
+  }
+
   await syncApplianceServiceDates(req.tenantId!, data as ServiceJobForApplianceSync);
 
   if (dateOrTimeChanging && oldSchedule) {
@@ -1810,6 +1835,7 @@ router.patch("/jobs/:id", requireAuth, requireTenant, requirePlanFeature("job_ma
   const parsedUpdatedJob = UpdateJobResponse.parse(data);
   res.json({
     ...parsedUpdatedJob,
+    ...(followUpWarning ? { follow_up_warning: followUpWarning } : {}),
     service_catalogue_id: (data as Record<string, unknown>).service_catalogue_id ?? null,
     visit_intent: (data as Record<string, unknown>).visit_intent ?? "standard",
   });
