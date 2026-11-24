@@ -10,6 +10,7 @@ export type TechnicianLeaveConflict = {
   end_date: string;
   start_time?: string | null;
   end_time?: string | null;
+  allow_bookings: boolean;
 };
 
 function toMinuteOfDay(timeValue: string): number | null {
@@ -27,6 +28,7 @@ function holidayOverlapsScheduledWindow(args: {
   holidayStartTime: string | null;
   holidayEndTime: string | null;
   allowBookings: boolean;
+  includeBookableLeave: boolean;
   scheduledDate: string;
   scheduledEndDate: string;
   scheduledTime?: string | null;
@@ -38,6 +40,7 @@ function holidayOverlapsScheduledWindow(args: {
     holidayStartTime,
     holidayEndTime,
     allowBookings,
+    includeBookableLeave,
     scheduledDate,
     scheduledEndDate,
     scheduledTime,
@@ -45,7 +48,7 @@ function holidayOverlapsScheduledWindow(args: {
   } = args;
 
   if (holidayStartDate > scheduledEndDate || holidayEndDate < scheduledDate) return false;
-  if (!holidayStartTime || !holidayEndTime) return !allowBookings;
+  if (!holidayStartTime || !holidayEndTime) return !allowBookings || includeBookableLeave;
   if (!allowBookings) return true;
   if (!scheduledTime || scheduledDate !== scheduledEndDate) return true;
   if (scheduledDate !== holidayStartDate || scheduledDate !== holidayEndDate) return false;
@@ -75,8 +78,9 @@ export async function findTechnicianLeaveConflict(args: {
   scheduledEndDate: string | null | undefined;
   scheduledTime?: string | null;
   durationMinutes?: number | null;
+  includeBookableLeave?: boolean;
 }): Promise<TechnicianLeaveConflict | null> {
-  const { tenantId, technicianId, scheduledDate, scheduledEndDate, scheduledTime, durationMinutes } = args;
+  const { tenantId, technicianId, scheduledDate, scheduledEndDate, scheduledTime, durationMinutes, includeBookableLeave = false } = args;
   if (!technicianId || !scheduledDate) return null;
 
   const effectiveEndDate = scheduledEndDate || scheduledDate;
@@ -88,6 +92,7 @@ export async function findTechnicianLeaveConflict(args: {
     .in("holiday_type", ["technician_leave", "technician_away", "technician_sick"])
     .lte("start_date", effectiveEndDate)
     .gte("end_date", scheduledDate)
+    .order("allow_bookings", { ascending: true })
     .order("start_date", { ascending: true })
     .limit(20);
 
@@ -95,17 +100,22 @@ export async function findTechnicianLeaveConflict(args: {
     console.error("[technician-leave-conflicts] Failed to check leave:", error);
     throw new Error("Unable to check technician leave. Please try again before booking.");
   }
-  const holiday = (holidayRows || []).find((row) => holidayOverlapsScheduledWindow({
+  const rows = holidayRows || [];
+  const overlaps = (row: typeof rows[number]) => holidayOverlapsScheduledWindow({
     holidayStartDate: row.start_date,
     holidayEndDate: row.end_date,
     holidayStartTime: row.start_time,
     holidayEndTime: row.end_time,
     allowBookings: row.allow_bookings === true,
+    includeBookableLeave,
     scheduledDate,
     scheduledEndDate: effectiveEndDate,
     scheduledTime,
     durationMinutes,
-  }));
+  });
+  const holiday = includeBookableLeave
+    ? rows.find(row => row.allow_bookings !== true && overlaps(row)) ?? rows.find(overlaps)
+    : rows.find(overlaps);
 
   if (!holiday) return null;
 
@@ -119,6 +129,7 @@ export async function findTechnicianLeaveConflict(args: {
     end_date: holiday.end_date,
     start_time: holiday.start_time,
     end_time: holiday.end_time,
+    allow_bookings: holiday.allow_bookings === true,
   };
 }
 
@@ -128,8 +139,11 @@ export function sendTechnicianLeaveConflict(
   extras?: Record<string, unknown>,
 ): void {
   const span = formatConflictSpan(conflict.start_date, conflict.end_date, conflict.start_time, conflict.end_time);
+  const isWarning = extras?.can_book_anyway === true;
   res.status(409).json({
-    error: `${conflict.technician_name || "This technician"} is unavailable due to ${conflict.holiday_name} (${span}).`,
+    error: isWarning
+      ? `This booking overlaps ${conflict.holiday_name} for ${conflict.technician_name || "the selected technician"} (${span}).`
+      : `${conflict.technician_name || "This technician"} is unavailable due to ${conflict.holiday_name} (${span}).`,
     code: "TECHNICIAN_LEAVE_CONFLICT",
     conflict,
     ...(extras || {}),

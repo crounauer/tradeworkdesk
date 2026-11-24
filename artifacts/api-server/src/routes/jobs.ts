@@ -897,16 +897,19 @@ router.post("/jobs", requireAuth, requireTenant, requireRole("admin", "office_st
     ...(fuelCategory ? { fuel_category: fuelCategory } : {}),
   };
 
+  const leaveClashChoice = req.body.allow_leave_clash;
   const createConflict = await findTechnicianLeaveConflict({
     tenantId: req.tenantId!,
     technicianId: insertPayload.assigned_technician_id,
     scheduledDate: postStartIso,
     scheduledEndDate: insertPayload.scheduled_end_date ?? null,
-    scheduledTime: insertPayload.scheduled_time ?? null,
+    scheduledTime: isAllDay ? null : insertPayload.scheduled_time ?? null,
     durationMinutes: insertPayload.estimated_duration ?? null,
+    includeBookableLeave: leaveClashChoice === false || leaveClashChoice === true,
   });
-  if (createConflict) {
-    sendTechnicianLeaveConflict(res, createConflict);
+  const canBookDuringLeave = createConflict?.allow_bookings === true && leaveClashChoice === false;
+  if (createConflict && !(createConflict.allow_bookings && leaveClashChoice === true)) {
+    sendTechnicianLeaveConflict(res, createConflict, canBookDuringLeave ? { can_book_anyway: true } : undefined);
     return;
   }
 

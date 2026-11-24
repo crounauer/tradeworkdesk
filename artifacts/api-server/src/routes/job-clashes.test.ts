@@ -16,7 +16,7 @@ const propertyId = "55555555-5555-4555-8555-555555555555";
 async function requestClashingBooking(
   t: TestContext,
   action: "create" | "reschedule" | "follow-up" | "rebook",
-  options: { existingAllDay?: boolean; newAllDay?: boolean; onlyAllDayChanging?: boolean; allowJobClash?: boolean | string; leave?: boolean } = {},
+  options: { existingAllDay?: boolean; newAllDay?: boolean; onlyAllDayChanging?: boolean; allowJobClash?: boolean | string; leave?: boolean; bookableLeave?: "all-day" | "overlapping" | "adjacent"; allowLeaveClash?: boolean; expectLeaveWarning?: boolean } = {},
 ) {
   const date = options.existingAllDay || options.newAllDay ? "2026-10-27" : "2026-10-26";
   let jobWrites = 0;
@@ -31,10 +31,18 @@ async function requestClashingBooking(
     if (table === "tenants") data = { status: "active", plans: { max_users: 2 } };
     else if (table === "profiles" || table === "customers" || table === "properties") data = { tenant_id: tenantId };
     else if (table === "company_settings") data = { job_number_next: 1, job_number_prefix: "JOB" };
-    else if (table === "calendar_holidays") data = options.leave ? [{
-      technician_id: engineerId, holiday_type: "technician_leave", name: "Annual leave",
-      start_date: date, end_date: date, start_time: null, end_time: null, allow_bookings: false,
-    }] : [];
+    else if (table === "calendar_holidays") data = [
+      ...(options.bookableLeave ? [{
+        technician_id: engineerId, holiday_type: "technician_leave", name: "Working from home",
+        start_date: date, end_date: date, allow_bookings: true,
+        start_time: options.bookableLeave === "all-day" ? null : options.bookableLeave === "adjacent" ? "12:00" : "10:00",
+        end_time: options.bookableLeave === "all-day" ? null : "13:00",
+      }] : []),
+      ...(options.leave ? [{
+        technician_id: engineerId, holiday_type: "technician_leave", name: "Annual leave",
+        start_date: date, end_date: date, start_time: null, end_time: null, allow_bookings: false,
+      }] : []),
+    ];
     else if (table === "follow_ups") data = {
       id: jobId, tenant_id: tenantId, status: "open", customer_id: customerId, property_id: propertyId,
       original_job_id: jobId, original_job: { id: jobId, estimated_duration: 180 },
@@ -52,6 +60,7 @@ async function requestClashingBooking(
       } else if (init?.method === "POST") {
         const inserted = JSON.parse(String(init.body));
         assert.equal("allow_job_clash" in inserted, false);
+        assert.equal("allow_leave_clash" in inserted, false);
         data = { id: jobId };
       } else if (url.searchParams.get("id") === `eq.${jobId}`) data = {
         assigned_technician_id: engineerId, scheduled_date: options.onlyAllDayChanging ? date : "2026-10-25",
@@ -95,13 +104,14 @@ async function requestClashingBooking(
       scheduled_time: options.newAllDay ? undefined : options.existingAllDay ? "14:00" : "09:00",
       estimated_duration: 180,
       allow_job_clash: options.allowJobClash,
+      allow_leave_clash: options.allowLeaveClash,
       ...(options.newAllDay ? { all_day: true } : {}),
       ...(action === "reschedule" ? {} : {
         customer_id: customerId, property_id: propertyId, job_type: "service", assigned_technician_id: engineerId,
       }),
     }),
   });
-  if (action === "create" && options.allowJobClash === true && !options.leave) {
+  if (action === "create" && options.allowJobClash === true && !options.leave && !options.expectLeaveWarning) {
     assert.equal(response.status, 201, await response.clone().text());
     assert.deepEqual(await response.json(), { id: jobId });
     assert.equal(clashChecks, 1);
@@ -109,14 +119,17 @@ async function requestClashingBooking(
     return;
   }
   assert.equal(response.status, 409, await response.clone().text());
-  const body = await response.json();
-  assert.ok(body && typeof body === "object" && "code" in body);
-  assert.equal(body.code, options.leave ? "TECHNICIAN_LEAVE_CONFLICT" : "TECHNICIAN_JOB_CLASH");
+  const body = await response.json() as { code?: string; error?: string; can_book_anyway?: boolean; conflict?: { holiday_name?: string } };
+  const leaveConflict = options.leave || options.expectLeaveWarning;
+  assert.equal(body.code, leaveConflict ? "TECHNICIAN_LEAVE_CONFLICT" : "TECHNICIAN_JOB_CLASH");
+  assert.equal(body.can_book_anyway, options.expectLeaveWarning ? true : undefined);
+  if (options.expectLeaveWarning) assert.equal(body.conflict?.holiday_name, "Working from home");
+  if (options.leave) assert.equal(body.conflict?.holiday_name, "Annual leave");
   if (options.existingAllDay) {
     assert.ok("error" in body && typeof body.error === "string");
     assert.match(body.error, /booked all day on 2026-10-27/);
   }
-  assert.equal(clashChecks, options.leave ? 0 : 1);
+  assert.equal(clashChecks, leaveConflict ? 0 : 1);
   assert.equal(jobWrites, 0);
 }
 
@@ -174,4 +187,27 @@ test("A job clash override does not bypass technician leave", async t => {
 
 test("A new-booking override cannot bypass rescheduling protection", async t => {
   await requestClashingBooking(t, "reschedule", { allowJobClash: true });
+});
+
+test("Book Job warns before saving over all-day or overlapping timed leave that allows bookings", async t => {
+  for (const bookableLeave of ["all-day", "overlapping"] as const) {
+    await t.test(bookableLeave, test => requestClashingBooking(test, "create", {
+      bookableLeave, allowLeaveClash: false, allowJobClash: true, expectLeaveWarning: true,
+    }));
+  }
+});
+
+test("Acknowledged leave and adjacent timed leave still permit booking", async t => {
+  await t.test("confirmed overlap", test => requestClashingBooking(test, "create", {
+    bookableLeave: "overlapping", allowLeaveClash: true, allowJobClash: true,
+  }));
+  await t.test("job ends when leave starts", test => requestClashingBooking(test, "create", {
+    bookableLeave: "adjacent", allowLeaveClash: false, allowJobClash: true,
+  }));
+});
+
+test("The leave override cannot bypass non-bookable leave even with a bookable clash", async t => {
+  await requestClashingBooking(t, "create", {
+    bookableLeave: "all-day", leave: true, allowLeaveClash: true, allowJobClash: true,
+  });
 });

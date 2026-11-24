@@ -2,8 +2,9 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useCreateJob, useCreateCustomer, useCreateProperty, useListCustomers, useListProperties,
+  useCreateCustomer, useCreateProperty, useListCustomers, useListProperties,
   getListCustomersQueryKey, getListPropertiesQueryKey,
+  customFetch,
 } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -40,6 +41,8 @@ type LeaveConflict = {
   holiday_name: string;
   start_date: string;
   end_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
 };
 
 type JobClashConflict = {
@@ -57,11 +60,13 @@ type ExistingCustomerWork = {
   formData: BookJobFormData;
 };
 
-function formatLeaveConflict(conflict: LeaveConflict): string {
+function formatLeaveConflict(conflict: LeaveConflict, isWarning = false): string {
   const typeLabel = conflict.holiday_type.replace("technician_", "").replace(/_/g, " ");
   const start = new Date(`${conflict.start_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   const end = new Date(`${conflict.end_date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  return `${conflict.technician_name || "Selected technician"} is unavailable for ${conflict.holiday_name} (${typeLabel}) from ${start} to ${end}.`;
+  const dates = start === end ? `on ${start}` : `from ${start} to ${end}`;
+  const times = conflict.start_time && conflict.end_time ? `, ${conflict.start_time.slice(0, 5)}–${conflict.end_time.slice(0, 5)}` : "";
+  return `${conflict.technician_name || "Selected technician"} ${isWarning ? "has" : "is unavailable for"} ${conflict.holiday_name} (${typeLabel}) ${dates}${times}.`;
 }
 
 function formatJobClashConflict(conflict: JobClashConflict): string {
@@ -172,7 +177,6 @@ export function BookJobDialog({
   const { hasFeature } = usePlanFeatures();
   const { isOnline, queueJobCreation, getCachedData } = useOffline();
 
-  const createJob = useCreateJob();
   const createCustomer = useCreateCustomer();
   const createProperty = useCreateProperty();
 
@@ -614,35 +618,41 @@ export function BookJobDialog({
         return;
       }
 
-      let jobRes;
-      try {
-        jobRes = await createJob.mutateAsync({ data: jobPayload as unknown as Parameters<typeof createJob.mutateAsync>[0]["data"] });
-      } catch (error) {
-        const conflict = (error as { data?: { code?: string; conflict?: JobClashConflict } })?.data;
-        if (conflict?.code !== "TECHNICIAN_JOB_CLASH" || !conflict.conflict) throw error;
-        if (data.customer_mode === "new") {
-          setValue("customer_mode", "existing");
-          setValue("customer_id", customerId);
-          setValue("property_id", propertyId);
-          void qc.invalidateQueries({ queryKey: getListCustomersQueryKey() });
-          void qc.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
-        }
-        const proceed = window.confirm(`${formatJobClashConflict(conflict.conflict)}\n\nBook this job anyway? This will double-book the technician.`);
-        if (!proceed) return;
-        const response = await fetch(`${import.meta.env.BASE_URL}api/jobs`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...jobPayload, allow_job_clash: true }),
-        });
-        if (!response.ok) {
-          const body = await response.json() as { error?: string; code?: string; conflict?: LeaveConflict };
-          if (body.code === "TECHNICIAN_LEAVE_CONFLICT" && body.conflict) {
-            setLeaveConflict(body.conflict);
-            return;
+      let allowLeaveClash = false;
+      let allowJobClash = false;
+      let jobRes: { id: string };
+      for (;;) {
+        try {
+          jobRes = await customFetch<{ id: string }>(`${import.meta.env.BASE_URL}api/jobs`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...jobPayload, allow_leave_clash: allowLeaveClash, allow_job_clash: allowJobClash }),
+          });
+          break;
+        } catch (error) {
+          type ClashResponse =
+            | { code: "TECHNICIAN_LEAVE_CONFLICT"; conflict: LeaveConflict; can_book_anyway?: boolean }
+            | { code: "TECHNICIAN_JOB_CLASH"; conflict: JobClashConflict };
+          const responseError = error as { status?: number; data?: ClashResponse };
+          const clash = responseError?.status === 409 ? responseError.data : null;
+          if (!clash?.conflict) throw error;
+          if (data.customer_mode === "new") {
+            setValue("customer_mode", "existing");
+            setValue("customer_id", customerId);
+            setValue("property_id", propertyId);
+            void qc.invalidateQueries({ queryKey: getListCustomersQueryKey() });
+            void qc.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
           }
-          throw new Error(body.error || "Failed to book job");
+          if (clash.code === "TECHNICIAN_LEAVE_CONFLICT" && clash.can_book_anyway && !allowLeaveClash) {
+            if (!window.confirm(`${formatLeaveConflict(clash.conflict, true)} This job overlaps the leave.\n\nBook this job anyway?`)) return;
+            allowLeaveClash = true;
+          } else if (clash.code === "TECHNICIAN_JOB_CLASH" && !allowJobClash) {
+            if (!window.confirm(`${formatJobClashConflict(clash.conflict)}\n\nBook this job anyway? This will double-book the technician.`)) return;
+            allowJobClash = true;
+          } else {
+            throw error;
+          }
         }
-        jobRes = await response.json() as { id: string };
       }
 
       qc.invalidateQueries({ queryKey: ["/api/dashboard"] });
@@ -656,7 +666,7 @@ export function BookJobDialog({
 
       toast({ title: "Job booked", description: data.customer_mode === "new" ? "Customer, property and job created successfully." : "Job created successfully." });
 
-      const createdJobId = (jobRes as { id: string }).id;
+      const createdJobId = jobRes.id;
 
       if (onJobCreated) {
         await onJobCreated(createdJobId);
