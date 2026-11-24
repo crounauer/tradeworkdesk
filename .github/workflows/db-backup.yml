@@ -5,13 +5,17 @@ on:
     - cron: '0 2 * * *'  # Every day at 02:00 UTC
   workflow_dispatch:      # Allow manual trigger from GitHub UI
 
+concurrency:
+  group: database-backup-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   backup:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-      - name: Trigger backup on Railway API
+      - name: Trigger platform backup on API
         run: |
           set -o pipefail
           BASE_URL=$(echo "${{ secrets.PLATFORM_API_URL }}" | tr -d '[:space:]')
@@ -45,7 +49,7 @@ jobs:
           PRUNED=$(echo "$RESPONSE_BODY" | jq -r '.pruned')
           echo "Backup complete: $FILENAME ($SIZE_BYTES bytes), pruned $PRUNED old file(s)"
 
-      - name: Trigger per-tenant snapshots on Railway API
+      - name: Trigger per-tenant snapshots on API
         run: |
           set -o pipefail
           BASE_URL=$(echo "${{ secrets.PLATFORM_API_URL }}" | tr -d '[:space:]')

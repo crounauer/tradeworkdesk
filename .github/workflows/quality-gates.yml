@@ -2,14 +2,42 @@ name: Quality Gates
 
 on:
   pull_request:
+    paths:
+      - ".github/workflows/quality-gates.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "artifacts/api-server/**"
+      - "artifacts/business-app/**"
+      - "artifacts/website-renderer/**"
+      - "lib/**"
+      - "scripts/**"
+      - "templates/**"
   push:
     branches:
       - main
+    paths:
+      - ".github/workflows/quality-gates.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "artifacts/api-server/**"
+      - "artifacts/business-app/**"
+      - "artifacts/website-renderer/**"
+      - "lib/**"
+      - "scripts/**"
+      - "templates/**"
+
+concurrency:
+  group: quality-gates-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality-gates:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -32,6 +60,9 @@ jobs:
 
       - name: Test API server
         run: pnpm --filter @workspace/api-server test
+
+      - name: Verify block integrity coverage
+        run: pnpm run verify:blocks
 
       - name: Typecheck website renderer
         run: pnpm --filter @workspace/website-renderer typecheck

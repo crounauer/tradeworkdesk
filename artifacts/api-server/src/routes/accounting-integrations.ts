@@ -22,12 +22,13 @@ function toSingleParam(value: string | string[] | undefined): string {
 
 const pendingOAuthStates = new Map<string, { tenantId: string; provider: string; expiresAt: number }>();
 
-setInterval(() => {
+const pendingOAuthCleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [key, val] of pendingOAuthStates) {
     if (val.expiresAt < now) pendingOAuthStates.delete(key);
   }
 }, 60_000);
+pendingOAuthCleanupTimer.unref();
 
 router.get(
   "/admin/accounting-integrations",
@@ -543,7 +544,10 @@ async function refreshAllTokens() {
   }
 }
 
-setInterval(refreshAllTokens, 30 * 60 * 1000);
-setTimeout(refreshAllTokens, 10_000);
+const tokenRefreshTimer = setInterval(refreshAllTokens, 30 * 60 * 1000);
+tokenRefreshTimer.unref();
+
+const initialTokenRefreshTimer = setTimeout(refreshAllTokens, 10_000);
+initialTokenRefreshTimer.unref();
 
 export default router;

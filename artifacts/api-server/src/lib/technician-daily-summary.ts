@@ -1,6 +1,8 @@
 import { sendSimpleNotification, type EmailCompanyDetails } from "./email";
 import { supabaseAdmin } from "./supabase";
 import { databaseGuardedTask } from "./database-readiness";
+import { runAutomatedJobReminders } from "./automated-job-reminders";
+import { runServiceDueReminders } from "./service-reminders";
 
 const SINGLETON_ID = "default";
 const ACTIVE_JOB_STATUSES = ["scheduled", "in_progress", "requires_follow_up", "awaiting_parts"];
@@ -449,18 +451,13 @@ export async function runTechnicianDailySummaryEmails(now = new Date()): Promise
 }
 
 export function startTechnicianDailySummaryScheduler(): void {
-  if (process.env.TECHNICIAN_DAILY_SUMMARY_SCHEDULER === "false") {
-    console.log("[technician-summary] Disabled (TECHNICIAN_DAILY_SUMMARY_SCHEDULER=false)");
-    return;
-  }
-
   if (schedulerTimer) return;
 
   const tick = databaseGuardedTask("technician-summary", async () => {
     if (schedulerRunning) return;
     schedulerRunning = true;
     try {
-      await runTechnicianDailySummaryEmails();
+      await runScheduledReminderDispatch();
     } catch (error) {
       console.error("[technician-summary] Scheduler tick failed:", error);
     } finally {
@@ -478,6 +475,29 @@ export function startTechnicianDailySummaryScheduler(): void {
   }, 10_000);
 
   console.log("[technician-summary] Scheduler started (checks every minute)");
+}
+
+export async function runScheduledReminderDispatch(now = new Date()): Promise<{
+  technician_summary: Awaited<ReturnType<typeof runTechnicianDailySummaryEmails>>;
+  job_reminders: Awaited<ReturnType<typeof runAutomatedJobReminders>>;
+  service_reminders: Awaited<ReturnType<typeof runServiceDueReminders>>;
+}> {
+  const technicianSummary = process.env.TECHNICIAN_DAILY_SUMMARY_SCHEDULER === "false"
+    ? {
+        processedTenants: 0,
+        sentEmails: 0,
+        skippedTechnicians: 0,
+        errors: 0,
+      }
+    : await runTechnicianDailySummaryEmails(now);
+  const jobReminders = await runAutomatedJobReminders(now);
+  const serviceReminders = await runServiceDueReminders();
+
+  return {
+    technician_summary: technicianSummary,
+    job_reminders: jobReminders,
+    service_reminders: serviceReminders,
+  };
 }
 
 export function stopTechnicianDailySummaryScheduler(): void {

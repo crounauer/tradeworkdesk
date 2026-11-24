@@ -46,10 +46,11 @@ export async function gcRequest<T = unknown>(
 
 // ── CSRF state ───────────────────────────────────────────────────────────────
 const pendingStates = new Map<string, { tenantId: string; expiresAt: number }>();
-setInterval(() => {
+const pendingStateCleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [k, v] of pendingStates) if (v.expiresAt < now) pendingStates.delete(k);
 }, 60_000);
+pendingStateCleanupTimer.unref();
 
 // ── GET /admin/gocardless/status ─────────────────────────────────────────────
 router.get(
