@@ -688,23 +688,27 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
     address_line2: "",
     city: "",
     postcode: "",
+    latitude: null as number | null,
+    longitude: null as number | null,
     new_is_landlord: false,
     new_prop_address_line1: "",
     new_prop_address_line2: "",
     new_prop_city: "",
     new_prop_county: "",
     new_prop_postcode: "",
+    new_prop_latitude: null as number | null,
+    new_prop_longitude: null as number | null,
     priority: "medium",
   });
 
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
   const [ccAdmin, setCcAdmin] = useState(false);
-  const selectedCustomer = customers?.find((customer: { id: string; first_name: string; last_name: string; email?: string | null; phone?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; postcode?: string | null }) => customer.id === selectedCustomerId);
+  const selectedCustomer = customers?.find((customer: { id: string; first_name: string; last_name: string; email?: string | null; phone?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; postcode?: string | null; latitude?: number | null; longitude?: number | null }) => customer.id === selectedCustomerId);
 
   const handleCustomerSelect = (customerId: string) => {
     setSelectedCustomerId(customerId);
     if (!customerId) return;
-    const customer = customers?.find((item: { id: string; first_name: string; last_name: string; email?: string | null; phone?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; postcode?: string | null }) => item.id === customerId);
+    const customer = customers?.find((item: { id: string; first_name: string; last_name: string; email?: string | null; phone?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; postcode?: string | null; latitude?: number | null; longitude?: number | null }) => item.id === customerId);
     if (!customer) return;
 
     setForm(f => ({
@@ -716,6 +720,8 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
       address_line2: customer.address_line2 || f.address_line2,
       city: customer.city || f.city,
       postcode: customer.postcode || f.postcode,
+      latitude: customer.latitude ?? f.latitude,
+      longitude: customer.longitude ?? f.longitude,
     }));
   };
 
@@ -883,6 +889,8 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
                     address_line2: addr.address_line2 || "",
                     city: addr.city || "",
                     postcode: addr.postcode,
+                    latitude: addr.latitude ?? null,
+                    longitude: addr.longitude ?? null,
                   }))}
                 />
               </Suspense>
@@ -924,6 +932,8 @@ function CreateEnquiryDialog({ open, onOpenChange, onCreated }: { open: boolean;
                           new_prop_city: addr.city || "",
                           new_prop_county: addr.county || "",
                           new_prop_postcode: addr.postcode,
+                          new_prop_latitude: addr.latitude ?? null,
+                          new_prop_longitude: addr.longitude ?? null,
                         }))}
                       />
                     </Suspense>

@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
 import { geocodeAddress } from "../lib/geocode";
+import { addressesHaveSameLocation } from "../lib/property-duplicates";
 import {
   ListPropertiesQueryParams,
   ListPropertiesResponse,
@@ -71,6 +72,28 @@ interface PropertyApplianceRow {
 
 const router: IRouter = Router();
 
+async function syncCustomerCoordinatesFromProperty(
+  tenantId: string,
+  property: { customer_id: string; address_line1: string; postcode: string; latitude?: number | null; longitude?: number | null },
+): Promise<void> {
+  if (property.latitude == null || property.longitude == null) return;
+  const { data: customer, error } = await supabaseAdmin
+    .from("customers")
+    .select("id, address_line1, postcode")
+    .eq("id", property.customer_id)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (error) throw new Error(`Could not load customer for coordinate sync: ${error.message}`);
+  if (!customer || !addressesHaveSameLocation(customer, property)) return;
+
+  const { error: updateError } = await supabaseAdmin
+    .from("customers")
+    .update({ latitude: property.latitude, longitude: property.longitude })
+    .eq("id", property.customer_id)
+    .eq("tenant_id", tenantId);
+  if (updateError) throw new Error(`Could not update customer coordinates: ${updateError.message}`);
+}
+
 router.get("/properties", requireAuth, requireTenant, async (req: AuthenticatedRequest, res): Promise<void> => {
   const query = ListPropertiesQueryParams.safeParse(req.query);
   let q = supabaseAdmin.from("properties").select("*, customers(first_name, last_name)").eq("is_active", true).order("address_line1");
@@ -119,6 +142,12 @@ router.post("/properties", requireAuth, requireTenant, requireRole("admin", "off
 
   const { data, error } = await supabaseAdmin.from("properties").insert(insertData).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
+  try {
+    await syncCustomerCoordinatesFromProperty(req.tenantId!, data);
+  } catch (syncError) {
+    res.status(500).json({ error: (syncError as Error).message });
+    return;
+  }
   res.status(201).json(data);
 });
 
@@ -182,7 +211,7 @@ router.patch("/properties/:id", requireAuth, requireTenant, requireRole("admin",
   const hasExplicitCoords = body.data.latitude != null || body.data.longitude != null;
 
   if (!hasExplicitCoords) {
-    let existingQ = supabaseAdmin.from("properties").select("address_line1, address_line2, city, county, postcode, latitude, longitude").eq("id", params.data.id);
+    let existingQ = supabaseAdmin.from("properties").select("customer_id, address_line1, address_line2, city, county, postcode, latitude, longitude").eq("id", params.data.id);
     if (req.tenantId) existingQ = existingQ.eq("tenant_id", req.tenantId);
     const { data: existing } = await existingQ.single();
     const missingCoords = existing?.latitude == null || existing?.longitude == null;
@@ -201,6 +230,12 @@ router.patch("/properties/:id", requireAuth, requireTenant, requireRole("admin",
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data, error } = await q.select().single();
   if (error || !data) { res.status(404).json({ error: "Property not found" }); return; }
+  try {
+    await syncCustomerCoordinatesFromProperty(req.tenantId!, data);
+  } catch (syncError) {
+    res.status(500).json({ error: (syncError as Error).message });
+    return;
+  }
   res.json(UpdatePropertyResponse.parse(data));
 });
 

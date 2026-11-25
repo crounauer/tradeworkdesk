@@ -19,6 +19,9 @@ import { isCcAdminRequested, sendPortalInviteEmail, sendSimpleNotification, type
 import { parseEmailAttachments } from "../lib/email-attachments";
 import { COMPANY_ACCOUNT_EMAIL_ERROR, isCompanyAccountEmail } from "../lib/customer-email-policy";
 import { buildPortalAccessGuide } from "../lib/portal-access-guide";
+import { findMatchingCustomer } from "../lib/customer-duplicates";
+import { getDuplicatePropertyGroups } from "../lib/property-duplicates";
+import { addressesHaveSameLocation } from "../lib/property-duplicates";
 
 const router: IRouter = Router();
 
@@ -100,6 +103,22 @@ router.post("/customers", requireAuth, requireTenant, requireRole("admin", "offi
     return;
   }
 
+  const duplicate = await findMatchingCustomer(supabaseAdmin, req.tenantId!, parsed.data);
+  if (duplicate) {
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from("customers")
+      .select("*")
+      .eq("id", duplicate.id)
+      .eq("tenant_id", req.tenantId!)
+      .single();
+    if (existingError || !existing) {
+      res.status(500).json({ error: existingError?.message || "Existing customer could not be loaded" });
+      return;
+    }
+    res.status(200).json(existing);
+    return;
+  }
+
   const { data, error } = await supabaseAdmin.from("customers").insert({ ...parsed.data, tenant_id: req.tenantId }).select().single();
   if (error) { res.status(500).json({ error: error.message }); return; }
 
@@ -148,6 +167,27 @@ router.patch("/customers/:id", requireAuth, requireTenant, requireRole("admin", 
   if (req.tenantId) q = q.eq("tenant_id", req.tenantId);
   const { data, error } = await q.select().single();
   if (error || !data) { res.status(404).json({ error: "Customer not found" }); return; }
+
+  if (data.latitude != null && data.longitude != null) {
+    const { data: properties, error: propertyLookupError } = await supabaseAdmin
+      .from("properties")
+      .select("id, address_line1, postcode")
+      .eq("customer_id", data.id)
+      .eq("tenant_id", req.tenantId!)
+      .eq("is_active", true);
+    if (propertyLookupError) { res.status(500).json({ error: propertyLookupError.message }); return; }
+    const matchingIds = (properties || [])
+      .filter((property) => addressesHaveSameLocation(property, data))
+      .map((property) => property.id);
+    if (matchingIds.length > 0) {
+      const { error: propertyUpdateError } = await supabaseAdmin
+        .from("properties")
+        .update({ latitude: data.latitude, longitude: data.longitude })
+        .in("id", matchingIds)
+        .eq("tenant_id", req.tenantId!);
+      if (propertyUpdateError) { res.status(500).json({ error: propertyUpdateError.message }); return; }
+    }
+  }
 
   await insertTenantAuditLog({
     tenantId: req.tenantId,
@@ -285,6 +325,31 @@ const MERGE_TABLES: { table: string; column: string }[] = [
   { table: "enquiries", column: "linked_customer_id" },
 ];
 
+const PROPERTY_MERGE_TABLES = [
+  "appliances",
+  "jobs",
+  "invoices",
+  "follow_ups",
+  "maintenance_plan_subscriptions",
+  "service_reminders",
+] as const;
+
+const PROPERTY_FILLABLE_FIELDS = [
+  "address_line2",
+  "city",
+  "county",
+  "property_type",
+  "occupancy_type",
+  "access_notes",
+  "parking_notes",
+  "boiler_location",
+  "flue_location",
+  "tank_location",
+  "notes",
+  "latitude",
+  "longitude",
+] as const;
+
 router.post("/customers/:id/merge", requireAuth, requireTenant, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetCustomerParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
@@ -339,6 +404,25 @@ async function mergeCustomerRecords(req: AuthenticatedRequest, res: Response, te
     res.status(409).json({ error: "Both customers must be active to merge. Refresh and open the active customer record." }); return;
   }
 
+  const [
+    { data: primaryProperties, error: primaryPropertiesError },
+    { data: duplicateProperties, error: duplicatePropertiesError },
+  ] = await Promise.all([
+    supabaseAdmin.from("properties").select("*").eq("customer_id", primary.id).eq("tenant_id", tenantId).eq("is_active", true),
+    supabaseAdmin.from("properties").select("*").eq("customer_id", duplicate.id).eq("tenant_id", tenantId).eq("is_active", true),
+  ]);
+  if (primaryPropertiesError || duplicatePropertiesError) {
+    console.error(
+      "[customers/merge] Could not load customer properties:",
+      primaryPropertiesError?.message || duplicatePropertiesError?.message,
+    );
+    res.status(500).json({ error: "Could not load the customer properties for this merge." });
+    return;
+  }
+  const primaryPropertyIds = new Set<string>(
+    (primaryProperties || []).map((property) => String(property.id)),
+  );
+
   // Fill any contact fields that are blank on the surviving customer using the duplicate's
   // values — never overwrites anything the primary already has set.
   const FILLABLE_FIELDS = ["title", "business_name", "email", "phone", "mobile", "address_line1", "address_line2", "city", "county", "postcode"] as const;
@@ -358,6 +442,7 @@ async function mergeCustomerRecords(req: AuthenticatedRequest, res: Response, te
 
   const movedCounts: Record<string, number> = {};
 
+  let propertiesMoved = true;
   for (const { table, column } of MERGE_TABLES) {
     try {
       const { data, error: moveErr } = await supabaseAdmin
@@ -366,11 +451,107 @@ async function mergeCustomerRecords(req: AuthenticatedRequest, res: Response, te
         .eq(column, duplicate.id)
         .eq("tenant_id", tenantId)
         .select("id");
-      if (moveErr) { console.error(`[customers/merge] Failed to move ${table}:`, moveErr.message); continue; }
+      if (moveErr) {
+        console.error(`[customers/merge] Failed to move ${table}:`, moveErr.message);
+        if (table === "properties") propertiesMoved = false;
+        continue;
+      }
       movedCounts[table] = (data || []).length;
     } catch (e) {
       // Table may not exist in this environment yet — skip rather than aborting the whole merge.
       console.error(`[customers/merge] Skipped ${table}:`, (e as Error).message);
+      if (table === "properties") propertiesMoved = false;
+    }
+  }
+
+  if (propertiesMoved) {
+    const properties = [...(primaryProperties || []), ...(duplicateProperties || [])]
+      .map((property) => property as {
+        id: string;
+        address_line1: string | null;
+        postcode: string | null;
+        created_at?: string | null;
+        [key: string]: unknown;
+      });
+    const duplicatePropertyGroups = getDuplicatePropertyGroups(properties, primaryPropertyIds);
+
+    for (const [survivor, ...duplicates] of duplicatePropertyGroups) {
+      const survivorPatch: Record<string, unknown> = {};
+      const survivorRecord = survivor as Record<string, unknown>;
+      for (const duplicateProperty of duplicates) {
+        for (const field of PROPERTY_FILLABLE_FIELDS) {
+          if ((survivorRecord[field] === null || survivorRecord[field] === undefined || survivorRecord[field] === "") &&
+              (duplicateProperty as Record<string, unknown>)[field]) {
+            const value = (duplicateProperty as Record<string, unknown>)[field];
+            survivorRecord[field] = value;
+            survivorPatch[field] = value;
+          }
+        }
+      }
+      if (Object.keys(survivorPatch).length > 0) {
+        const { error } = await supabaseAdmin.from("properties")
+          .update(survivorPatch)
+          .eq("id", survivor.id)
+          .eq("tenant_id", tenantId);
+        if (error) {
+          console.error(`[customers/merge] Failed to fill property ${survivor.id}:`, error.message);
+          continue;
+        }
+      }
+
+      for (const duplicateProperty of duplicates) {
+        let moveFailed = false;
+        for (const table of PROPERTY_MERGE_TABLES) {
+          try {
+            const { data, error } = await supabaseAdmin.from(table)
+              .update({ property_id: survivor.id })
+              .eq("property_id", duplicateProperty.id)
+              .eq("tenant_id", tenantId)
+              .select("id");
+            if (error) {
+              moveFailed = true;
+              console.error(`[customers/merge] Failed to move ${table} from property ${duplicateProperty.id}:`, error.message);
+              continue;
+            }
+            movedCounts[`${table}:property`] = (movedCounts[`${table}:property`] || 0) + (data || []).length;
+          } catch (e) {
+            moveFailed = true;
+            console.error(`[customers/merge] Skipped ${table} for property ${duplicateProperty.id}:`, (e as Error).message);
+          }
+        }
+
+        for (const [entityType, table] of [["property", "file_attachments"], ["property", "automation_logs"]] as const) {
+          try {
+            const { data, error } = await supabaseAdmin.from(table)
+              .update({ entity_id: survivor.id })
+              .eq("entity_type", entityType)
+              .eq("entity_id", duplicateProperty.id)
+              .eq("tenant_id", tenantId)
+              .select("id");
+            if (error) {
+              moveFailed = true;
+              console.error(`[customers/merge] Failed to move ${table} from property ${duplicateProperty.id}:`, error.message);
+              continue;
+            }
+            movedCounts[`${table}:property`] = (movedCounts[`${table}:property`] || 0) + (data || []).length;
+          } catch (e) {
+            moveFailed = true;
+            console.error(`[customers/merge] Skipped ${table} for property ${duplicateProperty.id}:`, (e as Error).message);
+          }
+        }
+
+        if (moveFailed) continue;
+        const mergeNote = `[Merged into property ${survivor.id} during customer merge]`;
+        const { error } = await supabaseAdmin.from("properties")
+          .update({ is_active: false, notes: [duplicateProperty.notes, mergeNote].filter(Boolean).join("\n\n") })
+          .eq("id", duplicateProperty.id)
+          .eq("tenant_id", tenantId);
+        if (error) {
+          console.error(`[customers/merge] Failed to archive property ${duplicateProperty.id}:`, error.message);
+        } else {
+          movedCounts.merged_properties = (movedCounts.merged_properties || 0) + 1;
+        }
+      }
     }
   }
 
@@ -445,6 +626,48 @@ async function mergeCustomerRecords(req: AuthenticatedRequest, res: Response, te
       .eq("tenant_id", tenantId);
     if (fileCount && fileCount > 0) unmigrated.file_attachments = fileCount;
   } catch { /* ignore */ }
+
+  if (propertiesMoved) {
+    const duplicateGroups = getDuplicatePropertyGroups(
+      [...(primaryProperties || []), ...(duplicateProperties || [])] as Array<{
+        id: string;
+        address_line1: string | null;
+        postcode: string | null;
+      }>,
+      primaryPropertyIds,
+    );
+    for (const [, ...duplicates] of duplicateGroups) {
+      for (const duplicateProperty of duplicates) {
+        for (const table of PROPERTY_MERGE_TABLES) {
+          try {
+            const { count } = await supabaseAdmin.from(table)
+              .select("id", { count: "exact", head: true })
+              .eq("property_id", duplicateProperty.id)
+              .eq("tenant_id", tenantId);
+            if (count && count > 0) unmigrated[`${table}:property:${duplicateProperty.id}`] = count;
+          } catch { /* table may not exist */ }
+        }
+        for (const table of ["file_attachments", "automation_logs"]) {
+          try {
+            const { count } = await supabaseAdmin.from(table)
+              .select("id", { count: "exact", head: true })
+              .eq("entity_type", "property")
+              .eq("entity_id", duplicateProperty.id)
+              .eq("tenant_id", tenantId);
+            if (count && count > 0) unmigrated[`${table}:property:${duplicateProperty.id}`] = count;
+          } catch { /* table may not exist */ }
+        }
+        const { data: propertyState, error } = await supabaseAdmin.from("properties")
+          .select("is_active")
+          .eq("id", duplicateProperty.id)
+          .eq("tenant_id", tenantId)
+          .maybeSingle();
+        if (!error && propertyState?.is_active === true) {
+          unmigrated[`properties:${duplicateProperty.id}`] = 1;
+        }
+      }
+    }
+  }
 
   if (Object.keys(unmigrated).length > 0) {
     // Leave the duplicate active so it stays visible and the merge can be retried.

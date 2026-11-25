@@ -98,6 +98,8 @@ export const GetDashboardResponse = zod.object({
           estimated_duration: zod.number().nullish(),
           description: zod.string().nullish(),
           notes: zod.string().nullish(),
+          latitude: zod.number().nullish(),
+          longitude: zod.number().nullish(),
           is_active: zod.boolean(),
           created_at: zod.coerce.date(),
           updated_at: zod.coerce.date(),
@@ -298,6 +300,8 @@ export const ListCustomersResponseItem = zod.object({
   is_active: zod.boolean(),
   created_at: zod.coerce.date(),
   updated_at: zod.coerce.date(),
+  latitude: zod.number().nullish(),
+  longitude: zod.number().nullish(),
 });
 export const ListCustomersResponse = zod.array(ListCustomersResponseItem);
 
@@ -402,6 +406,8 @@ export const UpdateCustomerBody = zod.object({
   county: zod.string().nullish(),
   postcode: zod.string().nullish(),
   notes: zod.string().nullish(),
+  latitude: zod.number().nullish(),
+  longitude: zod.number().nullish(),
   is_active: zod.boolean().optional(),
 });
 

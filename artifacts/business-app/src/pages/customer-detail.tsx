@@ -64,6 +64,8 @@ type CustomerEditData = {
   county?: string;
   postcode?: string;
   notes?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export default function CustomerDetail() {
@@ -1415,6 +1417,8 @@ function BookEnquiryDialog({
     address_line2: "",
     city: "",
     postcode: "",
+    latitude: null as number | null,
+    longitude: null as number | null,
     priority: "medium",
   });
 
@@ -1547,6 +1551,8 @@ function BookEnquiryDialog({
                     address_line2: addr.address_line2 || "",
                     city: addr.city || "",
                     postcode: addr.postcode,
+                    latitude: addr.latitude ?? null,
+                    longitude: addr.longitude ?? null,
                   }))}
                 />
               </Suspense>
@@ -1580,7 +1586,7 @@ function BookEnquiryDialog({
   );
 }
 
-function EditCustomerForm({ customer, onClose }: { customer: { id: string; title?: string | null; business_name?: string | null; first_name: string; last_name: string; email?: string | null; phone?: string | null; mobile?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; county?: string | null; postcode?: string | null; notes?: string | null }; onClose: () => void }) {
+function EditCustomerForm({ customer, onClose }: { customer: { id: string; title?: string | null; business_name?: string | null; first_name: string; last_name: string; email?: string | null; phone?: string | null; mobile?: string | null; address_line1?: string | null; address_line2?: string | null; city?: string | null; county?: string | null; postcode?: string | null; notes?: string | null; latitude?: number | null; longitude?: number | null }; onClose: () => void }) {
   const qc = useQueryClient();
   const update = useUpdateCustomer();
   const { toast } = useToast();
@@ -1599,6 +1605,8 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
       city: customer.city || "",
       county: customer.county || "",
       postcode: customer.postcode || "",
+      latitude: customer.latitude ?? undefined,
+      longitude: customer.longitude ?? undefined,
       notes: customer.notes || "",
     },
   });
@@ -1623,6 +1631,13 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
           notes: data.notes || undefined,
         },
       });
+      if (data.latitude != null && data.longitude != null) {
+        await customFetch(`/api/customers/${customer.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ latitude: data.latitude, longitude: data.longitude }),
+        });
+      }
       qc.invalidateQueries({ queryKey: [`/api/customers/${customer.id}`] });
       toast({ title: "Updated", description: "Customer updated successfully" });
       onClose();
@@ -1681,6 +1696,10 @@ function EditCustomerForm({ customer, onClose }: { customer: { id: string; title
                     setValue("city", addr.city);
                     setValue("county", addr.county);
                     setValue("postcode", addr.postcode);
+                    if (addr.latitude != null && addr.longitude != null) {
+                      setValue("latitude", addr.latitude);
+                      setValue("longitude", addr.longitude);
+                    }
                   }}
                 />
               </Suspense>

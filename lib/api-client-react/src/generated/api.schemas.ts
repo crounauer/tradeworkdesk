@@ -163,6 +163,10 @@ export interface UpdateCustomerBody {
   postcode?: string | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
   is_active?: boolean;
 }
 

@@ -8,6 +8,7 @@ import { notifyUsersForEvent } from "../lib/push-events";
 import { isCcAdminRequested, sendEnquiryAcknowledgementEmail, sendEnquiryNotProceedingEmail, sendEnquiryCustomerEmail, type EmailCompanyDetails } from "../lib/email";
 import { geocodeAddress, normalizeUKPostcode, calculateDistanceMiles } from "../lib/geocode";
 import { findTechnicianJobClash, sendTechnicianJobClash } from "../lib/technician-job-clashes";
+import { findMatchingCustomer } from "../lib/customer-duplicates";
 
 const router: IRouter = Router();
 
@@ -119,7 +120,6 @@ router.get("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_man
 router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_management"), requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const { contact_name, contact_phone, contact_email, source, description, notes, address, priority,
     address_line1, address_line2, city, postcode, linked_customer_id } = req.body;
-  const forceNewCustomer = req.body?.force_new_customer === true;
   const sendAcknowledgementEmail = req.body?.send_acknowledgement_email !== false;
   const ccAdminOnAcknowledgement = req.body?.cc_admin;
   const isLandlord = req.body?.new_is_landlord === true;
@@ -128,6 +128,10 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
   const jobCity = typeof req.body?.new_prop_city === "string" ? req.body.new_prop_city.trim() : "";
   const jobCounty = typeof req.body?.new_prop_county === "string" ? req.body.new_prop_county.trim() : "";
   const jobPostcode = typeof req.body?.new_prop_postcode === "string" ? req.body.new_prop_postcode.trim() : "";
+  const customerLatitude = typeof req.body?.latitude === "number" ? req.body.latitude : null;
+  const customerLongitude = typeof req.body?.longitude === "number" ? req.body.longitude : null;
+  const jobLatitude = typeof req.body?.new_prop_latitude === "number" ? req.body.new_prop_latitude : null;
+  const jobLongitude = typeof req.body?.new_prop_longitude === "number" ? req.body.new_prop_longitude : null;
 
   if (!contact_name || typeof contact_name !== "string" || !contact_name.trim()) {
     res.status(400).json({ error: "contact_name is required" }); return;
@@ -172,31 +176,25 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
   }
 
   if (!resolvedLinkedCustomerId && req.tenantId) {
-    if (!forceNewCustomer) {
-      const normalizedEmail = contact_email?.trim().toLowerCase() || null;
-      const normalizedPhone = contact_phone?.trim() || null;
-
-      if (normalizedEmail || normalizedPhone) {
-        let existingQ = supabaseAdmin
-          .from("customers")
-          .select("id, email, phone, address_line1, address_line2, city, postcode")
-          .eq("tenant_id", req.tenantId)
-          .eq("is_active", true)
-          .limit(1);
-
-        if (normalizedEmail && normalizedPhone) {
-          existingQ = existingQ.or(`email.eq.${normalizedEmail},phone.eq.${normalizedPhone}`);
-        } else if (normalizedEmail) {
-          existingQ = existingQ.eq("email", normalizedEmail);
-        } else if (normalizedPhone) {
-          existingQ = existingQ.eq("phone", normalizedPhone);
-        }
-
-        const { data: existingCustomer, error: existingCustomerErr } = await existingQ.maybeSingle();
-        if (existingCustomerErr) { res.status(500).json({ error: existingCustomerErr.message }); return; }
-        resolvedLinkedCustomerId = existingCustomer?.id || null;
-        resolvedCustomerSnapshot = existingCustomer || null;
-      }
+    const { first_name: matchedFirstName, last_name: matchedLastName } = splitContactName(contact_name);
+    const existingCustomer = await findMatchingCustomer(supabaseAdmin, req.tenantId, {
+      first_name: matchedFirstName,
+      last_name: matchedLastName,
+      email: contact_email,
+      phone: contact_phone,
+      address_line1,
+      postcode,
+    });
+    resolvedLinkedCustomerId = existingCustomer?.id || null;
+    if (existingCustomer) {
+      const { data: existingSnapshot, error: existingSnapshotError } = await supabaseAdmin
+        .from("customers")
+        .select("id, email, phone, address_line1, address_line2, city, postcode")
+        .eq("id", existingCustomer.id)
+        .eq("tenant_id", req.tenantId)
+        .maybeSingle();
+      if (existingSnapshotError) { res.status(500).json({ error: existingSnapshotError.message }); return; }
+      resolvedCustomerSnapshot = existingSnapshot || null;
     }
 
     if (!resolvedLinkedCustomerId) {
@@ -217,6 +215,8 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
           address_line2: address_line2?.trim() || null,
           city: city?.trim() || null,
           postcode: postcode?.trim() || null,
+          latitude: customerLatitude,
+          longitude: customerLongitude,
         })
         .select("id")
         .single();
@@ -233,6 +233,8 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
     const normalizedAddressLine2 = (isLandlord ? jobAddressLine2 : String(address_line2 || "").trim()) || null;
     const normalizedCity = (isLandlord ? jobCity : String(city || "").trim()) || null;
     const normalizedCounty = (isLandlord ? jobCounty : "") || null;
+    const normalizedLatitude = isLandlord ? jobLatitude : customerLatitude;
+    const normalizedLongitude = isLandlord ? jobLongitude : customerLongitude;
 
     if (!normalizedAddressLine1 || !normalizedPostcode) {
       // No usable property address in enquiry payload.
@@ -262,12 +264,21 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
             city: normalizedCity,
             county: normalizedCounty,
             postcode: normalizedPostcode,
+            latitude: normalizedLatitude,
+            longitude: normalizedLongitude,
           })
           .select("id")
           .single();
 
         if (createdPropertyErr) { res.status(500).json({ error: createdPropertyErr.message }); return; }
         createdPropertyIdForRollback = createdProperty.id;
+      } else if (normalizedLatitude != null && normalizedLongitude != null) {
+        const { error: updatePropertyErr } = await supabaseAdmin
+          .from("properties")
+          .update({ latitude: normalizedLatitude, longitude: normalizedLongitude })
+          .eq("id", existingProperty.id)
+          .eq("tenant_id", req.tenantId);
+        if (updatePropertyErr) { res.status(500).json({ error: updatePropertyErr.message }); return; }
       }
     }
   }
@@ -282,13 +293,17 @@ router.post("/enquiries", requireAuth, requireTenant, requirePlanFeature("job_ma
       .maybeSingle()).data;
 
     if (customer) {
-      const updates: Record<string, string | null> = {};
+      const updates: Record<string, string | number | null> = {};
       if (!customer.email && contact_email?.trim()) updates.email = contact_email.trim();
       if (!customer.phone && contact_phone?.trim()) updates.phone = contact_phone.trim();
       if (!customer.address_line1 && address_line1?.trim()) updates.address_line1 = address_line1.trim();
       if (!customer.address_line2 && address_line2?.trim()) updates.address_line2 = address_line2.trim();
       if (!customer.city && city?.trim()) updates.city = city.trim();
       if (!customer.postcode && postcode?.trim()) updates.postcode = postcode.trim();
+      if (customerLatitude != null && customerLongitude != null) {
+        updates.latitude = customerLatitude;
+        updates.longitude = customerLongitude;
+      }
 
       if (Object.keys(updates).length > 0) {
         const { error: updateCustomerErr } = await supabaseAdmin

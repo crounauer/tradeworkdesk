@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabase";
+import { hasActiveAddon } from "./tenant-limits";
 
 const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
 
@@ -118,9 +119,10 @@ export async function nominatimSearch(query: string, countryCodes: string[] = ["
   return Array.isArray(results) ? results : [];
 }
 
-export async function geocodeAddress(address: string, _tenantId?: string, countryCodes: string[] = ["gb"]): Promise<GeoResult | null> {
+export async function geocodeAddress(address: string, tenantId?: string, countryCodes: string[] = ["gb"]): Promise<GeoResult | null> {
   try {
-    const idealKey = await getIdealPostcodesKey().catch(() => null);
+    const canUseIdealPostcodes = !tenantId || await hasActiveAddon(tenantId, "uk_address_lookup").catch(() => false);
+    const idealKey = canUseIdealPostcodes ? await getIdealPostcodesKey().catch(() => null) : null;
     if (idealKey) {
       const postcode = extractPostcode(address);
       if (postcode) {

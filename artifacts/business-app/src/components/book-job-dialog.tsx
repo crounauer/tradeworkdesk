@@ -139,7 +139,7 @@ interface BookJobDialogProps {
   initialDate?: string;
   initialCustomerId?: string;
   initialPropertyId?: string;
-  initialCustomerAddress?: { address_line1?: string; city?: string; postcode?: string };
+  initialCustomerAddress?: { address_line1?: string; city?: string; postcode?: string; latitude?: number | null; longitude?: number | null };
   invoiceId?: string;
   onJobCreated?: (jobId: string) => Promise<void> | void;
   onConfirmationDone?: () => void;
@@ -263,6 +263,8 @@ export function BookJobDialog({
   const [newPropAddress, setNewPropAddress] = useState("");
   const [newPropCity, setNewPropCity] = useState("");
   const [newPropPostcode, setNewPropPostcode] = useState("");
+  const [newPropLatitude, setNewPropLatitude] = useState<number | null>(null);
+  const [newPropLongitude, setNewPropLongitude] = useState<number | null>(null);
   const [creatingProperty, setCreatingProperty] = useState(false);
   // ID to select once the new property appears in filteredProperties
   const [pendingSelectPropertyId, setPendingSelectPropertyId] = useState<string | null>(null);
@@ -294,6 +296,8 @@ export function BookJobDialog({
     setNewPropAddress("");
     setNewPropCity("");
     setNewPropPostcode("");
+    setNewPropLatitude(null);
+    setNewPropLongitude(null);
     setPendingSelectPropertyId(null);
     setShowAddJobTypeInline(false);
     setNewJobTypeName("");
@@ -357,12 +361,16 @@ export function BookJobDialog({
         setNewPropAddress(initialCustomerAddress.address_line1 || "");
         setNewPropCity(initialCustomerAddress.city || "");
         setNewPropPostcode(initialCustomerAddress.postcode || "");
+        setNewPropLatitude(initialCustomerAddress.latitude ?? null);
+        setNewPropLongitude(initialCustomerAddress.longitude ?? null);
       } else {
         const cust = customers?.find(c => c.id === initialCustomerId);
         if (cust) {
           setNewPropAddress((cust as any).address_line1 || "");
           setNewPropCity((cust as any).city || "");
           setNewPropPostcode((cust as any).postcode || "");
+          setNewPropLatitude((cust as any).latitude ?? null);
+          setNewPropLongitude((cust as any).longitude ?? null);
         }
       }
       setShowAddProperty(true);
@@ -433,6 +441,8 @@ export function BookJobDialog({
       setNewPropAddress((selectedCustomer as any).address_line1 || "");
       setNewPropCity((selectedCustomer as any).city || "");
       setNewPropPostcode((selectedCustomer as any).postcode || "");
+      setNewPropLatitude((selectedCustomer as any).latitude ?? null);
+      setNewPropLongitude((selectedCustomer as any).longitude ?? null);
     }
     setShowAddProperty(true);
   };
@@ -450,6 +460,8 @@ export function BookJobDialog({
           address_line1: newPropAddress.trim(),
           city: newPropCity.trim() || undefined,
           postcode: newPropPostcode.trim(),
+          latitude: newPropLatitude ?? undefined,
+          longitude: newPropLongitude ?? undefined,
         },
       });
       const newId = (propRes as { id: string }).id;
@@ -464,6 +476,8 @@ export function BookJobDialog({
       setNewPropAddress("");
       setNewPropCity("");
       setNewPropPostcode("");
+      setNewPropLatitude(null);
+      setNewPropLongitude(null);
       toast({ title: "Property added", description: "Property created and selected." });
     } catch {
       toast({ title: "Error", description: "Failed to create property.", variant: "destructive" });
@@ -533,6 +547,8 @@ export function BookJobDialog({
             city: data.new_city?.trim() || undefined,
             county: data.new_county?.trim() || undefined,
             postcode: data.new_postcode.trim(),
+            latitude: data.new_latitude ?? undefined,
+            longitude: data.new_longitude ?? undefined,
           },
         });
         customerId = (custRes as { id: string }).id;
@@ -881,6 +897,8 @@ export function BookJobDialog({
                           setNewPropAddress(addr.address_line1);
                           setNewPropCity(addr.city);
                           setNewPropPostcode(addr.postcode);
+                          setNewPropLatitude(addr.latitude ?? null);
+                          setNewPropLongitude(addr.longitude ?? null);
                         }}
                       />
                       <div className="space-y-1.5">
