@@ -280,10 +280,10 @@ export default function PropertyDetail() {
               {property.occupancy_type && (
                 <div><span className="text-muted-foreground">Occupancy:</span> <span className="font-medium capitalize">{property.occupancy_type.replace('_', ' ')}</span></div>
               )}
-              {property.tenant_name && (
+              {(property.tenant_name || property.tenant_email || property.tenant_phone) && (
                 <div className="pt-3 border-t border-border/50 space-y-2">
                   <span className="text-muted-foreground">Tenant:</span>
-                  <p className="font-medium">{property.tenant_name}</p>
+                  {property.tenant_name && <p className="font-medium">{property.tenant_name}</p>}
                   {property.tenant_phone && <p className="text-sm">{property.tenant_phone}</p>}
                   {property.tenant_email && <p className="text-sm break-all">{property.tenant_email}</p>}
                   <div className="flex flex-wrap gap-2 pt-1">

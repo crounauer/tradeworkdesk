@@ -45,6 +45,33 @@ import { buildPdfData } from "../lib/invoice-pdf-data";
 const router: IRouter = Router();
 const requireEditableBilling = jobBillingLock(supabaseAdmin);
 
+export function buildJobConfirmationRecipients(options: {
+  customerName: string;
+  customerEmail?: string | null;
+  overrideEmail?: string | null;
+  tenantName?: string | null;
+  tenantEmail?: string | null;
+}): Array<{ email: string; name: string; role: "landlord" | "tenant" }> {
+  const recipients = new Map<string, { email: string; name: string; role: "landlord" | "tenant" }>();
+  const primaryEmail = String(options.overrideEmail || options.customerEmail || "").trim();
+  if (primaryEmail) {
+    recipients.set(primaryEmail.toLowerCase(), {
+      email: primaryEmail,
+      name: options.customerName || "Customer",
+      role: "landlord",
+    });
+  }
+  const tenantEmail = String(options.tenantEmail || "").trim();
+  if (tenantEmail && !recipients.has(tenantEmail.toLowerCase())) {
+    recipients.set(tenantEmail.toLowerCase(), {
+      email: tenantEmail,
+      name: String(options.tenantName || "").trim() || "Tenant",
+      role: "tenant",
+    });
+  }
+  return Array.from(recipients.values());
+}
+
 interface SupabaseJobRow {
   id: string;
   customer_id: string;
@@ -370,7 +397,7 @@ router.get("/jobs/confirmation/respond", async (req, res): Promise<void> => {
   const tokenHash = hashConfirmationToken(token);
   const { data: responseRow, error: responseErr } = await supabaseAdmin
     .from("job_confirmation_responses")
-    .select("id, tenant_id, job_id, status, token_expires_at, responded_at, jobs(job_ref, scheduled_date, scheduled_time, estimated_duration, customers(first_name, last_name), properties(address_line1, address_line2, city, county, postcode)), tenants(company_name)")
+    .select("id, tenant_id, job_id, sent_to_email, status, token_expires_at, responded_at, jobs(job_ref, scheduled_date, scheduled_time, estimated_duration, customers(first_name, last_name), properties(address_line1, address_line2, city, county, postcode)), tenants(company_name)")
     .eq("token_hash", tokenHash)
     .maybeSingle();
 
@@ -458,6 +485,7 @@ router.get("/jobs/confirmation/respond", async (req, res): Promise<void> => {
     } | null;
   }).jobs;
   const jobRef = confirmedJob?.job_ref || jobId.slice(0, 8).toUpperCase();
+  const respondingEmail = String((responseRow as { sent_to_email?: string }).sent_to_email || "").trim();
   const tenantId = (responseRow as { tenant_id: string }).tenant_id;
   if (nextStatus === "confirmed") {
     const [{ data: companySettings }, { data: adminProfiles }] = await Promise.all([
@@ -497,9 +525,10 @@ router.get("/jobs/confirmation/respond", async (req, res): Promise<void> => {
       ? confirmedJob.scheduled_time.slice(0, 5)
       : (confirmedJob?.estimated_duration == null ? "All day" : "Time not set");
     const notificationBody = [
-      `Customer confirmed appointment ${jobRef}.`,
+      `Appointment ${jobRef} confirmed by ${respondingEmail || customerName}.`,
       "",
       `Customer: ${customerName}`,
+      ...(respondingEmail ? [`Responding recipient: ${respondingEmail}`] : []),
       `Address: ${address}`,
       `Appointment: ${scheduledDate} at ${scheduledTime}`,
       "",
@@ -527,10 +556,10 @@ router.get("/jobs/confirmation/respond", async (req, res): Promise<void> => {
   void notifyUsersForEvent({
     tenantId,
     eventType: "customer_communications",
-    title: nextStatus === "confirmed" ? "Customer confirmed appointment" : "Customer requested appointment change",
+    title: nextStatus === "confirmed" ? "Appointment confirmed" : "Appointment change requested",
     body: nextStatus === "confirmed"
-      ? `Customer confirmed appointment for ${jobRef}.`
-      : `Customer requested a date change for ${jobRef}.`,
+      ? `${respondingEmail || "A recipient"} confirmed appointment ${jobRef}.`
+      : `${respondingEmail || "A recipient"} requested a date change for ${jobRef}.`,
     url: `/jobs/${jobId}`,
     eventKey: `job_confirmation_response:${(responseRow as { id: string }).id}:${nextStatus}`,
     targetRoles: ["admin", "office_staff"],
@@ -1006,18 +1035,28 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     .eq("id", job.customer_id)
     .eq("tenant_id", req.tenantId)
     .single();
-  if (!customer || !customer.email) {
-    res.status(400).json({ error: "Customer does not have an email address" }); return;
+  if (!customer) {
+    res.status(400).json({ error: "Customer record not found" }); return;
   }
-
-  const recipientEmail = recipientOverride || customer.email;
 
   const { data: property } = await supabaseAdmin
     .from("properties")
-    .select("address_line1, address_line2, city, county, postcode")
+    .select("address_line1, address_line2, city, county, postcode, tenant_name, tenant_email")
     .eq("id", job.property_id)
     .eq("tenant_id", req.tenantId)
     .single();
+
+  const recipientList = buildJobConfirmationRecipients({
+    customerName: `${customer.first_name} ${customer.last_name}`.trim(),
+    customerEmail: customer.email,
+    overrideEmail: recipientOverride,
+    tenantName: property?.tenant_name,
+    tenantEmail: property?.tenant_email,
+  });
+  if (recipientList.length === 0) {
+    res.status(400).json({ error: "The customer and property do not have an email address" });
+    return;
+  }
 
   const addressParts = property
     ? [property.address_line1, property.address_line2, property.city, property.county, property.postcode].filter(Boolean)
@@ -1098,11 +1137,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     personalMessage,
   };
 
-  const rawToken = crypto.randomBytes(24).toString("hex");
-  const tokenHash = hashConfirmationToken(rawToken);
   const tokenExpiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
-  const confirmUrl = buildConfirmationActionUrl(rawToken, "confirm");
-  const requestChangeUrl = buildConfirmationActionUrl(rawToken, "request_change");
 
   const { error: cleanupResponseErr } = await supabaseAdmin
     .from("job_confirmation_responses")
@@ -1117,76 +1152,92 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     return;
   }
 
-  const { error: responseInsertErr } = await supabaseAdmin
-    .from("job_confirmation_responses")
-    .insert({
-      tenant_id: req.tenantId,
-      job_id: jobId,
-      customer_id: job.customer_id,
-      sent_to_email: recipientEmail,
-      token_hash: tokenHash,
-      token_expires_at: tokenExpiresAt,
-      status: "pending",
-      sent_by: req.userId,
-      sent_at: new Date().toISOString(),
-    });
-
-  if (responseInsertErr) {
-    res.status(500).json({ error: responseInsertErr.message });
-    return;
-  }
-
   await supabaseAdmin
     .from("jobs")
     .update({ customer_confirmation_status: "pending", updated_at: new Date().toISOString() })
     .eq("id", jobId)
     .eq("tenant_id", req.tenantId);
 
-  const customerFullName = `${customer.first_name} ${customer.last_name}`;
-  const confirmationBodyText = buildJobConfirmationEmailBodyText({
-    customerName: customerFullName,
-    companyName,
-    jobRef,
-    jobTypeName,
-    scheduledDate: job.scheduled_date,
-    scheduledTime: job.scheduled_time || null,
-    jobDurationMinutes: job.estimated_duration ?? null,
-    propertyAddress,
-    description: job.description || null,
-    personalMessage,
-    confirmUrl,
-    requestChangeUrl,
-  });
+  const sentTo: string[] = [];
+  for (const recipient of recipientList) {
+    const rawToken = crypto.randomBytes(24).toString("hex");
+    const tokenHash = hashConfirmationToken(rawToken);
+    const confirmUrl = buildConfirmationActionUrl(rawToken, "confirm");
+    const requestChangeUrl = buildConfirmationActionUrl(rawToken, "request_change");
 
-  try {
-    await sendJobConfirmationEmail(
-      recipientEmail,
-      customerFullName,
+    const { error: responseInsertErr } = await supabaseAdmin
+      .from("job_confirmation_responses")
+      .insert({
+        tenant_id: req.tenantId,
+        job_id: jobId,
+        customer_id: job.customer_id,
+        sent_to_email: recipient.email,
+        token_hash: tokenHash,
+        token_expires_at: tokenExpiresAt,
+        status: "pending",
+        sent_by: req.userId,
+        sent_at: new Date().toISOString(),
+      });
+    if (responseInsertErr) {
+      res.status(500).json({ error: responseInsertErr.message });
+      return;
+    }
+
+    const confirmationBodyText = buildJobConfirmationEmailBodyText({
+      customerName: recipient.name,
       companyName,
-      confirmationDetails,
-      emailCompany,
-      { confirmUrl, requestChangeUrl },
-      isCcAdminRequested(cc_admin) && req.userEmail ? [req.userEmail] : undefined,
-    );
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Failed to send confirmation email";
-    res.status(500).json({ error: msg }); return;
+      jobRef,
+      jobTypeName,
+      scheduledDate: job.scheduled_date,
+      scheduledTime: job.scheduled_time || null,
+      jobDurationMinutes: job.estimated_duration ?? null,
+      propertyAddress,
+      description: job.description || null,
+      personalMessage,
+      confirmUrl,
+      requestChangeUrl,
+    });
+
+    try {
+      await sendJobConfirmationEmail(
+        recipient.email,
+        recipient.name,
+        companyName,
+        confirmationDetails,
+        emailCompany,
+        { confirmUrl, requestChangeUrl },
+        recipient.role === "landlord" && isCcAdminRequested(cc_admin) && req.userEmail
+          ? [req.userEmail]
+          : undefined,
+      );
+    } catch (e) {
+      await supabaseAdmin
+        .from("job_confirmation_responses")
+        .delete()
+        .eq("token_hash", tokenHash)
+        .eq("tenant_id", req.tenantId);
+      const msg = e instanceof Error ? e.message : "Failed to send confirmation email";
+      res.status(500).json({ error: msg });
+      return;
+    }
+
+    const { error: logErr } = await supabaseAdmin.from("job_email_logs").insert({
+      job_id: jobId,
+      tenant_id: req.tenantId,
+      sent_by: req.userId,
+      sent_to: recipient.email,
+      cc: recipient.role === "landlord" && isCcAdminRequested(cc_admin) && req.userEmail
+        ? [req.userEmail]
+        : null,
+      subject: `Job Confirmation — ${jobRef}`,
+      forms_included: [{ form_type: "confirmation", form_label: "Appointment Confirmation", form_id: jobId }],
+      body_text: confirmationBodyText,
+    });
+    if (logErr) console.error("[email] Failed to log confirmation email:", logErr);
+    sentTo.push(recipient.email);
   }
 
-  const { data: senderProfile } = await supabaseAdmin.from("profiles").select("full_name").eq("id", req.userId!).single();
-  const { error: logErr } = await supabaseAdmin.from("job_email_logs").insert({
-    job_id: jobId,
-    tenant_id: req.tenantId,
-    sent_by: req.userId,
-    sent_to: recipientEmail,
-    cc: null,
-    subject: `Job Confirmation — ${jobRef}`,
-    forms_included: [{ form_type: "confirmation", form_label: "Appointment Confirmation", form_id: jobId }],
-    body_text: confirmationBodyText,
-  });
-  if (logErr) console.error("[email] Failed to log confirmation email:", logErr);
-
-  res.json({ success: true, sent_to: recipientEmail });
+  res.json({ success: true, sent_to: sentTo.join(", "), recipients: sentTo });
 });
 
 router.post("/jobs/:id/duplicate", requireAuth, requireTenant, requireRole("admin", "office_staff"), requirePlanFeature("job_management"), async (req: AuthenticatedRequest, res): Promise<void> => {

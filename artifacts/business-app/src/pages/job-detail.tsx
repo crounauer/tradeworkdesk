@@ -326,6 +326,8 @@ export default function JobDetail() {
   );
 
   const customerEmail = (job?.customer as unknown as Record<string, unknown> | undefined)?.email as string || "";
+  const tenantEmail = (job?.property as unknown as Record<string, unknown> | undefined)?.tenant_email as string || "";
+  const confirmationRecipients = Array.from(new Set([customerEmail, tenantEmail].map((email) => email.trim()).filter(Boolean)));
   const refreshEmailLogs = () => {
     setEmailLogRefresh(k => k + 1);
     if (job?.customer_id) {
@@ -1218,12 +1220,16 @@ export default function JobDetail() {
                 <Button variant="outline" size="sm" onClick={() => setEmailModalOpen(true)}>
                   <Mail className="w-4 h-4 mr-2" /> Email Customer
                 </Button>
-                {(profile?.role === "admin" || profile?.role === "office_staff") && customerEmail && (
+                {(profile?.role === "admin" || profile?.role === "office_staff") && confirmationRecipients.length > 0 && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="gap-2"
-                    onClick={() => { setConfirmationEmail(customerEmail); setConfirmationMessage(""); setConfirmationOpen(true); }}
+                    onClick={() => {
+                      setConfirmationEmail(customerEmail || tenantEmail);
+                      setConfirmationMessage("");
+                      setConfirmationOpen(true);
+                    }}
                   >
                     <Mail className="w-4 h-4" />
                     Email Appointment Confirmation
@@ -1932,6 +1938,7 @@ export default function JobDetail() {
             </DialogTitle>
             <DialogDescription>
               Check the details below, then send. The customer also gets Confirm and Request date change buttons.
+              {tenantEmail && <span className="block mt-1">The landlord and tenant will each receive a separate tracked confirmation.</span>}
             </DialogDescription>
           </DialogHeader>
 
@@ -1947,13 +1954,16 @@ export default function JobDetail() {
             skipLabel="Cancel"
           >
             <div className="space-y-1">
-              <Label className="text-xs">Send to</Label>
+              <Label className="text-xs">Primary recipient</Label>
               <Input
                 type="email"
                 value={confirmationEmail}
                 onChange={(e) => setConfirmationEmail(e.target.value)}
                 placeholder="customer@example.com"
               />
+              {tenantEmail && tenantEmail.toLowerCase() !== confirmationEmail.trim().toLowerCase() && (
+                <p className="text-xs text-muted-foreground">Also sends separately to {tenantEmail} (property tenant).</p>
+              )}
             </div>
 
             <div className="rounded-lg border bg-slate-50/70 p-3 space-y-1 text-sm">
@@ -3541,6 +3551,7 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
   };
 
   const customerEmail = (job.customer as Record<string, unknown>)?.email as string || "";
+  const tenantEmail = (job.property as Record<string, unknown>)?.tenant_email as string || "";
   const customerName = `${(job.customer as Record<string, unknown>)?.first_name || ""} ${(job.customer as Record<string, unknown>)?.last_name || ""}`.trim();
   const isAllDay = watch("all_day");
 
@@ -3573,7 +3584,7 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to send confirmation email");
       }
-      toast({ title: "Email sent", description: `Confirmation sent to ${customerEmail}` });
+      toast({ title: "Email sent", description: `Confirmation sent to ${[customerEmail, tenantEmail].filter(Boolean).join(" and ")}` });
       setShowEmailPrompt(false);
       onEmailSent?.();
       onClose();

@@ -20,6 +20,10 @@ interface BookingJob {
     mobile?: string | null;
     phone?: string | null;
   } | null;
+  property?: {
+    tenant_name?: string | null;
+    tenant_email?: string | null;
+  } | null;
 }
 
 function appointmentMessage(job: BookingJob): string {
@@ -60,6 +64,8 @@ export function BookingConfirmationPanel({ jobId, onDone, onSendingChange }: {
   });
   const job = jobQuery.data;
   const email = job?.customer?.email?.trim();
+  const tenantEmail = job?.property?.tenant_email?.trim();
+  const confirmationEmails = Array.from(new Set([email, tenantEmail].filter((value): value is string => !!value)));
   const smsQuery = useQuery<{ available: boolean }>({
     queryKey: ["booking-sms-availability", jobId],
     queryFn: async () => {
@@ -67,7 +73,7 @@ export function BookingConfirmationPanel({ jobId, onDone, onSendingChange }: {
       if (!response.ok) throw new Error("Unable to check SMS availability.");
       return response.json();
     },
-    enabled: !!job && !email,
+    enabled: !!job && confirmationEmails.length === 0,
     retry: false,
   });
 
@@ -85,7 +91,9 @@ export function BookingConfirmationPanel({ jobId, onDone, onSendingChange }: {
         const body = await response.json() as { error?: string };
         throw new Error(body.error || "Failed to send confirmation email.");
       }
-      toast({ title: "Confirmation sent", description: `Appointment confirmation emailed to ${email}.` });
+      const body = await response.json() as { sent_to?: string; recipients?: string[] };
+      const sentTo = body.recipients?.join(" and ") || body.sent_to || confirmationEmails.join(" and ");
+      toast({ title: "Confirmation sent", description: `Appointment confirmation emailed to ${sentTo}.` });
       onDone();
     } catch (error) {
       toast({ title: "Email failed", description: error instanceof Error ? error.message : "Could not send confirmation email.", variant: "destructive" });
@@ -95,7 +103,7 @@ export function BookingConfirmationPanel({ jobId, onDone, onSendingChange }: {
     }
   };
 
-  if (jobQuery.isPending || (job && !email && smsQuery.isPending)) {
+  if (jobQuery.isPending || (job && confirmationEmails.length === 0 && smsQuery.isPending)) {
     return <p className="py-3 text-sm text-muted-foreground">Checking confirmation options...</p>;
   }
   if (jobQuery.isError || smsQuery.isError) {
@@ -108,11 +116,24 @@ export function BookingConfirmationPanel({ jobId, onDone, onSendingChange }: {
     </div>;
   }
   if (!job) return null;
-  if (email) {
+  if (confirmationEmails.length > 0) {
     const customer = job.customer;
     const name = customer?.business_name || [customer?.first_name, customer?.last_name].filter(Boolean).join(" ");
-    return <EmailConfirmationPanel customerName={name} customerEmail={email} sending={sending}
-      ccAdmin={ccAdmin} onCcAdminChange={setCcAdmin} onSend={sendEmail} onSkip={onDone} />;
+    return <EmailConfirmationPanel
+      customerName={name || job.property?.tenant_name || "Tenant"}
+      customerEmail={email || tenantEmail || ""}
+      sending={sending}
+      ccAdmin={ccAdmin}
+      onCcAdminChange={setCcAdmin}
+      onSend={sendEmail}
+      onSkip={onDone}
+    >
+      {tenantEmail && tenantEmail.toLowerCase() !== email?.toLowerCase() && (
+        <p className="text-sm text-muted-foreground">
+          A separate tracked confirmation will also be sent to the tenant at {tenantEmail}.
+        </p>
+      )}
+    </EmailConfirmationPanel>;
   }
   return <div className="space-y-4 py-2">
     <p className="text-sm text-muted-foreground">

@@ -44,6 +44,9 @@ type PropertyFormData = {
   county?: string;
   postcode: string;
   property_type?: string;
+  tenant_name?: string;
+  tenant_email?: string;
+  tenant_phone?: string;
   access_notes?: string;
   parking_notes?: string;
   latitude?: number | null;
@@ -2122,6 +2125,9 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
           county: data.county || undefined,
           postcode: data.postcode,
           property_type: data.property_type || undefined,
+          tenant_name: data.tenant_name?.trim() || undefined,
+          tenant_email: data.tenant_email?.trim() || undefined,
+          tenant_phone: data.tenant_phone?.trim() || undefined,
           access_notes: data.access_notes || undefined,
           parking_notes: data.parking_notes || undefined,
           latitude: data.latitude ?? undefined,
@@ -2177,6 +2183,9 @@ function AddPropertyForm({ customerId, customerAddress, onClose }: { customerId:
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
+        <Input placeholder="Tenant / Occupant Name" {...register("tenant_name")} />
+        <Input placeholder="Tenant Email" type="email" {...register("tenant_email")} />
+        <Input placeholder="Tenant Phone" type="tel" {...register("tenant_phone")} />
         <Input placeholder="Access Notes" {...register("access_notes")} />
         <Input placeholder="Parking Notes" {...register("parking_notes")} />
         </div>

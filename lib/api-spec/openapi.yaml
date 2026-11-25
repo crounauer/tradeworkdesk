@@ -2005,6 +2005,12 @@ components:
           type: ["string", "null"]
         occupancy_type:
           type: ["string", "null"]
+        tenant_name:
+          type: ["string", "null"]
+        tenant_email:
+          type: ["string", "null"]
+        tenant_phone:
+          type: ["string", "null"]
         access_notes:
           type: ["string", "null"]
         parking_notes:
@@ -2117,6 +2123,12 @@ components:
         tank_location:
           type: ["string", "null"]
         notes:
+          type: ["string", "null"]
+        tenant_name:
+          type: ["string", "null"]
+        tenant_email:
+          type: ["string", "null"]
+        tenant_phone:
           type: ["string", "null"]
         latitude:
           type: ["number", "null"]

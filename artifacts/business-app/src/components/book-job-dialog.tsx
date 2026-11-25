@@ -106,6 +106,9 @@ type BookJobFormData = {
   new_prop_postcode: string;
   new_prop_latitude: number | null;
   new_prop_longitude: number | null;
+  new_prop_tenant_name: string;
+  new_prop_tenant_email: string;
+  new_prop_tenant_phone: string;
   // Job details
   job_type_id: string;
   visit_intent: "standard" | "estimate";
@@ -271,6 +274,9 @@ export function BookJobDialog({
   const [newPropPostcode, setNewPropPostcode] = useState("");
   const [newPropLatitude, setNewPropLatitude] = useState<number | null>(null);
   const [newPropLongitude, setNewPropLongitude] = useState<number | null>(null);
+  const [newPropTenantName, setNewPropTenantName] = useState("");
+  const [newPropTenantEmail, setNewPropTenantEmail] = useState("");
+  const [newPropTenantPhone, setNewPropTenantPhone] = useState("");
   const [creatingProperty, setCreatingProperty] = useState(false);
   // ID to select once the new property appears in filteredProperties
   const [pendingSelectPropertyId, setPendingSelectPropertyId] = useState<string | null>(null);
@@ -304,6 +310,9 @@ export function BookJobDialog({
     setNewPropPostcode("");
     setNewPropLatitude(null);
     setNewPropLongitude(null);
+    setNewPropTenantName("");
+    setNewPropTenantEmail("");
+    setNewPropTenantPhone("");
     setPendingSelectPropertyId(null);
     setShowAddJobTypeInline(false);
     setNewJobTypeName("");
@@ -471,6 +480,9 @@ export function BookJobDialog({
           postcode: newPropPostcode.trim(),
           latitude: newPropLatitude ?? undefined,
           longitude: newPropLongitude ?? undefined,
+          tenant_name: newPropTenantName.trim() || undefined,
+          tenant_email: newPropTenantEmail.trim() || undefined,
+          tenant_phone: newPropTenantPhone.trim() || undefined,
         },
       });
       const newId = (propRes as { id: string }).id;
@@ -487,6 +499,9 @@ export function BookJobDialog({
       setNewPropPostcode("");
       setNewPropLatitude(null);
       setNewPropLongitude(null);
+      setNewPropTenantName("");
+      setNewPropTenantEmail("");
+      setNewPropTenantPhone("");
       toast({ title: "Property added", description: "Property created and selected." });
     } catch {
       toast({ title: "Error", description: "Failed to create property.", variant: "destructive" });
@@ -570,6 +585,9 @@ export function BookJobDialog({
           postcode: data.new_prop_postcode.trim(),
           latitude: data.new_prop_latitude ?? undefined,
           longitude: data.new_prop_longitude ?? undefined,
+          tenant_name: data.new_prop_tenant_name?.trim() || undefined,
+          tenant_email: data.new_prop_tenant_email?.trim() || undefined,
+          tenant_phone: data.new_prop_tenant_phone?.trim() || undefined,
         } : {
           address_line1: data.new_address_line1.trim(),
           address_line2: data.new_address_line2?.trim() || undefined,
@@ -923,6 +941,18 @@ export function BookJobDialog({
                           <Label>Postcode *</Label>
                           <Input value={newPropPostcode} onChange={e => setNewPropPostcode(e.target.value)} placeholder="M1 1AA" />
                         </div>
+                        <div className="space-y-1.5">
+                          <Label>Tenant / Occupant Name</Label>
+                          <Input value={newPropTenantName} onChange={e => setNewPropTenantName(e.target.value)} placeholder="Optional" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Tenant Email</Label>
+                          <Input type="email" value={newPropTenantEmail} onChange={e => setNewPropTenantEmail(e.target.value)} placeholder="tenant@example.com" />
+                        </div>
+                        <div className="sm:col-span-2 space-y-1.5">
+                          <Label>Tenant Phone</Label>
+                          <Input type="tel" value={newPropTenantPhone} onChange={e => setNewPropTenantPhone(e.target.value)} placeholder="Phone or mobile number" />
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -1055,6 +1085,20 @@ export function BookJobDialog({
                       <div className="space-y-1.5">
                         <Label>Postcode *</Label>
                         <Input {...register("new_prop_postcode")} placeholder="M1 1AA" />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label>Tenant / Occupant Name</Label>
+                          <Input {...register("new_prop_tenant_name")} placeholder="Optional" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Tenant Email</Label>
+                          <Input type="email" {...register("new_prop_tenant_email")} placeholder="tenant@example.com" />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Tenant Phone</Label>
+                        <Input type="tel" {...register("new_prop_tenant_phone")} placeholder="Phone or mobile number" />
                       </div>
                     </div>
                   )}

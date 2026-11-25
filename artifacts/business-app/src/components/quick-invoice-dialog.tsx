@@ -60,6 +60,9 @@ export function QuickInvoiceDialog({ type, onOpenChange }: QuickInvoiceDialogPro
   const [newPropPostcode, setNewPropPostcode] = useState("");
   const [newPropLat, setNewPropLat] = useState<number | undefined>();
   const [newPropLng, setNewPropLng] = useState<number | undefined>();
+  const [newPropTenantName, setNewPropTenantName] = useState("");
+  const [newPropTenantEmail, setNewPropTenantEmail] = useState("");
+  const [newPropTenantPhone, setNewPropTenantPhone] = useState("");
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -115,6 +118,9 @@ export function QuickInvoiceDialog({ type, onOpenChange }: QuickInvoiceDialogPro
             postcode: newPropPostcode.trim(),
             ...(newPropLat != null ? { latitude: newPropLat } : {}),
             ...(newPropLng != null ? { longitude: newPropLng } : {}),
+            ...(newPropTenantName.trim() ? { tenant_name: newPropTenantName.trim() } : {}),
+            ...(newPropTenantEmail.trim() ? { tenant_email: newPropTenantEmail.trim() } : {}),
+            ...(newPropTenantPhone.trim() ? { tenant_phone: newPropTenantPhone.trim() } : {}),
           }),
         });
         if (!propRes.ok) {
@@ -322,6 +328,20 @@ export function QuickInvoiceDialog({ type, onOpenChange }: QuickInvoiceDialogPro
                       <Label>County</Label>
                       <Input value={newPropCounty} onChange={(e) => setNewPropCounty(e.target.value)} placeholder="Greater Manchester" />
                     </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Tenant / Occupant Name</Label>
+                      <Input value={newPropTenantName} onChange={(e) => setNewPropTenantName(e.target.value)} placeholder="Optional" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Tenant Email</Label>
+                      <Input type="email" value={newPropTenantEmail} onChange={(e) => setNewPropTenantEmail(e.target.value)} placeholder="tenant@example.com" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Tenant Phone</Label>
+                    <Input type="tel" value={newPropTenantPhone} onChange={(e) => setNewPropTenantPhone(e.target.value)} placeholder="Phone or mobile number" />
                   </div>
                 </div>
               )}
