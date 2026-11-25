@@ -123,6 +123,7 @@ const JobFiles = lazyRetry(() => import("@/pages/job-files"));
 const JobSignatures = lazyRetry(() => import("@/pages/job-signatures"));
 const Reports = lazyRetry(() => import("@/pages/reports"));
 const SearchPage = lazyRetry(() => import("@/pages/search"));
+const PropertyLookupPage = lazyRetry(() => import("@/pages/property-lookup"));
 const AdminUsers = lazyRetry(() => import("@/pages/admin-users"));
 const AdminInviteCodes = lazyRetry(() => import("@/pages/admin-invite-codes"));
 const AdminLookupOptions = lazyRetry(() => import("@/pages/admin-lookup-options"));
@@ -293,7 +294,7 @@ function AccountLoadError() {
   );
 }
 
-function ProtectedRoute({ component: Component, roles, requiredFeature }: { component: React.ComponentType; roles?: string[]; requiredFeature?: "job_management" | "website_builder" }) {
+function ProtectedRoute({ component: Component, roles, requiredFeature }: { component: React.ComponentType; roles?: string[]; requiredFeature?: "job_management" | "website_builder" | "geo_mapping" }) {
   const { session, isLoading, profile, mfaPending } = useAuth();
   const { hasFeature } = usePlanFeatures();
   const isReadOnlySupportMode = !!localStorage.getItem("superadmin_readonly_tenant_id");
@@ -453,7 +454,7 @@ function PortalProtectedRoute({ component: Component }: { component: React.Compo
 function protect(C: React.ComponentType, roles?: string[]) {
   return function ProtectedPage() { return <ProtectedRoute component={C} roles={roles} />; };
 }
-function protectFeature(C: React.ComponentType, requiredFeature: "job_management" | "website_builder", roles?: string[]) {
+function protectFeature(C: React.ComponentType, requiredFeature: "job_management" | "website_builder" | "geo_mapping", roles?: string[]) {
   return function ProtectedFeaturePage() { return <ProtectedRoute component={C} roles={roles} requiredFeature={requiredFeature} />; };
 }
 function pub(C: React.ComponentType, extra?: Record<string, unknown>) {
@@ -555,6 +556,7 @@ const EnquiriesRoute = protectFeature(Enquiries, "job_management");
 const EnquiryDetailRoute = protectFeature(EnquiryDetail, "job_management");
 const QuickRecordRoute = protectFeature(QuickRecord, "job_management");
 const SearchRoute = protectFeature(SearchPage, "job_management");
+const PropertyLookupRoute = protectFeature(PropertyLookupPage, "geo_mapping");
 const ReportsRoute = protectFeature(Reports, "job_management");
 const AdminCompanySettingsRoute = protect(AdminCompanySettings);
 const AdminBrandingRoute = protect(AdminBranding);
@@ -814,6 +816,7 @@ function AppRouter() {
         <Route path="/enquiries/:id" component={EnquiryDetailRoute} />
         <Route path="/quick-record" component={QuickRecordRoute} />
         <Route path="/search" component={SearchRoute} />
+        <Route path="/property-lookup" component={PropertyLookupRoute} />
         <Route path="/reporting" component={TenantReportingRoute} />
         <Route path="/reports">{() => <Redirect to="/reporting?tab=reports" />}</Route>
 

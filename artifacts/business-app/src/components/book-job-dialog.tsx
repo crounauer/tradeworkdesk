@@ -149,11 +149,17 @@ interface BookJobDialogProps {
     customer_phone?: string | null;
     customer_address?: string | null;
     customer_postcode?: string | null;
+    address_line1?: string | null;
+    address_line2?: string | null;
+    city?: string | null;
+    county?: string | null;
     service_catalogue_id?: string | null;
     notes?: string | null;
     scheduled_start?: string | null;
     scheduled_end?: string | null;
     duration_minutes?: number | null;
+    latitude?: number | null;
+    longitude?: number | null;
   };
 }
 
@@ -423,10 +429,13 @@ export function BookJobDialog({
     setValue("new_last_name", lastName);
     setValue("new_email", initialBookingPrefill.customer_email || "");
     setValue("new_phone", initialBookingPrefill.customer_phone || "");
-    setValue("new_address_line1", parsedAddress.line1 || initialBookingPrefill.customer_address || "");
-    setValue("new_address_line2", parsedAddress.line2 || "");
-    setValue("new_city", parsedAddress.city || "");
+    setValue("new_address_line1", initialBookingPrefill.address_line1 || parsedAddress.line1 || initialBookingPrefill.customer_address || "");
+    setValue("new_address_line2", initialBookingPrefill.address_line2 ?? parsedAddress.line2 ?? "");
+    setValue("new_city", initialBookingPrefill.city ?? parsedAddress.city ?? "");
+    setValue("new_county", initialBookingPrefill.county || "");
     setValue("new_postcode", initialBookingPrefill.customer_postcode || "");
+    setValue("new_latitude", initialBookingPrefill.latitude ?? null);
+    setValue("new_longitude", initialBookingPrefill.longitude ?? null);
     if (initialBookingPrefill.service_catalogue_id) {
       setValue("job_type_id", initialBookingPrefill.service_catalogue_id);
     }

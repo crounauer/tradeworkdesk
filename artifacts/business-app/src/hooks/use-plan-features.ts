@@ -73,4 +73,5 @@ export const FEATURE_LABELS: Record<string, string> = {
   custom_branding: "Custom Branding",
   priority_support: "Priority Support",
   geo_mapping: "Geomapping & Location",
+  uk_address_lookup: "UK Address Lookup",
 };

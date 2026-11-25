@@ -11,7 +11,7 @@ import {
   ShieldCheck, UserPlus, Settings2, Building2,
   Globe, CreditCard, Megaphone, ScrollText, AlertTriangle, Info, AlertCircle, Share2,
   Zap, MessageSquarePlus, MessageSquare, UserCog, FileText, WifiOff, Ticket, Lock, ClipboardList, HardDrive, CheckSquare, Receipt, RefreshCcw, HelpCircle, Wrench, Globe2, LayoutTemplate, CalendarCheck, Palette, Eye, Rocket, ShoppingCart,
-  BarChart3, Image, Database, Handshake, Mail, Wallet
+  BarChart3, Image, Database, Handshake, Mail, Wallet, MapPin
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -208,6 +208,9 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const topMenuItems = [
     ...(hasJobManagement ? [{ href: "/search", label: "Search", icon: Search }] : []),
+    ...(hasFeature("geo_mapping") && hasAddon("uk_address_lookup")
+      ? [{ href: "/property-lookup", label: "Property Lookup", icon: MapPin }]
+      : []),
     ...(hasWebsiteBuilder ? [{ href: "/website", label: "My Website", icon: Globe2 }] : []),
     ...(hasWebsiteBuilder ? [{ href: "/website/gallery", label: "Gallery", icon: Image }] : []),
     ...(hasJobManagement ? [{ href: "/todos", label: "To-Do List", icon: CheckSquare }] : []),
