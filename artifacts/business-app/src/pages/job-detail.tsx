@@ -327,7 +327,11 @@ export default function JobDetail() {
 
   const customerEmail = (job?.customer as unknown as Record<string, unknown> | undefined)?.email as string || "";
   const tenantEmail = (job?.property as unknown as Record<string, unknown> | undefined)?.tenant_email as string || "";
-  const confirmationRecipients = Array.from(new Set([customerEmail, tenantEmail].map((email) => email.trim()).filter(Boolean)));
+  const tenantContacts = ((job?.property as unknown as Record<string, unknown> | undefined)?.tenant_contacts as Array<{ email?: string }> | undefined) || [];
+  const tenantEmails = [tenantEmail, ...tenantContacts.map((contact) => contact.email || "")]
+    .map((email) => email.trim())
+    .filter((email, index, values) => email && values.findIndex((value) => value.toLowerCase() === email.toLowerCase()) === index);
+  const confirmationRecipients = Array.from(new Set([customerEmail, ...tenantEmails].map((email) => email.trim()).filter(Boolean)));
   const refreshEmailLogs = () => {
     setEmailLogRefresh(k => k + 1);
     if (job?.customer_id) {
@@ -1938,7 +1942,7 @@ export default function JobDetail() {
             </DialogTitle>
             <DialogDescription>
               Check the details below, then send. The customer also gets Confirm and Request date change buttons.
-              {tenantEmail && <span className="block mt-1">The landlord and tenant will each receive a separate tracked confirmation.</span>}
+              {tenantEmails.length > 0 && <span className="block mt-1">The landlord and all listed tenants will each receive a separate tracked confirmation.</span>}
             </DialogDescription>
           </DialogHeader>
 
@@ -1961,8 +1965,8 @@ export default function JobDetail() {
                 onChange={(e) => setConfirmationEmail(e.target.value)}
                 placeholder="customer@example.com"
               />
-              {tenantEmail && tenantEmail.toLowerCase() !== confirmationEmail.trim().toLowerCase() && (
-                <p className="text-xs text-muted-foreground">Also sends separately to {tenantEmail} (property tenant).</p>
+              {tenantEmails.filter((email) => email.toLowerCase() !== confirmationEmail.trim().toLowerCase()).length > 0 && (
+                <p className="text-xs text-muted-foreground">Also sends separately to {tenantEmails.filter((email) => email.toLowerCase() !== confirmationEmail.trim().toLowerCase()).join(", ")} (property tenants).</p>
               )}
             </div>
 
@@ -3552,6 +3556,8 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
 
   const customerEmail = (job.customer as Record<string, unknown>)?.email as string || "";
   const tenantEmail = (job.property as Record<string, unknown>)?.tenant_email as string || "";
+  const tenantContacts = ((job.property as Record<string, unknown>)?.tenant_contacts as Array<{ email?: string }> | undefined) || [];
+  const tenantEmails = [tenantEmail, ...tenantContacts.map((contact) => contact.email || "")].filter(Boolean);
   const customerName = `${(job.customer as Record<string, unknown>)?.first_name || ""} ${(job.customer as Record<string, unknown>)?.last_name || ""}`.trim();
   const isAllDay = watch("all_day");
 
@@ -3584,7 +3590,7 @@ function EditJobForm({ job, onClose, onEmailSent, onFollowUpRequested }: { job: 
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to send confirmation email");
       }
-      toast({ title: "Email sent", description: `Confirmation sent to ${[customerEmail, tenantEmail].filter(Boolean).join(" and ")}` });
+      toast({ title: "Email sent", description: `Confirmation sent to ${[customerEmail, ...tenantEmails].filter(Boolean).join(" and ")}` });
       setShowEmailPrompt(false);
       onEmailSent?.();
       onClose();

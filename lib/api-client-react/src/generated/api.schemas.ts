@@ -93,6 +93,7 @@ export interface Property {
   tenant_email?: string | null;
   /** @nullable */
   tenant_phone?: string | null;
+  tenant_contacts?: Array<{ name?: string; email?: string; phone?: string }> | null;
   /** @nullable */
   access_notes?: string | null;
   /** @nullable */
@@ -341,6 +342,7 @@ export interface CreatePropertyBody {
   tenant_name?: string;
   tenant_email?: string;
   tenant_phone?: string;
+  tenant_contacts?: Array<{ name?: string; email?: string; phone?: string }>;
   access_notes?: string;
   parking_notes?: string;
   boiler_location?: string;
@@ -371,6 +373,7 @@ export interface UpdatePropertyBody {
   tenant_email?: string | null;
   /** @nullable */
   tenant_phone?: string | null;
+  tenant_contacts?: Array<{ name?: string; email?: string; phone?: string }> | null;
   /** @nullable */
   access_notes?: string | null;
   /** @nullable */

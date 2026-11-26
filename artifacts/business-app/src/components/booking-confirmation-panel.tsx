@@ -23,6 +23,7 @@ interface BookingJob {
   property?: {
     tenant_name?: string | null;
     tenant_email?: string | null;
+    tenant_contacts?: Array<{ name?: string; email?: string }> | null;
   } | null;
 }
 
@@ -64,8 +65,13 @@ export function BookingConfirmationPanel({ jobId, onDone, onSendingChange }: {
   });
   const job = jobQuery.data;
   const email = job?.customer?.email?.trim();
-  const tenantEmail = job?.property?.tenant_email?.trim();
-  const confirmationEmails = Array.from(new Set([email, tenantEmail].filter((value): value is string => !!value)));
+  const tenantContacts = (job?.property?.tenant_contacts || []).filter((contact) => contact.email?.trim());
+  const tenantEmails = [
+    job?.property?.tenant_email?.trim(),
+    ...tenantContacts.map((contact) => contact.email!.trim()),
+  ].filter((value, index, values): value is string => !!value && values.findIndex((item) => item?.toLowerCase() === value.toLowerCase()) === index);
+  const tenantEmail = tenantEmails[0];
+  const confirmationEmails = Array.from(new Set([email, ...tenantEmails].filter((value): value is string => !!value)));
   const smsQuery = useQuery<{ available: boolean }>({
     queryKey: ["booking-sms-availability", jobId],
     queryFn: async () => {
@@ -128,9 +134,9 @@ export function BookingConfirmationPanel({ jobId, onDone, onSendingChange }: {
       onSend={sendEmail}
       onSkip={onDone}
     >
-      {tenantEmail && tenantEmail.toLowerCase() !== email?.toLowerCase() && (
+      {tenantEmails.some((value) => value.toLowerCase() !== email?.toLowerCase()) && (
         <p className="text-sm text-muted-foreground">
-          A separate tracked confirmation will also be sent to the tenant at {tenantEmail}.
+          Separate tracked confirmations will also be sent to {tenantEmails.filter((value) => value.toLowerCase() !== email?.toLowerCase()).join(", ")}.
         </p>
       )}
     </EmailConfirmationPanel>;

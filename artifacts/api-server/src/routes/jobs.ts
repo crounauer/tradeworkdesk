@@ -41,6 +41,7 @@ import { findTechnicianJobClash, sendTechnicianJobClash } from "../lib/technicia
 import { requireTenantInvoicing } from "../middlewares/require-tenant-invoicing";
 import { generateInvoicePdf } from "../lib/invoice-pdf";
 import { buildPdfData } from "../lib/invoice-pdf-data";
+import { getPropertyTenantContacts } from "../lib/property-tenants";
 
 const router: IRouter = Router();
 const requireEditableBilling = jobBillingLock(supabaseAdmin);
@@ -51,6 +52,7 @@ export function buildJobConfirmationRecipients(options: {
   overrideEmail?: string | null;
   tenantName?: string | null;
   tenantEmail?: string | null;
+  tenantContacts?: Array<{ name?: string; email?: string; phone?: string }>;
 }): Array<{ email: string; name: string; role: "landlord" | "tenant" }> {
   const recipients = new Map<string, { email: string; name: string; role: "landlord" | "tenant" }>();
   const primaryEmail = String(options.overrideEmail || options.customerEmail || "").trim();
@@ -66,6 +68,15 @@ export function buildJobConfirmationRecipients(options: {
     recipients.set(tenantEmail.toLowerCase(), {
       email: tenantEmail,
       name: String(options.tenantName || "").trim() || "Tenant",
+      role: "tenant",
+    });
+  }
+  for (const contact of options.tenantContacts || []) {
+    const email = String(contact.email || "").trim();
+    if (!email || recipients.has(email.toLowerCase())) continue;
+    recipients.set(email.toLowerCase(), {
+      email,
+      name: String(contact.name || "").trim() || "Tenant",
       role: "tenant",
     });
   }
@@ -1041,7 +1052,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
 
   const { data: property } = await supabaseAdmin
     .from("properties")
-    .select("address_line1, address_line2, city, county, postcode, tenant_name, tenant_email")
+    .select("address_line1, address_line2, city, county, postcode, tenant_name, tenant_email, tenant_phone, tenant_contacts")
     .eq("id", job.property_id)
     .eq("tenant_id", req.tenantId)
     .single();
@@ -1052,6 +1063,7 @@ router.post("/jobs/:jobId/send-confirmation", requireAuth, requireTenant, requir
     overrideEmail: recipientOverride,
     tenantName: property?.tenant_name,
     tenantEmail: property?.tenant_email,
+    tenantContacts: getPropertyTenantContacts(property || {}),
   });
   if (recipientList.length === 0) {
     res.status(400).json({ error: "The customer and property do not have an email address" });

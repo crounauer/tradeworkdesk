@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Home, MapPin, Briefcase, X, Edit, Check, Trash2, Flame, Plus, Mail, MessageSquare } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useState, useEffect, lazy, Suspense } from "react";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLookupOptions } from "@/hooks/use-lookup-options";
@@ -46,6 +46,7 @@ type PropertyEditData = {
   tenant_name?: string;
   tenant_email?: string;
   tenant_phone?: string;
+  tenant_contacts: Array<{ name?: string; email?: string; phone?: string }>;
   access_notes?: string;
   parking_notes?: string;
   boiler_location?: string;
@@ -71,6 +72,30 @@ type ApplianceCreateData = {
   pump_pressure: string;
   notes: string;
 };
+
+type TenantContact = { name?: string; email?: string; phone?: string };
+type PropertyUpdateWithTenants = UpdatePropertyBody & { tenant_contacts?: TenantContact[] | null };
+
+function propertyTenantContacts(property: {
+  tenant_contacts?: TenantContact[] | null;
+  tenant_name?: string | null;
+  tenant_email?: string | null;
+  tenant_phone?: string | null;
+}): TenantContact[] {
+  const contacts = (property.tenant_contacts || []).map((contact) => ({ ...contact }));
+  if ((property.tenant_name || property.tenant_email || property.tenant_phone) &&
+      !contacts.some((contact) =>
+        (property.tenant_email && contact.email?.toLowerCase() === property.tenant_email.toLowerCase()) ||
+        (property.tenant_phone && contact.phone === property.tenant_phone)
+      )) {
+    contacts.unshift({
+      name: property.tenant_name || undefined,
+      email: property.tenant_email || undefined,
+      phone: property.tenant_phone || undefined,
+    });
+  }
+  return contacts.length ? contacts : [{ name: "", email: "", phone: "" }];
+}
 
 const APPLIANCE_NOZZLE_SIZE_OPTIONS = [
   "0.40 60 EH", "0.40 80 EH", "0.45 60 EH", "0.45 80 EH", "0.50 60 EH", "0.50 80 EH", "0.55 60 EH", "0.55 80 EH",
@@ -106,8 +131,8 @@ export default function PropertyDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [fixingLocation, setFixingLocation] = useState(false);
   const [showAddAppliance, setShowAddAppliance] = useState(false);
-  const [showTenantSms, setShowTenantSms] = useState(false);
-  const [showTenantEmail, setShowTenantEmail] = useState(false);
+  const [tenantSmsContact, setTenantSmsContact] = useState<TenantContact | null>(null);
+  const [tenantEmailContact, setTenantEmailContact] = useState<TenantContact | null>(null);
 
   useEffect(() => {
     if (new URLSearchParams(search).get("edit") === "1") setEditing(true);
@@ -280,24 +305,28 @@ export default function PropertyDetail() {
               {property.occupancy_type && (
                 <div><span className="text-muted-foreground">Occupancy:</span> <span className="font-medium capitalize">{property.occupancy_type.replace('_', ' ')}</span></div>
               )}
-              {(property.tenant_name || property.tenant_email || property.tenant_phone) && (
+              {propertyTenantContacts(property).some((contact) => contact.name || contact.email || contact.phone) && (
                 <div className="pt-3 border-t border-border/50 space-y-2">
-                  <span className="text-muted-foreground">Tenant:</span>
-                  {property.tenant_name && <p className="font-medium">{property.tenant_name}</p>}
-                  {property.tenant_phone && <p className="text-sm">{property.tenant_phone}</p>}
-                  {property.tenant_email && <p className="text-sm break-all">{property.tenant_email}</p>}
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {hasFeature("sms_messaging") && property.tenant_phone && (
-                      <Button size="sm" variant="outline" onClick={() => setShowTenantSms(true)}>
-                        <MessageSquare className="w-4 h-4 mr-1" /> SMS Tenant
-                      </Button>
-                    )}
-                    {property.tenant_email && (
-                      <Button size="sm" variant="outline" onClick={() => setShowTenantEmail(true)}>
-                        <Mail className="w-4 h-4 mr-1" /> Email Tenant
-                      </Button>
-                    )}
-                  </div>
+                  <span className="text-muted-foreground">Tenants / Occupants:</span>
+                  {propertyTenantContacts(property).map((contact, index) => (
+                    <div key={`${contact.email || contact.phone || index}`} className="rounded-lg border p-3 space-y-1">
+                      {contact.name && <p className="font-medium">{contact.name}</p>}
+                      {contact.phone && <p className="text-sm">{contact.phone}</p>}
+                      {contact.email && <p className="text-sm break-all">{contact.email}</p>}
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {hasFeature("sms_messaging") && contact.phone && (
+                          <Button size="sm" variant="outline" onClick={() => setTenantSmsContact(contact)}>
+                            <MessageSquare className="w-4 h-4 mr-1" /> SMS
+                          </Button>
+                        )}
+                        {contact.email && (
+                          <Button size="sm" variant="outline" onClick={() => setTenantEmailContact(contact)}>
+                            <Mail className="w-4 h-4 mr-1" /> Email
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
               {property.access_notes && (
@@ -575,32 +604,47 @@ export default function PropertyDetail() {
         </div>
       )}
       <SmsSendDialog
-        open={showTenantSms}
-        onOpenChange={setShowTenantSms}
-        destination={property.tenant_phone || ""}
+        open={!!tenantSmsContact}
+        onOpenChange={(open) => !open && setTenantSmsContact(null)}
+        destination={tenantSmsContact?.phone || ""}
       />
-      {property.tenant_email && (
+      {tenantEmailContact?.email && (
         <CustomerEmailDialog
-          open={showTenantEmail}
-          onOpenChange={setShowTenantEmail}
+          open
+          onOpenChange={(open) => !open && setTenantEmailContact(null)}
           customerId={property.customer_id}
-          customerEmail={property.tenant_email}
-          customerName={property.tenant_name || "Tenant"}
-          recipientEmail={property.tenant_email}
+          customerEmail={tenantEmailContact.email}
+          customerName={tenantEmailContact.name || "Tenant"}
+          recipientEmail={tenantEmailContact.email}
         />
       )}
     </div>
   );
 }
 
-function EditPropertyForm({ property, onClose }: { property: { id: string; address_line1?: string | null; address_line2?: string | null; city?: string | null; county?: string | null; postcode?: string | null; property_type?: string | null; occupancy_type?: string | null; tenant_name?: string | null; tenant_email?: string | null; tenant_phone?: string | null; access_notes?: string | null; parking_notes?: string | null; boiler_location?: string | null; flue_location?: string | null; tank_location?: string | null; notes?: string | null; latitude?: number | null; longitude?: number | null }; onClose: () => void }) {
+function EditPropertyForm({ property, onClose }: { property: { id: string; address_line1?: string | null; address_line2?: string | null; city?: string | null; county?: string | null; postcode?: string | null; property_type?: string | null; occupancy_type?: string | null; tenant_contacts?: TenantContact[] | null; tenant_name?: string | null; tenant_email?: string | null; tenant_phone?: string | null; access_notes?: string | null; parking_notes?: string | null; boiler_location?: string | null; flue_location?: string | null; tank_location?: string | null; notes?: string | null; latitude?: number | null; longitude?: number | null }; onClose: () => void }) {
   const qc = useQueryClient();
   const update = useUpdateProperty();
   const { toast } = useToast();
-  const { register, handleSubmit, reset, watch, setValue } = useForm<PropertyEditData>();
+  const { register, handleSubmit, reset, watch, setValue, control } = useForm<PropertyEditData>({
+    defaultValues: { tenant_contacts: [{ name: "", email: "", phone: "" }] },
+  });
+  const tenantFields = useFieldArray({ control, name: "tenant_contacts" });
   const { data: propertyTypes } = useLookupOptions("property_type");
   const { data: occupancyTypes } = useLookupOptions("occupancy_type");
   const { hasFeature } = usePlanFeatures();
+  const propertyTypeOptions = propertyTypes?.length ? propertyTypes : [
+    { value: "residential", label: "Residential" },
+    { value: "commercial", label: "Commercial" },
+    { value: "industrial", label: "Industrial" },
+  ];
+  const occupancyTypeOptions = occupancyTypes?.length ? occupancyTypes : [
+    { value: "owner_occupied", label: "Owner Occupied" },
+    { value: "tenant", label: "Tenant" },
+    { value: "landlord", label: "Landlord" },
+    { value: "vacant", label: "Vacant" },
+    { value: "holiday_let", label: "Holiday Let" },
+  ];
 
   const watchedLat = watch("latitude");
   const watchedLng = watch("longitude");
@@ -617,6 +661,7 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
       tenant_name: property.tenant_name || "",
       tenant_email: property.tenant_email || "",
       tenant_phone: property.tenant_phone || "",
+      tenant_contacts: propertyTenantContacts(property),
       access_notes: property.access_notes || "",
       parking_notes: property.parking_notes || "",
       boiler_location: property.boiler_location || "",
@@ -638,6 +683,14 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
 
   const onSubmit = async (data: PropertyEditData) => {
     try {
+      const tenantContacts = (data.tenant_contacts || [])
+        .map((contact) => ({
+          name: contact.name?.trim() || undefined,
+          email: contact.email?.trim() || undefined,
+          phone: contact.phone?.trim() || undefined,
+        }))
+        .filter((contact) => contact.name || contact.email || contact.phone);
+      const primaryTenant = tenantContacts[0];
       await update.mutateAsync({
         id: property.id,
         data: {
@@ -648,9 +701,10 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
           county: data.county || undefined,
           property_type: data.property_type || undefined,
           occupancy_type: data.occupancy_type || undefined,
-          tenant_name: data.tenant_name || undefined,
-          tenant_email: data.tenant_email || undefined,
-          tenant_phone: data.tenant_phone || undefined,
+          tenant_name: primaryTenant?.name || undefined,
+          tenant_email: primaryTenant?.email || undefined,
+          tenant_phone: primaryTenant?.phone || undefined,
+          tenant_contacts: tenantContacts,
           access_notes: data.access_notes || undefined,
           parking_notes: data.parking_notes || undefined,
           boiler_location: data.boiler_location || undefined,
@@ -659,7 +713,7 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
           notes: data.notes || undefined,
           latitude: data.latitude ?? null,
           longitude: data.longitude ?? null,
-        },
+        } as PropertyUpdateWithTenants,
       });
       qc.invalidateQueries({ queryKey: [`/api/properties/${property.id}`] });
       toast({ title: "Updated", description: "Property updated successfully" });
@@ -717,7 +771,7 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
             <Label>Property Type</Label>
             <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("property_type")}>
               <option value="">Select...</option>
-              {(propertyTypes || []).map((opt) => (
+              {propertyTypeOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
@@ -726,22 +780,32 @@ function EditPropertyForm({ property, onClose }: { property: { id: string; addre
             <Label>Occupancy Type</Label>
             <select className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background" {...register("occupancy_type")}>
               <option value="">Select...</option>
-              {(occupancyTypes || []).map((opt) => (
+              {occupancyTypeOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
           </div>
-          <div className="space-y-2">
-            <Label>Tenant Name</Label>
-            <Input {...register("tenant_name")} placeholder="Tenant or occupant name" />
-          </div>
-          <div className="space-y-2">
-            <Label>Tenant Email</Label>
-            <Input type="email" {...register("tenant_email")} placeholder="tenant@example.com" />
-          </div>
-          <div className="space-y-2">
-            <Label>Tenant Phone</Label>
-            <Input {...register("tenant_phone")} placeholder="Phone or mobile number" />
+          <div className="md:col-span-2 space-y-3 rounded-lg border p-4">
+            <div className="flex items-center justify-between">
+              <Label>Tenants / Occupants</Label>
+              <Button type="button" size="sm" variant="outline" onClick={() => tenantFields.append({ name: "", email: "", phone: "" })}>
+                <Plus className="w-4 h-4 mr-1" /> Add Tenant
+              </Button>
+            </div>
+            {tenantFields.fields.map((field, index) => (
+              <div key={field.id} className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-lg bg-slate-50 p-3">
+                <Input {...register(`tenant_contacts.${index}.name`)} placeholder="Name" />
+                <Input type="email" {...register(`tenant_contacts.${index}.email`)} placeholder="Email" />
+                <div className="flex gap-2">
+                  <Input type="tel" {...register(`tenant_contacts.${index}.phone`)} placeholder="Phone" />
+                  {tenantFields.fields.length > 1 && (
+                    <Button type="button" size="icon" variant="ghost" onClick={() => tenantFields.remove(index)} aria-label="Remove tenant">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

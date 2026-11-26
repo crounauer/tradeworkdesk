@@ -39,3 +39,19 @@ test("uses an override for the landlord while retaining the tenant recipient", (
     { email: "tenant@example.com", name: "Tenant", role: "tenant" },
   ]);
 });
+
+test("includes multiple tenant contacts and deduplicates emails", () => {
+  assert.deepEqual(buildJobConfirmationRecipients({
+    customerName: "Karl Malone",
+    customerEmail: "landlord@example.com",
+    tenantContacts: [
+      { name: "Alex", email: "alex@example.com" },
+      { name: "Sam", email: "sam@example.com" },
+      { name: "Alex duplicate", email: "ALEX@example.com" },
+    ],
+  }), [
+    { email: "landlord@example.com", name: "Karl Malone", role: "landlord" },
+    { email: "alex@example.com", name: "Alex", role: "tenant" },
+    { email: "sam@example.com", name: "Sam", role: "tenant" },
+  ]);
+});

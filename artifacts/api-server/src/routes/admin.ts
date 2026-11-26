@@ -439,6 +439,21 @@ const ALLOWED_LOOKUP_CATEGORIES = new Set([
   "fuel_type",
 ]);
 
+const DEFAULT_TENANT_LOOKUP_OPTIONS: Record<string, Array<{ category: string; value: string; label: string; sort_order: number }>> = {
+  property_type: [
+    { category: "property_type", value: "residential", label: "Residential", sort_order: 1 },
+    { category: "property_type", value: "commercial", label: "Commercial", sort_order: 2 },
+    { category: "property_type", value: "industrial", label: "Industrial", sort_order: 3 },
+  ],
+  occupancy_type: [
+    { category: "occupancy_type", value: "owner_occupied", label: "Owner Occupied", sort_order: 1 },
+    { category: "occupancy_type", value: "tenant", label: "Tenant", sort_order: 2 },
+    { category: "occupancy_type", value: "landlord", label: "Landlord", sort_order: 3 },
+    { category: "occupancy_type", value: "vacant", label: "Vacant", sort_order: 4 },
+    { category: "occupancy_type", value: "holiday_let", label: "Holiday Let", sort_order: 5 },
+  ],
+};
+
 router.get("/lookup-options", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { category } = req.query as { category?: string };
 
@@ -460,7 +475,17 @@ router.get("/lookup-options", requireAuth, async (req: AuthenticatedRequest, res
 
   const { data, error } = await query;
   if (error) { res.status(500).json({ error: error.message }); return; }
-  res.json(data || []);
+  const rows = data || [];
+  if (category && DEFAULT_TENANT_LOOKUP_OPTIONS[category] && rows.length === 0) {
+    res.json(DEFAULT_TENANT_LOOKUP_OPTIONS[category].map((option) => ({
+      ...option,
+      id: `default-${option.category}-${option.value}`,
+      is_active: true,
+      created_at: "1970-01-01T00:00:00.000Z",
+    })));
+    return;
+  }
+  res.json(rows);
 });
 
 router.get("/admin/lookup-options", requireAuth, requireRole("admin"), async (req: AuthenticatedRequest, res): Promise<void> => {

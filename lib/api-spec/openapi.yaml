@@ -2011,6 +2011,17 @@ components:
           type: ["string", "null"]
         tenant_phone:
           type: ["string", "null"]
+        tenant_contacts:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              email:
+                type: string
+              phone:
+                type: string
         access_notes:
           type: ["string", "null"]
         parking_notes:
@@ -2027,6 +2038,17 @@ components:
           type: boolean
         created_at:
           type: string
+        tenant_contacts:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              email:
+                type: string
+              phone:
+                type: string
           format: date-time
         updated_at:
           type: string
@@ -2130,6 +2152,17 @@ components:
           type: ["string", "null"]
         tenant_phone:
           type: ["string", "null"]
+        tenant_contacts:
+          type: ["array", "null"]
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              email:
+                type: string
+              phone:
+                type: string
         latitude:
           type: ["number", "null"]
         longitude:

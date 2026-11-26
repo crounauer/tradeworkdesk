@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { z } from "zod";
 import { supabaseAdmin } from "../lib/supabase";
 import { requireAuth, requireRole, requireTenant, type AuthenticatedRequest } from "../middlewares/auth";
 import { verifyMultipleTenantOwnership } from "../lib/tenant-validation";
@@ -121,7 +122,13 @@ router.get("/properties", requireAuth, requireTenant, async (req: AuthenticatedR
 });
 
 router.post("/properties", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
-  const parsed = CreatePropertyBody.safeParse(req.body);
+  const parsed = CreatePropertyBody.extend({
+    tenant_contacts: z.array(z.object({
+      name: z.string().optional(),
+      email: z.string().email().optional(),
+      phone: z.string().optional(),
+    })).optional(),
+  }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const { valid, failedTable } = await verifyMultipleTenantOwnership(
@@ -195,7 +202,13 @@ router.get("/properties/:id", requireAuth, requireTenant, async (req: Authentica
 router.patch("/properties/:id", requireAuth, requireTenant, requireRole("admin", "office_staff"), async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = UpdatePropertyParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
-  const body = UpdatePropertyBody.safeParse(req.body);
+  const body = UpdatePropertyBody.extend({
+    tenant_contacts: z.array(z.object({
+      name: z.string().optional(),
+      email: z.string().email().optional(),
+      phone: z.string().optional(),
+    })).nullable().optional(),
+  }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
   if (body.data.customer_id) {
